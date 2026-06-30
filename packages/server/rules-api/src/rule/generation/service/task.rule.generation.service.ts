@@ -1,12 +1,10 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import {
     RuleSuggestionAgent,
     type GenerateRuleSuggestionsInput,
     type GenerateRuleSuggestionsOutput,
 } from "../agent/rule.suggestion.agent.js";
-import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
 import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
 import { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
@@ -14,7 +12,6 @@ import { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/r
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { RuleJobRepository } from "../../../job/rule.job.repository.js";
 import type { RuleJobEntity } from "../../../job/rule.job.entity.js";
 import {
@@ -30,8 +27,6 @@ import {
 
 @Injectable()
 export class TaskRuleGenerationService {
-    private readonly logger = new Logger(TaskRuleGenerationService.name);
-
     constructor(
         private readonly jobs: RuleJobRepository,
         @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
@@ -39,8 +34,6 @@ export class TaskRuleGenerationService {
         private readonly listRules: ListRulesUseCase,
         private readonly registerSuggestion: RegisterSuggestionUseCase,
         private readonly agent: RuleSuggestionAgent,
-        @Inject(NOTIFICATION_PUBLISHER_TOKEN)
-        private readonly notifier: INotificationPublisher,
     ) {}
 
     async enqueue(taskId: string): Promise<RuleJobEntity> {
@@ -73,87 +66,12 @@ export class TaskRuleGenerationService {
         });
     }
 
-    async run(taskId: string): Promise<RuleJobEntity> {
-        const job = await this.enqueue(taskId);
-        await this.execute(job);
-        const completed = await this.findById(job.id);
-        return completed ?? job;
-    }
-
     async findLatest(taskId: string): Promise<RuleJobEntity | null> {
         return this.jobs.findLatestForTask("rule_generation", taskId);
     }
 
     async findById(id: string): Promise<RuleJobEntity | null> {
         return this.jobs.findById(id);
-    }
-
-    async execute(job: RuleJobEntity): Promise<void> {
-        const taskId = job.taskId;
-        if (!taskId) {
-            // taskId가 없는 rule_generation 잡은 복구할 대상이 없어 실패로 닫는다.
-            await this.jobs.markFailed({
-                id: job.id,
-                error: "rule generation job is missing a taskId",
-                attempts: job.attempts,
-                completedAt: new Date().toISOString(),
-            });
-            return;
-        }
-        this.notifier.publish({
-            type: NOTIFICATION_TYPE.sdkJobUpdated,
-            payload: {
-                kind: "rule-generation",
-                status: "running",
-                jobId: job.id,
-                taskId,
-            },
-        });
-        try {
-            const input = await this.loadGenerationInput(taskId);
-            const output = await this.runInference(job, input);
-            const rulesCreated = await this.applyProposals(taskId, output);
-            await this.completeGeneration(job.id, output, rulesCreated);
-            this.notifier.publish({
-                type: NOTIFICATION_TYPE.sdkJobUpdated,
-                payload: {
-                    kind: "rule-generation",
-                    status: "succeeded",
-                    jobId: job.id,
-                    taskId,
-                    summary:
-                        rulesCreated === 0
-                            ? "No new rules suggested"
-                            : `${rulesCreated} ${rulesCreated === 1 ? "rule" : "rules"} suggested`,
-                    durationMs: output.durationMs,
-                },
-            });
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            this.logger.warn(
-                `Rule generation failed for task=${taskId} job=${job.id}: ${message}`,
-            );
-            const attempts = await this.jobs.incrementAttempts(
-                job.id,
-                new Date().toISOString(),
-            );
-            await this.jobs.markFailed({
-                id: job.id,
-                error: truncate(message, 1000),
-                attempts,
-                completedAt: new Date().toISOString(),
-            });
-            this.notifier.publish({
-                type: NOTIFICATION_TYPE.sdkJobUpdated,
-                payload: {
-                    kind: "rule-generation",
-                    status: "failed",
-                    jobId: job.id,
-                    taskId,
-                    error: truncate(message, 240),
-                },
-            });
-        }
     }
 
     // 컨텍스트를 모아 LLM 입력을 만든다. Temporal 활동에서도 직접 호출한다.
