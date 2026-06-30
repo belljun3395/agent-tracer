@@ -10,22 +10,22 @@ import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
-import type { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
-import type { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
+import type { ListRulesUseCase } from "@monitor/rules-api/application/rule/list.rules.usecase.js";
+import type { RegisterSuggestionUseCase } from "@monitor/rules-api/application/rule/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import type { RuleJobRepository } from "@monitor/rules-api/job/rule.job.repository.js";
-import type { RuleJobEntity } from "@monitor/rules-api/job/rule.job.entity.js";
+import type { RuleJobRepository } from "@monitor/rules-api/repository/job/rule.job.repository.js";
+import type { RuleJobEntity } from "@monitor/rules-api/repository/job/rule.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,
-} from "@monitor/rules-api/generation/domain/task.rule.generation.params.policy.js";
+} from "@monitor/rules-api/domain/generation/task.rule.generation.params.policy.js";
 import {
     MissingApiKeyError,
     TaskNotFoundForGenerationError,
-} from "@monitor/rules-api/generation/domain/task.rule.generation.errors.js";
+} from "@monitor/rules-api/domain/generation/task.rule.generation.errors.js";
 
 @Injectable()
 export class RuleGenerationActivity {

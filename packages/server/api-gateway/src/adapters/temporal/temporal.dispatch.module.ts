@@ -1,7 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { TemporalClientProvider } from "@monitor/shared/job/temporal.client.provider.js";
-import { RULE_GENERATION_DISPATCHER } from "@monitor/rules-api/generation/application/outbound/rule.generation.dispatcher.port.js";
-import { TemporalRuleGenerationDispatcher } from "@monitor/rules-api/generation/adapter/temporal.rule.generation.dispatcher.js";
+import { RULE_GENERATION_DISPATCHER } from "@monitor/rules-api/application/generation/outbound/rule.generation.dispatcher.port.js";
+import { TemporalRuleGenerationDispatcher } from "@monitor/rules-api/adapter/generation/temporal.rule.generation.dispatcher.js";
 import { TITLE_SUGGESTION_DISPATCHER } from "@monitor/run-api/application/task/outbound/title.suggestion.dispatcher.port.js";
 import { TemporalTitleSuggestionDispatcher } from "@monitor/run-api/adapter/task/temporal.title.suggestion.dispatcher.js";
 import { RECIPE_SCAN_DISPATCHER } from "@monitor/insight-api/recipe/application/outbound/recipe.scan.dispatcher.port.js";

@@ -2,7 +2,7 @@ import { Global, Injectable, Module } from "@nestjs/common";
 import {
     RULE_GENERATION_DISPATCHER,
     type IRuleGenerationDispatcher,
-} from "@monitor/rules-api/generation/application/outbound/rule.generation.dispatcher.port.js";
+} from "@monitor/rules-api/application/generation/outbound/rule.generation.dispatcher.port.js";
 import {
     TITLE_SUGGESTION_DISPATCHER,
     type ITitleSuggestionDispatcher,

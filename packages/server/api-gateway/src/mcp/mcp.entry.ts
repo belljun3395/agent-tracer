@@ -5,7 +5,7 @@ import { registerAsyncLifecycleTools } from "@monitor/run-api/mcp/task/async.lif
 import { registerConversationTools } from "@monitor/timeline-api/mcp/conversation.js";
 import { registerEventLoggingTools } from "@monitor/timeline-api/mcp/event.logging.js";
 import { registerRecipeTools } from "@monitor/insight-api/recipe/mcp/recipe.js";
-import { registerRuleTools } from "@monitor/rules-api/rule/mcp/rule.js";
+import { registerRuleTools } from "@monitor/rules-api/mcp/rule/rule.js";
 import { registerTaskLifecycleTools } from "@monitor/run-api/mcp/task/task.lifecycle.js";
 export function createMonitorMcpServer(client = new MonitorClient()): McpServer {
     const server = new McpServer({
