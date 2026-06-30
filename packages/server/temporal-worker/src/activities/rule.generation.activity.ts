@@ -176,14 +176,11 @@ export class RuleGenerationActivity {
             throw new TaskNotFoundForGenerationError(taskId);
         }
 
-        const existingRules = await this.listRules.execute({ scope: "global" });
-        const existingNames = existingRules.rules.map((r) => r.name);
-
         return {
             ...(apiKey ? { apiKey } : {}),
             ...(modelOverride ? { model: modelOverride } : {}),
-            summary,
-            existingRuleNames: existingNames,
+            ...(summary.workspacePath ? { workspacePath: summary.workspacePath } : {}),
+            taskId,
             maxRules,
             language,
             ...(idempotencyKey ? { idempotencyKey } : {}),

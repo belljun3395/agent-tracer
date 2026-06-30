@@ -1,5 +1,4 @@
 import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
-import type { TaskSummary } from "@monitor/run-api/public/task/task.summary.js";
 import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import { RULE_GEN_MCP_SERVER_NAME, RULE_GEN_MCP_TOOLS } from "../agent-tools/rule.generation.tools.js";
 import {
@@ -24,8 +23,8 @@ const RULE_OUTPUT_SCHEMA = zodToOutputSchema(ruleSuggestionsListSchema);
 export interface GenerateRuleSuggestionsInput {
     readonly apiKey?: string;
     readonly model?: string;
-    readonly summary: TaskSummary;
-    readonly existingRuleNames: readonly string[];
+    readonly taskId: string;
+    readonly workspacePath?: string;
     readonly maxRules: number;
     readonly language?: RuleSuggestionLanguage;
     readonly idempotencyKey?: string;
@@ -56,15 +55,10 @@ export class RuleSuggestionAgent {
         const model = input.model?.trim() || DEFAULT_MODEL;
         const language: RuleSuggestionLanguage = input.language ?? "auto";
         const systemPrompt = buildSystemPrompt();
-        const userPrompt = buildUserPrompt(
-            input.summary,
-            input.existingRuleNames,
-            input.maxRules,
-            language,
-        );
-        const cwd = input.summary.workspacePath;
+        const userPrompt = buildUserPrompt(input.taskId, input.maxRules, language);
+        const cwd = input.workspacePath;
 
-        const generatedTitle = buildGeneratedTaskTitle(input.summary.title);
+        const generatedTitle = buildGeneratedTaskTitle(input.taskId);
         const env: Record<string, string | undefined> = {
             ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
             MONITOR_TASK_TITLE: generatedTitle,
