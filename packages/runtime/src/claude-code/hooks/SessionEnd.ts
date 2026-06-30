@@ -96,6 +96,6 @@ async function triggerRuleGeneration(taskId: string, workspacePath: string): Pro
     const enqueueResp = await postJson<{ jobId?: string }>(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
     const jobId = enqueueResp.jobId;
     if (!jobId) return;
-    const { runRuleGeneration } = await import("~shared/rule-generation/runner.js");
+    const { runRuleGeneration } = await import("~shared/rule-generation/agent.js");
     await runRuleGeneration({ taskId, jobId, workspacePath });
 }
