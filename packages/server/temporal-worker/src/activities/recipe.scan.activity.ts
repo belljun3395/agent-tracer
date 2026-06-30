@@ -10,19 +10,19 @@ import { TASK_SNAPSHOT_QUERY, TASK_SUMMARY } from "@monitor/run-api/public/task/
 import type { ITaskSnapshotQuery } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 import { JOB_STATUS } from "@monitor/shared/job/job.status.const.js";
-import type { InsightJobRepository } from "@monitor/insight-api/job/insight.job.repository.js";
-import type { RecipeCandidateRepository, InsertRecipeCandidateRow } from "@monitor/insight-api/recipe/repository/recipe.candidate.repository.js";
-import type { RecipeRepository } from "@monitor/insight-api/recipe/repository/recipe.repository.js";
-import type { RecipeEntity } from "@monitor/insight-api/recipe/domain/recipe.entity.js";
+import type { InsightJobRepository } from "@monitor/insight-api/repository/job/insight.job.repository.js";
+import type { RecipeCandidateRepository, InsertRecipeCandidateRow } from "@monitor/insight-api/repository/recipe/recipe.candidate.repository.js";
+import type { RecipeRepository } from "@monitor/insight-api/repository/recipe/recipe.repository.js";
+import type { RecipeEntity } from "@monitor/insight-api/domain/recipe/recipe.entity.js";
 import {
     parseRecipeScanFilters,
     applyRecipeScanFilters,
     normalizeRecipeLanguage,
-} from "@monitor/insight-api/recipe/domain/recipe.scan.filters.policy.js";
+} from "@monitor/insight-api/domain/recipe/recipe.scan.filters.policy.js";
 import {
     extractTaskIdsFromSlices,
     pickBestParent,
-} from "@monitor/insight-api/recipe/domain/recipe.parentage.policy.js";
+} from "@monitor/insight-api/domain/recipe/recipe.parentage.policy.js";
 import type { RecipeScanAgent, GenerateRecipeCandidatesOutput } from "../agents/recipe.scan.agent.js";
 import type { RecipeTaskSnapshot } from "../agents/recipe.scan.prompt.js";
 import { MissingApiKeyError } from "../activity.errors.js";

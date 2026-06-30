@@ -3,8 +3,7 @@ import { EventModule } from "@monitor/timeline-api/event.module.js";
 import { RunModule } from "@monitor/run-api/run.module.js";
 import { RulesModule } from "@monitor/rules-api/rules.module.js";
 import { SettingsModule } from "@monitor/identity-api/settings/settings.module.js";
-import { TaskCleanupModule } from "@monitor/insight-api/task-cleanup/task.cleanup.module.js";
-import { RecipeModule } from "@monitor/insight-api/recipe/recipe.module.js";
+import { InsightModule } from "@monitor/insight-api/insight.module.js";
 
 // HTTP 앱 전용: 모든 피처 모듈을 조립한다.
 export function buildHttpFeatureModules(databaseModule: DynamicModule): DynamicModule[] {
@@ -12,15 +11,13 @@ export function buildHttpFeatureModules(databaseModule: DynamicModule): DynamicM
     const run = RunModule.register(databaseModule);
     const rules = RulesModule.register(databaseModule);
     const settings = SettingsModule.register(databaseModule);
-    const taskCleanup = TaskCleanupModule.register(databaseModule);
-    const recipe = RecipeModule.register(databaseModule);
+    const insight = InsightModule.register(databaseModule);
 
     run.imports!.push(event, settings, rules);
     rules.imports!.push(event, run);
-    taskCleanup.imports!.push(settings, run);
-    recipe.imports!.push(settings, run);
+    insight.imports!.push(settings, run);
 
-    return [event, run, rules, settings, taskCleanup, recipe];
+    return [event, run, rules, settings, insight];
 }
 
 // 워커 전용: 모든 피처 모듈을 조립한다.
@@ -29,13 +26,11 @@ export function buildWorkerFeatureModules(databaseModule: DynamicModule): Dynami
     const run = RunModule.register(databaseModule);
     const rules = RulesModule.register(databaseModule);
     const settings = SettingsModule.register(databaseModule);
-    const taskCleanup = TaskCleanupModule.register(databaseModule);
-    const recipe = RecipeModule.register(databaseModule);
+    const insight = InsightModule.register(databaseModule);
 
     run.imports!.push(event, settings, rules);
     rules.imports!.push(event, run);
-    taskCleanup.imports!.push(settings, run);
-    recipe.imports!.push(settings, run);
+    insight.imports!.push(settings, run);
 
-    return [event, run, rules, settings, taskCleanup, recipe];
+    return [event, run, rules, settings, insight];
 }

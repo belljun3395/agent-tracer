@@ -1,0 +1,100 @@
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
+import { RecipeCandidateEntity } from "@monitor/insight-api/domain/recipe/recipe.candidate.entity.js";
+import type { RecipeCandidateStatus } from "@monitor/insight-api/domain/recipe/const/recipe.const.js";
+
+export interface InsertRecipeCandidateRow {
+    readonly id: string;
+    readonly jobId: string;
+    readonly title: string;
+    readonly intent: string;
+    readonly description: string;
+    readonly summaryMd: string;
+    readonly stepsJson: string;
+    readonly touchedFilesJson: string;
+    readonly contributingSlicesJson: string;
+    readonly rationale: string;
+    readonly language: string | null;
+    readonly parentRecipeId: string | null;
+    readonly createdAt: string;
+}
+
+@Injectable()
+export class RecipeCandidateRepository {
+    constructor(
+        @InjectRepository(RecipeCandidateEntity)
+        private readonly repo: Repository<RecipeCandidateEntity>,
+    ) {}
+
+    async insertMany(rows: readonly InsertRecipeCandidateRow[]): Promise<void> {
+        if (rows.length === 0) return;
+        const userId = currentUserId();
+        const entities = rows.map((r) =>
+            this.repo.create({
+                id: r.id,
+                userId,
+                jobId: r.jobId,
+                title: r.title,
+                intent: r.intent,
+                description: r.description,
+                summaryMd: r.summaryMd,
+                stepsJson: r.stepsJson,
+                touchedFilesJson: r.touchedFilesJson,
+                contributingSlicesJson: r.contributingSlicesJson,
+                rationale: r.rationale,
+                language: r.language,
+                parentRecipeId: r.parentRecipeId,
+                status: "pending",
+                error: null,
+                createdAt: r.createdAt,
+                resolvedAt: null,
+            }),
+        );
+        await this.repo.save(entities);
+    }
+
+    async countByJobId(jobId: string): Promise<number> {
+        return this.repo.count({ where: { jobId, userId: currentUserId() } });
+    }
+
+    async findById(id: string): Promise<RecipeCandidateEntity | null> {
+        return this.repo.findOne({ where: { id, userId: currentUserId() } });
+    }
+
+    async listByStatus(
+        status: RecipeCandidateStatus,
+    ): Promise<readonly RecipeCandidateEntity[]> {
+        return this.repo
+            .createQueryBuilder("c")
+            .where("c.user_id = :userId", { userId: currentUserId() })
+            .andWhere("c.status = :status", { status })
+            .orderBy("c.createdAt", "DESC")
+            .getMany();
+    }
+
+    async listAll(): Promise<readonly RecipeCandidateEntity[]> {
+        return this.repo
+            .createQueryBuilder("c")
+            .where("c.user_id = :userId", { userId: currentUserId() })
+            .orderBy("c.createdAt", "DESC")
+            .getMany();
+    }
+
+    async markResolved(input: {
+        id: string;
+        status: Exclude<RecipeCandidateStatus, "pending">;
+        resolvedAt: string;
+        error?: string | null;
+    }): Promise<void> {
+        await this.repo.update(
+            { id: input.id, userId: currentUserId() },
+            {
+                status: input.status,
+                resolvedAt: input.resolvedAt,
+                error: input.error ?? null,
+            },
+        );
+    }
+}
