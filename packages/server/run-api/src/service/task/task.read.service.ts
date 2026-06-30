@@ -57,6 +57,13 @@ export class TaskReadService {
         return this.hydrate(entities);
     }
 
+    async findByIds(ids: readonly string[]): Promise<readonly MonitoringTask[]> {
+        if (ids.length === 0) return [];
+        const userId = currentUserId();
+        const entities = (await this.taskRepo.findByIds(ids as string[])).filter((e) => e.userId === userId);
+        return this.hydrate(entities);
+    }
+
     async findChildren(parentTaskId: string): Promise<readonly MonitoringTask[]> {
         const childIds = await this.relationRepo.findChildrenIdsOfParent(parentTaskId);
         if (childIds.length === 0) return [];

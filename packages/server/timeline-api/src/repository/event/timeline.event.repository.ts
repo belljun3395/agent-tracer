@@ -23,6 +23,10 @@ export class TimelineEventRepository {
         return this.repo.find({ where: { taskId, userId }, order: { seq: "ASC" } });
     }
 
+    findByTaskIdsOrdered(taskIds: readonly string[], userId: string): Promise<TimelineEventEntity[]> {
+        return this.repo.find({ where: { taskId: In(taskIds as string[]), userId }, order: { seq: "ASC" } });
+    }
+
     countByUser(userId: string): Promise<number> {
         return this.repo.count({ where: { userId } });
     }

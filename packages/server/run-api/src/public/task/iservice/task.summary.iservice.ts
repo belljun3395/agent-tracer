@@ -5,4 +5,7 @@ export interface ITaskSummary {
     execute(input: { readonly taskId: string }): Promise<{
         readonly summary: TaskSummary | null;
     }>;
+    executeBatch(input: { readonly taskIds: readonly string[] }): Promise<{
+        readonly summaries: readonly TaskSummary[];
+    }>;
 }

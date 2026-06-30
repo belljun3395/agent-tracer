@@ -5,10 +5,14 @@ import { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 import type {
     GetTaskSummaryUseCaseIn,
     GetTaskSummaryUseCaseOut,
+    GetTaskSummaryBatchUseCaseIn,
+    GetTaskSummaryBatchUseCaseOut,
+    TaskSummaryUseCaseDto,
     TaskSummaryCommandDto,
     TaskSummaryFileDto,
     TaskSummaryToolCountDto,
 } from "./dto/get.task.summary.usecase.dto.js";
+import type { MonitoringTask } from "@monitor/run-api/domain/task/type/task.type.js";
 import type { TimelineEventProjection } from "@monitor/timeline-api/public/event/dto/timeline.event.dto.js";
 
 const MAX_TOP_FILES = 5;
@@ -28,73 +32,87 @@ export class GetTaskSummaryUseCase {
         // 대상 태스크가 없으면 요약도 없다는 응답으로 정리한다.
         if (!task) return { summary: null };
 
-        const timelineResult = await this.getTimeline.execute({ taskId: task.id });
-        const events = timelineResult.timeline;
+        const { timeline } = await this.getTimeline.execute({ taskId: task.id });
+        return { summary: buildTaskSummary(task, timeline) };
+    }
 
-        const toolCounts = new Map<string, number>();
-        const fileCounts = new Map<string, number>();
-        const commandCounts = new Map<string, number>();
-        let firstUserMessage: { title: string; body?: string } | undefined;
-
-        for (const event of events) {
-            if (!firstUserMessage && event.kind === KIND.userMessage) {
-                // 최초 사용자 메시지는 룰/레시피 생성의 의도 근거로 한 번만 보존한다.
-                firstUserMessage = {
-                    title: truncate(event.title, 200),
-                    ...(event.body
-                        ? { body: truncate(event.body, MAX_FIRST_MESSAGE_BODY) }
-                        : {}),
-                };
-            }
-
-            const tool = inferToolName(event);
-            if (tool) {
-                // 도구명은 사용 빈도순 요약을 만들기 위해 카운트한다.
-                toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + 1);
-            }
-
-            for (const file of collectFilePaths(event)) {
-                fileCounts.set(file, (fileCounts.get(file) ?? 0) + 1);
-            }
-
-            const command = readString(event.metadata, "command");
-            if (command) {
-                // 명령 문자열은 길이를 제한해 요약 데이터가 과도하게 커지지 않게 한다.
-                const normalized = truncate(command.trim(), MAX_COMMAND_TEXT_LENGTH);
-                commandCounts.set(normalized, (commandCounts.get(normalized) ?? 0) + 1);
-            }
-        }
-
-        const toolCountList: TaskSummaryToolCountDto[] = Array.from(toolCounts.entries())
-            .map(([tool, count]) => ({ tool, count }))
-            .sort((a, b) => b.count - a.count);
-
-        const topFiles: TaskSummaryFileDto[] = Array.from(fileCounts.entries())
-            .map(([path, touches]) => ({ path, touches }))
-            .sort((a, b) => b.touches - a.touches)
-            .slice(0, MAX_TOP_FILES);
-
-        const topCommands: TaskSummaryCommandDto[] = Array.from(commandCounts.entries())
-            .map(([command, count]) => ({ command, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, MAX_TOP_COMMANDS);
-
+    // 여러 태스크의 요약을 배치로 만든다(타임라인을 태스크별로 한 번에 조회 → N+1 회피).
+    async executeBatch(input: GetTaskSummaryBatchUseCaseIn): Promise<GetTaskSummaryBatchUseCaseOut> {
+        const tasks = await this.query.findByIds(input.taskIds);
+        const timelinesByTask = await this.getTimeline.executeBatch(input.taskIds);
         return {
-            summary: {
-                id: task.id,
-                title: task.displayTitle ?? task.title,
-                status: task.status,
-                ...(task.workspacePath ? { workspacePath: task.workspacePath } : {}),
-                createdAt: task.createdAt,
-                updatedAt: task.updatedAt,
-                ...(firstUserMessage ? { firstUserMessage } : {}),
-                eventCount: events.length,
-                toolCounts: toolCountList,
-                topFiles,
-                topCommands,
-            },
+            summaries: tasks.map((task) =>
+                buildTaskSummary(task, timelinesByTask.get(task.id) ?? []),
+            ),
         };
     }
+}
+
+function buildTaskSummary(
+    task: MonitoringTask,
+    events: readonly TimelineEventProjection[],
+): TaskSummaryUseCaseDto {
+    const toolCounts = new Map<string, number>();
+    const fileCounts = new Map<string, number>();
+    const commandCounts = new Map<string, number>();
+    let firstUserMessage: { title: string; body?: string } | undefined;
+
+    for (const event of events) {
+        if (!firstUserMessage && event.kind === KIND.userMessage) {
+            // 최초 사용자 메시지는 룰/레시피 생성의 의도 근거로 한 번만 보존한다.
+            firstUserMessage = {
+                title: truncate(event.title, 200),
+                ...(event.body
+                    ? { body: truncate(event.body, MAX_FIRST_MESSAGE_BODY) }
+                    : {}),
+            };
+        }
+
+        const tool = inferToolName(event);
+        if (tool) {
+            // 도구명은 사용 빈도순 요약을 만들기 위해 카운트한다.
+            toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + 1);
+        }
+
+        for (const file of collectFilePaths(event)) {
+            fileCounts.set(file, (fileCounts.get(file) ?? 0) + 1);
+        }
+
+        const command = readString(event.metadata, "command");
+        if (command) {
+            // 명령 문자열은 길이를 제한해 요약 데이터가 과도하게 커지지 않게 한다.
+            const normalized = truncate(command.trim(), MAX_COMMAND_TEXT_LENGTH);
+            commandCounts.set(normalized, (commandCounts.get(normalized) ?? 0) + 1);
+        }
+    }
+
+    const toolCountList: TaskSummaryToolCountDto[] = Array.from(toolCounts.entries())
+        .map(([tool, count]) => ({ tool, count }))
+        .sort((a, b) => b.count - a.count);
+
+    const topFiles: TaskSummaryFileDto[] = Array.from(fileCounts.entries())
+        .map(([path, touches]) => ({ path, touches }))
+        .sort((a, b) => b.touches - a.touches)
+        .slice(0, MAX_TOP_FILES);
+
+    const topCommands: TaskSummaryCommandDto[] = Array.from(commandCounts.entries())
+        .map(([command, count]) => ({ command, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, MAX_TOP_COMMANDS);
+
+    return {
+        id: task.id,
+        title: task.displayTitle ?? task.title,
+        status: task.status,
+        ...(task.workspacePath ? { workspacePath: task.workspacePath } : {}),
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+        ...(firstUserMessage ? { firstUserMessage } : {}),
+        eventCount: events.length,
+        toolCounts: toolCountList,
+        topFiles,
+        topCommands,
+    };
 }
 
 function inferToolName(event: TimelineEventProjection): string | null {

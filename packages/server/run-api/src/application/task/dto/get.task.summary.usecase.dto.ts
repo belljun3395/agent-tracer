@@ -17,3 +17,11 @@ export interface GetTaskSummaryUseCaseIn {
 export interface GetTaskSummaryUseCaseOut {
     readonly summary: TaskSummaryUseCaseDto | null;
 }
+
+export interface GetTaskSummaryBatchUseCaseIn {
+    readonly taskIds: readonly string[];
+}
+
+export interface GetTaskSummaryBatchUseCaseOut {
+    readonly summaries: readonly TaskSummaryUseCaseDto[];
+}

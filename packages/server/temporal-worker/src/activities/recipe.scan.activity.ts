@@ -79,16 +79,19 @@ export class RecipeScanActivity {
 
         const allTasks = await this.taskQuery.findAll(filters.archivedScope);
         const filtered = applyRecipeScanFilters(allTasks, filters);
+        const taskKindById = new Map(filtered.map((t) => [t.id, t.taskKind ?? "primary"]));
+
+        // 필터를 통과한 태스크의 요약을 한 번에 조회한다(태스크별 직렬 조회 N+1 회피).
+        const { summaries } = await this.taskSummary.executeBatch({ taskIds: filtered.map((t) => t.id) });
 
         const snapshots: RecipeTaskSnapshot[] = [];
-        for (const t of filtered) {
-            const { summary } = await this.taskSummary.execute({ taskId: t.id });
-            if (!summary || summary.eventCount < filters.minEventCount) continue;
+        for (const summary of summaries) {
+            if (summary.eventCount < filters.minEventCount) continue;
             snapshots.push({
                 id: summary.id,
                 title: summary.title,
                 status: summary.status,
-                taskKind: t.taskKind ?? "primary",
+                taskKind: taskKindById.get(summary.id) ?? "primary",
                 ...(summary.workspacePath ? { workspacePath: summary.workspacePath } : {}),
                 createdAt: summary.createdAt,
                 updatedAt: summary.updatedAt,

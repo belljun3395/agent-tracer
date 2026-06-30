@@ -3,5 +3,6 @@ import type { TimelineEventSnapshot } from "@monitor/timeline-api/public/event/d
 export interface ITimelineEventRead {
     findById(id: string): Promise<TimelineEventSnapshot | null>;
     findByTaskId(taskId: string): Promise<readonly TimelineEventSnapshot[]>;
+    findByTaskIds(taskIds: readonly string[]): Promise<readonly TimelineEventSnapshot[]>;
     countAll(): Promise<number>;
 }

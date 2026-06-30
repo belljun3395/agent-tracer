@@ -43,6 +43,12 @@ export class TimelineEventStorageService {
         return this.applyRuleLaneOverride(rows.map((row) => this.toEvent(row)));
     }
 
+    async findByTaskIds(taskIds: readonly string[]): Promise<readonly TimelineEvent[]> {
+        if (taskIds.length === 0) return [];
+        const rows = await this.timelineEvents.findByTaskIdsOrdered(taskIds, currentUserId());
+        return this.applyRuleLaneOverride(rows.map((row) => this.toEvent(row)));
+    }
+
     countAll(): Promise<number> {
         return this.timelineEvents.countByUser(currentUserId());
     }
