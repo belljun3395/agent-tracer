@@ -12,6 +12,11 @@ import { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/r
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import {
+    NOTIFICATION_PUBLISHER_TOKEN,
+    type INotificationPublisher,
+} from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { RuleJobRepository } from "../../../job/rule.job.repository.js";
 import type { RuleJobEntity } from "../../../job/rule.job.entity.js";
 import {
@@ -34,6 +39,8 @@ export class TaskRuleGenerationService {
         private readonly listRules: ListRulesUseCase,
         private readonly registerSuggestion: RegisterSuggestionUseCase,
         private readonly agent: RuleSuggestionAgent,
+        @Inject(NOTIFICATION_PUBLISHER_TOKEN)
+        private readonly notifier: INotificationPublisher,
     ) {}
 
     async enqueue(taskId: string): Promise<RuleJobEntity> {
@@ -74,7 +81,58 @@ export class TaskRuleGenerationService {
         return this.jobs.findById(id);
     }
 
-    // 컨텍스트를 모아 LLM 입력을 만든다. Temporal 활동에서도 직접 호출한다.
+    // 워커 generate 단계: 시작 알림 → LLM 추론(결과 저장).
+    async runGeneration(jobId: string): Promise<void> {
+        const job = await this.loadJob(jobId);
+        this.notifier.publish({
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
+            payload: {
+                kind: "rule-generation",
+                status: "running",
+                jobId,
+                taskId: job.taskId,
+            },
+        });
+        const input = await this.loadGenerationInput(job.taskId);
+        await this.runInference(job, input);
+    }
+
+    // 워커 apply 단계: 저장된 응답으로 규칙 등록·완료 → 성공 알림.
+    async applyGeneration(jobId: string): Promise<number> {
+        const job = await this.loadJob(jobId);
+        if (!job.llmOutputJson) {
+            throw new Error(`memoized LLM output missing for job ${jobId}`);
+        }
+        const output = JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
+        const rulesCreated = await this.applyProposals(job.taskId, output);
+        await this.completeGeneration(job.id, output, rulesCreated);
+        this.notifier.publish({
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
+            payload: {
+                kind: "rule-generation",
+                status: "succeeded",
+                jobId,
+                taskId: job.taskId,
+                summary:
+                    rulesCreated === 0
+                        ? "No new rules suggested"
+                        : `${rulesCreated} ${rulesCreated === 1 ? "rule" : "rules"} suggested`,
+                durationMs: output.durationMs,
+            },
+        });
+        return rulesCreated;
+    }
+
+    private async loadJob(
+        jobId: string,
+    ): Promise<RuleJobEntity & { taskId: string }> {
+        const job = await this.jobs.findById(jobId);
+        if (!job) throw new Error(`rule job not found: ${jobId}`);
+        if (!job.taskId) throw new Error(`rule job missing taskId: ${jobId}`);
+        return job as RuleJobEntity & { taskId: string };
+    }
+
+    // 컨텍스트를 모아 LLM 입력을 만든다.
     async loadGenerationInput(taskId: string): Promise<GenerateRuleSuggestionsInput> {
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) {
@@ -175,8 +233,9 @@ export class TaskRuleGenerationService {
         });
     }
 
-    // 워커에서 재시도가 모두 소진된 잡을 실패로 닫는다.
+    // 워커에서 재시도가 모두 소진된 잡을 실패로 닫고 알린다.
     async markGenerationFailed(jobId: string, error: string): Promise<void> {
+        const job = await this.jobs.findById(jobId);
         const attempts = await this.jobs.incrementAttempts(
             jobId,
             new Date().toISOString(),
@@ -186,6 +245,16 @@ export class TaskRuleGenerationService {
             error: truncate(error, 1000),
             attempts,
             completedAt: new Date().toISOString(),
+        });
+        this.notifier.publish({
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
+            payload: {
+                kind: "rule-generation",
+                status: "failed",
+                jobId,
+                ...(job?.taskId ? { taskId: job.taskId } : {}),
+                error: error.length > 240 ? error.slice(0, 240) + "..." : error,
+            },
         });
     }
 }

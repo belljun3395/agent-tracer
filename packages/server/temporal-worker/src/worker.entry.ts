@@ -43,7 +43,7 @@ async function main(): Promise<void> {
         taskQueue: LLM_JOB_QUEUE,
         workflowsPath: new URL(workflowsModule, import.meta.url).pathname,
         activities: {
-            ...createRuleGenerationActivities(ruleGeneration, notifier),
+            ...createRuleGenerationActivities(ruleGeneration),
             ...createTitleSuggestionActivities(titleSuggestion),
         },
     });
