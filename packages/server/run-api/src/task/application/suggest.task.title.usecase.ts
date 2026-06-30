@@ -1,15 +1,4 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
-import { TitleSuggestionAgent } from "../agent/title.suggestion.agent.js";
-import type { SuggestionLanguage } from "../agent/title.suggestion.prompt.js";
-import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
-import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
-import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { TaskHasNoEventsError, TaskNotFoundError } from "../common/task.errors.js";
-import { GetTaskSummaryUseCase } from "./get.task.summary.usecase.js";
 import {
     TITLE_SUGGESTION_DISPATCHER,
     type ITitleSuggestionDispatcher,
@@ -19,25 +8,10 @@ import type {
     SuggestTaskTitleUseCaseOut,
 } from "./dto/suggest.task.title.usecase.dto.js";
 
-function normalizeLanguage(raw: string | null): SuggestionLanguage {
-    return normalizeOutputLanguage(raw);
-}
-
-export class MissingApiKeyError extends Error {
-    constructor() {
-        super("No Anthropic API key configured. Set anthropic.api_key in Settings.");
-        this.name = "MissingApiKeyError";
-    }
-}
-
+// 제목 제안 실행은 워커가 소유한다. 유스케이스는 Temporal로 전달만 한다.
 @Injectable()
 export class SuggestTaskTitleUseCase {
     constructor(
-        private readonly getSummary: GetTaskSummaryUseCase,
-        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
-        private readonly agent: TitleSuggestionAgent,
-        @Inject(NOTIFICATION_PUBLISHER_TOKEN)
-        private readonly notifier: INotificationPublisher,
         @Inject(TITLE_SUGGESTION_DISPATCHER)
         private readonly dispatcher: ITitleSuggestionDispatcher,
     ) {}
@@ -46,77 +20,5 @@ export class SuggestTaskTitleUseCase {
         input: SuggestTaskTitleUseCaseIn,
     ): Promise<SuggestTaskTitleUseCaseOut> {
         return this.dispatcher.dispatch(input.taskId);
-    }
-
-    // 워커가 호출하는 실제 제목 제안 작업.
-    async runSuggestion(
-        taskId: string,
-        idempotencyKey?: string,
-    ): Promise<SuggestTaskTitleUseCaseOut> {
-        const { summary } = await this.getSummary.execute({ taskId });
-        if (!summary) throw new TaskNotFoundError(taskId);
-        if (summary.eventCount === 0) throw new TaskHasNoEventsError(taskId);
-
-        const apiKey = await this.settings.getAnthropicApiKey();
-        if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
-        const modelOverride = await this.settings.getAnthropicModel();
-        const languageRaw = await this.settings.getRawValue(
-            APP_SETTING_KEYS.claudeOutputLanguage,
-        );
-        const language = normalizeLanguage(languageRaw);
-
-        this.notifier.publish({
-            type: NOTIFICATION_TYPE.sdkJobUpdated,
-            payload: {
-                kind: "title-suggestion",
-                status: "running",
-                taskId,
-            },
-        });
-
-        try {
-            const output = await this.agent.generate({
-                ...(apiKey ? { apiKey } : {}),
-                ...(modelOverride ? { model: modelOverride } : {}),
-                summary,
-                language,
-                ...(idempotencyKey ? { idempotencyKey } : {}),
-            });
-
-            const suggestions = output.suggestions.filter(
-                (s) => s.title.trim() !== summary.title.trim(),
-            );
-            this.notifier.publish({
-                type: NOTIFICATION_TYPE.sdkJobUpdated,
-                payload: {
-                    kind: "title-suggestion",
-                    status: "succeeded",
-                    taskId,
-                    summary:
-                        suggestions.length === 0
-                            ? "No title alternatives produced"
-                            : `${suggestions.length} title ${suggestions.length === 1 ? "suggestion" : "suggestions"}`,
-                    durationMs: output.durationMs,
-                },
-            });
-
-            return {
-                suggestions,
-                modelUsed: output.modelUsed,
-                durationMs: output.durationMs,
-            };
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            this.notifier.publish({
-                type: NOTIFICATION_TYPE.sdkJobUpdated,
-                payload: {
-                    kind: "title-suggestion",
-                    status: "failed",
-                    taskId,
-                    error: message.length > 240 ? message.slice(0, 240) + "..." : message,
-                },
-            });
-            throw err;
-        }
     }
 }

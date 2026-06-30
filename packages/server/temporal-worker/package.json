@@ -14,6 +14,7 @@
         "./*": "./src/*"
     },
     "dependencies": {
+        "@monitor/identity-api": "*",
         "@monitor/rules-api": "*",
         "@monitor/run-api": "*",
         "@monitor/server-core": "*",

@@ -1,6 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
 import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
-import { QUERY_RUNNER, type IQueryRunner, type AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
+import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -19,7 +18,6 @@ const DEFAULT_MODEL = CLAUDE_MODEL.haiku;
 const TITLE_OUTPUT_SCHEMA = zodToOutputSchema(titleSuggestionsListSchema);
 
 export interface GenerateTitleSuggestionsInput {
-
     readonly apiKey?: string;
     readonly model?: string;
     readonly summary: TaskSummaryUseCaseDto;
@@ -36,11 +34,8 @@ export interface GenerateTitleSuggestionsOutput {
     readonly usage: AgentQueryUsage | null;
 }
 
-@Injectable()
 export class TitleSuggestionAgent {
-    constructor(
-        @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
-    ) {}
+    constructor(private readonly queryRunner: IQueryRunner) {}
 
     requiresLocalApiKey(): boolean {
         return this.queryRunner.requiresLocalApiKey();

@@ -5,8 +5,20 @@ import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { WorkerModule } from "@monitor/server-core/worker.module.js";
 import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
-import { TaskRuleGenerationService } from "@monitor/rules-api/rule/generation/service/task.rule.generation.service.js";
-import { SuggestTaskTitleUseCase } from "@monitor/run-api/task/application/suggest.task.title.usecase.js";
+import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
+import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
+import { RuleJobRepository } from "@monitor/rules-api/job/rule.job.repository.js";
+import { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
+import { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
+import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
+import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
+import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
+import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
+import { RuleSuggestionAgent } from "./agents/rule.suggestion.agent.js";
+import { TitleSuggestionAgent } from "./agents/title.suggestion.agent.js";
+import { RuleGenerationRunner } from "./runners/rule-generation.runner.js";
+import { TitleSuggestionRunner } from "./runners/title-suggestion.runner.js";
 import { createRuleGenerationActivities } from "./activities/rule-generation.activities.js";
 import { createTitleSuggestionActivities } from "./activities/title-suggestion.activities.js";
 import { LLM_JOB_QUEUE } from "@monitor/shared/job/llm.job.const.js";
@@ -28,8 +40,33 @@ async function main(): Promise<void> {
         WorkerModule.forRoot({ notifier }),
         { logger: ["error", "warn"] },
     );
-    const ruleGeneration = app.get(TaskRuleGenerationService, { strict: false });
-    const titleSuggestion = app.get(SuggestTaskTitleUseCase, { strict: false });
+
+    // 도메인 빌딩블록은 DI 그래프에서 가져오고, LLM 실행기·에이전트·러너는 워커가 직접 조립한다.
+    const jobs = app.get(RuleJobRepository, { strict: false });
+    const listRules = app.get(ListRulesUseCase, { strict: false });
+    const registerSuggestion = app.get(RegisterSuggestionUseCase, { strict: false });
+    const getSummary = app.get(GetTaskSummaryUseCase, { strict: false });
+    const settings = app.get<IAppSettings>(APP_SETTINGS, { strict: false });
+    const taskSummary = app.get<ITaskSummary>(TASK_SUMMARY, { strict: false });
+
+    const ruleAgent = new RuleSuggestionAgent(new LocalQueryRunner());
+    const titleAgent = new TitleSuggestionAgent(new MessagesQueryRunner());
+
+    const ruleGeneration = new RuleGenerationRunner(
+        jobs,
+        settings,
+        taskSummary,
+        listRules,
+        registerSuggestion,
+        ruleAgent,
+        notifier,
+    );
+    const titleSuggestion = new TitleSuggestionRunner(
+        getSummary,
+        settings,
+        titleAgent,
+        notifier,
+    );
 
     const address = process.env["TEMPORAL_ADDRESS"] ?? "localhost:7233";
     const connection = await NativeConnection.connect({ address });

@@ -1,6 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
 import type { TaskSummary } from "@monitor/run-api/task/public/types/task.summary.js";
-import { QUERY_RUNNER, type IQueryRunner, type AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
+import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -21,7 +20,6 @@ const DEFAULT_MODEL = CLAUDE_MODEL.sonnet;
 const RULE_OUTPUT_SCHEMA = zodToOutputSchema(ruleSuggestionsListSchema);
 
 export interface GenerateRuleSuggestionsInput {
-
     readonly apiKey?: string;
     readonly model?: string;
     readonly summary: TaskSummary;
@@ -40,11 +38,8 @@ export interface GenerateRuleSuggestionsOutput {
     readonly usage: AgentQueryUsage | null;
 }
 
-@Injectable()
 export class RuleSuggestionAgent {
-    constructor(
-        @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
-    ) {}
+    constructor(private readonly queryRunner: IQueryRunner) {}
 
     requiresLocalApiKey(): boolean {
         return this.queryRunner.requiresLocalApiKey();

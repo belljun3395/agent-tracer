@@ -1,17 +1,10 @@
 import { Context } from "@temporalio/activity";
 import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/task/application/dto/suggest.task.title.usecase.dto.js";
 import type { TitleSuggestionActivities } from "../workflows/activities.types.js";
-
-// 활동이 호출하는 서비스 표면. SuggestTaskTitleUseCase가 구조적으로 만족한다.
-export interface TitleSuggestionServicePort {
-    runSuggestion(
-        taskId: string,
-        idempotencyKey?: string,
-    ): Promise<SuggestTaskTitleUseCaseOut>;
-}
+import type { TitleSuggestionRunner } from "../runners/title-suggestion.runner.js";
 
 export function createTitleSuggestionActivities(
-    service: TitleSuggestionServicePort,
+    runner: TitleSuggestionRunner,
 ): TitleSuggestionActivities {
     return {
         async runTitleSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut> {
@@ -19,7 +12,7 @@ export function createTitleSuggestionActivities(
             const info = Context.current().info;
             const workflowId = info.workflowExecution?.workflowId ?? "wf";
             const idempotencyKey = `${workflowId}-${info.activityId}`;
-            return service.runSuggestion(taskId, idempotencyKey);
+            return runner.runSuggestion(taskId, idempotencyKey);
         },
     };
 }

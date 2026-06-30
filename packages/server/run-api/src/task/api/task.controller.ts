@@ -1,5 +1,4 @@
 import {
-    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -23,10 +22,7 @@ import { GetTaskTurnsUseCase } from "../application/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "../application/get.task.usecase.js";
 import { ListTasksUseCase } from "../application/list.tasks.usecase.js";
 import { SearchTasksUseCase } from "../application/search.tasks.usecase.js";
-import {
-    MissingApiKeyError,
-    SuggestTaskTitleUseCase,
-} from "../application/suggest.task.title.usecase.js";
+import { SuggestTaskTitleUseCase } from "../application/suggest.task.title.usecase.js";
 import { UnarchiveTaskUseCase } from "../application/unarchive.task.usecase.js";
 import { UpdateTaskUseCase } from "../application/update.task.usecase.js";
 import type { UpdateTaskUseCaseIn } from "../application/dto/update.task.usecase.dto.js";
@@ -142,11 +138,6 @@ export class TaskController {
     @Post(":taskId/suggest-title")
     @HttpCode(HttpStatus.OK)
     async suggestTitleEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
-        try {
-            return await this.suggestTitle.execute({ taskId });
-        } catch (err) {
-            if (err instanceof MissingApiKeyError) throw new BadRequestException(err.message);
-            throw err;
-        }
+        return this.suggestTitle.execute({ taskId });
     }
 }
