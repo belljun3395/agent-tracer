@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { EventController } from "./api/event.controller.js";
+import { EventIngestController } from "./api/event.ingest.controller.js";
 import { PreprocessingHintsController } from "./api/preprocessing.hints.controller.js";
 import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
 import { CrossCheckDedupeCache } from "./common/cross.check.dedupe.cache.js";
@@ -44,7 +45,7 @@ export class EventModule {
                 ]),
                 databaseModule,
             ],
-            controllers: [EventController, PreprocessingHintsController, TypedEventIngestController],
+            controllers: [EventController, EventIngestController, PreprocessingHintsController, TypedEventIngestController],
             providers: [
 
                 PgEventSearch,
