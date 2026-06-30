@@ -77,39 +77,32 @@ export async function runRuleGeneration(opts: RunRuleGenerationOptions): Promise
 
     const systemPromptAppend = `You are a verification-rule designer for Agent Tracer, an observability tool that records coding-agent sessions.
 
-You have tools to query domain data:
-  - ${MCP_SERVER_NAME}__get_task_events(taskId, limit?) : full chronological event sequence (kind, title, body, metadata). Use this to understand what the agent did step-by-step.
-  - ${MCP_SERVER_NAME}__list_rules(scope?)              : existing rules with name and trigger — call this to avoid duplicates.
+Tools available:
+  - ${MCP_SERVER_NAME}__get_task_events(taskId, limit?) : slim event log (kind, title, body). Default limit=50 — call once with limit=50 to get an overview.
+  - ${MCP_SERVER_NAME}__list_rules(scope?)              : existing rules — call once to avoid duplicates.
 
-You also have Read/Glob/Grep to inspect workspace files (e.g., read package.json to confirm real script names).
+Efficient workflow (max 5 tool calls total):
+  1. get_task_events(taskId, 50) — scan the event types and titles to understand what work was done.
+  2. list_rules() — check existing rules.
+  3. Immediately produce 3-5 rules based on what you observed. Do NOT read workspace files unless you already know the exact filename you need.
 
-Suggested workflow:
-  1. Call get_task_events to see the full event sequence and identify recurring patterns.
-  2. Call list_rules to check what rules already exist.
-  3. Optionally Read package.json (or equivalent manifest) to verify actual command names.
-  4. Propose rules grounded in what you observed.
-
-Propose 3-5 rules that would catch whether a future agent doing similar work performed it correctly. Rules are matched against tool-call events — they describe what to expect, not what is forbidden.
-
-Rules are not blockers. severity is always "info".
+Rules are not blockers. They describe what to EXPECT a future agent doing similar work to do.
 
 Each rule has:
-  - name           : short imperative (under 60 chars)
-  - trigger        : { phrases: string[] }  -- optional
-  - triggerOn      : "user" | "assistant"   -- optional
-  - expect         : at least one of: action, commandMatches, pattern
-  - rationale      : 1 short sentence (under 200 chars)
+  - name     : short imperative (under 60 chars)
+  - trigger  : { phrases: string[] }  -- optional; user message that triggers this check
+  - triggerOn: "user" | "assistant"   -- optional
+  - expect   : at least one of: action, commandMatches, pattern
+  - rationale: 1 short sentence (under 200 chars)
 
 Guidelines:
-  - Prefer commandMatches over regex when you know the literal command.
-  - Lean into task-specific patterns rather than generic habits.
-  - Quality over quantity: 3-5 rules.
+  - Prefer commandMatches (literal commands) over pattern (regex).
+  - Lean into patterns specific to THIS task.
+  - Output exactly 3-5 rules.
 
 Output language: ${langDirective}
-  - This applies ONLY to name and rationale fields.
-  - Keep trigger.phrases, commandMatches, and pattern as literal strings.
 
-Return JSON conforming to the provided schema.`;
+Return JSON conforming to the provided schema immediately after your tool calls.`;
 
     const userPrompt = `Task ID: ${opts.taskId}\nWorkspace: ${opts.workspacePath}\n\nPropose up to ${maxRules} rules for task ${opts.taskId}.`;
 
@@ -138,16 +131,22 @@ Return JSON conforming to the provided schema.`;
             tools: [
                 tool(
                     "get_task_events",
-                    "Get the chronological event sequence for a task (tool calls, shell commands, file edits).",
-                    { taskId: z.string(), limit: z.number().int().min(1).max(300).optional() },
+                    "Get the chronological event sequence for a task (tool calls, shell commands, file edits). Returns slim records (kind, title, body truncated to 200 chars). Use a small limit first to get a high-level overview.",
+                    { taskId: z.string(), limit: z.number().int().min(1).max(100).optional() },
                     async ({ taskId, limit }: { taskId: string; limit?: number | undefined }) => {
-                        const resolvedLimit = limit ?? 200;
+                        const resolvedLimit = limit ?? 50;
                         const resp = await fetch(
                             `${baseUrl}/api/v1/events?taskId=${encodeURIComponent(taskId)}&limit=${resolvedLimit}`,
                             { headers: userHeaders },
                         );
-                        const data: unknown = await resp.json();
-                        return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+                        const raw = await resp.json() as { data?: { kind: string; title?: string; body?: string }[] };
+                        const events = Array.isArray(raw?.data) ? raw.data : [];
+                        const slim = events.map((e) => ({
+                            kind: e.kind,
+                            title: e.title ?? "",
+                            body: typeof e.body === "string" ? e.body.slice(0, 200) : "",
+                        }));
+                        return { content: [{ type: "text" as const, text: JSON.stringify(slim, null, 2) }] };
                     },
                 ),
                 tool(
@@ -175,7 +174,7 @@ Return JSON conforming to the provided schema.`;
                 model: opts.model ?? "claude-sonnet-4-6",
                 allowedTools,
                 tools: allowedTools,
-                maxTurns: 8,
+                maxTurns: 15,
                 mcpServers: { [MCP_SERVER_NAME]: mcpServer },
                 systemPrompt: {
                     type: "preset" as const,

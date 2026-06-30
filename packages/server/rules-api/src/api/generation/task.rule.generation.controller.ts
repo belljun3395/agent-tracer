@@ -23,6 +23,7 @@ import { EnqueueTaskRuleGenerationUseCase } from "../../application/generation/e
 import { GetLatestTaskRuleGenerationUseCase } from "../../application/generation/get.latest.task.rule.generation.usecase.js";
 import { ReportRuleProposalsUseCase, type RuleProposalInput } from "../../application/generation/report.rule.proposals.usecase.js";
 import { FailRuleGenerationUseCase } from "../../application/generation/fail.rule.generation.usecase.js";
+import { GetPendingRuleGenerationUseCase } from "../../application/generation/get.pending.rule.generation.usecase.js";
 
 const ruleProposalSchema = z.object({
     name: z.string(),
@@ -57,6 +58,7 @@ export class TaskRuleGenerationController {
     constructor(
         private readonly enqueueGeneration: EnqueueTaskRuleGenerationUseCase,
         private readonly getLatestGeneration: GetLatestTaskRuleGenerationUseCase,
+        private readonly getPendingGeneration: GetPendingRuleGenerationUseCase,
         private readonly reportProposals: ReportRuleProposalsUseCase,
         private readonly failGeneration: FailRuleGenerationUseCase,
     ) {}
@@ -119,5 +121,10 @@ export class TaskRuleGenerationController {
     @Get("latest")
     async latest(@Query("taskId", pathParamPipe) taskId: string) {
         return this.getLatestGeneration.execute(taskId);
+    }
+
+    @Get("pending")
+    async pending() {
+        return this.getPendingGeneration.execute();
     }
 }

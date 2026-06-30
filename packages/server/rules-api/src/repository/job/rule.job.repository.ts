@@ -190,4 +190,15 @@ export class RuleJobRepository {
             });
         });
     }
+
+    findPendingByType(jobType: RuleJobType, limit = 10): Promise<RuleJobEntity[]> {
+        return this.repo
+            .createQueryBuilder("job")
+            .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
+            .andWhere("job.status = :status", { status: JOB_STATUS.pending })
+            .orderBy("job.createdAt", "ASC")
+            .limit(limit)
+            .getMany();
+    }
 }
