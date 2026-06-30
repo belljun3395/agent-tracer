@@ -206,6 +206,14 @@ var init_tags = __esm({
 });
 
 // src/shared/config/env.ts
+var env_exports = {};
+__export(env_exports, {
+  resolveClaudeProjectDir: () => resolveClaudeProjectDir,
+  resolveCodexProjectDir: () => resolveCodexProjectDir,
+  resolveMonitorBaseUrl: () => resolveMonitorBaseUrl,
+  resolveMonitorTransportConfig: () => resolveMonitorTransportConfig,
+  resolveRuntimeLoggingConfig: () => resolveRuntimeLoggingConfig
+});
 function resolveMonitorBaseUrl(env = process.env) {
   const explicit = (env.MONITOR_BASE_URL ?? "").trim();
   if (explicit) return explicit.replace(/\/$/, "");
@@ -230,6 +238,12 @@ function resolveRuntimeLoggingConfig(env = process.env) {
   return {
     enabled: env.NODE_ENV === "development"
   };
+}
+function resolveClaudeProjectDir(env = process.env) {
+  return (env.CLAUDE_PROJECT_DIR ?? "").trim() || process.cwd();
+}
+function resolveCodexProjectDir(env = process.env) {
+  return (env.CODEX_PROJECT_DIR ?? "").trim() || process.cwd();
 }
 var init_env = __esm({
   "src/shared/config/env.ts"() {
@@ -282,9 +296,71 @@ var init_ulid = __esm({
 });
 
 // src/shared/transport/transport.ts
+var transport_exports = {};
+__export(transport_exports, {
+  monitorUserHeader: () => monitorUserHeader,
+  postEvent: () => postEvent2,
+  postJson: () => postJson2,
+  postTaggedEvent: () => postTaggedEvent2,
+  readStdinJson: () => readStdinJson2
+});
+function isRecord4(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function unwrapApiEnvelope2(value) {
+  if (isRecord4(value) && value["ok"] === true && "data" in value) {
+    return value["data"];
+  }
+  return value;
+}
+function resolveApiBase() {
+  const explicit = (process.env.MONITOR_BASE_URL ?? "").trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  const port = parseInt(process.env.MONITOR_PORT ?? "", 10) || 3847;
+  const host = (process.env.MONITOR_PUBLIC_HOST ?? "127.0.0.1").trim();
+  return `http://${host}:${port}`;
+}
+async function readStdinJson2() {
+  let raw = "";
+  for await (const chunk of process.stdin) {
+    raw += String(chunk);
+  }
+  if (!raw.trim()) return {};
+  const parsed = JSON.parse(raw);
+  return isRecord4(parsed) ? parsed : {};
+}
 function monitorUserHeader() {
   const email = process.env["MONITOR_USER_EMAIL"]?.trim();
   return email ? { "X-User-Email": email } : {};
+}
+async function postJson2(pathname, body) {
+  const response = await fetch(`${resolveApiBase()}${pathname}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...monitorUserHeader() },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(2e3)
+  });
+  if (!response.ok) {
+    throw new Error(`Monitor request failed: ${pathname} (${response.status})`);
+  }
+  const text = await response.text();
+  return unwrapApiEnvelope2(text ? JSON.parse(text) : {});
+}
+async function postEvent2(events) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    const stamped = ensureEventId(event);
+    const endpoint = resolveIngestEndpoint(stamped.kind);
+    const group = groups.get(endpoint) ?? [];
+    group.push(stamped);
+    groups.set(endpoint, group);
+  }
+  await Promise.all(
+    [...groups.entries()].map(([endpoint, batch]) => postJson2(endpoint, { events: batch }))
+  );
+}
+async function postTaggedEvent2(event) {
+  await postEvent2([{ ...event, metadata: withTags(event.metadata) }]);
 }
 var init_transport = __esm({
   "src/shared/transport/transport.ts"() {
@@ -790,7 +866,7 @@ function unwrapApiEnvelope(value) {
   return value;
 }
 function createMonitorTransport(config = resolveMonitorTransportConfig(), options = {}) {
-  async function postJson2(pathname, body) {
+  async function postJson3(pathname, body) {
     if (!options.forceDirect && shouldUseLocalDaemon()) {
       const localResult = pathname === "/ingest/v1/sessions/ensure" ? localEnsureResult(body) : void 0;
       await enqueueDaemonMessage({
@@ -825,7 +901,7 @@ function createMonitorTransport(config = resolveMonitorTransportConfig(), option
     }
     return unwrapApiEnvelope(parsed);
   }
-  async function postEvent2(events) {
+  async function postEvent3(events) {
     const groups = /* @__PURE__ */ new Map();
     for (const event of events) {
       const stamped = ensureEventId(event);
@@ -835,16 +911,16 @@ function createMonitorTransport(config = resolveMonitorTransportConfig(), option
       groups.set(endpoint, group);
     }
     await Promise.all(
-      [...groups.entries()].map(([endpoint, batch]) => postJson2(endpoint, { events: batch }))
+      [...groups.entries()].map(([endpoint, batch]) => postJson3(endpoint, { events: batch }))
     );
   }
-  async function postTaggedEvent2(event) {
-    await postEvent2([{ ...event, metadata: withTags(event.metadata) }]);
+  async function postTaggedEvent3(event) {
+    await postEvent3([{ ...event, metadata: withTags(event.metadata) }]);
   }
   async function postTaggedEvents2(events) {
-    await postEvent2(events.map((event) => ({ ...event, metadata: withTags(event.metadata) })));
+    await postEvent3(events.map((event) => ({ ...event, metadata: withTags(event.metadata) })));
   }
-  return { postJson: postJson2, postEvent: postEvent2, postTaggedEvent: postTaggedEvent2, postTaggedEvents: postTaggedEvents2 };
+  return { postJson: postJson3, postEvent: postEvent3, postTaggedEvent: postTaggedEvent3, postTaggedEvents: postTaggedEvents2 };
 }
 
 // src/shared/hook-runtime/create-runtime.ts
@@ -1071,8 +1147,22 @@ await runHook("SessionEnd", {
   }
 });
 async function triggerRuleGeneration(taskId, workspacePath) {
-  const enqueueResp = await postJson(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
-  const jobId = enqueueResp.jobId;
+  let jobId;
+  try {
+    const resp = await postJson(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
+    jobId = resp.jobId;
+  } catch {
+    const { resolveMonitorBaseUrl: resolveMonitorBaseUrl2 } = await Promise.resolve().then(() => (init_env(), env_exports));
+    const { monitorUserHeader: monitorUserHeader2 } = await Promise.resolve().then(() => (init_transport(), transport_exports));
+    const resp = await fetch(
+      `${resolveMonitorBaseUrl2()}/api/v1/rules/generate/latest?taskId=${encodeURIComponent(taskId)}`,
+      { headers: monitorUserHeader2(), signal: AbortSignal.timeout(2e3) }
+    );
+    if (resp.ok) {
+      const data = await resp.json();
+      jobId = data?.data?.job?.id;
+    }
+  }
   if (!jobId) return;
   const { runRuleGeneration: runRuleGeneration2 } = await Promise.resolve().then(() => (init_agent(), agent_exports));
   await runRuleGeneration2({ taskId, jobId, workspacePath });
