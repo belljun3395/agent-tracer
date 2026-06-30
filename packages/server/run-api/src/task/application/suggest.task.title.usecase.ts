@@ -10,6 +10,10 @@ import type { IAppSettings } from "@monitor/identity-api/settings/public/iservic
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { TaskHasNoEventsError, TaskNotFoundError } from "../common/task.errors.js";
 import { GetTaskSummaryUseCase } from "./get.task.summary.usecase.js";
+import {
+    TITLE_SUGGESTION_DISPATCHER,
+    type ITitleSuggestionDispatcher,
+} from "./outbound/title.suggestion.dispatcher.port.js";
 import type {
     SuggestTaskTitleUseCaseIn,
     SuggestTaskTitleUseCaseOut,
@@ -34,14 +38,21 @@ export class SuggestTaskTitleUseCase {
         private readonly agent: TitleSuggestionAgent,
         @Inject(NOTIFICATION_PUBLISHER_TOKEN)
         private readonly notifier: INotificationPublisher,
+        @Inject(TITLE_SUGGESTION_DISPATCHER)
+        private readonly dispatcher: ITitleSuggestionDispatcher,
     ) {}
 
     async execute(
         input: SuggestTaskTitleUseCaseIn,
     ): Promise<SuggestTaskTitleUseCaseOut> {
-        const { summary } = await this.getSummary.execute({ taskId: input.taskId });
-        if (!summary) throw new TaskNotFoundError(input.taskId);
-        if (summary.eventCount === 0) throw new TaskHasNoEventsError(input.taskId);
+        return this.dispatcher.dispatch(input.taskId);
+    }
+
+    // 워커가 호출하는 실제 제목 제안 작업.
+    async runSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut> {
+        const { summary } = await this.getSummary.execute({ taskId });
+        if (!summary) throw new TaskNotFoundError(taskId);
+        if (summary.eventCount === 0) throw new TaskHasNoEventsError(taskId);
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
@@ -56,7 +67,7 @@ export class SuggestTaskTitleUseCase {
             payload: {
                 kind: "title-suggestion",
                 status: "running",
-                taskId: input.taskId,
+                taskId,
             },
         });
 
@@ -76,7 +87,7 @@ export class SuggestTaskTitleUseCase {
                 payload: {
                     kind: "title-suggestion",
                     status: "succeeded",
-                    taskId: input.taskId,
+                    taskId,
                     summary:
                         suggestions.length === 0
                             ? "No title alternatives produced"
@@ -97,7 +108,7 @@ export class SuggestTaskTitleUseCase {
                 payload: {
                     kind: "title-suggestion",
                     status: "failed",
-                    taskId: input.taskId,
+                    taskId,
                     error: message.length > 240 ? message.slice(0, 240) + "..." : message,
                 },
             });

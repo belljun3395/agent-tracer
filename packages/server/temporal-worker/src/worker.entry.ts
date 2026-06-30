@@ -4,7 +4,9 @@ import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { AppModule } from "@monitor/api-gateway/app-module";
 import { TaskRuleGenerationService } from "@monitor/rules-api/rule/generation/service/task.rule.generation.service.js";
+import { SuggestTaskTitleUseCase } from "@monitor/run-api/task/application/suggest.task.title.usecase.js";
 import { createRuleGenerationActivities } from "./activities/rule-generation.activities.js";
+import { createTitleSuggestionActivities } from "./activities/title-suggestion.activities.js";
 import { LLM_JOB_TASK_QUEUE } from "@monitor/shared/temporal/temporal.const.js";
 
 // 리퍼 등 게이트웨이 전용 스케줄러가 워커에서 돌지 않게 한다.
@@ -16,6 +18,7 @@ async function main(): Promise<void> {
         logger: ["error", "warn"],
     });
     const ruleGeneration = app.get(TaskRuleGenerationService, { strict: false });
+    const titleSuggestion = app.get(SuggestTaskTitleUseCase, { strict: false });
 
     const address = process.env["TEMPORAL_ADDRESS"] ?? "localhost:7233";
     const connection = await NativeConnection.connect({ address });
@@ -24,7 +27,10 @@ async function main(): Promise<void> {
         namespace: "default",
         taskQueue: LLM_JOB_TASK_QUEUE,
         workflowsPath: new URL("./workflows/index.js", import.meta.url).pathname,
-        activities: createRuleGenerationActivities(ruleGeneration),
+        activities: {
+            ...createRuleGenerationActivities(ruleGeneration),
+            ...createTitleSuggestionActivities(titleSuggestion),
+        },
     });
 
     process.stdout.write(
