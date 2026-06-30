@@ -15,6 +15,7 @@ import type { TaskCleanupSuggestionRepository } from "@monitor/insight-api/task-
 import { dedupeByKindAndTask } from "@monitor/insight-api/task-cleanup/domain/task.cleanup.dedup.policy.js";
 import type { TaskCleanupAgent, GenerateCleanupSuggestionsOutput } from "../agents/task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "../agents/task.cleanup.prompt.js";
+import { MissingApiKeyError } from "../activity.errors.js";
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
 const MAX_SUGGESTIONS_HARD_CAP = 50;
@@ -45,19 +46,19 @@ export class TaskCleanupActivity {
         };
     }
 
-    // run 단계: 시작 알림 → 스냅샷 수집 → LLM 추론(결과 저장). 재시도 시 저장된 응답을 재사용한다.
+    // run 단계: 스냅샷 수집 → LLM 추론(결과 저장). 재시도 시 저장된 응답을 재사용하며 알림을 중복 발행하지 않는다.
     async runTaskCleanup(jobId: string): Promise<number> {
         const job = await this.loadJob(jobId);
-
-        this.notifier.publish({
-            type: NOTIFICATION_TYPE.sdkJobUpdated,
-            payload: { kind: "task-cleanup", status: "running", jobId },
-        });
 
         if (job.llmOutputJson) {
             const saved = JSON.parse(job.llmOutputJson) as GenerateCleanupSuggestionsOutput & { tasksScanned: number };
             return saved.tasksScanned ?? 0;
         }
+
+        this.notifier.publish({
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
+            payload: { kind: "task-cleanup", status: "running", jobId },
+        });
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (!apiKey) throw new MissingApiKeyError();
@@ -80,6 +81,12 @@ export class TaskCleanupActivity {
         }));
 
         const tasksScanned = snapshots.length;
+
+        if (tasksScanned === 0) {
+            const emptyMemo = { suggestions: [], modelUsed: "n/a", durationMs: 0, costUsd: null, numTurns: null, usage: null, tasksScanned: 0 };
+            await this.jobs.saveLlmOutput(jobId, JSON.stringify(emptyMemo), new Date().toISOString());
+            return 0;
+        }
 
         const output = await this.agent.generate({
             ...(apiKey ? { apiKey } : {}),
@@ -105,11 +112,16 @@ export class TaskCleanupActivity {
         const memo = JSON.parse(job.llmOutputJson) as GenerateCleanupSuggestionsOutput & { tasksScanned: number };
         if (memo.suggestions.length === 0) return 0;
 
+        const userId = currentUserId();
+
+        // 재시도 안전: 이미 삽입된 제안이 있으면 중복 삽입을 건너뛴다.
+        const alreadyInserted = await this.suggestions.countByJobId(jobId, userId);
+        if (alreadyInserted > 0) return alreadyInserted;
+
         const allTasks = await this.taskQuery.findAll("active");
         const knownTaskIds = new Set(allTasks.map((t) => t.id));
 
         const now = new Date().toISOString();
-        const userId = currentUserId();
         const rows = dedupeByKindAndTask(memo.suggestions, knownTaskIds).map((s) => ({
             id: randomUUID(),
             userId,
@@ -188,13 +200,6 @@ export class TaskCleanupActivity {
         const job = await this.jobs.findById(jobId);
         if (!job) throw new Error(`insight job not found: ${jobId}`);
         return job;
-    }
-}
-
-class MissingApiKeyError extends Error {
-    constructor() {
-        super("No Anthropic API key configured. Set anthropic.api_key in Settings.");
-        this.name = "MissingApiKeyError";
     }
 }
 

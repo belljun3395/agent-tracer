@@ -45,6 +45,10 @@ export class TaskCleanupSuggestionRepository {
         await this.repo.save(entities);
     }
 
+    async countByJobId(jobId: string, userId: string): Promise<number> {
+        return this.repo.count({ where: { jobId, userId } });
+    }
+
     async findOwned(id: string, userId: string): Promise<TaskCleanupSuggestionEntity | null> {
         return this.repo.findOne({ where: { id, userId } });
     }

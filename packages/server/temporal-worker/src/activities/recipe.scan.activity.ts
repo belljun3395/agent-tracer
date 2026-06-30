@@ -24,6 +24,7 @@ import {
 } from "@monitor/insight-api/recipe/domain/recipe.parentage.policy.js";
 import type { RecipeScanAgent, GenerateRecipeCandidatesOutput } from "../agents/recipe.scan.agent.js";
 import type { RecipeTaskSnapshot } from "../agents/recipe.scan.prompt.js";
+import { MissingApiKeyError } from "../activity.errors.js";
 
 @Injectable()
 export class RecipeScanActivity {
@@ -53,19 +54,19 @@ export class RecipeScanActivity {
         };
     }
 
-    // run 단계: 시작 알림 → 스냅샷 수집 → LLM 추론(결과 저장). 재시도 시 저장된 응답을 재사용한다.
+    // run 단계: 스냅샷 수집 → LLM 추론(결과 저장). 재시도 시 저장된 응답을 재사용하며 알림을 중복 발행하지 않는다.
     async runRecipeScan(jobId: string): Promise<number> {
         const job = await this.loadJob(jobId);
-
-        this.notifier.publish({
-            type: NOTIFICATION_TYPE.sdkJobUpdated,
-            payload: { kind: "recipe-scan", status: "running", jobId },
-        });
 
         if (job.llmOutputJson) {
             const saved = JSON.parse(job.llmOutputJson) as GenerateRecipeCandidatesOutput & { tasksScanned: number };
             return saved.tasksScanned ?? 0;
         }
+
+        this.notifier.publish({
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
+            payload: { kind: "recipe-scan", status: "running", jobId },
+        });
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (!apiKey) throw new MissingApiKeyError();
@@ -129,6 +130,10 @@ export class RecipeScanActivity {
 
         const memo = JSON.parse(job.llmOutputJson) as GenerateRecipeCandidatesOutput & { tasksScanned: number };
         if (memo.recipes.length === 0) return 0;
+
+        // 재시도 안전: 이미 삽입된 후보가 있으면 중복 삽입을 건너뛴다.
+        const alreadyInserted = await this.candidates.countByJobId(jobId);
+        if (alreadyInserted > 0) return alreadyInserted;
 
         const knownTasks = await this.taskQuery.findAll("all");
         const knownTaskIds = new Set(knownTasks.map((t) => t.id));
@@ -242,13 +247,6 @@ export class RecipeScanActivity {
             if (!r.shouldRetire(nowIso)) continue;
             await this.recipes.setStatus(r.id, "retired", nowIso);
         }
-    }
-}
-
-class MissingApiKeyError extends Error {
-    constructor() {
-        super("No Anthropic API key configured. Set anthropic.api_key in Settings.");
-        this.name = "MissingApiKeyError";
     }
 }
 

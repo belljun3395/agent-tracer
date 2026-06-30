@@ -55,6 +55,10 @@ export class RecipeCandidateRepository {
         await this.repo.save(entities);
     }
 
+    async countByJobId(jobId: string): Promise<number> {
+        return this.repo.count({ where: { jobId, userId: currentUserId() } });
+    }
+
     async findById(id: string): Promise<RecipeCandidateEntity | null> {
         return this.repo.findOne({ where: { id, userId: currentUserId() } });
     }

@@ -16,13 +16,7 @@ import {
     TaskNotFoundError,
 } from "@monitor/run-api/task/common/task.errors.js";
 import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/task/application/dto/suggest.task.title.usecase.dto.js";
-
-export class MissingApiKeyError extends Error {
-    constructor() {
-        super("No Anthropic API key configured. Set anthropic.api_key in Settings.");
-        this.name = "MissingApiKeyError";
-    }
-}
+import { MissingApiKeyError } from "../activity.errors.js";
 
 @Injectable()
 export class TitleSuggestionActivity {

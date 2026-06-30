@@ -53,9 +53,10 @@ export class RuleGenerationActivity {
         };
     }
 
-    // generate 단계: 시작 알림 → LLM 추론(결과 저장).
+    // generate 단계: LLM 추론(결과 저장). 재시도 시 저장된 응답을 재사용하며 알림을 중복 발행하지 않는다.
     async generateRuleProposals(jobId: string): Promise<void> {
         const job = await this.loadJob(jobId);
+        if (job.llmOutputJson) return;
         this.notifier.publish({
             type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
