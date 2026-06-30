@@ -2,19 +2,13 @@ import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { checkRuleInvariants } from "@monitor/rules-api/rule/domain/rule.invariants.policy.js";
-import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.policy.js";
-import {
-    BACKFILL_TRIGGER_PORT,
-    CLOCK_PORT,
-    ID_GENERATOR_PORT,
-    NOTIFICATION_PUBLISHER_PORT,
-    RULE_PERSISTENCE_PORT,
-} from "./outbound/tokens.js";
+import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.predicates.policy.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT, NOTIFICATION_PUBLISHER_PORT, RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
+import { BackfillRuleEvaluationUseCase } from "@monitor/rules-api/verification/application/backfill.rule.evaluation.usecase.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import type { IRuleNotificationPublisher } from "./outbound/notification.publisher.port.js";
-import type { IBackfillTrigger } from "./outbound/backfill.trigger.port.js";
 import type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError } from "../common/errors.js";
@@ -29,7 +23,7 @@ export class CreateRuleUseCase {
     constructor(
         @Inject(RULE_PERSISTENCE_PORT) private readonly ruleRepo: IRulePersistence,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IRuleNotificationPublisher,
-        @Inject(BACKFILL_TRIGGER_PORT) private readonly backfill: IBackfillTrigger,
+        private readonly backfill: BackfillRuleEvaluationUseCase,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
         @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
@@ -37,8 +31,9 @@ export class CreateRuleUseCase {
     @Transactional()
     async execute(input: CreateRuleUseCaseIn): Promise<CreateRuleUseCaseOut> {
         validate(input);
-        const signature = computeRuleSignature({
+        const signature = input.signature ?? computeRuleSignature({
             ...(input.trigger ? { trigger: input.trigger } : {}),
+            ...(input.triggerOn ? { triggerOn: input.triggerOn } : {}),
             expect: input.expect,
         });
         const id = this.idGen.newUuid();
@@ -67,9 +62,8 @@ export class CreateRuleUseCase {
             },
         });
 
-        // 룰 저장이 커밋된 뒤에만 기존 턴 재평가를 시작한다.
         runOnTransactionCommit(() => {
-            void this.backfill.trigger({ rule: created }).catch((err: unknown) => {
+            void this.backfill.execute({ rule: created }).catch((err: unknown) => {
                 this.logger.error(
                     `Backfill failed for rule ${created.id}: ${
                         err instanceof Error ? err.message : String(err)
@@ -84,11 +78,9 @@ export class CreateRuleUseCase {
 
 function validate(input: CreateRuleUseCaseIn): void {
     if (input.name.trim() === "") {
-        // 빈 이름은 목록과 알림에서 식별할 수 없으므로 허용하지 않는다.
         throw new InvalidRuleError("Rule name must not be empty");
     }
     if (input.trigger && input.trigger.phrases.length === 0) {
-        // 트리거를 쓰는 룰은 최소 한 문구가 있어야 한다.
         throw new InvalidRuleError("Trigger phrases must not be empty when trigger is provided");
     }
     const [violation] = checkRuleInvariants({

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.policy.js";
+import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.predicates.policy.js";
 import { RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";
@@ -35,6 +35,7 @@ export class RegisterSuggestionUseCase {
         };
         const signature = computeRuleSignature({
             ...(input.trigger ? { trigger: input.trigger } : {}),
+            ...(input.triggerOn ? { triggerOn: input.triggerOn } : {}),
             expect,
         });
         const existing = await this.ruleRepo.findBySignature(signature);
@@ -49,6 +50,7 @@ export class RegisterSuggestionUseCase {
             source: "agent",
             ...(input.severity ? { severity: input.severity } : {}),
             ...(input.rationale ? { rationale: input.rationale } : {}),
+            signature,
         });
         return { rule: created.rule, created: true };
     }

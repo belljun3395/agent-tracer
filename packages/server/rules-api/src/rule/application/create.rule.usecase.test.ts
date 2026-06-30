@@ -9,7 +9,7 @@ import type {
     RulePersistenceRecord,
 } from "./outbound/rule.persistence.port.js";
 import type { IRuleNotificationPublisher, RuleOutboundNotification } from "./outbound/notification.publisher.port.js";
-import type { IBackfillTrigger } from "./outbound/backfill.trigger.port.js";
+import { BackfillRuleEvaluationUseCase } from "@monitor/rules-api/verification/application/backfill.rule.evaluation.usecase.js";
 import { InvalidRuleError } from "../common/errors.js";
 
 const NOW_ISO = "2026-04-29T10:00:00.000Z";
@@ -33,9 +33,9 @@ function setup() {
     const notifier: IRuleNotificationPublisher & { publish: Mock } = {
         publish: vi.fn((n) => { calls.push(n); }),
     };
-    const backfill: IBackfillTrigger & { trigger: Mock } = {
-        trigger: vi.fn(async () => ({ turnsConsidered: 0, turnsEvaluated: 0, verdictsCreated: 0 })),
-    };
+    const backfill = {
+        execute: vi.fn(async () => ({ turnsConsidered: 0, turnsEvaluated: 0, verdictsCreated: 0 })),
+    } as unknown as BackfillRuleEvaluationUseCase & { execute: Mock };
     const clock: IClock & { nowIso: Mock; nowMs: Mock } = {
         nowMs: vi.fn(() => Date.parse(NOW_ISO)),
         nowIso: vi.fn(() => NOW_ISO),
@@ -92,8 +92,8 @@ describe("CreateRuleUseCase", () => {
             scope: "global",
         });
 
-        expect(h.backfill.trigger).toHaveBeenCalledTimes(1);
-        const arg = h.backfill.trigger.mock.calls[0]![0];
+        expect(h.backfill.execute).toHaveBeenCalledTimes(1);
+        const arg = h.backfill.execute.mock.calls[0]![0];
         expect(arg.rule.id).toBe("rule-id-1");
     });
 

@@ -18,14 +18,12 @@ function rule(overrides: Partial<Rule> & Pick<Rule, "expect">): Rule {
 }
 
 function evaluateOne(r: Rule, partial: Partial<EvaluateTurnInput>): ReturnType<typeof evaluateTurn>["verdicts"][number] | undefined {
-    let counter = 0;
     const input: EvaluateTurnInput = {
         turnId: "turn-1",
         assistantText: "",
         toolCalls: [],
         rules: [r],
         now: NOW,
-        newVerdictId: () => `v-${++counter}`,
         ...partial,
     };
     return evaluateTurn(input).verdicts[0];
@@ -111,5 +109,11 @@ describe("evaluateTurn — 턴 단위 룰 평가", () => {
             toolCalls: [bash("deploy prod")],
         });
         expect(verdict?.status).toBe("verified");
+    });
+
+    it("verdict id는 turnId:ruleId 합성 키로 일관되게 생성된다", () => {
+        const r = rule({ id: "rule-1", expect: { action: "command" } });
+        const verdict = evaluateOne(r, { turnId: "turn-abc", toolCalls: [bash("ls")] });
+        expect(verdict?.id).toBe("turn-abc:rule-1");
     });
 });

@@ -2,7 +2,7 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { RULE_EXPECTED_ACTIONS, RULE_SCOPES, RULE_SEVERITIES, RULE_TRIGGER_SOURCES } from "../domain/const/rule.const.js";
 import { checkRuleInvariants } from "../domain/rule.invariants.policy.js";
-import type { RuleExpectInput } from "../domain/type/rule.expectation.input.js";
+import type { RuleExpectation } from "../domain/type/rule.expectation.type.js";
 
 const triggerSchema = z.object({
     phrases: z.array(z.string().trim().min(1)).min(1),
@@ -26,8 +26,7 @@ export const ruleCreateSchema = z
         rationale: z.string().trim().min(1).optional(),
     })
     .superRefine((value, ctx) => {
-        // 입력 body의 expect.tool은 도메인 expect.action에 대응한다.
-        const expect: RuleExpectInput = {
+        const expect: RuleExpectation = {
             ...(value.expect.tool !== undefined ? { action: value.expect.tool } : {}),
             ...(value.expect.commandMatches !== undefined ? { commandMatches: value.expect.commandMatches } : {}),
             ...(value.expect.pattern !== undefined ? { pattern: value.expect.pattern } : {}),

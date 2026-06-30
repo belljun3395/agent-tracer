@@ -31,7 +31,12 @@ export const ruleSuggestionIngestSchema = z
         rationale: z.string().trim().min(1).optional(),
     })
     .superRefine((value, ctx) => {
-        for (const violation of checkRuleInvariants({ scope: value.scope, taskId: value.taskId, expect: value.expect })) {
+        const expect = {
+            ...(value.expect.action !== undefined ? { action: value.expect.action } : {}),
+            ...(value.expect.commandMatches !== undefined ? { commandMatches: value.expect.commandMatches } : {}),
+            ...(value.expect.pattern !== undefined ? { pattern: value.expect.pattern } : {}),
+        };
+        for (const violation of checkRuleInvariants({ scope: value.scope, taskId: value.taskId, expect })) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: violation.message, path: [violation.path] });
         }
     });

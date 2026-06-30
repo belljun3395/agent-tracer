@@ -1,5 +1,6 @@
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 import { isCommandExpectedAction } from "@monitor/rules-api/rule/public/predicates.js";
+import { compilePattern } from "@monitor/shared/kernel/compile.pattern.js";
 import { VERDICT_STATUS } from "./const/verdict.const.js";
 import { verificationToolMatchesExpectedAction } from "./tool.action.matching.policy.js";
 import { matchRuleTrigger, type TriggerMatch } from "./rule.trigger.matching.policy.js";
@@ -18,7 +19,6 @@ export interface EvaluateTurnInput {
     readonly toolCalls: ReadonlyArray<EvaluateTurnToolCall>;
     readonly rules: ReadonlyArray<Rule>;
     readonly now: string;
-    readonly newVerdictId: () => string;
 }
 
 export interface EvaluateTurnResult {
@@ -30,14 +30,6 @@ interface ExpectationEvaluation {
     readonly actualToolCalls: string[];
     readonly expectedPattern?: string;
     readonly matchedToolCalls?: string[];
-}
-
-function compilePattern(pattern: string): RegExp | null {
-    try {
-        return new RegExp(pattern);
-    } catch {
-        return null;
-    }
 }
 
 function commandIncludesAny(cmd: string, needles: readonly string[]): boolean {
@@ -64,7 +56,6 @@ function evaluateCommandMatchesExpectation(
     const actualToolCalls = matchingToolCalls.map(commandEvidence);
     const expectedPattern = commandMatches.join(" | ");
     if (matchingToolCalls.length === 0) {
-        // 기대한 명령 계열 도구가 없으면 요구 행동이 충족되지 않은 것이다.
         return {
             status: VERDICT_STATUS.contradicted,
             actualToolCalls,
@@ -90,7 +81,6 @@ function evaluatePatternExpectation(
     const actualToolCalls = matchingToolCalls.map(toolCallEvidence);
     const re = compilePattern(pattern);
     if (re === null) {
-        // 패턴이 컴파일되지 않으면 룰 자체가 판정 불가능하다.
         return {
             status: VERDICT_STATUS.unverifiable,
             actualToolCalls,
@@ -98,7 +88,6 @@ function evaluatePatternExpectation(
         };
     }
     if (matchingToolCalls.length === 0) {
-        // 검사할 도구 호출이 없으면 기대한 증거가 없는 것으로 본다.
         return {
             status: VERDICT_STATUS.contradicted,
             actualToolCalls,
@@ -121,7 +110,6 @@ function evaluateActionExpectation(
 ): ExpectationEvaluation {
     const actualToolCalls = matchingToolCalls.map(toolCallEvidence);
     if (action === undefined) {
-        // 기대 조건이 비어 있으면 verified/contradicted를 결정할 기준이 없다.
         return {
             status: VERDICT_STATUS.unverifiable,
             actualToolCalls,
@@ -141,14 +129,11 @@ function evaluateExpectation(
 ): ExpectationEvaluation {
     const { action, commandMatches, pattern } = expect;
     if ((action === undefined || isCommandExpectedAction(action)) && commandMatches !== undefined) {
-        // commandMatches는 정규식이 아니라 실제 명령에 포함될 리터럴 문자열이다.
         return evaluateCommandMatchesExpectation(commandMatches, matchingToolCalls);
     }
     if (pattern !== undefined) {
-        // pattern 룰은 기대 액션에 맞는 도구 호출의 파일 경로나 명령 문자열을 대상으로 판정한다.
         return evaluatePatternExpectation(pattern, matchingToolCalls);
     }
-    // action만 있는 룰은 해당 액션 도구 호출의 존재 여부로 충족 여부를 판단한다.
     return evaluateActionExpectation(action, matchingToolCalls);
 }
 
@@ -158,7 +143,6 @@ function evaluateRule(
 ): TurnVerdict | null {
     let matchedPhrase: string | undefined;
     if (rule.trigger !== undefined) {
-        // 트리거가 있는 룰은 해당 문구가 실제 턴에 나타난 경우에만 평가한다.
         const triggerMatch = findRuleTriggerMatch(rule, input);
         if (triggerMatch === null) return null;
         matchedPhrase = triggerMatch.phrase;
@@ -184,7 +168,7 @@ function evaluateRule(
             : {}),
     };
     return {
-        id: input.newVerdictId(),
+        id: `${input.turnId}:${rule.id}`,
         turnId: input.turnId,
         ruleId: rule.id,
         status: expectation.status,
@@ -197,7 +181,6 @@ function findRuleTriggerMatch(
     rule: Rule,
     input: EvaluateTurnInput,
 ): TriggerMatch | null {
-    // turn 평가는 부정 표현 뒤의 문구를 트리거에서 제외한다(negationAware).
     return matchRuleTrigger(
         rule,
         [

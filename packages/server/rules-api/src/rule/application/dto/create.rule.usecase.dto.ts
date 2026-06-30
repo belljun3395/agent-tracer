@@ -26,6 +26,7 @@ export interface CreateRuleUseCaseIn {
     readonly source?: CreateRuleSourceUseCaseDto;
     readonly severity?: CreateRuleSeverityUseCaseDto;
     readonly rationale?: string;
+    readonly signature?: string;
 }
 
 export interface CreateRuleUseCaseOut {

@@ -3,7 +3,6 @@ import type { TurnVerdict, VerdictStatus } from "@monitor/rules-api/verification
 export type VerdictStatusPort = VerdictStatus;
 
 export interface VerdictUpsertInput {
-    readonly id: string;
     readonly turnId: string;
     readonly ruleId: string;
     readonly status: VerdictStatus;

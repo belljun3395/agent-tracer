@@ -1,12 +1,12 @@
 import { RULE_SCOPE } from "./const/rule.const.js";
 import type { RuleScope } from "./type/rule.value.type.js";
-import type { RuleExpectInput } from "./type/rule.expectation.input.js";
-import { isRuleExpectMeaningful } from "./rule.expect.policy.js";
+import type { RuleExpectation } from "./type/rule.expectation.type.js";
+import { isRuleExpectMeaningful } from "./rule.predicates.policy.js";
 
 export interface RuleInvariantTarget {
     readonly scope: RuleScope;
     readonly taskId?: string | null | undefined;
-    readonly expect: RuleExpectInput;
+    readonly expect: RuleExpectation;
 }
 
 export interface RuleInvariantViolation {
@@ -14,7 +14,6 @@ export interface RuleInvariantViolation {
     readonly path: "taskId" | "expect";
 }
 
-// 룰 생성의 도메인 불변식.
 export function checkRuleInvariants(target: RuleInvariantTarget): readonly RuleInvariantViolation[] {
     const violations: RuleInvariantViolation[] = [];
     if (target.scope === RULE_SCOPE.task && !target.taskId) {

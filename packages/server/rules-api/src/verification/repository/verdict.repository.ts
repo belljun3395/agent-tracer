@@ -32,7 +32,7 @@ export class VerdictRepository implements IVerdictRepository {
         entity.evaluatedAt = input.evaluatedAt;
         const saved = await this.repo.save(entity);
 
-        return { ...mapEntity(saved), id: input.id };
+        return mapEntity(saved);
     }
 
     async findByTurnId(turnId: string): Promise<readonly TurnVerdict[]> {

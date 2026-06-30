@@ -10,7 +10,7 @@ export function inferToolCall(event: {
     if (toolName) {
         return buildToolCall(toolName, event.metadata);
     }
-    const semanticTool = inferSemanticTool(event.kind, event.metadata);
+    const semanticTool = inferSemanticTool(event.metadata);
     if (semanticTool) {
         return buildToolCall(semanticTool, event.metadata);
     }
@@ -39,7 +39,7 @@ function buildToolCall(
     };
 }
 
-function inferSemanticTool(kind: string, metadata: Record<string, unknown>): string | null {
+function inferSemanticTool(metadata: Record<string, unknown>): string | null {
     const subtypeKey = normalizeToken(readString(metadata, "subtypeKey"));
     if (subtypeKey) {
         if (["runcommand", "runtest", "runbuild", "runlint", "verify", "shellprobe"].includes(subtypeKey)) {
@@ -57,7 +57,7 @@ function inferSemanticTool(kind: string, metadata: Record<string, unknown>): str
     if (toolFamily === "terminal") return "command";
     if (toolFamily === "file") return operation === "observe" || operation === "read" ? "file-read" : "file-write";
     if (toolFamily === "web") return "web";
-    return kind === KIND.terminalCommand ? "command" : null;
+    return null;
 }
 
 function readString(metadata: Record<string, unknown>, key: string): string | undefined {
