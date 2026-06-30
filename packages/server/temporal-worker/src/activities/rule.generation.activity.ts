@@ -113,7 +113,6 @@ export class RuleGenerationActivity {
         });
     }
 
-    // 재시도가 모두 소진된 잡을 실패로 닫고 알린다.
     async failRuleGeneration(jobId: string, error: string): Promise<void> {
         const job = await this.jobs.findById(jobId);
         const attempts = await this.jobs.incrementAttempts(
@@ -147,7 +146,6 @@ export class RuleGenerationActivity {
         return job as RuleJobEntity & { taskId: string };
     }
 
-    // 컨텍스트를 모아 LLM 입력을 만든다.
     private async loadGenerationInput(
         taskId: string,
     ): Promise<GenerateRuleSuggestionsInput> {
@@ -200,7 +198,6 @@ export class RuleGenerationActivity {
         return output;
     }
 
-    // 제안된 규칙을 등록하고 새로 생성된 수를 돌려준다.
     private async applyProposals(
         taskId: string,
         output: GenerateRuleSuggestionsOutput,
