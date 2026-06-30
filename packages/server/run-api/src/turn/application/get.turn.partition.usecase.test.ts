@@ -3,18 +3,16 @@ import type { Mock } from "vitest";
 import { GetTurnPartitionUseCase } from "./get.turn.partition.usecase.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
-import type { ITaskAccess } from "./outbound/task.access.port.js";
-import type {
-    ITimelineEventAccess,
-    TimelineEventAccessRecord,
-} from "./outbound/timeline.event.access.port.js";
+import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import type { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import type { TurnPartition } from "../domain/type/turn.partition.type.js";
 import { TaskNotFoundError } from "../common/turn.partition.errors.js";
 
 const NOW_ISO = "2026-04-29T10:00:00.000Z";
 
-function userMessage(id: string, createdAt: string): TimelineEventAccessRecord {
+function userMessage(id: string, createdAt: string): TimelineEvent {
     return {
         id,
         taskId: "t-1",
@@ -27,13 +25,13 @@ function userMessage(id: string, createdAt: string): TimelineEventAccessRecord {
     };
 }
 
-function setup(opts: { taskFound?: boolean; events?: TimelineEventAccessRecord[]; stored?: ReturnType<TurnPartitionRepository["get"]> extends Promise<infer T> ? T : never } = {}) {
+function setup(opts: { taskFound?: boolean; events?: TimelineEvent[]; stored?: ReturnType<TurnPartitionRepository["get"]> extends Promise<infer T> ? T : never } = {}) {
     const tasks = {
         findById: vi.fn(async () => (opts.taskFound === false ? null : { id: "t-1" })),
     } as unknown as ITaskAccess & { findById: Mock };
     const events = {
         findByTaskId: vi.fn(async () => opts.events ?? []),
-    } as unknown as ITimelineEventAccess & { findByTaskId: Mock };
+    } as unknown as ITimelineEventRead & { findByTaskId: Mock };
     const turnPartitions = {
         get: vi.fn(async () => opts.stored ?? null),
         upsert: vi.fn(),

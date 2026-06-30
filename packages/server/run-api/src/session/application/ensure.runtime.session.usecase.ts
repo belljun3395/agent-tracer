@@ -5,32 +5,29 @@ import { isTaskRunning } from "@monitor/run-api/task/domain/task.predicates.poli
 import { isRunningSession } from "../domain/session.predicates.policy.js";
 import { Transactional } from "typeorm-transactional";
 import { normalizeWorkspacePath } from "@monitor/run-api/task/public/helpers.js";
-import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
-import { RuntimeBindingService } from "../service/runtime.binding.service.js";
-import {
-    CLOCK_PORT,
-    ID_GENERATOR_PORT,
-    NOTIFICATION_PUBLISHER_PORT,
-    TASK_LIFECYCLE_ACCESS_PORT,
-} from "./outbound/tokens.js";
-import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
+import { SessionRepository } from "../repository/session.repository.js";
+import { RuntimeBindingRepository } from "../repository/runtime.binding.repository.js";
+import { RuntimeBindingEntity } from "../domain/runtime.binding.entity.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT, NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
+import { TASK_ACCESS, TASK_LIFECYCLE } from "@monitor/run-api/task/public/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { ISessionNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
-import type { ITaskLifecycleAccess } from "./outbound/task.lifecycle.access.port.js";
+import type { ITaskLifecycle } from "@monitor/run-api/task/public/iservice/task.lifecycle.iservice.js";
 import type {
     EnsureRuntimeSessionIn,
     EnsureRuntimeSessionOut,
 } from "./dto/ensure.runtime.session.dto.js";
+import type { RuntimeBindingUpsertInput } from "../public/dto/runtime.binding.snapshot.dto.js";
 
 @Injectable()
 export class EnsureRuntimeSessionUseCase {
     constructor(
-        private readonly sessions: SessionLifecycleService,
-        private readonly runtimeBindings: RuntimeBindingService,
+        private readonly sessionRepo: SessionRepository,
+        private readonly runtimeBindingRepo: RuntimeBindingRepository,
         @Inject(TASK_ACCESS) private readonly tasks: ITaskAccess,
-        @Inject(TASK_LIFECYCLE_ACCESS_PORT) private readonly taskLifecycle: ITaskLifecycleAccess,
+        @Inject(TASK_LIFECYCLE) private readonly taskLifecycle: ITaskLifecycle,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ISessionNotificationPublisher,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
         @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
@@ -43,28 +40,29 @@ export class EnsureRuntimeSessionUseCase {
             : undefined;
 
         // 이미 실행 중인 바인딩은 새 세션을 만들지 않고 기존 monitor 세션으로 고정한다.
-        const binding = await this.runtimeBindings.findActive(input.runtimeSource, input.runtimeSessionId);
-        if (binding) {
-            const session = await this.sessions.findById(binding.monitorSessionId);
+        const activeEntity = await this.runtimeBindingRepo.findActive(input.runtimeSource, input.runtimeSessionId);
+        if (activeEntity) {
+            const session = await this.sessionRepo.findById(activeEntity.monitorSessionId!);
             if (!session || !isRunningSession(session)) {
-                await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
+                await this.clearSession(input.runtimeSource, input.runtimeSessionId);
             } else {
                 return {
-                    taskId: binding.taskId,
-                    sessionId: binding.monitorSessionId,
+                    taskId: activeEntity.taskId,
+                    sessionId: activeEntity.monitorSessionId!,
                     taskCreated: false,
                     sessionCreated: false,
                 };
             }
         }
 
-        const existingTaskId = await this.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
+        const bindingEntity = await this.runtimeBindingRepo.findByKey(input.runtimeSource, input.runtimeSessionId);
+        const existingTaskId = bindingEntity?.taskId ?? null;
         if (existingTaskId) {
             const task = await this.tasks.findById(existingTaskId);
 
             // 읽기 전용 재연결은 태스크를 running으로 되돌리지 않고 마지막 세션을 반환한다.
             if (input.resume === false) {
-                const sessions = await this.sessions.findByTaskId(existingTaskId);
+                const sessions = await this.sessionRepo.findByTaskId(existingTaskId);
                 const latest = [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
                 if (latest) {
                     return {
@@ -91,14 +89,14 @@ export class EnsureRuntimeSessionUseCase {
                 this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: resumedTask });
             }
 
-            const session = await this.sessions.create({
+            const session = await this.sessionRepo.create({
                 id: sessionId,
                 taskId: existingTaskId,
                 status: "running",
                 startedAt,
             });
             this.notifier.publish({ type: NOTIFICATION_TYPE.sessionStarted, payload: session });
-            await this.runtimeBindings.upsert({
+            await this.upsertBinding({
                 runtimeSource: input.runtimeSource,
                 runtimeSessionId: input.runtimeSessionId,
                 taskId: existingTaskId,
@@ -126,12 +124,33 @@ export class EnsureRuntimeSessionUseCase {
         });
         const taskId = result.task.id;
         const sessionId = result.sessionId!;
-        await this.runtimeBindings.upsert({
+        await this.upsertBinding({
             runtimeSource: input.runtimeSource,
             runtimeSessionId: input.runtimeSessionId,
             taskId,
             monitorSessionId: sessionId,
         });
         return { taskId, sessionId, taskCreated: true, sessionCreated: true };
+    }
+
+    private async clearSession(runtimeSource: string, runtimeSessionId: string): Promise<void> {
+        const entity = await this.runtimeBindingRepo.findByKey(runtimeSource, runtimeSessionId);
+        if (!entity) return;
+        entity.monitorSessionId = null;
+        entity.updatedAt = this.clock.nowIso();
+        await this.runtimeBindingRepo.save(entity);
+    }
+
+    private async upsertBinding(input: RuntimeBindingUpsertInput): Promise<void> {
+        const now = this.clock.nowIso();
+        const existing = await this.runtimeBindingRepo.findByKey(input.runtimeSource, input.runtimeSessionId);
+        const entity = existing ?? new RuntimeBindingEntity();
+        entity.runtimeSource = input.runtimeSource;
+        entity.runtimeSessionId = input.runtimeSessionId;
+        entity.taskId = input.taskId;
+        entity.monitorSessionId = input.monitorSessionId;
+        entity.updatedAt = now;
+        if (!existing) entity.createdAt = now;
+        await this.runtimeBindingRepo.save(entity);
     }
 }

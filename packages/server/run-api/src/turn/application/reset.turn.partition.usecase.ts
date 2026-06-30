@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
-import { TASK_ACCESS_PORT } from "./outbound/tokens.js";
-import type { ITaskAccess } from "./outbound/task.access.port.js";
+import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
+import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
 import type {
     ResetTurnPartitionUseCaseIn,
     ResetTurnPartitionUseCaseOut,
@@ -12,7 +12,7 @@ import { TaskNotFoundError } from "../common/turn.partition.errors.js";
 @Injectable()
 export class ResetTurnPartitionUseCase {
     constructor(
-        @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
+        @Inject(TASK_ACCESS) private readonly tasks: ITaskAccess,
         private readonly turnPartitions: TurnPartitionRepository,
     ) {}
 

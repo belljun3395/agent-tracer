@@ -2,14 +2,12 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
 import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.policy.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
-import {
-    CLOCK_PORT,
-    TASK_ACCESS_PORT,
-    TIMELINE_EVENT_ACCESS_PORT,
-} from "./outbound/tokens.js";
+import { CLOCK_PORT } from "./outbound/tokens.js";
+import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
-import type { ITaskAccess } from "./outbound/task.access.port.js";
-import type { ITimelineEventAccess } from "./outbound/timeline.event.access.port.js";
+import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
 import type {
     UpsertTurnPartitionUseCaseIn,
     UpsertTurnPartitionUseCaseOut,
@@ -19,8 +17,8 @@ import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "../common/
 @Injectable()
 export class UpsertTurnPartitionUseCase {
     constructor(
-        @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
-        @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
+        @Inject(TASK_ACCESS) private readonly tasks: ITaskAccess,
+        @Inject(TIMELINE_EVENT_READ) private readonly events: ITimelineEventRead,
         private readonly turnPartitions: TurnPartitionRepository,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
