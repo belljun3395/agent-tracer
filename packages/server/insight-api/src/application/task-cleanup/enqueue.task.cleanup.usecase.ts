@@ -3,7 +3,7 @@ import { TaskCleanupService } from "@monitor/insight-api/service/task-cleanup/ta
 import {
     TASK_CLEANUP_DISPATCHER,
     type ITaskCleanupDispatcher,
-} from "@monitor/insight-api/application/task-cleanup/outbound/task.cleanup.dispatcher.port.js";
+} from "@monitor/insight-api/public/task-cleanup/task.cleanup.dispatcher.port.js";
 
 /** task 정리 작업을 enqueue하고 실행을 워커로 넘긴다. */
 @Injectable()

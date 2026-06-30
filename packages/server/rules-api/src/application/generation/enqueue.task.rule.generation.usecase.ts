@@ -3,7 +3,7 @@ import { TaskRuleGenerationService } from "../../service/generation/task.rule.ge
 import {
     RULE_GENERATION_DISPATCHER,
     type IRuleGenerationDispatcher,
-} from "./outbound/rule.generation.dispatcher.port.js";
+} from "../../public/generation/rule.generation.dispatcher.port.js";
 
 /** task 규칙 생성 잡을 만들고 실행을 워커로 넘긴다. */
 @Injectable()

@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
     TITLE_SUGGESTION_DISPATCHER,
     type ITitleSuggestionDispatcher,
-} from "./outbound/title.suggestion.dispatcher.port.js";
+} from "../../public/task/title.suggestion.dispatcher.port.js";
 import type {
     SuggestTaskTitleUseCaseIn,
     SuggestTaskTitleUseCaseOut,

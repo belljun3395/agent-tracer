@@ -2,19 +2,19 @@ import { Global, Injectable, Module } from "@nestjs/common";
 import {
     RULE_GENERATION_DISPATCHER,
     type IRuleGenerationDispatcher,
-} from "@monitor/rules-api/application/generation/outbound/rule.generation.dispatcher.port.js";
+} from "@monitor/rules-api/public/generation/rule.generation.dispatcher.port.js";
 import {
     TITLE_SUGGESTION_DISPATCHER,
     type ITitleSuggestionDispatcher,
-} from "@monitor/run-api/application/task/outbound/title.suggestion.dispatcher.port.js";
+} from "@monitor/run-api/public/task/title.suggestion.dispatcher.port.js";
 import {
     RECIPE_SCAN_DISPATCHER,
     type IRecipeScanDispatcher,
-} from "@monitor/insight-api/application/recipe/outbound/recipe.scan.dispatcher.port.js";
+} from "@monitor/insight-api/public/recipe/recipe.scan.dispatcher.port.js";
 import {
     TASK_CLEANUP_DISPATCHER,
     type ITaskCleanupDispatcher,
-} from "@monitor/insight-api/application/task-cleanup/outbound/task.cleanup.dispatcher.port.js";
+} from "@monitor/insight-api/public/task-cleanup/task.cleanup.dispatcher.port.js";
 
 const MESSAGE = "temporal-worker executes jobs; it does not dispatch them.";
 

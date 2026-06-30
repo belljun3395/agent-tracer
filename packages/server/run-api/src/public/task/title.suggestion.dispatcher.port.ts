@@ -1,4 +1,4 @@
-import type { SuggestTaskTitleUseCaseOut } from "../dto/suggest.task.title.usecase.dto.js";
+import type { SuggestTaskTitleUseCaseOut } from "./title.suggestion.dto.js";
 
 export const TITLE_SUGGESTION_DISPATCHER = "TITLE_SUGGESTION_DISPATCHER";
 

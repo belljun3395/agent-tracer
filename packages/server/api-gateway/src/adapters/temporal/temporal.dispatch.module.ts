@@ -1,12 +1,12 @@
 import { Global, Module } from "@nestjs/common";
 import { TemporalClientProvider } from "@monitor/shared/job/temporal.client.provider.js";
-import { RULE_GENERATION_DISPATCHER } from "@monitor/rules-api/application/generation/outbound/rule.generation.dispatcher.port.js";
+import { RULE_GENERATION_DISPATCHER } from "@monitor/rules-api/public/generation/rule.generation.dispatcher.port.js";
 import { TemporalRuleGenerationDispatcher } from "@monitor/rules-api/adapter/generation/temporal.rule.generation.dispatcher.js";
-import { TITLE_SUGGESTION_DISPATCHER } from "@monitor/run-api/application/task/outbound/title.suggestion.dispatcher.port.js";
+import { TITLE_SUGGESTION_DISPATCHER } from "@monitor/run-api/public/task/title.suggestion.dispatcher.port.js";
 import { TemporalTitleSuggestionDispatcher } from "@monitor/run-api/adapter/task/temporal.title.suggestion.dispatcher.js";
-import { RECIPE_SCAN_DISPATCHER } from "@monitor/insight-api/application/recipe/outbound/recipe.scan.dispatcher.port.js";
+import { RECIPE_SCAN_DISPATCHER } from "@monitor/insight-api/public/recipe/recipe.scan.dispatcher.port.js";
 import { TemporalRecipeScanDispatcher } from "@monitor/insight-api/adapter/recipe/temporal.recipe.scan.dispatcher.js";
-import { TASK_CLEANUP_DISPATCHER } from "@monitor/insight-api/application/task-cleanup/outbound/task.cleanup.dispatcher.port.js";
+import { TASK_CLEANUP_DISPATCHER } from "@monitor/insight-api/public/task-cleanup/task.cleanup.dispatcher.port.js";
 import { TemporalTaskCleanupDispatcher } from "@monitor/insight-api/adapter/task-cleanup/temporal.task.cleanup.dispatcher.js";
 
 // 제출측 합성: 각 컨텍스트의 Temporal 디스패처를 도메인 포트에 바인딩한다.

@@ -5,7 +5,7 @@ import {
     TITLE_SUGGESTION_JOB,
 } from "@monitor/shared/job/llm.job.const.js";
 import { TemporalClientProvider } from "@monitor/shared/job/temporal.client.provider.js";
-import type { ITitleSuggestionDispatcher } from "../../application/task/outbound/title.suggestion.dispatcher.port.js";
+import type { ITitleSuggestionDispatcher } from "../../public/task/title.suggestion.dispatcher.port.js";
 
 type TitleSuggestionResult = Awaited<
     ReturnType<ITitleSuggestionDispatcher["dispatch"]>

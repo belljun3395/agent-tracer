@@ -1,5 +1,5 @@
 import { proxyActivities } from "@temporalio/workflow";
-import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/application/task/dto/suggest.task.title.usecase.dto.js";
+import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/public/task/title.suggestion.dto.js";
 
 interface TitleSuggestionActivities {
     runTitleSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut>;

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { LLM_JOB_QUEUE, RECIPE_SCAN_JOB } from "@monitor/shared/job/llm.job.const.js";
 import { TemporalClientProvider } from "@monitor/shared/job/temporal.client.provider.js";
-import type { IRecipeScanDispatcher } from "@monitor/insight-api/application/recipe/outbound/recipe.scan.dispatcher.port.js";
+import type { IRecipeScanDispatcher } from "@monitor/insight-api/public/recipe/recipe.scan.dispatcher.port.js";
 
 // 레시피 스캔 잡 실행을 Temporal 워크플로로 넘긴다.
 @Injectable()

@@ -3,7 +3,7 @@ import { RecipeScanService } from "@monitor/insight-api/service/recipe/recipe.sc
 import {
     RECIPE_SCAN_DISPATCHER,
     type IRecipeScanDispatcher,
-} from "@monitor/insight-api/application/recipe/outbound/recipe.scan.dispatcher.port.js";
+} from "@monitor/insight-api/public/recipe/recipe.scan.dispatcher.port.js";
 import type { EnqueueRecipeScanInput } from "@monitor/insight-api/application/recipe/dto/recipe.scan.dto.js";
 
 /** recipe scan 작업을 enqueue하고 실행을 워커로 넘긴다. */

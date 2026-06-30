@@ -15,7 +15,7 @@ import {
     TaskHasNoEventsError,
     TaskNotFoundError,
 } from "@monitor/run-api/domain/task/task.errors.js";
-import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/application/task/dto/suggest.task.title.usecase.dto.js";
+import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/public/task/title.suggestion.dto.js";
 import { MissingApiKeyError } from "../activity.errors.js";
 
 @Injectable()
