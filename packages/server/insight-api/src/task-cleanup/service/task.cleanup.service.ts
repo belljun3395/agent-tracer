@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { randomUUID } from "node:crypto";
-import { TaskCleanupAgent } from "../agent/task.cleanup.agent.js";
+import {
+    TaskCleanupAgent,
+    type GenerateCleanupSuggestionsOutput,
+} from "../agent/task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "../agent/task.cleanup.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
@@ -116,12 +119,23 @@ export class TaskCleanupService {
                 ...(t.parentTaskId ? { parentTaskId: t.parentTaskId } : {}),
             }));
 
-            const output = await this.agent.generate({
-                ...(apiKey ? { apiKey } : {}),
-                ...(modelOverride ? { model: modelOverride } : {}),
-                tasks: snapshots,
-                maxSuggestions,
-            });
+            // 저장된 응답이 있으면 호출을 건너뛰고, 없으면 호출 후 저장한다.
+            let output: GenerateCleanupSuggestionsOutput;
+            if (job.llmOutputJson) {
+                output = JSON.parse(job.llmOutputJson) as GenerateCleanupSuggestionsOutput;
+            } else {
+                output = await this.agent.generate({
+                    ...(apiKey ? { apiKey } : {}),
+                    ...(modelOverride ? { model: modelOverride } : {}),
+                    tasks: snapshots,
+                    maxSuggestions,
+                });
+                await this.jobs.saveLlmOutput(
+                    job.id,
+                    JSON.stringify(output),
+                    new Date().toISOString(),
+                );
+            }
 
             const knownTaskIds = new Set(snapshots.map((s) => s.id));
             const now = new Date().toISOString();

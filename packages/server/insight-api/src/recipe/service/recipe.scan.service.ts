@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
-import { RecipeScanAgent } from "../agent/recipe.scan.agent.js";
+import {
+    RecipeScanAgent,
+    type GenerateRecipeCandidatesOutput,
+} from "../agent/recipe.scan.agent.js";
 import {
     MissingApiKeyError,
     NoTasksToScanError,
@@ -175,13 +178,24 @@ export class RecipeScanService {
                 return;
             }
 
-            const output = await this.agent.generate({
-                ...(apiKey ? { apiKey } : {}),
-                ...(modelOverride ? { model: modelOverride } : {}),
-                tasks: snapshots,
-                maxCandidates: filters.maxCandidates,
-                language,
-            });
+            // 저장된 응답이 있으면 호출을 건너뛰고, 없으면 호출 후 저장한다.
+            let output: GenerateRecipeCandidatesOutput;
+            if (job.llmOutputJson) {
+                output = JSON.parse(job.llmOutputJson) as GenerateRecipeCandidatesOutput;
+            } else {
+                output = await this.agent.generate({
+                    ...(apiKey ? { apiKey } : {}),
+                    ...(modelOverride ? { model: modelOverride } : {}),
+                    tasks: snapshots,
+                    maxCandidates: filters.maxCandidates,
+                    language,
+                });
+                await this.jobs.saveLlmOutput(
+                    job.id,
+                    JSON.stringify(output),
+                    new Date().toISOString(),
+                );
+            }
 
             const knownTaskIds = new Set(snapshots.map((s) => s.id));
             const now = new Date().toISOString();

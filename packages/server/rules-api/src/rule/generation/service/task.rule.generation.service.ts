@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
-import { RuleSuggestionAgent } from "../agent/rule.suggestion.agent.js";
+import {
+    RuleSuggestionAgent,
+    type GenerateRuleSuggestionsOutput,
+} from "../agent/rule.suggestion.agent.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
 import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
@@ -130,14 +133,25 @@ export class TaskRuleGenerationService {
             const existingRules = await this.listRules.execute({ scope: "global" });
             const existingNames = existingRules.rules.map((r) => r.name);
 
-            const output = await this.agent.generate({
-                ...(apiKey ? { apiKey } : {}),
-                ...(modelOverride ? { model: modelOverride } : {}),
-                summary,
-                existingRuleNames: existingNames,
-                maxRules,
-                language,
-            });
+            // 저장된 응답이 있으면 호출을 건너뛰고, 없으면 호출 후 저장한다.
+            let output: GenerateRuleSuggestionsOutput;
+            if (job.llmOutputJson) {
+                output = JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
+            } else {
+                output = await this.agent.generate({
+                    ...(apiKey ? { apiKey } : {}),
+                    ...(modelOverride ? { model: modelOverride } : {}),
+                    summary,
+                    existingRuleNames: existingNames,
+                    maxRules,
+                    language,
+                });
+                await this.jobs.saveLlmOutput(
+                    job.id,
+                    JSON.stringify(output),
+                    new Date().toISOString(),
+                );
+            }
 
             let rulesCreated = 0;
             for (const proposal of output.rules) {
