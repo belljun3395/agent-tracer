@@ -25,7 +25,6 @@ import { RuleJobRepository } from "./repository/job/rule.job.repository.js";
 
 // ── adapters ──────────────────────────────────────────────────────────────────
 import { RuleNotificationPublisherAdapter } from "./adapter/rule/notification.publisher.adapter.js";
-import { VerdictInvalidationPublicAdapter } from "./adapter/verification/verdict.invalidation.public.adapter.js";
 import { VerificationPostProcessorPublicAdapter } from "./adapter/verification/verification.post.processor.public.adapter.js";
 
 // ── services ──────────────────────────────────────────────────────────────────
@@ -64,9 +63,6 @@ import { TaskRuleGenerationController } from "./api/generation/task.rule.generat
 // ── subscriber ────────────────────────────────────────────────────────────────
 import { EventRecordedVerificationSubscriber } from "./subscriber/verification/event.recorded.verification.subscriber.js";
 
-// ── public tokens ─────────────────────────────────────────────────────────────
-import { RULE_READ, RULE_WRITE, RULE_SIGNATURE_QUERY } from "./public/rule/tokens.js";
-import { VERIFICATION_VERDICT_INVALIDATION, VERIFICATION_POST_PROCESSOR } from "./public/verification/tokens.js";
 import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
@@ -124,11 +120,8 @@ const VERIFICATION_PROVIDERS: Provider[] = [
         ) => new GetRuleEvidenceForTaskUseCase(enforcementRepo, eventRead, ruleRepo),
         inject: [RuleEnforcementRepository, TIMELINE_EVENT_READ, RuleRepository],
     },
-    VerdictInvalidationPublicAdapter,
     VerificationPostProcessorPublicAdapter,
     EventRecordedVerificationSubscriber,
-    { provide: VERIFICATION_VERDICT_INVALIDATION, useExisting: VerdictInvalidationPublicAdapter },
-    { provide: VERIFICATION_POST_PROCESSOR, useExisting: VerificationPostProcessorPublicAdapter },
     { provide: TURN_QUERY_REPOSITORY_TOKEN, useExisting: TurnQueryRepository },
 ];
 
@@ -168,9 +161,6 @@ export class RulesModule {
                 PromoteRuleToGlobalUseCase,
                 DemoteRuleToTaskUseCase,
                 RegisterSuggestionUseCase,
-                { provide: RULE_READ, useExisting: RuleRepository },
-                { provide: RULE_WRITE, useExisting: RuleRepository },
-                { provide: RULE_SIGNATURE_QUERY, useExisting: RuleRepository },
 
                 // ── verification ──
                 ...VERIFICATION_PROVIDERS,
@@ -191,15 +181,10 @@ export class RulesModule {
             ],
             exports: [
                 // rule cross-api
-                RULE_READ,
-                RULE_WRITE,
-                RULE_SIGNATURE_QUERY,
                 ListRulesUseCase,
                 RegisterSuggestionUseCase,
 
                 // verification cross-api
-                VERIFICATION_VERDICT_INVALIDATION,
-                VERIFICATION_POST_PROCESSOR,
                 TURN_QUERY_REPOSITORY_TOKEN,
                 RunTurnEvaluationUseCase,
                 TurnEvaluationService,

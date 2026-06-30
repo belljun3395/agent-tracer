@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Rule } from "@monitor/rules-api/public/rule/types/rule.types.js";
+import type { Rule } from "@monitor/rules-api/domain/rule/rule.types.js";
 import { evaluateTurn } from "./turn.evaluation.policy.js";
 import type { EvaluateTurnInput, EvaluateTurnToolCall } from "./turn.evaluation.policy.js";
 

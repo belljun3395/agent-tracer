@@ -1,16 +1,16 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { isRuleExpectMeaningful, computeRuleSignature } from "@monitor/rules-api/domain/rule/rule.predicates.policy.js";
 import type { RuleExpectation } from "@monitor/rules-api/domain/rule/type/rule.expectation.type.js";
 import { RuleRepository } from "../../repository/rule/rule.repository.js";
+import { VerdictRepository } from "../../repository/verification/verdict.repository.js";
+import { RuleEnforcementRepository } from "../../repository/verification/rule.enforcement.repository.js";
 import { RuleNotificationPublisherAdapter } from "../../adapter/rule/notification.publisher.adapter.js";
-import { VERIFICATION_VERDICT_INVALIDATION } from "@monitor/rules-api/public/verification/tokens.js";
 import type {
     RulePersistenceRecord,
     RulePersistenceUpdateInput,
 } from "./outbound/rule.persistence.port.js";
-import type { IVerdictInvalidation } from "@monitor/rules-api/public/verification/iservice/verdict.invalidation.iservice.js";
 import type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError, RuleNotFoundError } from "../../domain/rule/errors.js";
@@ -23,7 +23,8 @@ export type { UpdateRuleUseCaseOut as UpdateRuleResult } from "./dto/update.rule
 export class UpdateRuleUseCase {
     constructor(
         private readonly ruleRepo: RuleRepository,
-        @Inject(VERIFICATION_VERDICT_INVALIDATION) private readonly invalidation: IVerdictInvalidation,
+        private readonly verdicts: VerdictRepository,
+        private readonly enforcements: RuleEnforcementRepository,
         private readonly notifier: RuleNotificationPublisherAdapter,
     ) {}
 
@@ -78,8 +79,8 @@ export class UpdateRuleUseCase {
         if (!updated) throw new RuleNotFoundError(input.id);
 
         if (signatureChanged) {
-            await this.invalidation.deleteVerdictsByRuleId(input.id);
-            await this.invalidation.deleteEnforcementsByRuleId(input.id);
+            await this.verdicts.deleteByRuleId(input.id);
+            await this.enforcements.deleteByRuleId(input.id);
         }
 
         this.notifier.publish({

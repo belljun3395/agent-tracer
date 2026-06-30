@@ -1,5 +1,5 @@
-import type { Rule } from "@monitor/rules-api/public/rule/types/rule.types.js";
-import { isCommandExpectedAction } from "@monitor/rules-api/public/rule/predicates.js";
+import type { Rule } from "@monitor/rules-api/domain/rule/rule.types.js";
+import { isCommandExpectedAction } from "@monitor/rules-api/domain/rule/rule.predicates.exports.js";
 import { compilePattern } from "@monitor/shared/kernel/compile.pattern.js";
 import { VERDICT_STATUS } from "./const/verdict.const.js";
 import { verificationToolMatchesExpectedAction } from "./tool.action.matching.policy.js";

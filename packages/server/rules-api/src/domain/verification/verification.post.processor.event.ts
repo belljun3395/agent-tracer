@@ -1,5 +1,4 @@
-import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/domain/common/const/event.kind.const.js";
-import type { EventClassificationMatch } from "@monitor/timeline-api/domain/type/timeline.event.type.js";
+import type { MonitoringEventKind, TimelineLane, EventClassificationMatch } from "@monitor/timeline-api/public/types/event.types.js";
 
 export interface VerificationPostProcessorEvent {
     readonly id: string;
@@ -16,10 +15,4 @@ export interface VerificationPostProcessorEvent {
         readonly matches: readonly EventClassificationMatch[];
     };
     readonly createdAt: string;
-}
-
-export interface IVerificationPostProcessor {
-    onUserMessage(event: VerificationPostProcessorEvent): Promise<void>;
-    onAssistantResponse(event: VerificationPostProcessorEvent): Promise<void>;
-    onOtherEvent(event: VerificationPostProcessorEvent): Promise<void>;
 }

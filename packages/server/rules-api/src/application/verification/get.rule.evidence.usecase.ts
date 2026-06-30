@@ -1,8 +1,8 @@
 import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/public/types/event.const.js";
 import type { TimelineEventSnapshot } from "@monitor/timeline-api/public/dto/timeline.event.dto.js";
-import type { IRuleRead } from "@monitor/rules-api/public/rule/iservice/rule.read.iservice.js";
-import type { RuleSnapshot } from "@monitor/rules-api/public/rule/dto/rule.snapshot.dto.js";
+import { RuleRepository } from "../../repository/rule/rule.repository.js";
+import type { RulePersistenceRecord } from "../rule/outbound/rule.persistence.port.js";
 import type { IRuleEnforcementRepository } from "./outbound/rule.enforcement.repository.port.js";
 import type {
     GetRuleEvidenceForTaskUseCaseIn,
@@ -15,7 +15,7 @@ export class GetRuleEvidenceForTaskUseCase {
     constructor(
         private readonly enforcementRepo: IRuleEnforcementRepository,
         private readonly eventRead: ITimelineEventRead,
-        private readonly ruleRead: IRuleRead,
+        private readonly ruleRead: RuleRepository,
     ) {}
 
     async execute(
@@ -91,7 +91,7 @@ export class GetRuleEvidenceForTaskUseCase {
     }
 }
 
-function listExpectConditions(rule: RuleSnapshot): readonly RuleMatchedBy[] {
+function listExpectConditions(rule: RulePersistenceRecord): readonly RuleMatchedBy[] {
     const labels: RuleMatchedBy[] = [];
     if (rule.expect.action) labels.push("action");
     if (rule.expect.commandMatches && rule.expect.commandMatches.length > 0) {

@@ -1,4 +1,4 @@
-import type { Rule } from "@monitor/rules-api/public/rule/types/rule.types.js";
+import type { Rule } from "@monitor/rules-api/domain/rule/rule.types.js";
 
 export interface BackfillRuleEvaluationUseCaseIn {
     readonly rule: Rule;

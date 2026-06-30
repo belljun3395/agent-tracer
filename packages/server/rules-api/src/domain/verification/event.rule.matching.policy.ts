@@ -1,6 +1,6 @@
 import { KIND } from "@monitor/timeline-api/public/types/event.const.js";
 import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
-import type { Rule } from "@monitor/rules-api/public/rule/types/rule.types.js";
+import type { Rule } from "@monitor/rules-api/domain/rule/rule.types.js";
 import { compilePattern } from "@monitor/shared/kernel/compile.pattern.js";
 import { verificationToolMatchesExpectedAction } from "./tool.action.matching.policy.js";
 import { inferToolCall } from "./tool.call.inference.policy.js";

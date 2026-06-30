@@ -1,5 +1,5 @@
 import { matchEventAgainstRule } from "@monitor/rules-api/domain/verification/event.rule.matching.policy.js";
-import { isTaskScopedRule } from "@monitor/rules-api/public/rule/predicates.js";
+import { isTaskScopedRule } from "@monitor/rules-api/domain/rule/rule.predicates.exports.js";
 import { isOpenTurn } from "@monitor/rules-api/domain/verification/turn.status.const.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
@@ -19,7 +19,7 @@ import type { ITurnQueryRepository, BackfillTurnRow as BackfillTurnPortRow } fro
 import type { ITurnRepository } from "@monitor/rules-api/application/verification/outbound/turn.repository.port.js";
 import type { IVerdictRepository } from "@monitor/rules-api/application/verification/outbound/verdict.repository.port.js";
 
-import type { Rule } from "@monitor/rules-api/public/rule/types/rule.types.js";
+import type { Rule } from "@monitor/rules-api/domain/rule/rule.types.js";
 import type {
     BackfillRuleEvaluationUseCaseIn,
     BackfillRuleEvaluationUseCaseOut,

@@ -11,10 +11,7 @@ import type {
     RuleEnforcementInsert,
 } from "@monitor/rules-api/application/verification/outbound/rule.enforcement.repository.port.js";
 import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
-import type {
-    IVerificationPostProcessor,
-    VerificationPostProcessorEvent,
-} from "../../public/verification/iservice/verification.post.processor.iservice.js";
+import type { VerificationPostProcessorEvent } from "../../domain/verification/verification.post.processor.event.js";
 import { TurnEvaluationService } from "../../service/verification/turn.evaluation.service.js";
 import { RuleRepository } from "../../repository/rule/rule.repository.js";
 import { TurnRepository } from "../../repository/verification/turn.repository.js";
@@ -22,7 +19,7 @@ import { RuleEnforcementRepository } from "../../repository/verification/rule.en
 import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
 
 @Injectable()
-export class VerificationPostProcessorPublicAdapter implements IVerificationPostProcessor {
+export class VerificationPostProcessorPublicAdapter {
     constructor(
         private readonly ruleRepo: RuleRepository,
         private readonly turnRepo: TurnRepository,

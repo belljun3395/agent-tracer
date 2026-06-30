@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchRuleTrigger, type TriggerCandidate } from "./rule.trigger.matching.policy.js";
-import type { Rule } from "@monitor/rules-api/public/rule/types/rule.types.js";
+import type { Rule } from "@monitor/rules-api/domain/rule/rule.types.js";
 
 function rule(overrides: Partial<Rule> = {}): Rule {
     return {

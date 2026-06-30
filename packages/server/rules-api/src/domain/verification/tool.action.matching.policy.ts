@@ -1,8 +1,8 @@
-import type { RuleExpectedAction } from "@monitor/rules-api/public/rule/types/rule.types.js";
+import type { RuleExpectedAction } from "@monitor/rules-api/domain/rule/rule.types.js";
 import {
     canonicalizeToolName,
     normalizeRuleExpectedAction,
-} from "@monitor/rules-api/public/rule/predicates.js";
+} from "@monitor/rules-api/domain/rule/rule.predicates.exports.js";
 
 export function normalizeVerificationToolName(tool: string): string {
     return canonicalizeToolName(tool);
