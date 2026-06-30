@@ -30,7 +30,7 @@ export const recipeCandidateSchema = z.object({
 });
 
 export const recipeCandidatesListSchema = z.object({
-    recipes: z.array(recipeCandidateSchema).max(50),
+    recipes: z.array(recipeCandidateSchema).max(50).default([]),
 });
 
 export type RecipeCandidatePayload = z.infer<typeof recipeCandidateSchema>;
