@@ -30,7 +30,6 @@ import { VerificationPostProcessorPublicAdapter } from "./adapter/verification/v
 
 // ── services ──────────────────────────────────────────────────────────────────
 import { TurnEvaluationService } from "./service/verification/turn.evaluation.service.js";
-import { RuleBackfillService } from "./service/backfill/rule.backfill.service.js";
 import { TaskRuleGenerationService } from "./service/generation/task.rule.generation.service.js";
 
 // ── use cases: rule ───────────────────────────────────────────────────────────
@@ -178,7 +177,6 @@ export class RulesModule {
 
                 // ── backfill ──
                 RuleJobRepository,
-                RuleBackfillService,
                 EnqueueRuleBackfillUseCase,
 
                 // ── generation ──
