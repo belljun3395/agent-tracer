@@ -3,6 +3,8 @@ import type { INotificationPublisher } from "@monitor/shared/contracts/notificat
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared/kernel/clock.js";
 import { SystemClockAdapter } from "@monitor/shared/kernel/system.clock.adapter.js";
 import { CryptoIdGeneratorAdapter } from "@monitor/shared/kernel/crypto.id.generator.adapter.js";
+import { RULE_GENERATION_DISPATCHER } from "@monitor/rules-api/rule/generation/application/outbound/rule.generation.dispatcher.port.js";
+import { TemporalRuleGenerationDispatcher } from "~adapters/temporal/temporal.rule.generation.dispatcher.js";
 import {
     DatabaseProviders,
     NOTIFICATION_PUBLISHER_TOKEN,
@@ -23,8 +25,18 @@ export class DatabaseModule {
                 CryptoIdGeneratorAdapter,
                 { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
                 { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
+                TemporalRuleGenerationDispatcher,
+                {
+                    provide: RULE_GENERATION_DISPATCHER,
+                    useExisting: TemporalRuleGenerationDispatcher,
+                },
             ],
-            exports: [NOTIFICATION_PUBLISHER_TOKEN, CLOCK_PORT, ID_GENERATOR_PORT],
+            exports: [
+                NOTIFICATION_PUBLISHER_TOKEN,
+                CLOCK_PORT,
+                ID_GENERATOR_PORT,
+                RULE_GENERATION_DISPATCHER,
+            ],
         };
     }
 }
