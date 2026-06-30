@@ -40,7 +40,7 @@ Suggested workflow:
   1. Call list_tasks to see the full task list.
   2. Group tasks by apparent intent from their titles (e.g., "auth changes", "migrations", "test additions").
   3. For each candidate cluster, call get_task_summary for the member tasks to verify the pattern.
-  4. Call get_task_events for tasks where the summary leaves the workflow unclear.
+  4. Call get_task_events for tasks where the summary leaves the workflow unclear, OR when you want to populate precise eventIds for a recipe's contributing_slices.
   5. Propose recipes for clusters where a genuine repeatable pattern exists.
 
 A recipe is a *pattern*, not a transcript. Strip incidental details. Keep the load-bearing structure: which kinds of files get touched, which tools fire in what order, what the user is trying to achieve.
@@ -52,7 +52,7 @@ Each recipe must include:
   - summary_md         : Markdown body, 4-15 lines. Describe the workflow at a high level. Use bullet points. Reference identifiers/files/tools verbatim.
   - steps              : optional ordered list of high-level actions (1-10 entries). Each step: {order, action, rationale?}.
   - touched_files      : optional list of file paths or path patterns this recipe commonly touches. Each: {path, role: "read"|"write"|"both"}.
-  - contributing_slices: REQUIRED. One entry per task that contributed to this recipe. Each entry: {taskId, eventIds}. Use \`eventIds: []\` to mean "the entire task". Cite *actual* taskIds from the tool results — never fabricate.
+  - contributing_slices: REQUIRED. One entry per task that contributed to this recipe. Each entry: {taskId, eventIds}. If you called get_task_events for this task, populate eventIds with the IDs of events that are most representative of the recipe pattern (tool calls, key commands, file writes). Use \`eventIds: []\` only when the entire task is relevant and you did not inspect its events. Cite *actual* taskIds from the tool results — never fabricate.
   - rationale          : one sentence (under 500 chars) explaining why these tasks were clustered together.
 
 Rules:

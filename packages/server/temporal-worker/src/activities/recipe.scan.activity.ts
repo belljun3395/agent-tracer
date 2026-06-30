@@ -63,9 +63,14 @@ export class RecipeScanActivity {
 
     // run 단계: 스냅샷 수집 → LLM 추론(결과 저장). 재시도 시 저장된 응답을 재사용하며 알림을 중복 발행하지 않는다.
     async runRecipeScan(jobId: string): Promise<number> {
+        const ctx = Context.current();
+        const attempt = ctx.info.attempt;
+        process.stdout.write(`[recipe-scan] runRecipeScan start jobId=${jobId} attempt=${attempt}\n`);
+
         const job = await this.loadJob(jobId);
 
         if (job.llmOutputJson) {
+            process.stdout.write(`[recipe-scan] reusing memoized output jobId=${jobId}\n`);
             const saved = JSON.parse(job.llmOutputJson) as GenerateRecipeCandidatesOutput & { tasksScanned: number };
             return saved.tasksScanned;
         }
@@ -81,13 +86,15 @@ export class RecipeScanActivity {
         const filters = parseRecipeScanFilters(job.filtersJson ?? "{}");
         const language = normalizeRecipeLanguage(job.language);
 
+        process.stdout.write(`[recipe-scan] agent starting model=${modelOverride ?? "default"} maxCandidates=${filters.maxCandidates} language=${language}\n`);
+
         // 에이전트가 필요한 태스크를 자율적으로 조회한다. 사전에 전체를 로드하지 않는다.
         const toolServer = buildRecipeScanTools(this.taskQuery, this.taskSummary, this.eventRead);
 
-        const ctx = Context.current();
         const idempotencyKey = `${ctx.info.workflowExecution?.workflowId ?? "wf"}-${ctx.info.activityId}`;
 
         const hb = setInterval(() => Context.current().heartbeat(), 10_000);
+        const agentStart = Date.now();
         let output;
         try {
             output = await this.agent.generate({
@@ -101,6 +108,10 @@ export class RecipeScanActivity {
                 abortSignal: ctx.cancellationSignal,
                 toolServer,
             });
+            process.stdout.write(`[recipe-scan] agent done durationMs=${Date.now() - agentStart} turns=${output.numTurns ?? "?"} recipes=${output.recipes.length}\n`);
+        } catch (err) {
+            process.stderr.write(`[recipe-scan] agent error after ${Date.now() - agentStart}ms: ${err instanceof Error ? err.message : String(err)}\n`);
+            throw err;
         } finally {
             clearInterval(hb);
         }

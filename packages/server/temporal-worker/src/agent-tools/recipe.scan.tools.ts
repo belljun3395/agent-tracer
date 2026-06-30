@@ -28,13 +28,15 @@ export function buildRecipeScanTools(
                 },
                 async ({ scope }) => {
                     const tasks = await taskQuery.findAll((scope ?? "active") as TaskSnapshotArchivedScope);
-                    const slim = tasks.map((t) => ({
-                        id: t.id,
-                        title: t.title,
-                        status: t.status,
-                        taskKind: t.taskKind ?? "primary",
-                        createdAt: t.createdAt,
-                    }));
+                    const slim = tasks
+                        .filter((t) => t.origin !== "server-sdk")
+                        .map((t) => ({
+                            id: t.id,
+                            title: t.title,
+                            status: t.status,
+                            taskKind: t.taskKind ?? "primary",
+                            createdAt: t.createdAt,
+                        }));
                     return { content: [{ type: "text" as const, text: JSON.stringify(slim, null, 2) }] };
                 },
             ),

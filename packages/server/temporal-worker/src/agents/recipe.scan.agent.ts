@@ -78,7 +78,7 @@ export class RecipeScanAgent {
             ...(input.toolServer ? { mcpServers: { [RECIPE_SCAN_MCP_SERVER_NAME]: input.toolServer } } : {}),
             model,
             maxTurns: DEFAULT_MAX_TURNS,
-            deadlineMs: 300_000,
+            deadlineMs: 720_000,
             env,
             outputSchema: RECIPE_OUTPUT_SCHEMA,
             ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
