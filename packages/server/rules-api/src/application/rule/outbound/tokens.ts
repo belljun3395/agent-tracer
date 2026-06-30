@@ -1,3 +1,2 @@
-export const RULE_PERSISTENCE_PORT = "RULE_PERSISTENCE_PORT";
 export const NOTIFICATION_PUBLISHER_PORT = "RULE_NOTIFICATION_PUBLISHER_PORT";
 export { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared/kernel/clock.js";

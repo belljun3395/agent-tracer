@@ -6,7 +6,7 @@ import { ACTIVE_JOB_STATUSES, JOB_STATUS } from "@monitor/shared/job/job.status.
 import {
     RuleJobEntity,
     type RuleJobType,
-} from "./rule.job.entity.js";
+} from "../../domain/job/rule.job.entity.js";
 
 @Injectable()
 export class RuleJobRepository {

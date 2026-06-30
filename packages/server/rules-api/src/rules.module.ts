@@ -13,7 +13,7 @@ import { TurnEntity } from "./domain/verification/turn.entity.js";
 import { TurnEventEntity } from "./domain/verification/turn.event.entity.js";
 import { VerdictEntity } from "./domain/verification/verdict.entity.js";
 import { RuleEnforcementEntity } from "./domain/verification/rule.enforcement.entity.js";
-import { RuleJobEntity } from "./repository/job/rule.job.entity.js";
+import { RuleJobEntity } from "./domain/job/rule.job.entity.js";
 
 // ── repositories ──────────────────────────────────────────────────────────────
 import { RuleRepository } from "./repository/rule/rule.repository.js";

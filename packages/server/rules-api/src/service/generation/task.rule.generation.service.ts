@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
 import { RuleJobRepository } from "../../repository/job/rule.job.repository.js";
-import type { RuleJobEntity } from "../../repository/job/rule.job.entity.js";
+import type { RuleJobEntity } from "../../domain/job/rule.job.entity.js";
 import {
     GenerationAlreadyInFlightError,
     TaskHasNoEventsError,

@@ -17,7 +17,7 @@ import type { IAppSettings } from "@monitor/identity-api/settings/public/iservic
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { RuleJobRepository } from "@monitor/rules-api/repository/job/rule.job.repository.js";
-import type { RuleJobEntity } from "@monitor/rules-api/repository/job/rule.job.entity.js";
+import type { RuleJobEntity } from "@monitor/rules-api/domain/job/rule.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,

@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { RuleRepository } from "../../repository/rule/rule.repository.js";
 import { randomUUID } from "node:crypto";
 import { RuleJobRepository } from "../../repository/job/rule.job.repository.js";
-import type { RuleJobEntity } from "../../repository/job/rule.job.entity.js";
+import type { RuleJobEntity } from "../../domain/job/rule.job.entity.js";
 import { BackfillRuleEvaluationUseCase } from "@monitor/rules-api/application/verification/backfill.rule.evaluation.usecase.js";
 import { RuleNotFoundForBackfillError } from "../../domain/backfill/rule.backfill.errors.js";
 
