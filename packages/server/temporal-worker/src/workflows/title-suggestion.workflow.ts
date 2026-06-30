@@ -7,7 +7,8 @@ interface TitleSuggestionActivities {
 
 const { runTitleSuggestion } = proxyActivities<TitleSuggestionActivities>({
     startToCloseTimeout: "5 minutes",
-    retry: { maximumAttempts: 3 },
+    heartbeatTimeout: "30 seconds",
+    retry: { maximumAttempts: 3, nonRetryableErrorTypes: ["MissingApiKeyError", "TaskNotFoundError", "TaskHasNoEventsError"] },
 });
 
 // 게이트웨이가 execute로 결과를 기다리는 동기형 워크플로.

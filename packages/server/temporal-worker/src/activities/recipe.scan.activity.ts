@@ -114,8 +114,8 @@ export class RecipeScanActivity {
             return 0;
         }
 
-        const info = Context.current().info;
-        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
+        const ctx = Context.current();
+        const idempotencyKey = `${ctx.info.workflowExecution?.workflowId ?? "wf"}-${ctx.info.activityId}`;
 
         const hb = setInterval(() => Context.current().heartbeat(), 10_000);
         let output;
@@ -127,6 +127,7 @@ export class RecipeScanActivity {
                 maxCandidates: filters.maxCandidates,
                 language,
                 idempotencyKey,
+                abortSignal: ctx.cancellationSignal,
             });
         } finally {
             clearInterval(hb);

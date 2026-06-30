@@ -67,7 +67,12 @@ export class RuleGenerationActivity {
         const info = Context.current().info;
         const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
         const input = await this.loadGenerationInput(job.taskId, idempotencyKey);
-        await this.runInference(job, input);
+        const hb = setInterval(() => Context.current().heartbeat(), 15_000);
+        try {
+            await this.runInference(job, { ...input, abortSignal: Context.current().cancellationSignal });
+        } finally {
+            clearInterval(hb);
+        }
     }
 
     // apply 단계: 저장된 응답으로 규칙을 등록하고 새로 만든 수를 반환한다.

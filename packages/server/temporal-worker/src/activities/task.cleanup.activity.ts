@@ -90,8 +90,8 @@ export class TaskCleanupActivity {
             return 0;
         }
 
-        const info = Context.current().info;
-        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
+        const ctx = Context.current();
+        const idempotencyKey = `${ctx.info.workflowExecution?.workflowId ?? "wf"}-${ctx.info.activityId}`;
 
         const hb = setInterval(() => Context.current().heartbeat(), 10_000);
         let output;
@@ -102,6 +102,7 @@ export class TaskCleanupActivity {
                 tasks: snapshots,
                 maxSuggestions,
                 idempotencyKey,
+                abortSignal: ctx.cancellationSignal,
             });
         } finally {
             clearInterval(hb);

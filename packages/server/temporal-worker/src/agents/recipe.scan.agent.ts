@@ -27,6 +27,7 @@ export interface GenerateRecipeCandidatesInput {
     readonly maxCandidates: number;
     readonly language: RecipeOutputLanguage;
     readonly idempotencyKey?: string;
+    readonly abortSignal?: AbortSignal;
 }
 
 export interface GenerateRecipeCandidatesOutput {
@@ -75,6 +76,7 @@ export class RecipeScanAgent {
             env,
             outputSchema: RECIPE_OUTPUT_SCHEMA,
             ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+            ...(input.abortSignal ? { parentSignal: input.abortSignal } : {}),
         });
 
         if (errorSummary || (!rawOutput && structuredOutput === null)) {

@@ -16,6 +16,7 @@ COPY packages/server/rules-api/package.json packages/server/rules-api/
 COPY packages/server/insight-api/package.json packages/server/insight-api/
 COPY packages/server/identity-api/package.json packages/server/identity-api/
 COPY packages/server/ws-gateway/package.json packages/server/ws-gateway/
+COPY packages/server/temporal-worker/package.json packages/server/temporal-worker/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 
@@ -33,6 +34,11 @@ FROM deps AS gateway
 ENV SWC_NODE_PROJECT=packages/server/api-gateway/tsconfig.dev.json
 EXPOSE 3847
 CMD ["node", "--conditions=development", "--import", "file:///app/scripts/register-swc.mjs", "packages/server/api-gateway/src/gateway.entry.ts"]
+
+# ---- Temporal 워커: swc-node 로더로 소스(TS)에서 직접 실행 ----
+FROM deps AS temporal-worker
+ENV SWC_NODE_PROJECT=packages/server/temporal-worker/tsconfig.json
+CMD ["node", "--conditions=development", "--import", "file:///app/scripts/register-swc.mjs", "packages/server/temporal-worker/src/worker.entry.ts"]
 
 # ---- 웹 정적 자산 빌드 ----
 FROM deps AS web-builder

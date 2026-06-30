@@ -18,7 +18,8 @@ const {
     completeRuleGeneration,
 } = proxyActivities<RuleGenerationActivities>({
     startToCloseTimeout: "10 minutes",
-    retry: { maximumAttempts: 5 },
+    heartbeatTimeout: "30 seconds",
+    retry: { maximumAttempts: 5, nonRetryableErrorTypes: ["MissingApiKeyError", "TaskNotFoundForGenerationError"] },
 });
 
 // fail은 단순 DB 쓰기이므로 짧은 타임아웃·1회 시도로 분리한다.

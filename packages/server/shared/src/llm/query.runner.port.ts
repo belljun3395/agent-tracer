@@ -21,6 +21,7 @@ export interface AgentQueryRequest {
     readonly outputSchema?: Record<string, unknown>;
 
     readonly idempotencyKey?: string;
+    readonly parentSignal?: AbortSignal;
 }
 
 export interface AgentQueryUsage {

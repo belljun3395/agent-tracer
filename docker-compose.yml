@@ -95,6 +95,29 @@ services:
       redis:
         condition: service_healthy
 
+  temporal-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: temporal-worker
+    profiles: ["temporal"]
+    environment:
+      - NODE_ENV=production
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-monitor}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-monitor}
+      - POSTGRES_DB=${POSTGRES_DB:-monitor}
+      - REDIS_URL=redis://redis:6379
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+
   web:
     build:
       context: .

@@ -19,7 +19,8 @@ const {
     completeRecipeScan,
 } = proxyActivities<RecipeScanActivities>({
     startToCloseTimeout: "15 minutes",
-    retry: { maximumAttempts: 3 },
+    heartbeatTimeout: "30 seconds",
+    retry: { maximumAttempts: 3, nonRetryableErrorTypes: ["MissingApiKeyError"] },
 });
 
 // fail은 단순 DB 쓰기이므로 짧은 타임아웃·1회 시도로 분리한다.

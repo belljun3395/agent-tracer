@@ -37,14 +37,15 @@ export class TitleSuggestionActivity {
 
     // 재시도 간 동일한 키라 제공자가 중복 LLM 호출을 흡수한다.
     async runTitleSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut> {
-        const info = Context.current().info;
-        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
-        return this.runSuggestion(taskId, idempotencyKey);
+        const ctx = Context.current();
+        const idempotencyKey = `${ctx.info.workflowExecution?.workflowId ?? "wf"}-${ctx.info.activityId}`;
+        return this.runSuggestion(taskId, idempotencyKey, ctx.cancellationSignal);
     }
 
     private async runSuggestion(
         taskId: string,
         idempotencyKey?: string,
+        abortSignal?: AbortSignal,
     ): Promise<SuggestTaskTitleUseCaseOut> {
         const { summary } = await this.getSummary.execute({ taskId });
         if (!summary) throw new TaskNotFoundError(taskId);
@@ -71,6 +72,7 @@ export class TitleSuggestionActivity {
                 summary,
                 language,
                 ...(idempotencyKey ? { idempotencyKey } : {}),
+                ...(abortSignal ? { abortSignal } : {}),
             });
 
             const suggestions = output.suggestions.filter(

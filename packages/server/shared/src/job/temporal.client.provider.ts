@@ -13,7 +13,10 @@ export class TemporalClientProvider implements OnApplicationShutdown {
         if (this.client) return this.client;
         const address = process.env["TEMPORAL_ADDRESS"] ?? DEFAULT_ADDRESS;
         this.connection = await Connection.connect({ address });
-        this.client = new Client({ connection: this.connection });
+        this.client = new Client({
+            connection: this.connection,
+            namespace: process.env["TEMPORAL_NAMESPACE"] ?? "default",
+        });
         return this.client;
     }
 

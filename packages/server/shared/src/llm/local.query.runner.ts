@@ -27,6 +27,9 @@ export class LocalQueryRunner implements IQueryRunner {
         let errorSubtype: string | null = null;
 
         const deadline = createAgentDeadline(request.deadlineMs);
+        if (request.parentSignal) {
+            request.parentSignal.addEventListener("abort", () => deadline.controller.abort(), { once: true });
+        }
         const tools = [...request.allowedTools];
 
         const systemPrompt = request.useClaudeCodePreset
