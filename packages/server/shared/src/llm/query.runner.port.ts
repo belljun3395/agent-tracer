@@ -19,6 +19,9 @@ export interface AgentQueryRequest {
     readonly env: Readonly<Record<string, string | undefined>>;
 
     readonly outputSchema?: Record<string, unknown>;
+
+    // 재시도 시 제공자가 중복 호출을 흡수하도록 보내는 키(messages 실행기만 사용).
+    readonly idempotencyKey?: string;
 }
 
 export interface AgentQueryUsage {

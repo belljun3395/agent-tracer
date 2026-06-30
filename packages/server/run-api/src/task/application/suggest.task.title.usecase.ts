@@ -49,7 +49,10 @@ export class SuggestTaskTitleUseCase {
     }
 
     // 워커가 호출하는 실제 제목 제안 작업.
-    async runSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut> {
+    async runSuggestion(
+        taskId: string,
+        idempotencyKey?: string,
+    ): Promise<SuggestTaskTitleUseCaseOut> {
         const { summary } = await this.getSummary.execute({ taskId });
         if (!summary) throw new TaskNotFoundError(taskId);
         if (summary.eventCount === 0) throw new TaskHasNoEventsError(taskId);
@@ -77,6 +80,7 @@ export class SuggestTaskTitleUseCase {
                 ...(modelOverride ? { model: modelOverride } : {}),
                 summary,
                 language,
+                ...(idempotencyKey ? { idempotencyKey } : {}),
             });
 
             const suggestions = output.suggestions.filter(

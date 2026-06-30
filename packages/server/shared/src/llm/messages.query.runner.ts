@@ -57,7 +57,12 @@ export class MessagesQueryRunner implements IQueryRunner {
                           }
                         : {}),
                 },
-                { signal: deadline.controller.signal },
+                {
+                    signal: deadline.controller.signal,
+                    ...(request.idempotencyKey
+                        ? { idempotencyKey: request.idempotencyKey }
+                        : {}),
+                },
             );
 
             let structuredOutput: unknown = null;

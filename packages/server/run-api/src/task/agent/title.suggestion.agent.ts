@@ -24,6 +24,7 @@ export interface GenerateTitleSuggestionsInput {
     readonly model?: string;
     readonly summary: TaskSummaryUseCaseDto;
     readonly language?: SuggestionLanguage;
+    readonly idempotencyKey?: string;
 }
 
 export interface GenerateTitleSuggestionsOutput {
@@ -69,6 +70,7 @@ export class TitleSuggestionAgent {
             deadlineMs: 120_000,
             env,
             outputSchema: TITLE_OUTPUT_SCHEMA,
+            ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
         });
 
         if (errorSummary || (!rawOutput && structuredOutput === null)) {
