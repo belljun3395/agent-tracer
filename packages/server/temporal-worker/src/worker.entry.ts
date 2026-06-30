@@ -9,7 +9,7 @@ import { TaskRuleGenerationService } from "@monitor/rules-api/rule/generation/se
 import { SuggestTaskTitleUseCase } from "@monitor/run-api/task/application/suggest.task.title.usecase.js";
 import { createRuleGenerationActivities } from "./activities/rule-generation.activities.js";
 import { createTitleSuggestionActivities } from "./activities/title-suggestion.activities.js";
-import { LLM_JOB_TASK_QUEUE } from "@monitor/shared/temporal/temporal.const.js";
+import { LLM_JOB_QUEUE } from "@monitor/shared/job/llm.job.const.js";
 
 // 리퍼 등 게이트웨이 전용 스케줄러가 워커에서 돌지 않게 한다.
 process.env["MONITOR_ROLE"] = "worker";
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
     const worker = await Worker.create({
         connection,
         namespace: "default",
-        taskQueue: LLM_JOB_TASK_QUEUE,
+        taskQueue: LLM_JOB_QUEUE,
         workflowsPath: new URL(workflowsModule, import.meta.url).pathname,
         activities: {
             ...createRuleGenerationActivities(ruleGeneration, notifier),
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     });
 
     process.stdout.write(
-        `[temporal-worker] polling ${LLM_JOB_TASK_QUEUE} at ${address}\n`,
+        `[temporal-worker] polling ${LLM_JOB_QUEUE} at ${address}\n`,
     );
     await worker.run();
     await app.close();
