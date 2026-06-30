@@ -3,7 +3,7 @@ import { initializeTransactionalContext } from "typeorm-transactional";
 import { createClient } from "redis";
 import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
-import { WorkerModule } from "@monitor/server-core/worker.module.js";
+import { WorkerRootModule } from "./worker.root.module.js";
 import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
     });
 
     const app = await NestFactory.createApplicationContext(
-        WorkerModule.forRoot({ notifier }),
+        WorkerRootModule.forRoot({ notifier }),
         { logger: ["error", "warn"] },
     );
 

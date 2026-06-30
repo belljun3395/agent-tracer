@@ -1,11 +1,11 @@
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { TitleSuggestionAgent } from "../agents/title.suggestion.agent.js";
+import type { TitleSuggestionAgent } from "../agents/title.suggestion.agent.js";
 import type { SuggestionLanguage } from "../agents/title.suggestion.prompt.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
-import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
+import type { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
 import {
     TaskHasNoEventsError,
     TaskNotFoundError,

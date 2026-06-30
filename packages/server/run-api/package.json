@@ -13,7 +13,6 @@
     },
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.0",
-        "@monitor/identity-api": "*",
         "@monitor/shared": "*",
         "@monitor/timeline-api": "*",
         "@nestjs/common": "^11.1.18",

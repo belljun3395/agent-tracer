@@ -1,16 +1,16 @@
-import {
+import type {
     RuleSuggestionAgent,
-    type GenerateRuleSuggestionsInput,
-    type GenerateRuleSuggestionsOutput,
+    GenerateRuleSuggestionsInput,
+    GenerateRuleSuggestionsOutput,
 } from "../agents/rule.suggestion.agent.js";
 import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
-import { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
-import { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
+import type { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
+import type { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { RuleJobRepository } from "@monitor/rules-api/job/rule.job.repository.js";
+import type { RuleJobRepository } from "@monitor/rules-api/job/rule.job.repository.js";
 import type { RuleJobEntity } from "@monitor/rules-api/job/rule.job.entity.js";
 import {
     clampMaxRules,

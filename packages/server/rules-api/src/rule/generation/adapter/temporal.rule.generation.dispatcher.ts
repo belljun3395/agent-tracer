@@ -3,9 +3,10 @@ import {
     LLM_JOB_QUEUE,
     RULE_GENERATION_JOB,
 } from "@monitor/shared/job/llm.job.const.js";
-import type { IRuleGenerationDispatcher } from "@monitor/rules-api/rule/generation/application/outbound/rule.generation.dispatcher.port.js";
-import { TemporalClientProvider } from "./temporal.client.provider.js";
+import { TemporalClientProvider } from "@monitor/shared/job/temporal.client.provider.js";
+import type { IRuleGenerationDispatcher } from "../application/outbound/rule.generation.dispatcher.port.js";
 
+// 생성 잡 실행을 Temporal 워크플로로 넘긴다.
 @Injectable()
 export class TemporalRuleGenerationDispatcher implements IRuleGenerationDispatcher {
     constructor(private readonly clients: TemporalClientProvider) {}

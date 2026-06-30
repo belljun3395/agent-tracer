@@ -9,6 +9,7 @@ import { TypeOrmDatabaseModule } from "@monitor/server-core/database/typeorm.dat
 import { buildFeatureModules } from "@monitor/server-core/feature.modules.js";
 import type { ServerModuleOptions } from "@monitor/server-core/server.module.options.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
+import { TemporalDispatchModule } from "~adapters/temporal/temporal.dispatch.module.js";
 import { IdentityModule } from "@monitor/identity-api/identity.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
@@ -42,6 +43,7 @@ export class AppModule implements NestModule {
                 }),
                 typeOrmDatabaseModule,
                 databaseModule,
+                TemporalDispatchModule,
                 IdentityModule,
                 ...buildFeatureModules(databaseModule),
             ],
