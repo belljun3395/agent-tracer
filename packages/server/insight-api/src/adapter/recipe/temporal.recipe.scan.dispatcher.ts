@@ -13,7 +13,7 @@ export class TemporalRecipeScanDispatcher implements IRecipeScanDispatcher {
         await client.workflow.start(RECIPE_SCAN_JOB, {
             taskQueue: LLM_JOB_QUEUE,
             workflowId: `recipe-scan-${jobId}`,
-            args: [jobId],
+            args: [{ jobId }],
         });
     }
 }

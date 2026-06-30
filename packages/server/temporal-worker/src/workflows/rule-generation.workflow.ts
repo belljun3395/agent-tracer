@@ -1,4 +1,4 @@
-import { proxyActivities } from "@temporalio/workflow";
+import { proxyActivities, CancellationScope } from "@temporalio/workflow";
 
 interface RuleGenerationActivities {
     generateRuleProposals(jobId: string): Promise<void>;
@@ -37,7 +37,7 @@ export interface RuleGenerationWorkflowResult {
 // apply가 반환한 rulesCreated는 워크플로 히스토리에 체크포인트되어
 // complete 재시도 시에도 정확한 값이 전달된다.
 export async function ruleGenerationWorkflow(
-    jobId: string,
+    { jobId }: { jobId: string },
 ): Promise<RuleGenerationWorkflowResult> {
     try {
         await generateRuleProposals(jobId);
@@ -45,7 +45,9 @@ export async function ruleGenerationWorkflow(
         await completeRuleGeneration(jobId, rulesCreated);
         return { jobId, rulesCreated };
     } catch (err) {
-        await failRuleGeneration(jobId, err instanceof Error ? err.message : String(err));
+        await CancellationScope.nonCancellable(async () =>
+            failRuleGeneration(jobId, err instanceof Error ? err.message : String(err)),
+        );
         throw err;
     }
 }

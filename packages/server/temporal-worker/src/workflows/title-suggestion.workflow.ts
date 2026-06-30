@@ -13,7 +13,7 @@ const { runTitleSuggestion } = proxyActivities<TitleSuggestionActivities>({
 
 // 게이트웨이가 execute로 결과를 기다리는 동기형 워크플로.
 export async function titleSuggestionWorkflow(
-    taskId: string,
+    { taskId }: { taskId: string },
 ): Promise<SuggestTaskTitleUseCaseOut> {
     return runTitleSuggestion(taskId);
 }

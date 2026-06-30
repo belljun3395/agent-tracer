@@ -19,11 +19,11 @@ export class TemporalTitleSuggestionDispatcher implements ITitleSuggestionDispat
     async dispatch(taskId: string): Promise<TitleSuggestionResult> {
         const client = await this.clients.get();
         return client.workflow.execute<
-            (taskId: string) => Promise<TitleSuggestionResult>
+            (input: { taskId: string }) => Promise<TitleSuggestionResult>
         >(TITLE_SUGGESTION_JOB, {
             taskQueue: LLM_JOB_QUEUE,
             workflowId: `title-suggestion-${taskId}-${randomUUID()}`,
-            args: [taskId],
+            args: [{ taskId }],
         });
     }
 }

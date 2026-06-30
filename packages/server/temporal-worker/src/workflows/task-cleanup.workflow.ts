@@ -1,4 +1,4 @@
-import { proxyActivities } from "@temporalio/workflow";
+import { proxyActivities, CancellationScope } from "@temporalio/workflow";
 
 interface TaskCleanupActivities {
     runTaskCleanup(jobId: string): Promise<number>;
@@ -28,13 +28,15 @@ const { failTaskCleanup } = proxyActivities<TaskCleanupFailActivity>({
 });
 
 // run → apply → complete 순서로 각 단계를 독립 재시도한다.
-export async function taskCleanupWorkflow(jobId: string): Promise<void> {
+export async function taskCleanupWorkflow({ jobId }: { jobId: string }): Promise<void> {
     try {
         const tasksScanned = await runTaskCleanup(jobId);
         const suggestionsCreated = await applyTaskCleanup(jobId);
         await completeTaskCleanup(jobId, suggestionsCreated, tasksScanned);
     } catch (err) {
-        await failTaskCleanup(jobId, err instanceof Error ? err.message : String(err));
+        await CancellationScope.nonCancellable(async () =>
+            failTaskCleanup(jobId, err instanceof Error ? err.message : String(err)),
+        );
         throw err;
     }
 }

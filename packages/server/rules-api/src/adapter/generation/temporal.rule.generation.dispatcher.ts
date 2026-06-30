@@ -16,7 +16,7 @@ export class TemporalRuleGenerationDispatcher implements IRuleGenerationDispatch
         await client.workflow.start(RULE_GENERATION_JOB, {
             taskQueue: LLM_JOB_QUEUE,
             workflowId: `rule-generation-${input.jobId}`,
-            args: [input.jobId],
+            args: [{ jobId: input.jobId }],
         });
     }
 }

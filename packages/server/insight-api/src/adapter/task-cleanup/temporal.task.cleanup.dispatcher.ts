@@ -13,7 +13,7 @@ export class TemporalTaskCleanupDispatcher implements ITaskCleanupDispatcher {
         await client.workflow.start(TASK_CLEANUP_JOB, {
             taskQueue: LLM_JOB_QUEUE,
             workflowId: `task-cleanup-${jobId}`,
-            args: [jobId],
+            args: [{ jobId }],
         });
     }
 }
