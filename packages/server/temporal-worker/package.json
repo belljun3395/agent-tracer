@@ -15,6 +15,7 @@
     },
     "dependencies": {
         "@monitor/identity-api": "*",
+        "@monitor/insight-api": "*",
         "@monitor/rules-api": "*",
         "@monitor/run-api": "*",
         "@monitor/server-core": "*",

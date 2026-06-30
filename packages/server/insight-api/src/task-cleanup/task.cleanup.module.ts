@@ -11,9 +11,6 @@ import { TaskCleanupSuggestionEntity } from "./domain/task.cleanup.suggestion.en
 import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.suggestion.repository.js";
 import { InsightJobEntity } from "../job/insight.job.entity.js";
 import { InsightJobRepository } from "../job/insight.job.repository.js";
-import { TaskCleanupAgent } from "./agent/task.cleanup.agent.js";
-import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
-import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 
 @Module({})
 export class TaskCleanupModule {
@@ -37,12 +34,8 @@ export class TaskCleanupModule {
                 ListCleanupSuggestionsUseCase,
                 AcceptCleanupSuggestionUseCase,
                 DismissCleanupSuggestionUseCase,
-
-                TaskCleanupAgent,
-                MessagesQueryRunner,
-                { provide: QUERY_RUNNER, useExisting: MessagesQueryRunner },
             ],
-            exports: [],
+            exports: [TaskCleanupSuggestionRepository],
         };
     }
 }

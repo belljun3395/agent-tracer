@@ -7,6 +7,8 @@ import { WorkerRootModule } from "./worker.root.module.js";
 import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
 import { RuleGenerationActivity } from "./activities/rule.generation.activity.js";
 import { TitleSuggestionActivity } from "./activities/title.suggestion.activity.js";
+import { RecipeScanActivity } from "./activities/recipe.scan.activity.js";
+import { TaskCleanupActivity } from "./activities/task.cleanup.activity.js";
 import { LLM_JOB_QUEUE } from "@monitor/shared/job/llm.job.const.js";
 
 // 리퍼 등 게이트웨이 전용 스케줄러가 워커에서 돌지 않게 한다.
@@ -29,6 +31,8 @@ async function main(): Promise<void> {
 
     const ruleGeneration = app.get(RuleGenerationActivity);
     const titleSuggestion = app.get(TitleSuggestionActivity);
+    const recipeScan = app.get(RecipeScanActivity);
+    const taskCleanup = app.get(TaskCleanupActivity);
 
     const address = process.env["TEMPORAL_ADDRESS"] ?? "localhost:7233";
     const connection = await NativeConnection.connect({ address });
@@ -44,6 +48,8 @@ async function main(): Promise<void> {
         activities: {
             ...ruleGeneration.toActivities(),
             ...titleSuggestion.toActivities(),
+            ...recipeScan.toActivities(),
+            ...taskCleanup.toActivities(),
         },
     });
 

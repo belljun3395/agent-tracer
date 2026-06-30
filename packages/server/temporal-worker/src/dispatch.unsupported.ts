@@ -7,6 +7,14 @@ import {
     TITLE_SUGGESTION_DISPATCHER,
     type ITitleSuggestionDispatcher,
 } from "@monitor/run-api/task/application/outbound/title.suggestion.dispatcher.port.js";
+import {
+    RECIPE_SCAN_DISPATCHER,
+    type IRecipeScanDispatcher,
+} from "@monitor/insight-api/recipe/application/outbound/recipe.scan.dispatcher.port.js";
+import {
+    TASK_CLEANUP_DISPATCHER,
+    type ITaskCleanupDispatcher,
+} from "@monitor/insight-api/task-cleanup/application/outbound/task.cleanup.dispatcher.port.js";
 
 const MESSAGE = "temporal-worker executes jobs; it does not dispatch them.";
 
@@ -26,20 +34,32 @@ export class UnsupportedTitleSuggestionDispatcher implements ITitleSuggestionDis
     }
 }
 
+@Injectable()
+export class UnsupportedRecipeScanDispatcher implements IRecipeScanDispatcher {
+    dispatch(): Promise<never> {
+        throw new Error(MESSAGE);
+    }
+}
+
+@Injectable()
+export class UnsupportedTaskCleanupDispatcher implements ITaskCleanupDispatcher {
+    dispatch(): Promise<never> {
+        throw new Error(MESSAGE);
+    }
+}
+
 @Global()
 @Module({
     providers: [
         UnsupportedRuleGenerationDispatcher,
         UnsupportedTitleSuggestionDispatcher,
-        {
-            provide: RULE_GENERATION_DISPATCHER,
-            useExisting: UnsupportedRuleGenerationDispatcher,
-        },
-        {
-            provide: TITLE_SUGGESTION_DISPATCHER,
-            useExisting: UnsupportedTitleSuggestionDispatcher,
-        },
+        UnsupportedRecipeScanDispatcher,
+        UnsupportedTaskCleanupDispatcher,
+        { provide: RULE_GENERATION_DISPATCHER, useExisting: UnsupportedRuleGenerationDispatcher },
+        { provide: TITLE_SUGGESTION_DISPATCHER, useExisting: UnsupportedTitleSuggestionDispatcher },
+        { provide: RECIPE_SCAN_DISPATCHER, useExisting: UnsupportedRecipeScanDispatcher },
+        { provide: TASK_CLEANUP_DISPATCHER, useExisting: UnsupportedTaskCleanupDispatcher },
     ],
-    exports: [RULE_GENERATION_DISPATCHER, TITLE_SUGGESTION_DISPATCHER],
+    exports: [RULE_GENERATION_DISPATCHER, TITLE_SUGGESTION_DISPATCHER, RECIPE_SCAN_DISPATCHER, TASK_CLEANUP_DISPATCHER],
 })
 export class WorkerDispatchModule {}

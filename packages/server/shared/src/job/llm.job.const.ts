@@ -2,3 +2,5 @@
 export const LLM_JOB_QUEUE = "llm-jobs";
 export const RULE_GENERATION_JOB = "ruleGenerationWorkflow";
 export const TITLE_SUGGESTION_JOB = "titleSuggestionWorkflow";
+export const RECIPE_SCAN_JOB = "recipeScanWorkflow";
+export const TASK_CLEANUP_JOB = "taskCleanupWorkflow";
