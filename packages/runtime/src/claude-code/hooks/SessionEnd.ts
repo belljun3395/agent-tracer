@@ -93,8 +93,23 @@ await runHook("SessionEnd", {
 });
 
 async function triggerRuleGeneration(taskId: string, workspacePath: string): Promise<void> {
-    const enqueueResp = await postJson<{ jobId?: string }>(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
-    const jobId = enqueueResp.jobId;
+    let jobId: string | undefined;
+    try {
+        const resp = await postJson<{ jobId?: string }>(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
+        jobId = resp.jobId;
+    } catch {
+        // 409 Conflict: a pending job already exists — fetch its id and proceed
+        const { resolveMonitorBaseUrl } = await import("~shared/config/env.js");
+        const { monitorUserHeader } = await import("~shared/transport/transport.js");
+        const resp = await fetch(
+            `${resolveMonitorBaseUrl()}/api/v1/rules/generate/latest?taskId=${encodeURIComponent(taskId)}`,
+            { headers: monitorUserHeader(), signal: AbortSignal.timeout(2000) },
+        );
+        if (resp.ok) {
+            const data = await resp.json() as { data?: { job?: { id?: string } } };
+            jobId = data?.data?.job?.id;
+        }
+    }
     if (!jobId) return;
     const { runRuleGeneration } = await import("~shared/rule-generation/agent.js");
     await runRuleGeneration({ taskId, jobId, workspacePath });
