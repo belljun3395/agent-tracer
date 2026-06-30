@@ -1,56 +1,150 @@
-var __defProp = Object.defineProperty;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+// src/claude-code/hooks/util/paths.const.ts
+var PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+var CLAUDE_RUNTIME_SOURCE = "claude-plugin";
+var TRANSCRIPT_CURSOR_DIR = `${PROJECT_DIR}/.claude/.transcript-cursors`;
+
+// src/claude-code/hooks/lib/runtime.ts
+import * as path2 from "node:path";
+
+// src/shared/hook-runtime/hook-log.ts
+import * as fs from "node:fs";
+
+// src/shared/util/utils.ts
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function toTrimmedString(value, maxLength) {
+  const next = typeof value === "string" ? value.trim() : typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value).trim() : "";
+  if (!maxLength || next.length <= maxLength) return next;
+  return next.slice(0, maxLength);
+}
+
+// src/shared/hook-runtime/hook-log.ts
+var DEFAULT_REDACT_KEYS = ["tool_response", "transcript_path"];
+function createHookLogger(config) {
+  const redactKeys = new Set(config.payloadRedactKeys ?? DEFAULT_REDACT_KEYS);
+  const appendLog = (line) => {
+    if (!config.enabled) return;
+    try {
+      fs.appendFileSync(config.logFile, line + "\n");
+    } catch {
+    }
+  };
+  const log = (hookName, message, data) => {
+    const ts = (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
+    const logData = data ? { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...data } : { timestamp: (/* @__PURE__ */ new Date()).toISOString() };
+    const line = `[${ts}][HOOK:${hookName}] ${message} ${JSON.stringify(logData)}`;
+    if (config.enabled) {
+      process.stderr.write(line + "\n");
+    }
+    appendLog(line);
+  };
+  const logPayload = (hookName, payload) => {
+    const ts = (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
+    const rest = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (!redactKeys.has(key)) rest[key] = value;
+    }
+    if (isRecord(rest["tool_input"])) {
+      rest["tool_input"] = Object.fromEntries(
+        Object.entries(rest["tool_input"]).map(
+          ([k, v]) => typeof v === "string" && v.length > 200 ? [k, v.slice(0, 200) + "\u2026"] : [k, v]
+        )
+      );
+    }
+    const line = `[${ts}][PAYLOAD:${hookName}] ${JSON.stringify(rest)}`;
+    appendLog(line);
+  };
+  return { log, logPayload };
+}
+
+// src/shared/errors/monitor.ts
+var MonitorRequestError = class extends Error {
+  status;
+  pathname;
+  code;
+  details;
+  constructor(init) {
+    super(init.message);
+    this.name = "MonitorRequestError";
+    this.status = init.status;
+    this.pathname = init.pathname;
+    this.code = init.code;
+    this.details = init.details;
+  }
 };
 
 // src/shared/events/kinds.const.ts
-var KIND, INGEST_ENDPOINTS;
-var init_kinds_const = __esm({
-  "src/shared/events/kinds.const.ts"() {
-    "use strict";
-    KIND = {
-      toolUsed: "tool.used",
-      terminalCommand: "terminal.command",
-      planLogged: "plan.logged",
-      actionLogged: "action.logged",
-      verificationLogged: "verification.logged",
-      ruleLogged: "rule.logged",
-      thoughtLogged: "thought.logged",
-      contextSaved: "context.saved",
-      userMessage: "user.message",
-      assistantResponse: "assistant.response",
-      questionLogged: "question.logged",
-      todoLogged: "todo.logged",
-      agentActivityLogged: "agent.activity.logged",
-      sessionEnded: "session.ended",
-      instructionsLoaded: "instructions.loaded",
-      tokenUsage: "token.usage",
-      contextSnapshot: "context.snapshot",
-      userPromptExpansion: "user.prompt.expansion",
-      fileChanged: "file.changed",
-      worktreeCreate: "worktree.create",
-      worktreeRemove: "worktree.remove",
-      permissionRequest: "permission.request",
-      setupTriggered: "setup.triggered",
-      monitorObserved: "monitor.observed"
-    };
-    INGEST_ENDPOINTS = {
-      toolActivity: "/ingest/v1/timeline/tool-activity",
-      workflow: "/ingest/v1/timeline/workflow",
-      conversation: "/ingest/v1/timeline/conversation",
-      coordination: "/ingest/v1/timeline/coordination",
-      lifecycle: "/ingest/v1/timeline/lifecycle",
-      telemetry: "/ingest/v1/timeline/telemetry"
-    };
-  }
-});
+var KIND = {
+  toolUsed: "tool.used",
+  terminalCommand: "terminal.command",
+  planLogged: "plan.logged",
+  actionLogged: "action.logged",
+  verificationLogged: "verification.logged",
+  ruleLogged: "rule.logged",
+  thoughtLogged: "thought.logged",
+  contextSaved: "context.saved",
+  userMessage: "user.message",
+  assistantResponse: "assistant.response",
+  questionLogged: "question.logged",
+  todoLogged: "todo.logged",
+  agentActivityLogged: "agent.activity.logged",
+  sessionEnded: "session.ended",
+  instructionsLoaded: "instructions.loaded",
+  tokenUsage: "token.usage",
+  contextSnapshot: "context.snapshot",
+  userPromptExpansion: "user.prompt.expansion",
+  fileChanged: "file.changed",
+  worktreeCreate: "worktree.create",
+  worktreeRemove: "worktree.remove",
+  permissionRequest: "permission.request",
+  setupTriggered: "setup.triggered",
+  monitorObserved: "monitor.observed"
+};
+var INGEST_ENDPOINTS = {
+  toolActivity: "/ingest/v1/timeline/tool-activity",
+  workflow: "/ingest/v1/timeline/workflow",
+  conversation: "/ingest/v1/timeline/conversation",
+  coordination: "/ingest/v1/timeline/coordination",
+  lifecycle: "/ingest/v1/timeline/lifecycle",
+  telemetry: "/ingest/v1/timeline/telemetry"
+};
 
 // src/shared/routing/ingest.routing.ts
+var TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved];
+var WORKFLOW_EVENT_KINDS = [
+  KIND.planLogged,
+  KIND.actionLogged,
+  KIND.verificationLogged,
+  KIND.ruleLogged,
+  KIND.thoughtLogged,
+  KIND.contextSaved,
+  KIND.contextSnapshot,
+  KIND.userPromptExpansion,
+  KIND.permissionRequest,
+  KIND.worktreeCreate,
+  KIND.worktreeRemove,
+  KIND.setupTriggered,
+  KIND.fileChanged
+];
+var CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged];
+var COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged];
+var LIFECYCLE_EVENT_KINDS = [KIND.sessionEnded, KIND.instructionsLoaded];
+var TELEMETRY_EVENT_KINDS = [KIND.tokenUsage];
+var RUNTIME_INGEST_EVENT_KINDS = [
+  ...TOOL_ACTIVITY_EVENT_KINDS,
+  ...WORKFLOW_EVENT_KINDS,
+  ...CONVERSATION_EVENT_KINDS,
+  ...COORDINATION_EVENT_KINDS,
+  ...LIFECYCLE_EVENT_KINDS,
+  ...TELEMETRY_EVENT_KINDS
+];
+var TOOL_ACTIVITY_KIND_SET = new Set(TOOL_ACTIVITY_EVENT_KINDS);
+var WORKFLOW_KIND_SET = new Set(WORKFLOW_EVENT_KINDS);
+var CONVERSATION_KIND_SET = new Set(CONVERSATION_EVENT_KINDS);
+var COORDINATION_KIND_SET = new Set(COORDINATION_EVENT_KINDS);
+var LIFECYCLE_KIND_SET = new Set(LIFECYCLE_EVENT_KINDS);
+var TELEMETRY_KIND_SET = new Set(TELEMETRY_EVENT_KINDS);
 function resolveIngestEndpoint(kind) {
   if (TOOL_ACTIVITY_KIND_SET.has(kind)) return INGEST_ENDPOINTS.toolActivity;
   if (WORKFLOW_KIND_SET.has(kind)) return INGEST_ENDPOINTS.workflow;
@@ -60,47 +154,6 @@ function resolveIngestEndpoint(kind) {
   if (TELEMETRY_KIND_SET.has(kind)) return INGEST_ENDPOINTS.telemetry;
   return INGEST_ENDPOINTS.workflow;
 }
-var TOOL_ACTIVITY_EVENT_KINDS, WORKFLOW_EVENT_KINDS, CONVERSATION_EVENT_KINDS, COORDINATION_EVENT_KINDS, LIFECYCLE_EVENT_KINDS, TELEMETRY_EVENT_KINDS, RUNTIME_INGEST_EVENT_KINDS, TOOL_ACTIVITY_KIND_SET, WORKFLOW_KIND_SET, CONVERSATION_KIND_SET, COORDINATION_KIND_SET, LIFECYCLE_KIND_SET, TELEMETRY_KIND_SET;
-var init_ingest_routing = __esm({
-  "src/shared/routing/ingest.routing.ts"() {
-    "use strict";
-    init_kinds_const();
-    TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved];
-    WORKFLOW_EVENT_KINDS = [
-      KIND.planLogged,
-      KIND.actionLogged,
-      KIND.verificationLogged,
-      KIND.ruleLogged,
-      KIND.thoughtLogged,
-      KIND.contextSaved,
-      KIND.contextSnapshot,
-      KIND.userPromptExpansion,
-      KIND.permissionRequest,
-      KIND.worktreeCreate,
-      KIND.worktreeRemove,
-      KIND.setupTriggered,
-      KIND.fileChanged
-    ];
-    CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged];
-    COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged];
-    LIFECYCLE_EVENT_KINDS = [KIND.sessionEnded, KIND.instructionsLoaded];
-    TELEMETRY_EVENT_KINDS = [KIND.tokenUsage];
-    RUNTIME_INGEST_EVENT_KINDS = [
-      ...TOOL_ACTIVITY_EVENT_KINDS,
-      ...WORKFLOW_EVENT_KINDS,
-      ...CONVERSATION_EVENT_KINDS,
-      ...COORDINATION_EVENT_KINDS,
-      ...LIFECYCLE_EVENT_KINDS,
-      ...TELEMETRY_EVENT_KINDS
-    ];
-    TOOL_ACTIVITY_KIND_SET = new Set(TOOL_ACTIVITY_EVENT_KINDS);
-    WORKFLOW_KIND_SET = new Set(WORKFLOW_EVENT_KINDS);
-    CONVERSATION_KIND_SET = new Set(CONVERSATION_EVENT_KINDS);
-    COORDINATION_KIND_SET = new Set(COORDINATION_EVENT_KINDS);
-    LIFECYCLE_KIND_SET = new Set(LIFECYCLE_EVENT_KINDS);
-    TELEMETRY_KIND_SET = new Set(TELEMETRY_EVENT_KINDS);
-  }
-});
 
 // src/shared/semantics/tags.ts
 function extractStr(meta, key) {
@@ -199,21 +252,8 @@ function buildTagsFromMetadata(meta) {
 function withTags(meta) {
   return { ...meta, tags: buildTagsFromMetadata(meta) };
 }
-var init_tags = __esm({
-  "src/shared/semantics/tags.ts"() {
-    "use strict";
-  }
-});
 
 // src/shared/config/env.ts
-var env_exports = {};
-__export(env_exports, {
-  resolveClaudeProjectDir: () => resolveClaudeProjectDir,
-  resolveCodexProjectDir: () => resolveCodexProjectDir,
-  resolveMonitorBaseUrl: () => resolveMonitorBaseUrl,
-  resolveMonitorTransportConfig: () => resolveMonitorTransportConfig,
-  resolveRuntimeLoggingConfig: () => resolveRuntimeLoggingConfig
-});
 function resolveMonitorBaseUrl(env = process.env) {
   const explicit = (env.MONITOR_BASE_URL ?? "").trim();
   if (explicit) return explicit.replace(/\/$/, "");
@@ -239,20 +279,10 @@ function resolveRuntimeLoggingConfig(env = process.env) {
     enabled: env.NODE_ENV === "development"
   };
 }
-function resolveClaudeProjectDir(env = process.env) {
-  return (env.CLAUDE_PROJECT_DIR ?? "").trim() || process.cwd();
-}
-function resolveCodexProjectDir(env = process.env) {
-  return (env.CODEX_PROJECT_DIR ?? "").trim() || process.cwd();
-}
-var init_env = __esm({
-  "src/shared/config/env.ts"() {
-    "use strict";
-  }
-});
 
 // src/shared/util/ulid.ts
 import { randomBytes } from "node:crypto";
+var ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 function encodeTime(timeMs) {
   let value = Math.floor(timeMs);
   let output = "";
@@ -287,399 +317,6 @@ function generateUlid(timeMs = Date.now()) {
 function ensureEventId(event) {
   return event.id ? event : { ...event, id: generateUlid() };
 }
-var ENCODING;
-var init_ulid = __esm({
-  "src/shared/util/ulid.ts"() {
-    "use strict";
-    ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-  }
-});
-
-// src/shared/transport/transport.ts
-var transport_exports = {};
-__export(transport_exports, {
-  monitorUserHeader: () => monitorUserHeader,
-  postEvent: () => postEvent2,
-  postJson: () => postJson2,
-  postTaggedEvent: () => postTaggedEvent2,
-  readStdinJson: () => readStdinJson2
-});
-function isRecord4(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function unwrapApiEnvelope2(value) {
-  if (isRecord4(value) && value["ok"] === true && "data" in value) {
-    return value["data"];
-  }
-  return value;
-}
-function resolveApiBase() {
-  const explicit = (process.env.MONITOR_BASE_URL ?? "").trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  const port = parseInt(process.env.MONITOR_PORT ?? "", 10) || 3847;
-  const host = (process.env.MONITOR_PUBLIC_HOST ?? "127.0.0.1").trim();
-  return `http://${host}:${port}`;
-}
-async function readStdinJson2() {
-  let raw = "";
-  for await (const chunk of process.stdin) {
-    raw += String(chunk);
-  }
-  if (!raw.trim()) return {};
-  const parsed = JSON.parse(raw);
-  return isRecord4(parsed) ? parsed : {};
-}
-function monitorUserHeader() {
-  const email = process.env["MONITOR_USER_EMAIL"]?.trim();
-  return email ? { "X-User-Email": email } : {};
-}
-async function postJson2(pathname, body) {
-  const response = await fetch(`${resolveApiBase()}${pathname}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...monitorUserHeader() },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(2e3)
-  });
-  if (!response.ok) {
-    throw new Error(`Monitor request failed: ${pathname} (${response.status})`);
-  }
-  const text = await response.text();
-  return unwrapApiEnvelope2(text ? JSON.parse(text) : {});
-}
-async function postEvent2(events) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const event of events) {
-    const stamped = ensureEventId(event);
-    const endpoint = resolveIngestEndpoint(stamped.kind);
-    const group = groups.get(endpoint) ?? [];
-    group.push(stamped);
-    groups.set(endpoint, group);
-  }
-  await Promise.all(
-    [...groups.entries()].map(([endpoint, batch]) => postJson2(endpoint, { events: batch }))
-  );
-}
-async function postTaggedEvent2(event) {
-  await postEvent2([{ ...event, metadata: withTags(event.metadata) }]);
-}
-var init_transport = __esm({
-  "src/shared/transport/transport.ts"() {
-    "use strict";
-    init_ingest_routing();
-    init_tags();
-    init_ulid();
-  }
-});
-
-// src/shared/rule-generation/runner.ts
-var runner_exports = {};
-__export(runner_exports, {
-  runRuleGeneration: () => runRuleGeneration
-});
-function buildOutputSchema() {
-  return {
-    type: "object",
-    properties: {
-      rules: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            trigger: {
-              type: "object",
-              properties: { phrases: { type: "array", items: { type: "string" } } }
-            },
-            triggerOn: { type: "string", enum: ["user", "assistant"] },
-            expect: {
-              type: "object",
-              properties: {
-                action: { type: "string" },
-                commandMatches: { type: "array", items: { type: "string" } },
-                pattern: { type: "string" }
-              }
-            },
-            rationale: { type: "string" }
-          },
-          required: ["name", "expect", "rationale"]
-        }
-      }
-    },
-    required: ["rules"]
-  };
-}
-async function runRuleGeneration(opts) {
-  const baseUrl = resolveMonitorBaseUrl();
-  const userHeaders = monitorUserHeader();
-  const jsonHeaders = { ...userHeaders, "Content-Type": "application/json" };
-  const maxRules = opts.maxRules ?? 5;
-  const language = opts.language ?? "auto";
-  const langDirective = LANGUAGE_DIRECTIVES[language] ?? LANGUAGE_DIRECTIVES["auto"];
-  const systemPromptAppend = `You are a verification-rule designer for Agent Tracer, an observability tool that records coding-agent sessions.
-
-You have tools to query domain data:
-  - ${MCP_SERVER_NAME}__get_task_events(taskId, limit?) : full chronological event sequence (kind, title, body, metadata). Use this to understand what the agent did step-by-step.
-  - ${MCP_SERVER_NAME}__list_rules(scope?)              : existing rules with name and trigger \u2014 call this to avoid duplicates.
-
-You also have Read/Glob/Grep to inspect workspace files (e.g., read package.json to confirm real script names).
-
-Suggested workflow:
-  1. Call get_task_events to see the full event sequence and identify recurring patterns.
-  2. Call list_rules to check what rules already exist.
-  3. Optionally Read package.json (or equivalent manifest) to verify actual command names.
-  4. Propose rules grounded in what you observed.
-
-Propose 3-5 rules that would catch whether a future agent doing similar work performed it correctly. Rules are matched against tool-call events \u2014 they describe what to expect, not what is forbidden.
-
-Rules are not blockers. severity is always "info".
-
-Each rule has:
-  - name           : short imperative (under 60 chars)
-  - trigger        : { phrases: string[] }  -- optional
-  - triggerOn      : "user" | "assistant"   -- optional
-  - expect         : at least one of: action, commandMatches, pattern
-  - rationale      : 1 short sentence (under 200 chars)
-
-Guidelines:
-  - Prefer commandMatches over regex when you know the literal command.
-  - Lean into task-specific patterns rather than generic habits.
-  - Quality over quantity: 3-5 rules.
-
-Output language: ${langDirective}
-  - This applies ONLY to name and rationale fields.
-  - Keep trigger.phrases, commandMatches, and pattern as literal strings.
-
-Return JSON conforming to the provided schema.`;
-  const userPrompt = `Task ID: ${opts.taskId}
-Workspace: ${opts.workspacePath}
-
-Propose up to ${maxRules} rules for task ${opts.taskId}.`;
-  const allowedTools = [
-    "Read",
-    "Glob",
-    "Grep",
-    `${MCP_SERVER_NAME}__get_task_events`,
-    `${MCP_SERVER_NAME}__list_rules`
-  ];
-  let resultRules = [];
-  let modelUsed = opts.model ?? "claude-sonnet-4-6";
-  let costUsd = null;
-  let numTurns = null;
-  let usage = null;
-  let errorMsg = null;
-  const startedAt = Date.now();
-  try {
-    const sdk = await import("@anthropic-ai/claude-agent-sdk");
-    const { query, createSdkMcpServer, tool } = sdk;
-    const { z } = await import("zod");
-    const mcpServer = createSdkMcpServer({
-      name: MCP_SERVER_NAME,
-      tools: [
-        tool(
-          "get_task_events",
-          "Get the chronological event sequence for a task (tool calls, shell commands, file edits).",
-          { taskId: z.string(), limit: z.number().int().min(1).max(300).optional() },
-          async ({ taskId, limit }) => {
-            const resolvedLimit = limit ?? 200;
-            const resp = await fetch(
-              `${baseUrl}/api/v1/events?taskId=${encodeURIComponent(taskId)}&limit=${resolvedLimit}`,
-              { headers: userHeaders }
-            );
-            const data = await resp.json();
-            return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-          }
-        ),
-        tool(
-          "list_rules",
-          "List existing rules (name + trigger) to avoid duplicates.",
-          { scope: z.enum(["global", "task"]).optional().default("global") },
-          async ({ scope }) => {
-            const resp = await fetch(
-              `${baseUrl}/api/v1/rules?scope=${scope ?? "global"}`,
-              { headers: userHeaders }
-            );
-            const data = await resp.json();
-            const rules = Array.isArray(data?.rules) ? data.rules : [];
-            const slim = rules.map((r) => ({ name: r.name, trigger: r.trigger ?? null }));
-            return { content: [{ type: "text", text: JSON.stringify(slim, null, 2) }] };
-          }
-        )
-      ]
-    });
-    const q = query({
-      prompt: userPrompt,
-      options: {
-        cwd: opts.workspacePath,
-        model: opts.model ?? "claude-sonnet-4-6",
-        allowedTools,
-        tools: allowedTools,
-        maxTurns: 8,
-        mcpServers: { [MCP_SERVER_NAME]: mcpServer },
-        systemPrompt: {
-          type: "preset",
-          preset: "claude_code",
-          append: systemPromptAppend,
-          excludeDynamicSections: true
-        },
-        outputFormat: { type: "json_schema", schema: buildOutputSchema() },
-        env: {
-          ...process.env,
-          ...opts.apiKey ? { ANTHROPIC_API_KEY: opts.apiKey } : {},
-          MONITOR_TASK_ORIGIN: "server-sdk"
-        },
-        permissionMode: "bypassPermissions",
-        allowDangerouslySkipPermissions: true,
-        strictMcpConfig: true,
-        includePartialMessages: false
-      }
-    });
-    for await (const msg of q) {
-      if (msg.type === "result") {
-        costUsd = msg.total_cost_usd;
-        numTurns = msg.num_turns;
-        if (msg.usage) {
-          usage = {
-            inputTokens: msg.usage.input_tokens,
-            outputTokens: msg.usage.output_tokens,
-            cacheReadTokens: msg.usage.cache_read_input_tokens,
-            cacheCreationTokens: msg.usage.cache_creation_input_tokens
-          };
-        }
-        if (msg.subtype === "success" && msg.structured_output) {
-          const output = msg.structured_output;
-          resultRules = Array.isArray(output.rules) ? output.rules : [];
-        } else if (msg.subtype !== "success") {
-          const errors = "errors" in msg && Array.isArray(msg.errors) ? msg.errors : [];
-          errorMsg = `${msg.subtype}${errors.length > 0 ? `: ${errors.join("; ")}` : ""}`;
-        }
-        break;
-      }
-    }
-  } catch (err) {
-    errorMsg = err instanceof Error ? err.message : String(err);
-  }
-  const durationMs = Date.now() - startedAt;
-  if (errorMsg) {
-    await fetch(`${baseUrl}/api/v1/rules/generate/${opts.jobId}/fail`, {
-      method: "POST",
-      headers: jsonHeaders,
-      body: JSON.stringify({ error: errorMsg })
-    }).catch(() => {
-    });
-    return;
-  }
-  await fetch(`${baseUrl}/api/v1/rules/generate/${opts.jobId}/proposals`, {
-    method: "POST",
-    headers: jsonHeaders,
-    body: JSON.stringify({
-      rules: resultRules.slice(0, maxRules),
-      modelUsed,
-      durationMs,
-      costUsd,
-      numTurns,
-      usage
-    })
-  }).catch(() => {
-  });
-}
-var MCP_SERVER_NAME, LANGUAGE_DIRECTIVES;
-var init_runner = __esm({
-  "src/shared/rule-generation/runner.ts"() {
-    "use strict";
-    init_env();
-    init_transport();
-    MCP_SERVER_NAME = "monitor-rule-gen";
-    LANGUAGE_DIRECTIVES = {
-      auto: "Mirror the language of the task (Korean \u2192 Korean, English \u2192 English, etc.).",
-      ko: "Write every rule name and rationale in Korean (\uD55C\uAD6D\uC5B4).",
-      en: "Write every rule name and rationale in English.",
-      ja: "Write every rule name and rationale in Japanese (\u65E5\u672C\u8A9E).",
-      zh: "Write every rule name and rationale in Simplified Chinese (\u7B80\u4F53\u4E2D\u6587)."
-    };
-  }
-});
-
-// src/claude-code/hooks/util/paths.const.ts
-var PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-var CLAUDE_RUNTIME_SOURCE = "claude-plugin";
-var TRANSCRIPT_CURSOR_DIR = `${PROJECT_DIR}/.claude/.transcript-cursors`;
-
-// src/claude-code/hooks/lib/runtime.ts
-import * as path2 from "node:path";
-
-// src/shared/hook-runtime/hook-log.ts
-import * as fs from "node:fs";
-
-// src/shared/util/utils.ts
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function toTrimmedString(value, maxLength) {
-  const next = typeof value === "string" ? value.trim() : typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value).trim() : "";
-  if (!maxLength || next.length <= maxLength) return next;
-  return next.slice(0, maxLength);
-}
-
-// src/shared/hook-runtime/hook-log.ts
-var DEFAULT_REDACT_KEYS = ["tool_response", "transcript_path"];
-function createHookLogger(config) {
-  const redactKeys = new Set(config.payloadRedactKeys ?? DEFAULT_REDACT_KEYS);
-  const appendLog = (line) => {
-    if (!config.enabled) return;
-    try {
-      fs.appendFileSync(config.logFile, line + "\n");
-    } catch {
-    }
-  };
-  const log = (hookName, message, data) => {
-    const ts = (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
-    const logData = data ? { timestamp: (/* @__PURE__ */ new Date()).toISOString(), ...data } : { timestamp: (/* @__PURE__ */ new Date()).toISOString() };
-    const line = `[${ts}][HOOK:${hookName}] ${message} ${JSON.stringify(logData)}`;
-    if (config.enabled) {
-      process.stderr.write(line + "\n");
-    }
-    appendLog(line);
-  };
-  const logPayload = (hookName, payload) => {
-    const ts = (/* @__PURE__ */ new Date()).toISOString().slice(11, 23);
-    const rest = {};
-    for (const [key, value] of Object.entries(payload)) {
-      if (!redactKeys.has(key)) rest[key] = value;
-    }
-    if (isRecord(rest["tool_input"])) {
-      rest["tool_input"] = Object.fromEntries(
-        Object.entries(rest["tool_input"]).map(
-          ([k, v]) => typeof v === "string" && v.length > 200 ? [k, v.slice(0, 200) + "\u2026"] : [k, v]
-        )
-      );
-    }
-    const line = `[${ts}][PAYLOAD:${hookName}] ${JSON.stringify(rest)}`;
-    appendLog(line);
-  };
-  return { log, logPayload };
-}
-
-// src/shared/errors/monitor.ts
-var MonitorRequestError = class extends Error {
-  status;
-  pathname;
-  code;
-  details;
-  constructor(init) {
-    super(init.message);
-    this.name = "MonitorRequestError";
-    this.status = init.status;
-    this.pathname = init.pathname;
-    this.code = init.code;
-    this.details = init.details;
-  }
-};
-
-// src/shared/hook-runtime/transport.ts
-init_ingest_routing();
-init_tags();
-init_env();
-init_ulid();
 
 // src/shared/hook-runtime/local-daemon.ts
 import * as crypto from "node:crypto";
@@ -866,7 +503,7 @@ function unwrapApiEnvelope(value) {
   return value;
 }
 function createMonitorTransport(config = resolveMonitorTransportConfig(), options = {}) {
-  async function postJson3(pathname, body) {
+  async function postJson2(pathname, body) {
     if (!options.forceDirect && shouldUseLocalDaemon()) {
       const localResult = pathname === "/ingest/v1/sessions/ensure" ? localEnsureResult(body) : void 0;
       await enqueueDaemonMessage({
@@ -901,7 +538,7 @@ function createMonitorTransport(config = resolveMonitorTransportConfig(), option
     }
     return unwrapApiEnvelope(parsed);
   }
-  async function postEvent3(events) {
+  async function postEvent2(events) {
     const groups = /* @__PURE__ */ new Map();
     for (const event of events) {
       const stamped = ensureEventId(event);
@@ -911,20 +548,19 @@ function createMonitorTransport(config = resolveMonitorTransportConfig(), option
       groups.set(endpoint, group);
     }
     await Promise.all(
-      [...groups.entries()].map(([endpoint, batch]) => postJson3(endpoint, { events: batch }))
+      [...groups.entries()].map(([endpoint, batch]) => postJson2(endpoint, { events: batch }))
     );
   }
-  async function postTaggedEvent3(event) {
-    await postEvent3([{ ...event, metadata: withTags(event.metadata) }]);
+  async function postTaggedEvent2(event) {
+    await postEvent2([{ ...event, metadata: withTags(event.metadata) }]);
   }
   async function postTaggedEvents2(events) {
-    await postEvent3(events.map((event) => ({ ...event, metadata: withTags(event.metadata) })));
+    await postEvent2(events.map((event) => ({ ...event, metadata: withTags(event.metadata) })));
   }
-  return { postJson: postJson3, postEvent: postEvent3, postTaggedEvent: postTaggedEvent3, postTaggedEvents: postTaggedEvents2 };
+  return { postJson: postJson2, postEvent: postEvent2, postTaggedEvent: postTaggedEvent2, postTaggedEvents: postTaggedEvents2 };
 }
 
 // src/shared/hook-runtime/create-runtime.ts
-init_env();
 function createHookRuntime(config) {
   const logger = createHookLogger({
     logFile: config.logFile,
@@ -957,7 +593,6 @@ async function readStdinJson() {
 }
 
 // src/claude-code/hooks/lib/transport/transport.ts
-init_env();
 var postJson = claudeHookRuntime.transport.postJson;
 var postEvent = claudeHookRuntime.transport.postEvent;
 var postTaggedEvent = claudeHookRuntime.transport.postTaggedEvent;
@@ -1046,9 +681,6 @@ function errorMessage(err) {
   if (err instanceof Error) return err.message;
   return String(err);
 }
-
-// src/claude-code/hooks/SessionEnd.ts
-init_kinds_const();
 
 // src/shared/events/lanes.const.ts
 var LANE = {
@@ -1140,30 +772,5 @@ await runHook("SessionEnd", {
       metadata
     });
     deleteTodoState(payload.sessionId);
-    if (reason === "prompt_input_exit") {
-      void triggerRuleGeneration(ids.taskId, payload.cwd ?? PROJECT_DIR).catch(() => {
-      });
-    }
   }
 });
-async function triggerRuleGeneration(taskId, workspacePath) {
-  let jobId;
-  try {
-    const resp = await postJson(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
-    jobId = resp.jobId;
-  } catch {
-    const { resolveMonitorBaseUrl: resolveMonitorBaseUrl2 } = await Promise.resolve().then(() => (init_env(), env_exports));
-    const { monitorUserHeader: monitorUserHeader2 } = await Promise.resolve().then(() => (init_transport(), transport_exports));
-    const resp = await fetch(
-      `${resolveMonitorBaseUrl2()}/api/v1/rules/generate/latest?taskId=${encodeURIComponent(taskId)}`,
-      { headers: monitorUserHeader2(), signal: AbortSignal.timeout(2e3) }
-    );
-    if (resp.ok) {
-      const data = await resp.json();
-      jobId = data?.data?.job?.id;
-    }
-  }
-  if (!jobId) return;
-  const { runRuleGeneration: runRuleGeneration2 } = await Promise.resolve().then(() => (init_runner(), runner_exports));
-  await runRuleGeneration2({ taskId, jobId, workspacePath });
-}
