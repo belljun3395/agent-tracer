@@ -24,7 +24,7 @@
  * "clear" events are intentionally skipped because SessionStart handles them
  * via the matching "clear" matcher immediately after.
  */
-import {CLAUDE_RUNTIME_SOURCE} from "~claude-code/hooks/util/paths.const.js";
+import {CLAUDE_RUNTIME_SOURCE, PROJECT_DIR} from "~claude-code/hooks/util/paths.const.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {ensureRuntimeSession, postJson} from "~claude-code/hooks/lib/transport/transport.js";
 import {readSessionEnd} from "~shared/hooks/claude/payloads.js";
@@ -85,5 +85,17 @@ await runHook("SessionEnd", {
         });
 
         deleteTodoState(payload.sessionId);
+
+        if (reason === "prompt_input_exit") {
+            void triggerRuleGeneration(ids.taskId, payload.cwd ?? PROJECT_DIR).catch(() => {});
+        }
     },
 });
+
+async function triggerRuleGeneration(taskId: string, workspacePath: string): Promise<void> {
+    const enqueueResp = await postJson<{ jobId?: string }>(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
+    const jobId = enqueueResp.jobId;
+    if (!jobId) return;
+    const { runRuleGeneration } = await import("~shared/rule-generation/runner.js");
+    await runRuleGeneration({ taskId, jobId, workspacePath });
+}
