@@ -20,7 +20,6 @@ import {
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
-import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
 import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
 import {
     TIMELINE_EVENT_PROJECTION,
@@ -31,7 +30,6 @@ import { PgEventSearch } from "./repository/search/pg.event.search.js";
 import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
 import { EventRecordingService } from "./service/event.recording.service.js";
-import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
 @Module({})
@@ -54,12 +52,10 @@ export class EventModule {
                 PreprocessingHintsRepository,
 
                 TimelineEventStorageService,
-                TimelineEventService,
 
                 EventPersistenceAdapter,
                 EventNotificationPublisherAdapter,
 
-                TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
 
                 CrossCheckDedupeCache,
@@ -73,8 +69,8 @@ export class EventModule {
                 CommandRepetitionDetector,
                 GetPreprocessingHintsUseCase,
 
-                { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventService },
-                { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },
+                { provide: TIMELINE_EVENT_READ, useExisting: EventPersistenceAdapter },
+                { provide: TIMELINE_EVENT_WRITE, useExisting: EventPersistenceAdapter },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
 
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },

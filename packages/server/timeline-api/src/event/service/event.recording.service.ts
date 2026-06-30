@@ -4,10 +4,10 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { createEventRecordDraft, normalizeFilePaths, deriveFileChangeEventInputs } from "@monitor/timeline-api/event/domain/event.recording.policy.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
-import { TimelineEventService } from "./timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
 import { CrossCheckDedupeCache } from "../common/cross.check.dedupe.cache.js";
-import { NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
+import { EVENT_PERSISTENCE_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
+import type { IEventPersistence } from "../application/outbound/event.persistence.port.js";
 import type { IEventNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 import { EVENT_RECORDED } from "../public/events/event.recorded.js";
 import type { EventRecordedPayload } from "../public/events/event.recorded.js";
@@ -50,7 +50,7 @@ type EventRecordDraftInput = Parameters<typeof createEventRecordDraft>[0];
 @Injectable()
 export class EventRecordingService {
     constructor(
-        private readonly events: TimelineEventService,
+        @Inject(EVENT_PERSISTENCE_PORT) private readonly events: IEventPersistence,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
         private readonly dedupe: CrossCheckDedupeCache,
         private readonly eventBus: EventEmitter2,
