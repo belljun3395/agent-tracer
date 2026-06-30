@@ -1,7 +1,7 @@
 import { Module, type DynamicModule, type Provider } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { randomUUID } from "node:crypto";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "@monitor/rules-api/verification/application/outbound/rule.access.port.js";
 import type { IRuleEnforcementRepository } from "@monitor/rules-api/verification/application/outbound/rule.enforcement.repository.port.js";
 import type { ITurnQueryRepository } from "@monitor/rules-api/verification/application/outbound/turn.query.repository.port.js";
@@ -9,7 +9,6 @@ import type { ITurnRepository } from "@monitor/rules-api/verification/applicatio
 import type { IVerdictRepository } from "@monitor/rules-api/verification/application/outbound/verdict.repository.port.js";
 import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
 import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { IRuleRead } from "@monitor/rules-api/rule/public/iservice/rule.read.iservice.js";
 import { RULE_READ, RULE_REPOSITORY_TOKEN } from "@monitor/rules-api/rule/public/tokens.js";
 import {
@@ -19,7 +18,6 @@ import {
 } from "./repository/tokens.js";
 import { TURN_QUERY_REPOSITORY_TOKEN } from "@monitor/run-api/task/public/tokens.js";
 import { RuleEvidenceQueryController } from "./api/rule.evidence.query.controller.js";
-import { VerificationBackfillPublicAdapter } from "./adapter/verification.backfill.public.adapter.js";
 import { VerdictInvalidationPublicAdapter } from "./adapter/verdict.invalidation.public.adapter.js";
 import { VerificationPostProcessorPublicAdapter } from "./adapter/verification.post.processor.public.adapter.js";
 import { EventRecordedVerificationSubscriber } from "./subscriber/event.recorded.verification.subscriber.js";
@@ -31,7 +29,6 @@ import { TurnEntity } from "./domain/turn.entity.js";
 import { TurnEventEntity } from "./domain/turn.event.entity.js";
 import { VerdictEntity } from "./domain/verdict.entity.js";
 import {
-    VERIFICATION_BACKFILL,
     VERIFICATION_POST_PROCESSOR,
     VERIFICATION_VERDICT_INVALIDATION,
 } from "./public/tokens.js";
@@ -39,9 +36,7 @@ import { RuleEnforcementRepository } from "./repository/rule.enforcement.reposit
 import { TurnRepository } from "./repository/turn.repository.js";
 import { TurnQueryRepository } from "./repository/turn.query.repository.js";
 import { VerdictRepository } from "./repository/verdict.repository.js";
-import { RuleEnforcementPostProcessor } from "./service/rule.enforcement.post.processor.js";
 import { TurnEvaluationService } from "./service/turn.evaluation.service.js";
-import { TurnLifecyclePostProcessor } from "./service/turn.lifecycle.post.processor.js";
 
 const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
     {
@@ -58,36 +53,6 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
         useFactory: (turnEvaluation: TurnEvaluationService) =>
             new RunTurnEvaluationUseCase(turnEvaluation),
         inject: [TurnEvaluationService],
-    },
-    {
-        provide: RuleEnforcementPostProcessor,
-        useFactory: (
-            ruleRepo: IRuleAccess,
-            turnRepo: ITurnRepository,
-            enforcementRepo: IRuleEnforcementRepository,
-            notifier: INotificationPublisher,
-        ) => new RuleEnforcementPostProcessor(ruleRepo, turnRepo, enforcementRepo, notifier),
-        inject: [
-            RULE_REPOSITORY_TOKEN,
-            TURN_REPOSITORY_TOKEN,
-            RULE_ENFORCEMENT_REPOSITORY_TOKEN,
-            NOTIFICATION_PUBLISHER_TOKEN,
-        ],
-    },
-    {
-        provide: TurnLifecyclePostProcessor,
-        useFactory: (
-            eventRepo: ITimelineEventRead,
-            turnRepo: ITurnRepository,
-            turnEvaluation: TurnEvaluationService,
-            notifier: INotificationPublisher,
-        ) => new TurnLifecyclePostProcessor(eventRepo, turnRepo, turnEvaluation, notifier),
-        inject: [
-            TIMELINE_EVENT_READ,
-            TURN_REPOSITORY_TOKEN,
-            TurnEvaluationService,
-            NOTIFICATION_PUBLISHER_TOKEN,
-        ],
     },
     {
         provide: BackfillRuleEvaluationUseCase,
@@ -107,7 +72,6 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
                 enforcementRepo,
                 notifier,
                 now: () => new Date().toISOString(),
-                newVerdictId: () => randomUUID(),
             }),
         inject: [
             TURN_REPOSITORY_TOKEN,
@@ -157,27 +121,23 @@ export class VerificationModule {
                 { provide: RULE_ENFORCEMENT_REPOSITORY_TOKEN, useExisting: RuleEnforcementRepository },
                 ...VERIFICATION_INTERNAL_PROVIDERS,
 
-                VerificationBackfillPublicAdapter,
                 VerdictInvalidationPublicAdapter,
                 VerificationPostProcessorPublicAdapter,
 
                 EventRecordedVerificationSubscriber,
 
-                { provide: VERIFICATION_BACKFILL, useExisting: VerificationBackfillPublicAdapter },
                 { provide: VERIFICATION_VERDICT_INVALIDATION, useExisting: VerdictInvalidationPublicAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR, useExisting: VerificationPostProcessorPublicAdapter },
             ],
             exports: [
-                VERIFICATION_BACKFILL,
                 VERIFICATION_VERDICT_INVALIDATION,
                 VERIFICATION_POST_PROCESSOR,
 
                 TURN_QUERY_REPOSITORY_TOKEN,
 
                 RunTurnEvaluationUseCase,
-                TurnLifecyclePostProcessor,
-                RuleEnforcementPostProcessor,
                 TurnEvaluationService,
+                BackfillRuleEvaluationUseCase,
             ],
         };
     }

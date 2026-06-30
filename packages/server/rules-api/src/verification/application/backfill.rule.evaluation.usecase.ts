@@ -10,7 +10,7 @@ import type { EvaluateTurnToolCall } from "@monitor/rules-api/verification/domai
 import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.policy.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import type { ITimelineEventAccess } from "@monitor/rules-api/verification/application/outbound/timeline.event.access.port.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
 import type {
     IRuleEnforcementRepository,
     RuleEnforcementInsert,
@@ -32,11 +32,10 @@ export interface BackfillRuleEvaluationDeps {
     readonly turnRepo: ITurnRepository;
     readonly turnSource: BackfillTurnSource;
     readonly verdictRepo: IVerdictRepository;
-    readonly eventRepo: ITimelineEventAccess;
+    readonly eventRepo: ITimelineEventRead;
     readonly enforcementRepo: IRuleEnforcementRepository;
     readonly notifier: INotificationPublisher;
     readonly now: () => string;
-    readonly newVerdictId: () => string;
 }
 
 export class BackfillRuleEvaluationUseCase {
@@ -52,7 +51,6 @@ export class BackfillRuleEvaluationUseCase {
             enforcementRepo,
             notifier,
             now,
-            newVerdictId,
         } = this.deps;
         const { rule } = input;
         const turns = await listTurnsForRuleScope(turnSource, rule);
@@ -94,7 +92,6 @@ export class BackfillRuleEvaluationUseCase {
                 toolCalls: inferTurnToolCalls(events),
                 rules: [rule],
                 now: now(),
-                newVerdictId,
             });
 
             const persisted = await this.persistVerdicts(verdicts, now());
@@ -144,7 +141,6 @@ export class BackfillRuleEvaluationUseCase {
         const persisted: TurnVerdict[] = [];
         for (const verdict of verdicts) {
             const saved = await this.deps.verdictRepo.insert({
-                id: verdict.id,
                 turnId: verdict.turnId,
                 ruleId: verdict.ruleId,
                 status: verdict.status,
@@ -179,7 +175,7 @@ function listTurnsForRuleScope(
 
 async function collectTurnEvents(
     turnRepo: ITurnRepository,
-    eventRepo: ITimelineEventAccess,
+    eventRepo: ITimelineEventRead,
     turnId: string,
 ): Promise<readonly TimelineEvent[]> {
     const eventIds = await turnRepo.findEventsForTurn(turnId);

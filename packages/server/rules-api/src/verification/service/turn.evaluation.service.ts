@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { TurnVerdict } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
 import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.policy.js";
 import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.policy.js";
@@ -32,7 +31,6 @@ export class TurnEvaluationService {
         private readonly turnRepo: ITurnRepository,
         private readonly verdictRepo: IVerdictRepository,
         private readonly now: () => string = () => new Date().toISOString(),
-        private readonly newVerdictId: () => string = () => randomUUID(),
     ) {}
 
     async evaluate(input: TurnEvaluationInput): Promise<TurnEvaluationResult> {
@@ -48,7 +46,6 @@ export class TurnEvaluationService {
             toolCalls: input.toolCalls,
             rules,
             now: this.now(),
-            newVerdictId: this.newVerdictId,
         });
 
         await this.persistVerdicts(result.verdicts, this.now());
@@ -72,7 +69,6 @@ export class TurnEvaluationService {
         const persisted: TurnVerdict[] = [];
         for (const verdict of verdicts) {
             const saved = await this.verdictRepo.insert({
-                id: verdict.id,
                 turnId: verdict.turnId,
                 ruleId: verdict.ruleId,
                 status: verdict.status,
