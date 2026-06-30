@@ -1,11 +1,16 @@
+import { Injectable, Inject } from "@nestjs/common";
+import { Context } from "@temporalio/activity";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { TitleSuggestionAgent } from "../agents/title.suggestion.agent.js";
 import type { SuggestionLanguage } from "../agents/title.suggestion.prompt.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
-import type { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
+import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
+import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
 import {
     TaskHasNoEventsError,
     TaskNotFoundError,
@@ -19,16 +24,31 @@ export class MissingApiKeyError extends Error {
     }
 }
 
-// 제목 제안 실행 오케스트레이션. LLM 호출·알림을 워커가 소유한다.
-export class TitleSuggestionRunner {
+@Injectable()
+export class TitleSuggestionActivity {
     constructor(
-        private readonly getSummary: GetTaskSummaryUseCase,
-        private readonly settings: IAppSettings,
+        @Inject(TASK_SUMMARY) private readonly getSummary: ITaskSummary,
+        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         private readonly agent: TitleSuggestionAgent,
-        private readonly notifier: INotificationPublisher,
+        @Inject(NOTIFICATION_PUBLISHER_TOKEN) private readonly notifier: INotificationPublisher,
     ) {}
 
-    async runSuggestion(
+    toActivities(): {
+        runTitleSuggestion: (taskId: string) => Promise<SuggestTaskTitleUseCaseOut>;
+    } {
+        return {
+            runTitleSuggestion: (taskId) => this.runTitleSuggestion(taskId),
+        };
+    }
+
+    // 재시도 간 동일한 키라 제공자가 중복 LLM 호출을 흡수한다.
+    async runTitleSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut> {
+        const info = Context.current().info;
+        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
+        return this.runSuggestion(taskId, idempotencyKey);
+    }
+
+    private async runSuggestion(
         taskId: string,
         idempotencyKey?: string,
     ): Promise<SuggestTaskTitleUseCaseOut> {
@@ -46,11 +66,7 @@ export class TitleSuggestionRunner {
 
         this.notifier.publish({
             type: NOTIFICATION_TYPE.sdkJobUpdated,
-            payload: {
-                kind: "title-suggestion",
-                status: "running",
-                taskId,
-            },
+            payload: { kind: "title-suggestion", status: "running", taskId },
         });
 
         try {

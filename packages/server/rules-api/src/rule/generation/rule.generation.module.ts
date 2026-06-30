@@ -23,7 +23,7 @@ export class RuleGenerationModule {
                 EnqueueTaskRuleGenerationUseCase,
                 GetLatestTaskRuleGenerationUseCase,
             ],
-            exports: [],
+            exports: [RuleJobRepository],
         };
     }
 }

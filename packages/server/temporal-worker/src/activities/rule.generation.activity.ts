@@ -1,8 +1,13 @@
+import { Injectable, Inject } from "@nestjs/common";
 import type {
     RuleSuggestionAgent,
     GenerateRuleSuggestionsInput,
     GenerateRuleSuggestionsOutput,
 } from "../agents/rule.suggestion.agent.js";
+import { JOB_STATUS } from "@monitor/shared/job/job.status.const.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
+import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
 import type { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
 import type { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
@@ -21,20 +26,35 @@ import {
     TaskNotFoundForGenerationError,
 } from "@monitor/rules-api/rule/generation/domain/task.rule.generation.errors.js";
 
-// 규칙 생성 잡의 실행 오케스트레이션. 추론·적용·알림·실패 처리를 워커가 소유한다.
-export class RuleGenerationRunner {
+@Injectable()
+export class RuleGenerationActivity {
     constructor(
         private readonly jobs: RuleJobRepository,
-        private readonly settings: IAppSettings,
-        private readonly taskSummary: ITaskSummary,
+        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
+        @Inject(TASK_SUMMARY) private readonly taskSummary: ITaskSummary,
         private readonly listRules: ListRulesUseCase,
         private readonly registerSuggestion: RegisterSuggestionUseCase,
         private readonly agent: RuleSuggestionAgent,
-        private readonly notifier: INotificationPublisher,
+        @Inject(NOTIFICATION_PUBLISHER_TOKEN) private readonly notifier: INotificationPublisher,
     ) {}
 
+    toActivities(): {
+        generateRuleProposals: (jobId: string) => Promise<void>;
+        applyRuleProposals: (jobId: string) => Promise<number>;
+        completeRuleGeneration: (jobId: string, rulesCreated: number) => Promise<void>;
+        failRuleGeneration: (jobId: string, error: string) => Promise<void>;
+    } {
+        return {
+            generateRuleProposals: (jobId) => this.generateRuleProposals(jobId),
+            applyRuleProposals: (jobId) => this.applyRuleProposals(jobId),
+            completeRuleGeneration: (jobId, rulesCreated) =>
+                this.completeRuleGeneration(jobId, rulesCreated),
+            failRuleGeneration: (jobId, error) => this.failRuleGeneration(jobId, error),
+        };
+    }
+
     // generate 단계: 시작 알림 → LLM 추론(결과 저장).
-    async runGeneration(jobId: string): Promise<void> {
+    async generateRuleProposals(jobId: string): Promise<void> {
         const job = await this.loadJob(jobId);
         this.notifier.publish({
             type: NOTIFICATION_TYPE.sdkJobUpdated,
@@ -49,15 +69,34 @@ export class RuleGenerationRunner {
         await this.runInference(job, input);
     }
 
-    // apply 단계: 저장된 응답으로 규칙 등록·완료 → 성공 알림.
-    async applyGeneration(jobId: string): Promise<number> {
+    // apply 단계: 저장된 응답으로 규칙을 등록하고 새로 만든 수를 반환한다.
+    async applyRuleProposals(jobId: string): Promise<number> {
         const job = await this.loadJob(jobId);
         if (!job.llmOutputJson) {
             throw new Error(`memoized LLM output missing for job ${jobId}`);
         }
         const output = JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
-        const rulesCreated = await this.applyProposals(job.taskId, output);
-        await this.completeGeneration(job.id, output, rulesCreated);
+        return this.applyProposals(job.taskId, output);
+    }
+
+    // complete 단계: 카운트·텔레메트리 기록 후 완료 알림. 재시도 시 멱등.
+    async completeRuleGeneration(jobId: string, rulesCreated: number): Promise<void> {
+        const job = await this.loadJob(jobId);
+        if (job.status === JOB_STATUS.completed) return;
+        if (!job.llmOutputJson) {
+            throw new Error(`memoized LLM output missing for job ${jobId}`);
+        }
+        const output = JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
+        await this.jobs.markCompleted({
+            id: jobId,
+            rulesCreated,
+            modelUsed: output.modelUsed,
+            durationMs: output.durationMs,
+            costUsd: output.costUsd,
+            numTurns: output.numTurns,
+            usage: output.usage,
+            completedAt: new Date().toISOString(),
+        });
         this.notifier.publish({
             type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
@@ -72,7 +111,31 @@ export class RuleGenerationRunner {
                 durationMs: output.durationMs,
             },
         });
-        return rulesCreated;
+    }
+
+    // 재시도가 모두 소진된 잡을 실패로 닫고 알린다.
+    async failRuleGeneration(jobId: string, error: string): Promise<void> {
+        const job = await this.jobs.findById(jobId);
+        const attempts = await this.jobs.incrementAttempts(
+            jobId,
+            new Date().toISOString(),
+        );
+        await this.jobs.markFailed({
+            id: jobId,
+            error: truncate(error, 1000),
+            attempts,
+            completedAt: new Date().toISOString(),
+        });
+        this.notifier.publish({
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
+            payload: {
+                kind: "rule-generation",
+                status: "failed",
+                jobId,
+                ...(job?.taskId ? { taskId: job.taskId } : {}),
+                error: error.length > 240 ? error.slice(0, 240) + "..." : error,
+            },
+        });
     }
 
     private async loadJob(
@@ -167,49 +230,6 @@ export class RuleGenerationRunner {
             if (result.created) rulesCreated++;
         }
         return rulesCreated;
-    }
-
-    // 결과 카운트와 텔레메트리를 기록하고 잡을 완료로 닫는다.
-    private async completeGeneration(
-        jobId: string,
-        output: GenerateRuleSuggestionsOutput,
-        rulesCreated: number,
-    ): Promise<void> {
-        await this.jobs.markCompleted({
-            id: jobId,
-            rulesCreated,
-            modelUsed: output.modelUsed,
-            durationMs: output.durationMs,
-            costUsd: output.costUsd,
-            numTurns: output.numTurns,
-            usage: output.usage,
-            completedAt: new Date().toISOString(),
-        });
-    }
-
-    // 재시도가 모두 소진된 잡을 실패로 닫고 알린다.
-    async markGenerationFailed(jobId: string, error: string): Promise<void> {
-        const job = await this.jobs.findById(jobId);
-        const attempts = await this.jobs.incrementAttempts(
-            jobId,
-            new Date().toISOString(),
-        );
-        await this.jobs.markFailed({
-            id: jobId,
-            error: truncate(error, 1000),
-            attempts,
-            completedAt: new Date().toISOString(),
-        });
-        this.notifier.publish({
-            type: NOTIFICATION_TYPE.sdkJobUpdated,
-            payload: {
-                kind: "rule-generation",
-                status: "failed",
-                jobId,
-                ...(job?.taskId ? { taskId: job.taskId } : {}),
-                error: error.length > 240 ? error.slice(0, 240) + "..." : error,
-            },
-        });
     }
 }
 

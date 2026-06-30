@@ -1,6 +1,9 @@
 import { proxyActivities } from "@temporalio/workflow";
 import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/task/application/dto/suggest.task.title.usecase.dto.js";
-import type { TitleSuggestionActivities } from "./activities.types.js";
+
+interface TitleSuggestionActivities {
+    runTitleSuggestion(taskId: string): Promise<SuggestTaskTitleUseCaseOut>;
+}
 
 const { runTitleSuggestion } = proxyActivities<TitleSuggestionActivities>({
     startToCloseTimeout: "5 minutes",
