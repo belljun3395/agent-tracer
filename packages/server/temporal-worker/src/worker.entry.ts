@@ -33,11 +33,15 @@ async function main(): Promise<void> {
 
     const address = process.env["TEMPORAL_ADDRESS"] ?? "localhost:7233";
     const connection = await NativeConnection.connect({ address });
+    // dev는 소스(.ts), 빌드본은 dist(.js)에서 워크플로를 로드한다.
+    const workflowsModule = import.meta.url.endsWith(".ts")
+        ? "./workflows/index.ts"
+        : "./workflows/index.js";
     const worker = await Worker.create({
         connection,
         namespace: "default",
         taskQueue: LLM_JOB_TASK_QUEUE,
-        workflowsPath: new URL("./workflows/index.js", import.meta.url).pathname,
+        workflowsPath: new URL(workflowsModule, import.meta.url).pathname,
         activities: {
             ...createRuleGenerationActivities(ruleGeneration, notifier),
             ...createTitleSuggestionActivities(titleSuggestion),
