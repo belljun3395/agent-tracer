@@ -44,6 +44,8 @@ export class StaleTaskReaperJob implements OnApplicationShutdown {
 
     @Interval("stale-task-reaper", POLL_INTERVAL_MS)
     async tick(): Promise<void> {
+        // 워커 프로세스에서는 리퍼를 돌리지 않는다.
+        if (process.env["MONITOR_ROLE"] === "worker") return;
         if (this.running || this.shuttingDown) return;
         this.running = true;
         try {

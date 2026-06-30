@@ -38,6 +38,9 @@
       "@monitor/api-gateway": [
         "packages/server/api-gateway/src/gateway.entry.ts"
       ],
+      "@monitor/api-gateway/app-module": [
+        "packages/server/api-gateway/src/main/presentation/app.module.ts"
+      ],
       "@monitor/web": [
         "packages/web/src/main.tsx"
       ],

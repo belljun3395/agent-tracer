@@ -7,6 +7,10 @@
     ".": {
       "development": "./src/gateway.entry.ts",
       "default": "./dist/index.js"
+    },
+    "./app-module": {
+      "development": "./src/main/presentation/app.module.ts",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
