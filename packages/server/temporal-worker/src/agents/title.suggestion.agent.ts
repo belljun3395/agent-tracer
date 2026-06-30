@@ -1,4 +1,4 @@
-import type { TaskSummaryUseCaseDto } from "@monitor/run-api/application/task/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummary } from "@monitor/run-api/public/task/task.summary.js";
 import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
@@ -20,7 +20,7 @@ const TITLE_OUTPUT_SCHEMA = zodToOutputSchema(titleSuggestionsListSchema);
 export interface GenerateTitleSuggestionsInput {
     readonly apiKey?: string;
     readonly model?: string;
-    readonly summary: TaskSummaryUseCaseDto;
+    readonly summary: TaskSummary;
     readonly language?: SuggestionLanguage;
     readonly idempotencyKey?: string;
 }

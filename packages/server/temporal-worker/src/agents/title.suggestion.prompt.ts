@@ -1,5 +1,5 @@
 import type { OutputLanguage } from "@monitor/shared/llm/output.language.js";
-import type { TaskSummaryUseCaseDto } from "@monitor/run-api/application/task/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummary } from "@monitor/run-api/public/task/task.summary.js";
 
 export type SuggestionLanguage = OutputLanguage;
 
@@ -31,7 +31,7 @@ Rules:
 Return the suggestions as structured output conforming to the provided schema.`;
 }
 
-export function buildUserPrompt(summary: TaskSummaryUseCaseDto): string {
+export function buildUserPrompt(summary: TaskSummary): string {
     const lines: string[] = [];
     lines.push(`Current title: ${summary.title}`);
     lines.push(`Status: ${summary.status}`);
