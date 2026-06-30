@@ -6,8 +6,8 @@ import { createEventRecordDraft, normalizeFilePaths, deriveFileChangeEventInputs
 import type { TimelineEvent } from "@monitor/timeline-api/domain/type/timeline.event.type.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
 import { CrossCheckDedupeCache } from "../common/cross.check.dedupe.cache.js";
-import { EVENT_PERSISTENCE_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
-import type { IEventPersistence } from "../application/outbound/event.persistence.port.js";
+import { NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
+import { TimelineEventStorageService } from "./timeline.event.storage.service.js";
 import type { IEventNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 import { EVENT_RECORDED } from "../public/events/event.recorded.js";
 import type { EventRecordedPayload } from "../public/events/event.recorded.js";
@@ -50,7 +50,7 @@ type EventRecordDraftInput = Parameters<typeof createEventRecordDraft>[0];
 @Injectable()
 export class EventRecordingService {
     constructor(
-        @Inject(EVENT_PERSISTENCE_PORT) private readonly events: IEventPersistence,
+        private readonly events: TimelineEventStorageService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
         private readonly dedupe: CrossCheckDedupeCache,
         private readonly eventBus: EventEmitter2,

@@ -3,8 +3,8 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { Transactional } from "typeorm-transactional";
 import { resolveDisplayTitleMetadataUpdate } from "@monitor/timeline-api/domain/event.metadata.policy.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
-import { EVENT_PERSISTENCE_PORT, NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
-import type { IEventPersistence } from "./outbound/event.persistence.port.js";
+import { NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
+import { TimelineEventStorageService } from "../service/timeline.event.storage.service.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type {
     UpdateEventUseCaseIn,
@@ -14,7 +14,7 @@ import type {
 @Injectable()
 export class UpdateEventUseCase {
     constructor(
-        @Inject(EVENT_PERSISTENCE_PORT) private readonly events: IEventPersistence,
+        private readonly events: TimelineEventStorageService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
     ) {}
 

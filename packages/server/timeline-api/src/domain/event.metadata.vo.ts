@@ -1,4 +1,4 @@
-import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
+import type { TimelineEventInsertRequest } from "./type/event.insert.request.type.js";
 import { extractCommandAnalysisPaths } from "./command.analysis.policy.js";
 import {
     DERIVED_METADATA_KEYS,

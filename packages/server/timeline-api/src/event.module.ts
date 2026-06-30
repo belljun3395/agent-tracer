@@ -13,12 +13,10 @@ import { IngestEventsUseCase } from "./application/ingest.events.usecase.js";
 import { SearchEventsUseCase } from "./application/search.events.usecase.js";
 import { UpdateEventUseCase } from "./application/update.event.usecase.js";
 import {
-    EVENT_PERSISTENCE_PORT,
     EVENT_SEARCH_INDEX_PORT,
     NOTIFICATION_PUBLISHER_PORT,
 } from "./application/outbound/tokens.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
-import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
 import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
 import {
@@ -53,7 +51,6 @@ export class EventModule {
 
                 TimelineEventStorageService,
 
-                EventPersistenceAdapter,
                 EventNotificationPublisherAdapter,
 
                 TimelineEventProjectionPublicAdapter,
@@ -69,11 +66,10 @@ export class EventModule {
                 CommandRepetitionDetector,
                 GetPreprocessingHintsUseCase,
 
-                { provide: TIMELINE_EVENT_READ, useExisting: EventPersistenceAdapter },
-                { provide: TIMELINE_EVENT_WRITE, useExisting: EventPersistenceAdapter },
+                { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventStorageService },
+                { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventStorageService },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
 
-                { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
                 { provide: EVENT_SEARCH_INDEX_PORT, useExisting: PgEventSearch },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
             ],

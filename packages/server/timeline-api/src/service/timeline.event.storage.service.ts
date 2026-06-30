@@ -6,7 +6,7 @@ import { normalizeLane } from "@monitor/timeline-api/domain/event.lane.policy.js
 import type { TimelineEvent } from "@monitor/timeline-api/domain/type/timeline.event.type.js";
 import { EventMetadata } from "../domain/event.metadata.vo.js";
 import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
-import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
+import type { TimelineEventInsertRequest } from "../domain/type/event.insert.request.type.js";
 import { TimelineEventRepository } from "../repository/timeline.event.repository.js";
 
 @Injectable()

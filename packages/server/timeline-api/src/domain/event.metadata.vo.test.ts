@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
+import type { TimelineEventInsertRequest } from "./type/event.insert.request.type.js";
 import { EventMetadata } from "./event.metadata.vo.js";
 
 function makeRequest(
