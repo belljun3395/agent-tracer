@@ -1,7 +1,7 @@
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { RecipeOutputLanguage } from "../agent/recipe.scan.prompt.js";
-import { ARCHIVED_SCOPES } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
-import type { TaskSnapshotArchivedScope } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
+import { ARCHIVED_SCOPES } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
+import type { TaskSnapshotArchivedScope } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
 
 export type RecipeScanStatusFilter = "completed" | "active" | "all";
 

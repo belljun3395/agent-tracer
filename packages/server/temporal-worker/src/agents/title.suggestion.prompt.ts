@@ -1,5 +1,5 @@
 import type { OutputLanguage } from "@monitor/shared/llm/output.language.js";
-import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummaryUseCaseDto } from "@monitor/run-api/application/task/dto/get.task.summary.usecase.dto.js";
 
 export type SuggestionLanguage = OutputLanguage;
 

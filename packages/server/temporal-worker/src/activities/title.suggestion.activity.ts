@@ -9,13 +9,13 @@ import type { SuggestionLanguage } from "../agents/title.suggestion.prompt.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
-import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
-import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
+import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
+import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 import {
     TaskHasNoEventsError,
     TaskNotFoundError,
-} from "@monitor/run-api/task/common/task.errors.js";
-import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/task/application/dto/suggest.task.title.usecase.dto.js";
+} from "@monitor/run-api/domain/task/task.errors.js";
+import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/application/task/dto/suggest.task.title.usecase.dto.js";
 import { MissingApiKeyError } from "../activity.errors.js";
 
 @Injectable()

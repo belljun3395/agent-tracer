@@ -6,7 +6,7 @@ import {
 import {
     TITLE_SUGGESTION_DISPATCHER,
     type ITitleSuggestionDispatcher,
-} from "@monitor/run-api/task/application/outbound/title.suggestion.dispatcher.port.js";
+} from "@monitor/run-api/application/task/outbound/title.suggestion.dispatcher.port.js";
 import {
     RECIPE_SCAN_DISPATCHER,
     type IRecipeScanDispatcher,

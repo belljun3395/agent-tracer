@@ -1,4 +1,4 @@
-import type { TaskSummary } from "@monitor/run-api/task/public/types/task.summary.js";
+import type { TaskSummary } from "@monitor/run-api/public/task/task.summary.js";
 import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,

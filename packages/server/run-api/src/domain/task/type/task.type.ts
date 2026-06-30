@@ -1,0 +1,29 @@
+import type {
+    MonitoringTaskKind,
+    TaskOrigin,
+    TaskStatus,
+} from "@monitor/run-api/domain/task/task.status.const.js";
+
+export interface MonitoringTaskInput {
+    readonly title: string;
+    readonly workspacePath?: string;
+    readonly taskKind?: MonitoringTaskKind;
+    readonly parentTaskId?: string;
+    readonly parentSessionId?: string;
+    readonly backgroundTaskId?: string;
+    readonly origin?: TaskOrigin;
+}
+
+export interface MonitoringTask extends MonitoringTaskInput {
+    readonly id: string;
+    readonly slug: string;
+    readonly displayTitle?: string;
+    readonly status: TaskStatus;
+    readonly createdAt: string;
+    readonly updatedAt: string;
+    readonly lastSessionStartedAt?: string;
+    readonly runtimeSource?: string;
+    readonly taskKind?: MonitoringTaskKind;
+    readonly archivedAt?: string;
+    readonly origin?: TaskOrigin;
+}

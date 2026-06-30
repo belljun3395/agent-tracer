@@ -7,8 +7,8 @@ import type { INotificationPublisher } from "@monitor/shared/contracts/notificat
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
-import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/task/public/tokens.js";
-import type { ITaskSnapshotQuery } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
+import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/public/task/tokens.js";
+import type { ITaskSnapshotQuery } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
 import { JOB_STATUS } from "@monitor/shared/job/job.status.const.js";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import type { InsightJobRepository } from "@monitor/insight-api/job/insight.job.repository.js";

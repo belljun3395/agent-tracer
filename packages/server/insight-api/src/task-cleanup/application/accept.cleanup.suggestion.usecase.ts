@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import type { ITaskMaintenance } from "@monitor/run-api/task/public/iservice/task.maintenance.iservice.js";
-import { TASK_MAINTENANCE } from "@monitor/run-api/task/public/tokens.js";
+import type { ITaskMaintenance } from "@monitor/run-api/public/task/iservice/task.maintenance.iservice.js";
+import { TASK_MAINTENANCE } from "@monitor/run-api/public/task/tokens.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type {
     AcceptCleanupSuggestionUseCaseIn,

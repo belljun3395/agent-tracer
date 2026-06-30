@@ -1,0 +1,186 @@
+import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import type { MonitoringTask } from "@monitor/run-api/domain/task/type/task.type.js";
+import type { MonitoringEventKind } from "@monitor/timeline-api/public/types/event.types.js";
+import { isTaskRunning } from "../../domain/task/task.predicates.policy.js";
+import type {
+    MonitoringTaskKind,
+    TaskOrigin,
+} from "@monitor/run-api/domain/task/task.status.const.js";
+import { createEventRecordDraft } from "@monitor/timeline-api/public/helpers.js";
+import { TaskUpsertDraft } from "../../domain/task/task.upsert.draft.vo.js";
+import {
+    TaskFinalizationRecording,
+    TaskStartRecording,
+} from "../../domain/task/task.event.recording.vo.js";
+import { TaskNotFoundError } from "../../domain/task/task.errors.js";
+import { SessionRepository } from "../../repository/session/session.repository.js";
+import { TaskReadService } from "./task.read.service.js";
+import { TaskManagementService } from "./task.management.service.js";
+import {
+    CLOCK_PORT,
+    ID_GENERATOR_PORT,
+    NOTIFICATION_PUBLISHER_PORT,
+} from "../../application/task/outbound/tokens.js";
+import {
+    TIMELINE_EVENT_PROJECTION,
+    TIMELINE_EVENT_WRITE,
+} from "@monitor/timeline-api/public/tokens.js";
+import type { IClock } from "../../application/task/outbound/clock.port.js";
+import type { IIdGenerator } from "../../application/task/outbound/id.generator.port.js";
+import type { ITimelineEventWrite } from "@monitor/timeline-api/public/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/public/iservice/timeline.event.projection.iservice.js";
+import type { ITaskNotificationPublisher } from "../../application/task/outbound/notification.publisher.port.js";
+
+export interface StartTaskServiceInput {
+    readonly taskId?: string;
+    readonly title: string;
+    readonly workspacePath?: string;
+    readonly runtimeSource?: string;
+    readonly summary?: string;
+    readonly taskKind?: MonitoringTaskKind;
+    readonly parentTaskId?: string;
+    readonly parentSessionId?: string;
+    readonly backgroundTaskId?: string;
+    readonly origin?: TaskOrigin;
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface FinalizeTaskServiceInput {
+    readonly taskId: string;
+    readonly sessionId?: string;
+    readonly summary?: string;
+    readonly metadata?: Record<string, unknown>;
+    readonly outcome: "completed" | "errored";
+    readonly errorMessage?: string;
+}
+
+export interface TaskLifecycleEventRef {
+    readonly id: string;
+    readonly kind: MonitoringEventKind;
+}
+
+export interface TaskLifecycleResult {
+    readonly task: MonitoringTask;
+    readonly sessionId?: string;
+    readonly events: readonly TaskLifecycleEventRef[];
+}
+
+@Injectable()
+export class TaskLifecycleService {
+    constructor(
+        private readonly query: TaskReadService,
+        private readonly management: TaskManagementService,
+        private readonly sessions: SessionRepository,
+        @Inject(TIMELINE_EVENT_WRITE) private readonly events: ITimelineEventWrite,
+        @Inject(TIMELINE_EVENT_PROJECTION) private readonly projection: ITimelineEventProjection,
+        @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
+    ) {}
+
+    async startTask(input: StartTaskServiceInput): Promise<TaskLifecycleResult> {
+        const taskId = input.taskId ?? this.idGen.newUuid();
+        const sessionId = this.idGen.newUuid();
+        const startedAt = this.clock.nowIso();
+        const existingTask = await this.query.findById(taskId);
+
+        const draft = TaskUpsertDraft.from({
+            taskId,
+            title: input.title,
+            startedAt,
+            ...(existingTask ? { existingTask } : {}),
+            ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+            ...(input.runtimeSource ? { runtimeSource: input.runtimeSource } : {}),
+            ...(input.taskKind ? { taskKind: input.taskKind } : {}),
+            ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
+            ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+            ...(input.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId } : {}),
+            ...(input.origin ? { origin: input.origin } : {}),
+        });
+        const task = await this.management.upsertFromDraft(draft.toShape());
+
+        const session = await this.sessions.create({
+            id: sessionId,
+            taskId: task.id,
+            status: "running",
+            startedAt,
+            ...(input.summary ? { summary: input.summary } : {}),
+        });
+
+        if (existingTask && (!isTaskRunning(existingTask) || existingTask.runtimeSource !== task.runtimeSource)) {
+            this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: task });
+        }
+        this.notifier.publish({ type: NOTIFICATION_TYPE.taskStarted, payload: task });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.sessionStarted, payload: session });
+
+        if (!existingTask) {
+            const recording = new TaskStartRecording({
+                task,
+                sessionId,
+                title: input.title,
+                createdAt: startedAt,
+                ...(task.runtimeSource ? { runtimeSource: task.runtimeSource } : {}),
+                ...(input.summary ? { summary: input.summary } : {}),
+                ...(input.metadata ? { metadata: input.metadata } : {}),
+            });
+            const record = createEventRecordDraft(recording.toEventRecordingInput());
+            const event = await this.events.insert({
+                id: this.idGen.newUuid(),
+                ...record,
+            });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: this.projection.project(event) });
+            return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
+        }
+        return { task, sessionId, events: [] };
+    }
+
+    async finalizeTask(input: FinalizeTaskServiceInput): Promise<TaskLifecycleResult> {
+        const task = await this.query.findById(input.taskId);
+        if (!task) throw new TaskNotFoundError(input.taskId);
+
+        const endedAt = this.clock.nowIso();
+        const sessionId = input.sessionId ?? (await this.sessions.findActiveByTaskId(input.taskId))?.id;
+        const status = input.outcome;
+
+        if (sessionId) {
+            const previousSession = await this.sessions.findById(sessionId);
+            await this.sessions.updateStatus(sessionId, status, endedAt, input.summary);
+            if (previousSession) {
+                this.notifier.publish({
+                    type: NOTIFICATION_TYPE.sessionEnded,
+                    payload: { ...previousSession, status, endedAt },
+                });
+            }
+        }
+
+        if (task.status === status) {
+            return { task, ...(sessionId ? { sessionId } : {}), events: [] };
+        }
+
+        await this.management.updateStatus(input.taskId, status, endedAt);
+        const finalTask = (await this.query.findById(input.taskId)) ?? task;
+        this.notifier.publish(
+            status === "completed"
+                ? { type: NOTIFICATION_TYPE.taskCompleted, payload: finalTask }
+                : { type: NOTIFICATION_TYPE.taskUpdated, payload: finalTask },
+        );
+
+        const recording = new TaskFinalizationRecording({
+            taskId: input.taskId,
+            ...(sessionId ? { sessionId } : {}),
+            outcome: status,
+            createdAt: endedAt,
+            ...(input.summary ? { summary: input.summary } : {}),
+            ...(input.errorMessage ? { errorMessage: input.errorMessage } : {}),
+            ...(input.metadata ? { metadata: input.metadata } : {}),
+        });
+        const record = createEventRecordDraft(recording.toEventRecordingInput());
+        const event = await this.events.insert({
+            id: this.idGen.newUuid(),
+            ...record,
+        });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: this.projection.project(event) });
+        return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    }
+}

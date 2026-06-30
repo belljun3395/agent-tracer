@@ -19,8 +19,8 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import type { ITaskSnapshotQuery } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
-import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/task/public/tokens.js";
+import type { ITaskSnapshotQuery } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
+import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/public/task/tokens.js";
 import type { MonitorRuntime } from "./runtime.type.js";
 
 export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {

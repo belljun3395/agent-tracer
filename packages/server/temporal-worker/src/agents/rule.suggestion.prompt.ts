@@ -1,5 +1,5 @@
 import type { OutputLanguage } from "@monitor/shared/llm/output.language.js";
-import type { TaskSummary } from "@monitor/run-api/task/public/types/task.summary.js";
+import type { TaskSummary } from "@monitor/run-api/public/task/task.summary.js";
 
 export type RuleSuggestionLanguage = OutputLanguage;
 

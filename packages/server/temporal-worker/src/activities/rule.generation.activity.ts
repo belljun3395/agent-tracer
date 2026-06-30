@@ -7,9 +7,9 @@ import type {
 } from "../agents/rule.suggestion.agent.js";
 import { JOB_STATUS } from "@monitor/shared/job/job.status.const.js";
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
-import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
+import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
+import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 import type { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
 import type { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";

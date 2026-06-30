@@ -1,4 +1,4 @@
-import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummaryUseCaseDto } from "@monitor/run-api/application/task/dto/get.task.summary.usecase.dto.js";
 import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,

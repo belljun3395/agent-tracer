@@ -16,7 +16,7 @@ import {
     TURN_REPOSITORY_TOKEN,
     VERDICT_REPOSITORY_TOKEN,
 } from "./repository/tokens.js";
-import { TURN_QUERY_REPOSITORY_TOKEN } from "@monitor/run-api/task/public/tokens.js";
+import { TURN_QUERY_REPOSITORY_TOKEN } from "@monitor/run-api/public/task/tokens.js";
 import { RuleEvidenceQueryController } from "./api/rule.evidence.query.controller.js";
 import { VerdictInvalidationPublicAdapter } from "./adapter/verdict.invalidation.public.adapter.js";
 import { VerificationPostProcessorPublicAdapter } from "./adapter/verification.post.processor.public.adapter.js";

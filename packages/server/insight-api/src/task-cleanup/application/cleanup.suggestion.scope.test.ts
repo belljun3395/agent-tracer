@@ -3,7 +3,7 @@ import type { Mock } from "vitest";
 import { ListCleanupSuggestionsUseCase } from "./list.cleanup.suggestions.usecase.js";
 import { AcceptCleanupSuggestionUseCase } from "./accept.cleanup.suggestion.usecase.js";
 import type { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
-import type { ITaskMaintenance } from "@monitor/run-api/task/public/iservice/task.maintenance.iservice.js";
+import type { ITaskMaintenance } from "@monitor/run-api/public/task/iservice/task.maintenance.iservice.js";
 
 describe("task-cleanup ownership scope", () => {
     it("list scopes pending suggestions to the current user", async () => {
