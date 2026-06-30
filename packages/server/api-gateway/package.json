@@ -11,6 +11,10 @@
     "./app-module": {
       "development": "./src/main/presentation/app.module.ts",
       "default": "./dist/index.js"
+    },
+    "./worker-module": {
+      "development": "./src/main/presentation/worker.module.ts",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {

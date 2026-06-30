@@ -41,6 +41,9 @@
       "@monitor/api-gateway/app-module": [
         "packages/server/api-gateway/src/main/presentation/app.module.ts"
       ],
+      "@monitor/api-gateway/worker-module": [
+        "packages/server/api-gateway/src/main/presentation/worker.module.ts"
+      ],
       "@monitor/web": [
         "packages/web/src/main.tsx"
       ],
