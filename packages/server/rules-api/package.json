@@ -12,7 +12,6 @@
         "./*": "./src/*"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.0.0",
         "@monitor/run-api": "*",
         "@monitor/shared": "*",
         "@monitor/timeline-api": "*",

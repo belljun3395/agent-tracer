@@ -1,7 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { EventController } from "@monitor/timeline-api/api/event/event.controller.js";
-import { EventIngestController } from "@monitor/timeline-api/api/event/event.ingest.controller.js";
 import { PreprocessingHintsController } from "@monitor/timeline-api/api/event/preprocessing.hints.controller.js";
 import { TypedEventIngestController } from "@monitor/timeline-api/api/event/typed.event.ingest.controller.js";
 import { CrossCheckDedupeCache } from "@monitor/timeline-api/common/event/cross.check.dedupe.cache.js";
@@ -41,7 +40,7 @@ export class EventModule {
                 ]),
                 databaseModule,
             ],
-            controllers: [EventController, EventIngestController, PreprocessingHintsController, TypedEventIngestController],
+            controllers: [EventController, PreprocessingHintsController, TypedEventIngestController],
             providers: [
 
                 PgEventSearch,

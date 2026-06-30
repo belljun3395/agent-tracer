@@ -12,7 +12,6 @@
         "./*": "./src/*"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.0.0",
         "@monitor/identity-api": "*",
         "@monitor/run-api": "*",
         "@monitor/shared": "*",

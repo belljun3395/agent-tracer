@@ -54,7 +54,6 @@ import { GetLatestTaskRuleGenerationUseCase } from "./application/generation/get
 
 // ── controllers ───────────────────────────────────────────────────────────────
 import { RuleController } from "./api/rule/rule.controller.js";
-import { RuleIngestController } from "./api/rule/rule.ingest.controller.js";
 import { TaskRulesQueryController } from "./api/rule/task.rules.query.controller.js";
 import { RuleEvidenceQueryController } from "./api/verification/rule.evidence.query.controller.js";
 import { RuleBackfillController } from "./api/backfill/rule.backfill.controller.js";
@@ -143,7 +142,6 @@ export class RulesModule {
             ],
             controllers: [
                 RuleController,
-                RuleIngestController,
                 TaskRulesQueryController,
                 RuleEvidenceQueryController,
                 RuleBackfillController,

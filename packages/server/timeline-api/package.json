@@ -12,7 +12,6 @@
         "./*": "./src/*"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.0.0",
         "@monitor/shared": "*",
         "@nestjs/common": "^11.1.18",
         "@nestjs/event-emitter": "^3.1.0",
