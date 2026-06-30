@@ -4,6 +4,9 @@ interface TaskCleanupActivities {
     runTaskCleanup(jobId: string): Promise<number>;
     applyTaskCleanup(jobId: string): Promise<number>;
     completeTaskCleanup(jobId: string, suggestionsCreated: number, tasksScanned: number): Promise<void>;
+}
+
+interface TaskCleanupFailActivity {
     failTaskCleanup(jobId: string, error: string): Promise<void>;
 }
 
@@ -12,10 +15,15 @@ const {
     runTaskCleanup,
     applyTaskCleanup,
     completeTaskCleanup,
-    failTaskCleanup,
 } = proxyActivities<TaskCleanupActivities>({
     startToCloseTimeout: "5 minutes",
     retry: { maximumAttempts: 3 },
+});
+
+// fail은 단순 DB 쓰기이므로 짧은 타임아웃·1회 시도로 분리한다.
+const { failTaskCleanup } = proxyActivities<TaskCleanupFailActivity>({
+    startToCloseTimeout: "30 seconds",
+    retry: { maximumAttempts: 1 },
 });
 
 // run → apply → complete 순서로 각 단계를 독립 재시도한다.

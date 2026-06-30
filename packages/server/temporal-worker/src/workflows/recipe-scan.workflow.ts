@@ -5,6 +5,9 @@ interface RecipeScanActivities {
     insertRecipeCandidates(jobId: string): Promise<number>;
     retireStaleRecipes(): Promise<void>;
     completeRecipeScan(jobId: string, candidatesCreated: number, tasksScanned: number): Promise<void>;
+}
+
+interface RecipeScanFailActivity {
     failRecipeScan(jobId: string, error: string): Promise<void>;
 }
 
@@ -14,10 +17,15 @@ const {
     insertRecipeCandidates,
     retireStaleRecipes,
     completeRecipeScan,
-    failRecipeScan,
 } = proxyActivities<RecipeScanActivities>({
     startToCloseTimeout: "15 minutes",
     retry: { maximumAttempts: 3 },
+});
+
+// fail은 단순 DB 쓰기이므로 짧은 타임아웃·1회 시도로 분리한다.
+const { failRecipeScan } = proxyActivities<RecipeScanFailActivity>({
+    startToCloseTimeout: "30 seconds",
+    retry: { maximumAttempts: 1 },
 });
 
 // run → insert → retire → complete 순서로 각 단계를 독립 재시도한다.

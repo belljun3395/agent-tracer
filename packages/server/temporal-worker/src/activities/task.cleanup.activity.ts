@@ -93,13 +93,19 @@ export class TaskCleanupActivity {
         const info = Context.current().info;
         const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
 
-        const output = await this.agent.generate({
-            ...(apiKey ? { apiKey } : {}),
-            ...(modelOverride ? { model: modelOverride } : {}),
-            tasks: snapshots,
-            maxSuggestions,
-            idempotencyKey,
-        });
+        const hb = setInterval(() => Context.current().heartbeat(), 10_000);
+        let output;
+        try {
+            output = await this.agent.generate({
+                ...(apiKey ? { apiKey } : {}),
+                ...(modelOverride ? { model: modelOverride } : {}),
+                tasks: snapshots,
+                maxSuggestions,
+                idempotencyKey,
+            });
+        } finally {
+            clearInterval(hb);
+        }
 
         await this.jobs.saveLlmOutput(
             jobId,
@@ -184,6 +190,8 @@ export class TaskCleanupActivity {
     }
 
     async failTaskCleanup(jobId: string, error: string): Promise<void> {
+        const job = await this.jobs.findById(jobId);
+        if (job?.status === JOB_STATUS.failed) return;
         await this.jobs.incrementAndMarkFailed({
             id: jobId,
             error: truncate(error, 1000),

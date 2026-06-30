@@ -35,6 +35,7 @@ async function main(): Promise<void> {
     const taskCleanup = app.get(TaskCleanupActivity);
 
     const address = process.env["TEMPORAL_ADDRESS"] ?? "localhost:7233";
+    const namespace = process.env["TEMPORAL_NAMESPACE"] ?? "default";
     const connection = await NativeConnection.connect({ address });
     const workflowsPath = new URL(
         `./workflows/index.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`,
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
     ).pathname;
     const worker = await Worker.create({
         connection,
-        namespace: "default",
+        namespace,
         taskQueue: LLM_JOB_QUEUE,
         workflowsPath,
         activities: {

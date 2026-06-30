@@ -116,6 +116,7 @@ export class RuleGenerationActivity {
 
     async failRuleGeneration(jobId: string, error: string): Promise<void> {
         const job = await this.jobs.findById(jobId);
+        if (job?.status === JOB_STATUS.failed) return;
         await this.jobs.incrementAndMarkFailed({
             id: jobId,
             error: truncate(error, 1000),
@@ -187,13 +188,18 @@ export class RuleGenerationActivity {
         if (job.llmOutputJson) {
             return JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
         }
-        const output = await this.agent.generate(input);
-        await this.jobs.saveLlmOutput(
-            job.id,
-            JSON.stringify(output),
-            new Date().toISOString(),
-        );
-        return output;
+        const hb = setInterval(() => Context.current().heartbeat(), 10_000);
+        try {
+            const output = await this.agent.generate(input);
+            await this.jobs.saveLlmOutput(
+                job.id,
+                JSON.stringify(output),
+                new Date().toISOString(),
+            );
+            return output;
+        } finally {
+            clearInterval(hb);
+        }
     }
 
     private async applyProposals(

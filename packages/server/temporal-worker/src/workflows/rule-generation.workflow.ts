@@ -4,6 +4,9 @@ interface RuleGenerationActivities {
     generateRuleProposals(jobId: string): Promise<void>;
     applyRuleProposals(jobId: string): Promise<number>;
     completeRuleGeneration(jobId: string, rulesCreated: number): Promise<void>;
+}
+
+interface RuleGenerationFailActivity {
     failRuleGeneration(jobId: string, error: string): Promise<void>;
 }
 
@@ -13,10 +16,15 @@ const {
     generateRuleProposals,
     applyRuleProposals,
     completeRuleGeneration,
-    failRuleGeneration,
 } = proxyActivities<RuleGenerationActivities>({
     startToCloseTimeout: "10 minutes",
     retry: { maximumAttempts: 5 },
+});
+
+// fail은 단순 DB 쓰기이므로 짧은 타임아웃·1회 시도로 분리한다.
+const { failRuleGeneration } = proxyActivities<RuleGenerationFailActivity>({
+    startToCloseTimeout: "30 seconds",
+    retry: { maximumAttempts: 1 },
 });
 
 export interface RuleGenerationWorkflowResult {

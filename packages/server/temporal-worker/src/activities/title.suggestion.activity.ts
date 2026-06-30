@@ -63,6 +63,7 @@ export class TitleSuggestionActivity {
             payload: { kind: "title-suggestion", status: "running", taskId },
         });
 
+        const hb = setInterval(() => Context.current().heartbeat(), 10_000);
         try {
             const output = await this.agent.generate({
                 ...(apiKey ? { apiKey } : {}),
@@ -106,6 +107,8 @@ export class TitleSuggestionActivity {
                 },
             });
             throw err;
+        } finally {
+            clearInterval(hb);
         }
     }
 }
