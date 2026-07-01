@@ -1,5 +1,6 @@
 import { resolveMonitorBaseUrl } from "~shared/config/env.js";
 import { monitorUserHeader } from "~shared/transport/transport.js";
+import { buildAgentEnv } from "./agent.env.js";
 
 const MCP_SERVER_NAME = "monitor-rule-gen";
 
@@ -183,11 +184,10 @@ Return JSON conforming to the provided schema immediately after your tool calls.
                     excludeDynamicSections: true,
                 },
                 outputFormat: { type: "json_schema" as const, schema: buildOutputSchema() },
-                env: {
-                    ...process.env,
+                env: buildAgentEnv({
                     ...(opts.apiKey ? { ANTHROPIC_API_KEY: opts.apiKey } : {}),
                     MONITOR_TASK_ORIGIN: "server-sdk",
-                },
+                }),
                 permissionMode: "bypassPermissions" as const,
                 allowDangerouslySkipPermissions: true,
                 strictMcpConfig: true,

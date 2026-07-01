@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { buildAgentEnv } from "./agent.env.js";
 import { createAgentDeadline } from "./agent.deadline.js";
 import { logAgentQuery } from "./query.log.js";
 import type {
@@ -56,7 +57,7 @@ export class AgentQueryRunner implements IQueryRunner {
                     ? { outputFormat: { type: "json_schema" as const, schema: request.outputSchema } }
                     : {}),
 
-                env: { ...process.env, ...request.env },
+                env: buildAgentEnv(request.env),
                 permissionMode: "bypassPermissions",
 
                 allowDangerouslySkipPermissions: true,
