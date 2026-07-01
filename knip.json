@@ -18,7 +18,6 @@
     "scripts/seed-preview.mjs",
     "scripts/record-preview-demo.mjs",
     "scripts/snapshot-preview.mjs",
-    "packages/runtime/build.ts",
     "packages/web/src/io/storage.ts",
     "packages/web/src/domain/snapshot.ts"
   ],
