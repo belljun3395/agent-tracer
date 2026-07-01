@@ -34,3 +34,73 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Build
+        run: npm run build
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: monitor
+          POSTGRES_PASSWORD: monitor
+          POSTGRES_DB: monitor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U monitor -d monitor"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build gateway image
+        run: docker build --target gateway -t agent-tracer-gateway:ci .
+
+      - name: Build temporal-worker image
+        run: docker build --target temporal-worker -t agent-tracer-worker:ci .
+
+      - name: Build web image
+        run: docker build --target web -t agent-tracer-web:ci .
+
+      # 서비스 컨테이너는 러너의 localhost 에 포트를 게시하므로,
+      # 게이트웨이 컨테이너를 --network host 로 띄워 같은 네트워크 네임스페이스에서 접근한다.
+      - name: Boot gateway against real Postgres/Redis and check /health
+        run: |
+          docker run -d --name gateway-ci --network host \
+            -e MONITOR_LISTEN_HOST=0.0.0.0 \
+            -e MONITOR_PORT=3847 \
+            -e POSTGRES_HOST=127.0.0.1 \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_USER=monitor \
+            -e POSTGRES_PASSWORD=monitor \
+            -e POSTGRES_DB=monitor \
+            -e REDIS_URL=redis://127.0.0.1:6379 \
+            agent-tracer-gateway:ci
+
+          for i in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:3847/health; then
+              echo "gateway is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "gateway did not become healthy in time" >&2
+          docker logs gateway-ci
+          exit 1
