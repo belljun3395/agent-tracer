@@ -25,7 +25,7 @@
     "dev": "concurrently -k -n gateway,web,worker,rule-gen \"npm run dev:gateway\" \"npm run dev:web\" \"npm run temporal:worker\" \"npm run rule-gen:poll\"",
     "dev:gateway": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/api-gateway/tsconfig.dev.json node --watch packages/server/api-gateway/src/gateway.entry.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
-    "start:gateway": "node packages/server/api-gateway/dist/index.js",
+    "start:gateway": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/api-gateway/tsconfig.dev.json node packages/server/api-gateway/src/gateway.entry.ts",
     "codex:observe": "npm --prefix packages/runtime run codex:observe --",
     "setup:external": "node scripts/setup-external.mjs",
     "setup:statusline": "bash scripts/install-statusline.sh",
@@ -34,9 +34,12 @@
   "engines": {
     "node": ">=24.0.0"
   },
+  "dependencies": {
+    "@swc-node/register": "^1.11.1",
+    "typescript": "^5.0.0"
+  },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@swc-node/register": "^1.11.1",
     "concurrently": "^9.0.0",
     "dependency-cruiser": "^16.10.4",
     "eslint": "^9.0.0",
@@ -44,7 +47,6 @@
     "globals": "^15.0.0",
     "knip": "^5.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0"
   }
 }
