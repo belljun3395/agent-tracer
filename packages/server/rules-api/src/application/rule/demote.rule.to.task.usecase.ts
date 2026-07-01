@@ -10,11 +10,6 @@ import type {
 } from "./dto/demote.rule.to.task.usecase.dto.js";
 import { InvalidRuleError, RuleNotFoundError } from "../../domain/rule/errors.js";
 
-export type {
-    DemoteRuleToTaskUseCaseIn,
-    DemoteRuleToTaskUseCaseOut,
-} from "./dto/demote.rule.to.task.usecase.dto.js";
-
 @Injectable()
 export class DemoteRuleToTaskUseCase {
     constructor(

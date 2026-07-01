@@ -8,7 +8,6 @@ import type { EventRelationType } from "@monitor/timeline-api/domain/event/commo
 // 도메인 어휘를 application 경계에서 노출해 api/스키마가 도메인 const를 직접 의존하지 않게 한다.
 export {
     EVENT_LANES,
-    INGEST_EVENT_KINDS,
     TOOL_ACTIVITY_EVENT_KINDS,
     WORKFLOW_EVENT_KINDS,
     CONVERSATION_EVENT_KINDS,

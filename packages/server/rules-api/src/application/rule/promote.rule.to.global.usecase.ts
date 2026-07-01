@@ -10,11 +10,6 @@ import type {
 } from "./dto/promote.rule.to.global.usecase.dto.js";
 import { InvalidRuleError, RuleNotFoundError } from "../../domain/rule/errors.js";
 
-export type {
-    PromoteRuleToGlobalUseCaseIn,
-    PromoteRuleToGlobalUseCaseOut,
-} from "./dto/promote.rule.to.global.usecase.dto.js";
-
 @Injectable()
 export class PromoteRuleToGlobalUseCase {
     constructor(

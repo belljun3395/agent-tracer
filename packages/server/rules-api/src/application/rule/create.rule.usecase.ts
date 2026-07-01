@@ -13,9 +13,6 @@ import type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rul
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError } from "../../domain/rule/errors.js";
 
-export type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
-export type { CreateRuleUseCaseIn as CreateRuleInput } from "./dto/create.rule.usecase.dto.js";
-
 @Injectable()
 export class CreateRuleUseCase {
     private readonly logger = new Logger(CreateRuleUseCase.name);

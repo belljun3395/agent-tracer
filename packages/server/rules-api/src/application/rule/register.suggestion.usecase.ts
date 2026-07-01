@@ -9,13 +9,6 @@ import type {
 } from "./dto/register.suggestion.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
 
-export type {
-    RegisterSuggestionUseCaseIn,
-    RegisterSuggestionUseCaseOut,
-} from "./dto/register.suggestion.usecase.dto.js";
-export type { RegisterSuggestionUseCaseIn as RegisterSuggestionInput } from "./dto/register.suggestion.usecase.dto.js";
-export type { RegisterSuggestionUseCaseOut as RegisterSuggestionResult } from "./dto/register.suggestion.usecase.dto.js";
-
 @Injectable()
 export class RegisterSuggestionUseCase {
     constructor(

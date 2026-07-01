@@ -15,10 +15,6 @@ import type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rul
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError, RuleNotFoundError } from "../../domain/rule/errors.js";
 
-export type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
-export type { UpdateRuleUseCaseIn as UpdateRuleInput } from "./dto/update.rule.usecase.dto.js";
-export type { UpdateRuleUseCaseOut as UpdateRuleResult } from "./dto/update.rule.usecase.dto.js";
-
 @Injectable()
 export class UpdateRuleUseCase {
     constructor(
