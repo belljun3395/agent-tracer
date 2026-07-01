@@ -14,8 +14,6 @@
     "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.2.139",
         "@anthropic-ai/sdk": "^0.81.0",
-        "@monitor/run-api": "*",
-        "@monitor/timeline-api": "*",
         "@nestjs/common": "^11.1.18",
         "@temporalio/client": "^1.18.1",
         "zod": "^3.0.0",

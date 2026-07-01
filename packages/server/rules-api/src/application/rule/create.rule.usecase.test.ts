@@ -10,7 +10,7 @@ import type {
 import type { RuleRepository } from "../../repository/rule/rule.repository.js";
 import type { RuleOutboundNotification } from "./outbound/notification.publisher.port.js";
 import type { RuleNotificationPublisherAdapter } from "../../adapter/rule/notification.publisher.adapter.js";
-import { BackfillRuleEvaluationUseCase } from "@monitor/rules-api/application/verification/backfill.rule.evaluation.usecase.js";
+import type { BackfillRuleEvaluationUseCase } from "@monitor/rules-api/application/verification/backfill.rule.evaluation.usecase.js";
 import { InvalidRuleError } from "../../domain/rule/errors.js";
 
 const NOW_ISO = "2026-04-29T10:00:00.000Z";

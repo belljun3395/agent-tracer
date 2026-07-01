@@ -23,7 +23,6 @@
     "@monitor/run-api": "*",
     "@monitor/server-core": "*",
     "@monitor/shared": "*",
-    "@monitor/timeline-api": "*",
     "@monitor/ws-gateway": "*",
     "@nestjs/common": "^11.1.18",
     "@nestjs/core": "^11.1.18",

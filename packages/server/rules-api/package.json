@@ -12,7 +12,6 @@
         "./*": "./src/*"
     },
     "dependencies": {
-        "@monitor/run-api": "*",
         "@monitor/shared": "*",
         "@monitor/timeline-api": "*",
         "@nestjs/common": "^11.1.18",

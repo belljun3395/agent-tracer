@@ -113,7 +113,7 @@ Return JSON conforming to the provided schema immediately after your tool calls.
     ];
 
     let resultRules: RuleProposal[] = [];
-    let modelUsed = opts.model ?? "claude-sonnet-4-6";
+    const modelUsed = opts.model ?? "claude-sonnet-4-6";
     let costUsd: number | null = null;
     let numTurns: number | null = null;
     let usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number } | null = null;
@@ -140,7 +140,7 @@ Return JSON conforming to the provided schema immediately after your tool calls.
                             { headers: userHeaders },
                         );
                         const raw = await resp.json() as { data?: { kind: string; title?: string; body?: string }[] };
-                        const events = Array.isArray(raw?.data) ? raw.data : [];
+                        const events = Array.isArray(raw.data) ? raw.data : [];
                         const slim = events.map((e) => ({
                             kind: e.kind,
                             title: e.title ?? "",
@@ -159,7 +159,7 @@ Return JSON conforming to the provided schema immediately after your tool calls.
                             { headers: userHeaders },
                         );
                         const data = await resp.json() as { rules?: { name: string; trigger?: unknown }[] };
-                        const rules = Array.isArray(data?.rules) ? data.rules : [];
+                        const rules = Array.isArray(data.rules) ? data.rules : [];
                         const slim = rules.map((r) => ({ name: r.name, trigger: r.trigger ?? null }));
                         return { content: [{ type: "text" as const, text: JSON.stringify(slim, null, 2) }] };
                     },
@@ -199,20 +199,18 @@ Return JSON conforming to the provided schema immediately after your tool calls.
             if (msg.type === "result") {
                 costUsd = msg.total_cost_usd;
                 numTurns = msg.num_turns;
-                if (msg.usage) {
-                    usage = {
-                        inputTokens: msg.usage.input_tokens,
-                        outputTokens: msg.usage.output_tokens,
-                        cacheReadTokens: msg.usage.cache_read_input_tokens,
-                        cacheCreationTokens: msg.usage.cache_creation_input_tokens,
-                    };
-                }
+                usage = {
+                    inputTokens: msg.usage.input_tokens,
+                    outputTokens: msg.usage.output_tokens,
+                    cacheReadTokens: msg.usage.cache_read_input_tokens,
+                    cacheCreationTokens: msg.usage.cache_creation_input_tokens,
+                };
                 if (msg.subtype === "success" && msg.structured_output) {
                     const output = msg.structured_output as { rules?: unknown[] };
                     resultRules = (Array.isArray(output.rules) ? output.rules : []) as RuleProposal[];
                 } else if (msg.subtype !== "success") {
                     const errors = "errors" in msg && Array.isArray(msg.errors) ? msg.errors : [];
-                    errorMsg = `${msg.subtype}${errors.length > 0 ? `: ${(errors as string[]).join("; ")}` : ""}`;
+                    errorMsg = `${msg.subtype}${errors.length > 0 ? `: ${errors.join("; ")}` : ""}`;
                 }
                 break;
             }

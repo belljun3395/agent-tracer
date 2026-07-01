@@ -23,7 +23,7 @@ export class GetTaskTurnsUseCase {
                 startedAt: turn.startedAt,
                 endedAt: turn.endedAt ?? null,
                 aggregateVerdict: (turn.aggregateVerdict ?? null) as TaskTurnAggregateVerdictUseCaseDto | null,
-                rulesEvaluatedCount: turn.rulesEvaluatedCount ?? 0,
+                rulesEvaluatedCount: turn.rulesEvaluatedCount,
             })),
         };
     }

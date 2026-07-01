@@ -1,6 +1,6 @@
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import type { ITaskSnapshotQuery, TaskSnapshotArchivedScope } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
+import type { ITaskSnapshotQuery } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 
@@ -27,7 +27,7 @@ export function buildRecipeScanTools(
                     scope: z.enum(["active", "archived", "all"]).optional().default("active"),
                 },
                 async ({ scope }) => {
-                    const tasks = await taskQuery.findAll((scope ?? "active") as TaskSnapshotArchivedScope);
+                    const tasks = await taskQuery.findAll(scope);
                     const slim = tasks
                         .filter((t) => t.origin !== "server-sdk")
                         .map((t) => ({

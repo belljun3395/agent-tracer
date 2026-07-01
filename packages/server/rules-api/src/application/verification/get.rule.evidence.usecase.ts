@@ -1,7 +1,7 @@
 import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/public/event/types/event.const.js";
 import type { TimelineEventSnapshot } from "@monitor/timeline-api/public/event/dto/timeline.event.dto.js";
-import { RuleRepository } from "../../repository/rule/rule.repository.js";
+import type { RuleRepository } from "../../repository/rule/rule.repository.js";
 import type { RulePersistenceRecord } from "../rule/outbound/rule.persistence.port.js";
 import type { IRuleEnforcementRepository } from "./outbound/rule.enforcement.repository.port.js";
 import type {
