@@ -30,13 +30,11 @@ export function encryptSettingValue(plaintext: string): string {
     return `${ENCRYPTED_PREFIX}${iv.toString("base64")}:${authTag.toString("base64")}:${ciphertext.toString("base64")}`;
 }
 
-/**
- * Decrypts a value produced by encryptSettingValue. Values written before
- * this cipher existed have no prefix and are passed through unchanged, so
- * older rows keep working until they're next written.
- */
+/** Decrypts a value produced by encryptSettingValue. */
 export function decryptSettingValue(stored: string): string {
-    if (!stored.startsWith(ENCRYPTED_PREFIX)) return stored;
+    if (!stored.startsWith(ENCRYPTED_PREFIX)) {
+        throw new Error("Setting value is not in the expected encrypted format.");
+    }
     const parts = stored.slice(ENCRYPTED_PREFIX.length).split(":");
     const [ivB64, authTagB64, ciphertextB64] = parts;
     if (parts.length !== 3 || !ivB64 || !authTagB64 || !ciphertextB64) {

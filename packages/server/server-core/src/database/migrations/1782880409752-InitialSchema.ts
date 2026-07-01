@@ -1,0 +1,120 @@
+import type { MigrationInterface, QueryRunner } from "typeorm";
+
+export class InitialSchema1782880409752 implements MigrationInterface {
+    name = 'InitialSchema1782880409752'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE TABLE "rules" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "name" text NOT NULL, "trigger_phrases_json" text, "trigger_on" text, "expect_tool" text, "expect_command_matches_json" text, "expect_pattern" text, "scope" text NOT NULL, "task_id" text, "source" text NOT NULL, "severity" text NOT NULL, "rationale" text, "signature" text NOT NULL, "created_at" text NOT NULL, "deleted_at" text, CONSTRAINT "PK_10fef696a7d61140361b1b23608" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_rules_signature" ON "rules" ("user_id", "signature") `);
+        await queryRunner.query(`CREATE INDEX "idx_rules_task_active" ON "rules" ("task_id") `);
+        await queryRunner.query(`CREATE INDEX "idx_rules_user_scope" ON "rules" ("user_id", "scope") `);
+        await queryRunner.query(`CREATE TABLE "turns" ("id" text NOT NULL, "session_id" text NOT NULL, "task_id" text NOT NULL, "turn_index" integer NOT NULL, "status" text NOT NULL, "started_at" text NOT NULL, "ended_at" text, "asked_text" text, "assistant_text" text, "aggregate_verdict" text, "rules_evaluated_count" integer NOT NULL DEFAULT '0', CONSTRAINT "PK_66edaea493f45e3c39d7c3553ed" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_turns_session_open" ON "turns" ("session_id") `);
+        await queryRunner.query(`CREATE INDEX "idx_turns_task_started" ON "turns" ("task_id", "started_at") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "idx_turns_session_index" ON "turns" ("session_id", "turn_index") `);
+        await queryRunner.query(`CREATE TABLE "turn_events" ("turn_id" text NOT NULL, "event_id" text NOT NULL, CONSTRAINT "PK_6c1c8ed4eb6a0c2d48370d88c12" PRIMARY KEY ("turn_id", "event_id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_turn_events_event" ON "turn_events" ("event_id") `);
+        await queryRunner.query(`CREATE TABLE "verdicts" ("turn_id" text NOT NULL, "rule_id" text NOT NULL, "status" text NOT NULL, "matched_phrase" text, "expected_pattern" text, "actual_tool_calls_json" text, "matched_tool_calls_json" text, "evaluated_at" text NOT NULL, CONSTRAINT "PK_5d051270f382903e2e74591304e" PRIMARY KEY ("turn_id", "rule_id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_verdicts_status" ON "verdicts" ("status") `);
+        await queryRunner.query(`CREATE INDEX "idx_verdicts_rule" ON "verdicts" ("rule_id") `);
+        await queryRunner.query(`CREATE TABLE "rule_enforcements" ("event_id" text NOT NULL, "rule_id" text NOT NULL, "match_kind" text NOT NULL, "decided_at" text NOT NULL, CONSTRAINT "PK_86b695ed359526d3d6f7bf9bfb2" PRIMARY KEY ("event_id", "rule_id", "match_kind"))`);
+        await queryRunner.query(`CREATE INDEX "idx_rule_enforcements_event" ON "rule_enforcements" ("event_id") `);
+        await queryRunner.query(`CREATE INDEX "idx_rule_enforcements_rule" ON "rule_enforcements" ("rule_id") `);
+        await queryRunner.query(`CREATE TABLE "rule_jobs" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "job_type" text NOT NULL, "status" text NOT NULL, "attempts" integer NOT NULL DEFAULT '0', "error" text, "task_id" text, "rule_id" text, "rules_created" integer, "verdicts_created" integer, "model_used" text, "duration_ms" integer, "cost_usd" double precision, "input_tokens" integer, "output_tokens" integer, "cache_read_tokens" integer, "cache_creation_tokens" integer, "num_turns" integer, "llm_output_json" text, "created_at" text NOT NULL, "updated_at" text NOT NULL, "started_at" text, "completed_at" text, CONSTRAINT "PK_86887bf0932362cc8f0637fb16b" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_rule_jobs_task" ON "rule_jobs" ("task_id", "created_at") `);
+        await queryRunner.query(`CREATE INDEX "idx_rule_jobs_user_type_status" ON "rule_jobs" ("user_id", "job_type", "status", "created_at") `);
+        await queryRunner.query(`CREATE TABLE "runtime_bindings" ("runtime_source" text NOT NULL, "runtime_session_id" text NOT NULL, "task_id" text NOT NULL, "monitor_session_id" text, "created_at" text NOT NULL, "updated_at" text NOT NULL, CONSTRAINT "PK_46df149e18576c1abb97c56b7c2" PRIMARY KEY ("runtime_source", "runtime_session_id"))`);
+        await queryRunner.query(`CREATE TABLE "sessions" ("id" text NOT NULL, "task_id" text NOT NULL, "status" text NOT NULL, "summary" text, "started_at" text NOT NULL, "ended_at" text, CONSTRAINT "PK_3238ef96f18b355b671619111bc" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_sessions_task_status_started" ON "sessions" ("task_id", "status", "started_at") `);
+        await queryRunner.query(`CREATE INDEX "idx_sessions_task_started" ON "sessions" ("task_id", "started_at") `);
+        await queryRunner.query(`CREATE TABLE "tasks" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "title" text NOT NULL, "slug" text NOT NULL, "workspace_path" text, "status" text NOT NULL, "task_kind" text NOT NULL, "created_at" text NOT NULL, "updated_at" text NOT NULL, "last_session_started_at" text, "cli_source" text, "archived_at" text, "origin" text NOT NULL DEFAULT 'user', CONSTRAINT "PK_8d12ff38fcc62aaba2cab748772" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_tasks_user_updated" ON "tasks" ("user_id", "updated_at") `);
+        await queryRunner.query(`CREATE TABLE "task_relations" ("task_id" text NOT NULL, "relation_kind" text NOT NULL, "related_task_id" text, "session_id" text, CONSTRAINT "PK_8bd617ccda05d20802626f68999" PRIMARY KEY ("task_id", "relation_kind"))`);
+        await queryRunner.query(`CREATE INDEX "idx_task_relations_related" ON "task_relations" ("related_task_id", "relation_kind") `);
+        await queryRunner.query(`CREATE TABLE "turn_partitions" ("task_id" text NOT NULL, "groups_json" text NOT NULL, "version" integer NOT NULL DEFAULT '1', "updated_at" text NOT NULL, CONSTRAINT "PK_364b6c7bfd65d86e5193b5b5797" PRIMARY KEY ("task_id"))`);
+        await queryRunner.query(`CREATE TABLE "app_settings" ("key" text NOT NULL, "value" text NOT NULL, "updated_at" text NOT NULL, CONSTRAINT "PK_975c2db59c65c05fd9c6b63a2ab" PRIMARY KEY ("key"))`);
+        await queryRunner.query(`CREATE TABLE "users" ("user_id" text NOT NULL, "email" text NOT NULL, "created_at" text NOT NULL, CONSTRAINT "PK_96aac72f1574b88752e9fb00089" PRIMARY KEY ("user_id"))`);
+        await queryRunner.query(`CREATE TABLE "insight_jobs" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "job_type" text NOT NULL, "status" text NOT NULL, "attempts" integer NOT NULL DEFAULT '0', "error" text, "filters_json" text, "language" text, "candidates_created" integer, "suggestions_created" integer, "tasks_scanned" integer, "model_used" text, "duration_ms" integer, "cost_usd" double precision, "input_tokens" integer, "output_tokens" integer, "cache_read_tokens" integer, "cache_creation_tokens" integer, "num_turns" integer, "llm_output_json" text, "created_at" text NOT NULL, "updated_at" text NOT NULL, "started_at" text, "completed_at" text, CONSTRAINT "PK_fd144e3d7714b05bd44657d50a1" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_insight_jobs_user_type_status" ON "insight_jobs" ("user_id", "job_type", "status", "created_at") `);
+        await queryRunner.query(`CREATE TABLE "file_affinity_summary" ("file_path" text NOT NULL, "intent_label" text NOT NULL, "role" text NOT NULL, "open_count" integer NOT NULL DEFAULT '0', "last_seen_at" text NOT NULL, CONSTRAINT "PK_595de10839937d56c1080e462f2" PRIMARY KEY ("file_path", "intent_label", "role"))`);
+        await queryRunner.query(`CREATE INDEX "idx_file_affinity_path" ON "file_affinity_summary" ("file_path") `);
+        await queryRunner.query(`CREATE INDEX "idx_file_affinity_intent" ON "file_affinity_summary" ("intent_label", "open_count") `);
+        await queryRunner.query(`CREATE TABLE "recipe_applications" ("id" text NOT NULL, "recipe_id" text NOT NULL, "target_task_id" text NOT NULL, "injected_via" text NOT NULL, "score" real, "outcome" text, "created_at" text NOT NULL, "resolved_at" text, CONSTRAINT "PK_70bf3aa8844f7792c6dec92c7ad" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_recipe_applications_task" ON "recipe_applications" ("target_task_id", "created_at") `);
+        await queryRunner.query(`CREATE INDEX "idx_recipe_applications_recipe" ON "recipe_applications" ("recipe_id", "created_at") `);
+        await queryRunner.query(`CREATE TABLE "recipe_candidates" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "job_id" text NOT NULL, "title" text NOT NULL, "intent" text NOT NULL, "description" text NOT NULL, "summary_md" text NOT NULL, "steps_json" text NOT NULL DEFAULT '[]', "touched_files_json" text NOT NULL DEFAULT '[]', "contributing_slices_json" text NOT NULL, "rationale" text NOT NULL, "language" text, "parent_recipe_id" text, "status" text NOT NULL, "error" text, "created_at" text NOT NULL, "resolved_at" text, CONSTRAINT "PK_5aa23ea050c680441dff0e6c3a9" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_recipe_candidates_job" ON "recipe_candidates" ("job_id") `);
+        await queryRunner.query(`CREATE INDEX "idx_recipe_candidates_user_status" ON "recipe_candidates" ("user_id", "status", "created_at") `);
+        await queryRunner.query(`CREATE TABLE "recipes" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "source_candidate_id" text, "title" text NOT NULL, "intent" text NOT NULL, "description" text NOT NULL, "summary_md" text NOT NULL, "steps_json" text NOT NULL DEFAULT '[]', "touched_files_json" text NOT NULL DEFAULT '[]', "contributing_slices_json" text NOT NULL, "rev" integer NOT NULL DEFAULT '1', "parent_recipe_id" text, "status" text NOT NULL, "applied_count" integer NOT NULL DEFAULT '0', "success_count" integer NOT NULL DEFAULT '0', "language" text, "created_at" text NOT NULL, "updated_at" text NOT NULL, CONSTRAINT "PK_8f09680a51bf3669c1598a21682" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_recipes_user_status" ON "recipes" ("user_id", "status", "updated_at") `);
+        await queryRunner.query(`CREATE TABLE "task_cleanup_suggestions" ("id" text NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "job_id" text NOT NULL, "task_id" text NOT NULL, "kind" text NOT NULL, "current_value" text, "proposed_value" text, "rationale" text NOT NULL, "status" text NOT NULL, "error" text, "created_at" text NOT NULL, "resolved_at" text, CONSTRAINT "PK_8e8c3972c249e3e775df23eae2b" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_task_cleanup_sugg_task" ON "task_cleanup_suggestions" ("task_id") `);
+        await queryRunner.query(`CREATE INDEX "idx_task_cleanup_sugg_job" ON "task_cleanup_suggestions" ("job_id") `);
+        await queryRunner.query(`CREATE INDEX "idx_task_cleanup_sugg_status" ON "task_cleanup_suggestions" ("user_id", "status", "created_at") `);
+        await queryRunner.query(`CREATE TABLE "timeline_events" ("id" text NOT NULL, "seq" BIGSERIAL NOT NULL, "user_id" text NOT NULL DEFAULT 'local', "task_id" text NOT NULL, "session_id" text, "kind" text NOT NULL, "lane" text NOT NULL, "title" text NOT NULL, "body" text, "subtype_key" text, "subtype_label" text, "subtype_group" text, "tool_family" text, "operation" text, "source_tool" text, "tool_name" text, "entity_type" text, "entity_name" text, "display_title" text, "evidence_level" text, "metadata" jsonb NOT NULL DEFAULT '{}', "tags" jsonb NOT NULL DEFAULT '[]', "created_at" text NOT NULL, CONSTRAINT "PK_a7267f3a55a080185192d21cd5a" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "idx_timeline_events_task_seq" ON "timeline_events" ("task_id", "seq") `);
+        await queryRunner.query(`CREATE INDEX "idx_timeline_events_lane_created" ON "timeline_events" ("lane", "created_at") `);
+        await queryRunner.query(`CREATE INDEX "idx_timeline_events_tool_family" ON "timeline_events" ("tool_family") `);
+        await queryRunner.query(`CREATE INDEX "idx_timeline_events_subtype_group" ON "timeline_events" ("subtype_group", "created_at") `);
+        await queryRunner.query(`CREATE INDEX "idx_timeline_events_task_created" ON "timeline_events" ("task_id", "created_at") `);
+        await queryRunner.query(`CREATE INDEX "idx_timeline_events_user_created" ON "timeline_events" ("user_id", "created_at") `);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP INDEX "public"."idx_timeline_events_user_created"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_timeline_events_task_created"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_timeline_events_subtype_group"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_timeline_events_tool_family"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_timeline_events_lane_created"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_timeline_events_task_seq"`);
+        await queryRunner.query(`DROP TABLE "timeline_events"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_task_cleanup_sugg_status"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_task_cleanup_sugg_job"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_task_cleanup_sugg_task"`);
+        await queryRunner.query(`DROP TABLE "task_cleanup_suggestions"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_recipes_user_status"`);
+        await queryRunner.query(`DROP TABLE "recipes"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_recipe_candidates_user_status"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_recipe_candidates_job"`);
+        await queryRunner.query(`DROP TABLE "recipe_candidates"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_recipe_applications_recipe"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_recipe_applications_task"`);
+        await queryRunner.query(`DROP TABLE "recipe_applications"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_file_affinity_intent"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_file_affinity_path"`);
+        await queryRunner.query(`DROP TABLE "file_affinity_summary"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_insight_jobs_user_type_status"`);
+        await queryRunner.query(`DROP TABLE "insight_jobs"`);
+        await queryRunner.query(`DROP TABLE "users"`);
+        await queryRunner.query(`DROP TABLE "app_settings"`);
+        await queryRunner.query(`DROP TABLE "turn_partitions"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_task_relations_related"`);
+        await queryRunner.query(`DROP TABLE "task_relations"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_tasks_user_updated"`);
+        await queryRunner.query(`DROP TABLE "tasks"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_sessions_task_started"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_sessions_task_status_started"`);
+        await queryRunner.query(`DROP TABLE "sessions"`);
+        await queryRunner.query(`DROP TABLE "runtime_bindings"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rule_jobs_user_type_status"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rule_jobs_task"`);
+        await queryRunner.query(`DROP TABLE "rule_jobs"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rule_enforcements_rule"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rule_enforcements_event"`);
+        await queryRunner.query(`DROP TABLE "rule_enforcements"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_verdicts_rule"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_verdicts_status"`);
+        await queryRunner.query(`DROP TABLE "verdicts"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_turn_events_event"`);
+        await queryRunner.query(`DROP TABLE "turn_events"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_turns_session_index"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_turns_task_started"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_turns_session_open"`);
+        await queryRunner.query(`DROP TABLE "turns"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rules_user_scope"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rules_task_active"`);
+        await queryRunner.query(`DROP INDEX "public"."idx_rules_signature"`);
+        await queryRunner.query(`DROP TABLE "rules"`);
+    }
+
+}
