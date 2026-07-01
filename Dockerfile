@@ -2,7 +2,7 @@
 
 # ---- 공유 의존성 베이스: monorepo 전체를 한 번만 설치한다 ----
 # (gateway 와 web 두 이미지가 동일한 npm ci 레이어를 공유한다)
-FROM node:25-slim AS deps
+FROM node:24-slim AS deps
 
 WORKDIR /app
 ENV NODE_ENV=production
