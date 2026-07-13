@@ -18,10 +18,11 @@
     "lint:deps": "node scripts/check-dependencies.mjs",
     "gen:paths": "node scripts/gen-paths.mjs",
     "check:paths": "node scripts/gen-paths.mjs --check",
-    "lint": "npm run lint:format && npm run lint:types",
+    "lint": "npm run lint:format && npm run lint:types && npm run lint:structure",
     "lint:format": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lint:types": "node scripts/run-workspaces.mjs lint:types"
+    "lint:types": "node scripts/run-workspaces.mjs lint:types",
+    "lint:structure": "node scripts/check-structure.mjs"
   },
   "engines": {
     "node": ">=24.0.0 <25.0.0"
