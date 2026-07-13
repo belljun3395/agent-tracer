@@ -1,0 +1,10 @@
+import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
+
+/** Claude Agent SDK에서만 쓰는 질의 옵션이다. */
+export interface ClaudeQueryOptions {
+    readonly useClaudeCodePreset?: boolean;
+    readonly excludeDynamicSections?: boolean;
+    readonly cwd?: string;
+    readonly mcpServers?: Record<string, McpSdkServerConfigWithInstance>;
+    readonly fallbackModel?: string;
+}
