@@ -39,9 +39,9 @@ export const FSD = Object.freeze(["app", "pages", "widgets", "features", "entiti
 
 /** 기술이 새지 않는 경계이며 allow는 경로 조각을, denyLayers는 계층 이름을 받는다. */
 export const SEALS = Object.freeze([
-  { pkg: "typeorm", allow: ["/adapter/", "/config/", "/migration/", "/libs/tracer-domain/"] },
-  { pkg: "@temporalio/worker", allow: ["/config/"] },
+  { pkg: "typeorm", denyLayers: ["inbound", "application", "port", "model"] },
   { pkg: "@nestjs", denyLayers: ["model", "port"] },
+  { pkg: "@temporalio/worker", allow: ["/config/"] },
   { pkg: "zod", allowFileSuffix: ".schema.ts" },
 ]);
 
