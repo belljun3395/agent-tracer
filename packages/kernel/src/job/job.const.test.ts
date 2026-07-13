@@ -11,10 +11,14 @@ import {
 } from "./job.const.js";
 
 describe("normalizeAiAgentBackend", () => {
-    it("canonical 값과 명시된 CLI 호환 alias를 정규화한다", () => {
+    it("정식 값과 CLI 호환 별칭을 정규화한다", () => {
         expect(normalizeAiAgentBackend("python")).toBe(AI_AGENT_BACKEND.python);
+        expect(normalizeAiAgentBackend("claude-sdk")).toBe(AI_AGENT_BACKEND.claudeSdk);
         expect(normalizeAiAgentBackend("ts")).toBe(AI_AGENT_BACKEND.claudeSdk);
-        expect(normalizeAiAgentBackend("openai")).toBe(AI_AGENT_BACKEND.openaiSdk);
+    });
+
+    it("사라진 백엔드 이름은 기본값으로 되돌린다", () => {
+        expect(normalizeAiAgentBackend("openai")).toBe(DEFAULT_AI_AGENT_BACKEND);
     });
 
     it("알 수 없는 값은 기본 backend로 되돌린다", () => {

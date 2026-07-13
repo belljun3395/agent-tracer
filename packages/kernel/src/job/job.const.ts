@@ -10,7 +10,6 @@ export type JobKind = (typeof JOB_KIND)[keyof typeof JOB_KIND];
 export const AI_AGENT_BACKEND = {
     python: "python",
     claudeSdk: "claude-sdk",
-    openaiSdk: "openai-sdk",
 } as const;
 
 export type AiAgentBackend = (typeof AI_AGENT_BACKEND)[keyof typeof AI_AGENT_BACKEND];
@@ -25,7 +24,6 @@ export function normalizeAiAgentBackend(
     const normalized = value.trim().toLowerCase();
     if (normalized === AI_AGENT_BACKEND.python) return AI_AGENT_BACKEND.python;
     if (normalized === AI_AGENT_BACKEND.claudeSdk || normalized === "ts") return AI_AGENT_BACKEND.claudeSdk;
-    if (normalized === AI_AGENT_BACKEND.openaiSdk || normalized === "openai") return AI_AGENT_BACKEND.openaiSdk;
     return fallback;
 }
 
