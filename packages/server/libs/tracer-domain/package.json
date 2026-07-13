@@ -1,0 +1,26 @@
+{
+  "name": "@monitor/tracer-domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*.js": "./src/*.ts"
+  },
+  "scripts": {
+    "lint:types": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@monitor/kernel": "*",
+    "@monitor/platform": "*",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.0",
+    "typeorm": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.0.0"
+  }
+}
