@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: 별칭 신선도
+        run: npm run check:paths
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 테스트
+        run: npm run test
+
+      - name: 의존 그래프
+        run: npm run lint:deps
+
+  history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: 커밋 범위 결정
+        id: range
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "value=${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "value=HEAD~1..HEAD" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.event.before }}..${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 커밋 메시지
+        run: |
+          set -euo pipefail
+          failed=0
+          for sha in $(git log "${{ steps.range.outputs.value }}" --format=%H); do
+            git log -1 --format=%B "$sha" > "$RUNNER_TEMP/msg"
+            node scripts/check-commit-msg.mjs "$RUNNER_TEMP/msg" || failed=1
+          done
+          exit $failed
+
+      - name: 공동 작성자
+        run: node scripts/check-coauthors.mjs --range "${{ steps.range.outputs.value }}"
