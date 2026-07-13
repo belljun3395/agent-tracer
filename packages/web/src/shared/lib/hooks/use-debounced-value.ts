@@ -1,0 +1,11 @@
+import { useEffect, useState } from "react";
+
+/** `value`가 `delayMs` 동안 안정된 뒤에 반환한다. */
+export function useDebouncedValue<T>(value: T, delayMs = 250): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}

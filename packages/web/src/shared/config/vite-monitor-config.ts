@@ -1,0 +1,39 @@
+export interface ViteMonitorConfig {
+  readonly monitorHttpBaseUrl: string
+  readonly monitorWsBaseUrl: string
+  readonly webApiBaseUrl: string
+  readonly webWsBaseUrl: string
+  readonly resumeHelperBaseUrl: string
+}
+
+function normalizeBaseUrl(value: string | undefined): string {
+  return value?.trim().replace(/\/+$/g, '') ?? ''
+}
+
+function normalizeProtocol(value: string | undefined): 'http' | 'https' {
+  return value === 'https' ? 'https' : 'http'
+}
+
+function normalizePort(value: string | undefined): number {
+  const port = Number(value)
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : 3847
+}
+
+export function resolveViteMonitorConfig(env: Record<string, string | undefined>): ViteMonitorConfig {
+  const protocol = normalizeProtocol(env.MONITOR_PROTOCOL)
+  const publicHost = env.MONITOR_PUBLIC_HOST?.trim() || '127.0.0.1'
+  const port = normalizePort(env.MONITOR_PORT)
+  const monitorHttpBaseUrl = normalizeBaseUrl(env.MONITOR_BASE_URL)
+    || `${protocol}://${publicHost}:${port}`
+  const monitorWsBaseUrl = normalizeBaseUrl(env.MONITOR_WS_BASE_URL)
+    || `${protocol === 'https' ? 'wss' : 'ws'}://${publicHost}:${port}`
+
+  return {
+    monitorHttpBaseUrl,
+    monitorWsBaseUrl,
+    webApiBaseUrl: normalizeBaseUrl(env.VITE_MONITOR_BASE_URL),
+    webWsBaseUrl: normalizeBaseUrl(env.VITE_MONITOR_WS_BASE_URL),
+    resumeHelperBaseUrl: normalizeBaseUrl(env.VITE_AGENT_TRACER_RESUME_BASE_URL)
+      || 'http://127.0.0.1:3848',
+  }
+}
