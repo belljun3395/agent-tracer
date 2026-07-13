@@ -1,0 +1,181 @@
+/*
+ * Design tokens — v6 Operator.
+ *
+ * Layers (each layer maps to one CSS-variable family):
+ *   canvas / s1..s4    — page bg → elevated surfaces (low → high)
+ *   hair / hair-strong — separator borders (low / high contrast)
+ *   ink / ink-muted / ink-subtle / ink-tertiary — text emphasis ladder
+ *   primary            — single saturated accent (lavender)
+ *   ok / warn / err / compact — status semantics
+ *   ph-*               — lane phase colors. Used by lib/presentation/lane-theme.ts
+ *
+ * Theme switching: <html data-theme="dark"> or "light", driven by
+ * `useThemeAttrSync` via the user's preference (slice "theme") and the
+ * OS-level `(prefers-color-scheme)`.
+ *
+ * NEVER reference these variables outside ui/* primitives or feature CSS.
+ * Components import them through ui/ wrappers.
+ */
+
+/* ── DARK (default — fires when no data-theme attr is set OR set to "dark") ── */
+:root,
+:root[data-theme="dark"] {
+  --canvas:        #010102;
+  --s1:            #0f1011;
+  --s2:            #141516;
+  --s3:            #18191a;
+  --s4:            #1d1e1f;
+  --hair:          #23252a;
+  --hair-strong:   #34343a;
+
+  --ink:           #f7f8f8;
+  --ink-muted:     #d0d6e0;
+  --ink-subtle:    #8a8f98;
+  --ink-tertiary:  #62666d;
+
+  --primary:       #5e6ad2;
+  --primary-hover: #828fff;
+  --primary-focus: #5e69d1;
+  --on-primary:    #ffffff;
+
+  --ok:            #27a644;
+  --warn:          #caa14a;
+  --err:           #d35a4a;
+  --compact:       #caa14a;
+
+  --ph-user:       #f7f8f8;  /* USER  — white (chat bubble) */
+  --ph-plan:       #7e7fad;  /* PLAN  — violet */
+  --ph-expl:       #5e7fa3;  /* EXPL  — steel-blue */
+  --ph-impl:       #a37060;  /* IMPL  — orange-brown */
+  --ph-rule:       #caa14a;  /* RULE  — amber */
+  --ph-veri:       #5e9970;  /* VERI  — green rule-verdict overlay */
+  --ph-coord:      #7a7fad;  /* COORD — purple */
+
+  color-scheme: dark;
+}
+
+/* ── LIGHT ──────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  /* Surfaces — bright canvas, four steps of subtle elevation */
+  --canvas:        #ffffff;
+  --s1:            #f7f8f9;
+  --s2:            #eeeff2;
+  --s3:            #e4e7eb;
+  --s4:            #d8dce2;
+  --hair:          #d8dce2;
+  --hair-strong:   #b8bdc7;
+
+  /* Text — inverted emphasis ladder; ratios ≥ 4.5:1 against canvas */
+  --ink:           #0a0b0d;
+  --ink-muted:     #1f2127;
+  --ink-subtle:    #565b66;
+  --ink-tertiary:  #7d818a;
+
+  /* Accent — slightly darker so lavender stays legible on white */
+  --primary:       #4a55b8;
+  --primary-hover: #3d4998;
+  --primary-focus: #4a55b8;
+  --on-primary:    #ffffff;
+
+  /* Status — saturated dark variants for AA contrast on light bg */
+  --ok:            #1e8a3d;
+  --warn:          #b08338;
+  --err:           #c14730;
+  --compact:       #b08338;
+
+  /* Lane phase — same hues, lower lightness so they hold the same
+     semantic against a bright canvas */
+  --ph-user:       #0a0b0d;  /* USER  — near-black (white was the dark-only trick) */
+  --ph-plan:       #5b5d99;
+  --ph-expl:       #3d6790;
+  --ph-impl:       #875240;
+  --ph-rule:       #b08338;
+  --ph-veri:       #3a7a52;
+  --ph-coord:      #5e6395;
+
+  color-scheme: light;
+}
+
+/* ── Tokens shared by both themes ───────────────────────────────────── */
+:root {
+  --dur-fast:      150ms;
+  --dur-base:      200ms;
+  --ease-out:      cubic-bezier(0.2, 0, 0, 1);
+
+  /* Popover/toast elevation — was referenced (Toaster.tsx, SidebarViewSwitcher.tsx)
+     but never defined, so both callers silently rendered no shadow at all. */
+  --elev-1:        0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Tailwind utility bindings ──────────────────────────────────────────
+ * Re-exposes the tokens above under Tailwind's theme namespaces so
+ * `bg-canvas`, `text-ink`, `rounded-sm`, `font-mono`, etc. become real
+ * utility classes. Colors use `@theme inline` so the generated utilities
+ * keep referencing the runtime custom property (dark/light switching via
+ * [data-theme] keeps working) instead of baking in a build-time value.
+ * radius/font don't vary by theme, so a plain `@theme` block is enough —
+ * it also registers them as :root custom properties, so the old
+ * `--radius-*`/`--font-*` declarations that used to live in the shared
+ * block above were removed to avoid a duplicate declaration. */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-s1: var(--s1);
+  --color-s2: var(--s2);
+  --color-s3: var(--s3);
+  --color-s4: var(--s4);
+  --color-hair: var(--hair);
+  --color-hair-strong: var(--hair-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-tertiary: var(--ink-tertiary);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-focus: var(--primary-focus);
+  --color-on-primary: var(--on-primary);
+
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-compact: var(--compact);
+
+  --color-ph-user: var(--ph-user);
+  --color-ph-plan: var(--ph-plan);
+  --color-ph-expl: var(--ph-expl);
+  --color-ph-impl: var(--ph-impl);
+  --color-ph-rule: var(--ph-rule);
+  --color-ph-veri: var(--ph-veri);
+  --color-ph-coord: var(--ph-coord);
+}
+
+@theme {
+  --font-sans: "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+}
+
+/* Reusable keyframes (used across primitives — pulse for live indicators,
+   ping for radial expand, slidein for new feed acts) */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+@keyframes ping {
+  0%        { transform: scale(1); opacity: 0.45; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes slidein {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

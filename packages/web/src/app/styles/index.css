@@ -1,0 +1,5 @@
+/* Order matters — tokens must load before reset/globals consume them. */
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./reset.css";
+@import "./globals.css";
