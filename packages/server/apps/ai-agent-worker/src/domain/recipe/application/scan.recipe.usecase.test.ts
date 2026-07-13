@@ -1,0 +1,110 @@
+import { describe, expect, it } from "vitest";
+import { AI_JOB_STEP_ROLE, type RecipeCandidatePayload } from "@monitor/kernel";
+import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
+import { ScanRecipeUsecase } from "./scan.recipe.usecase.js";
+import {
+    agentRegistry,
+    attemptRun,
+    emptyOutput,
+    FakeRecipeAgent,
+    fixedClock,
+    prep,
+    seedRepository,
+} from "./recipe.test-support.js";
+
+function candidate(overrides: Partial<RecipeCandidatePayload> = {}): RecipeCandidatePayload {
+    return {
+        title: "Add TypeORM migration with rollback",
+        intent: "마이그레이션 추가",
+        description: "설명",
+        summary_md: "- 요약",
+        request: "요청",
+        corrections: [],
+        pitfalls: [],
+        governing_rules: [],
+        steps: [],
+        touched_files: [{ path: "src/a.ts", role: "write" }],
+        contributing_slices: [{ taskId: "task-1", eventIds: ["evt-1"] }],
+        rationale: "근거",
+        ...overrides,
+    };
+}
+
+describe("ScanRecipeUsecase", () => {
+    it("근거 장부가 확인한 이벤트 인용만 남긴 후보를 낸다", async () => {
+        const repository = seedRepository();
+        repository.ownedTaskIds.add("task-1");
+        const agent = new FakeRecipeAgent(
+            emptyOutput({
+                recipes: [candidate({ contributing_slices: [{ taskId: "task-1", eventIds: ["evt-1", "evt-ghost"] }] })],
+                provenance: { eventIdsByTask: { "task-1": ["evt-1"] }, ruleIds: [], recipeRevs: {} },
+            }),
+        );
+        const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
+
+        const output = await target.execute(prep(), attemptRun());
+
+        expect(output.recipes).toHaveLength(1);
+        expect(output.recipes[0]?.contributingSlices).toEqual([{ taskId: "task-1", eventIds: ["evt-1"] }]);
+        expect(agent.calls[0]?.apiKey).toBe("sk-test");
+    });
+
+    it("사용자 소유가 아닌 태스크만 인용한 후보는 버린다", async () => {
+        const repository = seedRepository();
+        const agent = new FakeRecipeAgent(emptyOutput({ recipes: [candidate()] }));
+        const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
+
+        const output = await target.execute(prep(), attemptRun());
+
+        expect(output.recipes).toEqual([]);
+    });
+
+    it("내용이 없는 궤적 스텝은 저장 대상에서 뺀다", async () => {
+        const repository = seedRepository();
+        const agent = new FakeRecipeAgent(
+            emptyOutput({
+                steps: [
+                    { seq: 0, role: AI_JOB_STEP_ROLE.assistant, content: "생각", truncated: false, toolCalls: [] },
+                    { seq: 1, role: AI_JOB_STEP_ROLE.assistant, content: "  ", truncated: false, toolCalls: [] },
+                ],
+            }),
+        );
+        const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
+
+        const output = await target.execute(prep(), attemptRun());
+
+        expect(output.jobSteps).toHaveLength(1);
+        expect(output.jobSteps[0]?.id).toBeTypeOf("string");
+    });
+
+    it("에이전트가 실패하면 그 시도의 비용과 궤적을 남기고 오류를 다시 던진다", async () => {
+        const repository = seedRepository();
+        const agent = new FakeRecipeAgent(emptyOutput());
+        agent.failure = new AgentExecutionFailure("recipe-scan", "AGENT_FAILED", "rate limited", {
+            errorSubtype: "rate_limit_error",
+            usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheCreationTokens: 0 },
+            actualModel: "claude-haiku-4-5",
+            durationMs: 500,
+        });
+        const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
+
+        await expect(target.execute(prep(), attemptRun(2))).rejects.toThrow("rate limited");
+
+        expect(repository.failedAttempts).toHaveLength(1);
+        expect(repository.failedAttempts[0]?.record).toMatchObject({
+            attempt: 2,
+            status: "failed",
+            subtype: "rate_limit_error",
+        });
+    });
+
+    it("자격 증명이 필요 없는 백엔드에는 키를 넘기지 않는다", async () => {
+        const repository = seedRepository();
+        const agent = new FakeRecipeAgent(emptyOutput(), false);
+        const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
+
+        await target.execute(prep(), attemptRun());
+
+        expect(agent.calls[0]?.apiKey).toBeUndefined();
+    });
+});

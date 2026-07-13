@@ -1,0 +1,178 @@
+import { AGENT } from "@monitor/kernel";
+import type { EventEntity, EventRepository, RuleRepository, TaskRepository } from "@monitor/tracer-domain";
+import type { ToolHandlers } from "~ai-agent-worker/config/llm/llm.runner.js";
+import { withToolTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
+import { clampInt } from "~ai-agent-worker/support/clamp.js";
+import { toRecipeEventPage, type RecipeSlimEvent } from "~ai-agent-worker/domain/recipe/model/recipe.event.model.js";
+import { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
+import { buildTaskSummary, type TaskSummaryEvent } from "~ai-agent-worker/domain/recipe/model/task.summary.model.js";
+import {
+    DEFAULT_EVENT_LIMIT,
+    DEFAULT_SEARCH_LIMIT,
+    DEFAULT_SIMILAR_TASK_LIMIT,
+    EVENT_ORDER,
+    MAX_EVENT_LIMIT,
+    MAX_SUMMARY_EVENT_WINDOW,
+    parseFindSimilarTasksArgs,
+    parseGetTaskEventsArgs,
+    parseGetTaskSummaryArgs,
+    parseListRulesArgs,
+    parseSearchEventsArgs,
+    parseSearchRecipesArgs,
+    RECIPE_SCAN_TOOL,
+    SUMMARY_EVENT_WINDOW,
+} from "~ai-agent-worker/domain/recipe/model/recipe.tool.schema.js";
+import { toSlimRule } from "./recipe.rule.view.js";
+import { findSimilarTasks, searchEvents, searchRecipes, type RecipeSearchClient } from "./recipe.search.js";
+
+const AGENT_NAME = AGENT.recipeScan.id;
+
+/** recipe 도구가 쓰는 저장소와 검색 클라이언트를 묶는다. */
+export interface RecipeToolDeps {
+    readonly tasks: TaskRepository;
+    readonly events: EventRepository;
+    readonly rules: RuleRepository;
+    readonly search: RecipeSearchClient;
+}
+
+/** 사용자 범위와 실행 단위 근거 장부를 고정한 recipe 도구 핸들러를 만든다. */
+export function buildRecipeToolHandlers(
+    userId: string,
+    deps: RecipeToolDeps,
+    ledger: ProvenanceLedger = new ProvenanceLedger(),
+): ToolHandlers {
+    const telemetry = async (
+        toolName: string,
+        parameters: Record<string, unknown>,
+        run: () => Promise<string>,
+    ): Promise<string> => withToolTelemetry({ toolName, agentName: AGENT_NAME, parameters }, run);
+
+    return {
+        [RECIPE_SCAN_TOOL.getTaskSummary]: async (raw) => {
+            const { taskId, window } = parseGetTaskSummaryArgs(raw);
+            return telemetry(RECIPE_SCAN_TOOL.getTaskSummary, { taskId, window }, async () => {
+                const task = await deps.tasks.findById(taskId);
+                if (task === null || task.userId !== userId) return notFound(taskId);
+                const size = clampInt(window, SUMMARY_EVENT_WINDOW, 1, MAX_SUMMARY_EVENT_WINDOW);
+                const [events, totalEventCount] = await Promise.all([
+                    deps.events.findTimeline(taskId, undefined, size),
+                    deps.events.countByTask(taskId),
+                ]);
+                return dump(
+                    buildTaskSummary(
+                        {
+                            id: task.id,
+                            title: task.title,
+                            status: task.status,
+                            taskKind: task.taskKind,
+                            ...(task.workspacePath !== null ? { workspacePath: task.workspacePath } : {}),
+                            createdAt: task.createdAt.toISOString(),
+                            updatedAt: task.updatedAt.toISOString(),
+                        },
+                        events.map(toSummaryEvent),
+                        totalEventCount,
+                    ),
+                );
+            });
+        },
+
+        // recipe 슬라이스가 자기 이벤트 조회 도구를 소유한다.
+        [RECIPE_SCAN_TOOL.getTaskEvents]: async (raw) => {
+            const { taskId, limit, cursor, order } = parseGetTaskEventsArgs(raw);
+            return telemetry(RECIPE_SCAN_TOOL.getTaskEvents, { taskId, limit, cursor, order }, async () => {
+                const task = await deps.tasks.findById(taskId);
+                if (task === null || task.userId !== userId) return notFound(taskId);
+                const size = clampInt(limit, DEFAULT_EVENT_LIMIT, 1, MAX_EVENT_LIMIT);
+                const reading = order ?? EVENT_ORDER.asc;
+                const [rows, total] = await Promise.all([
+                    reading === EVENT_ORDER.desc
+                        ? deps.events.findTimelineWindow(taskId, cursor, size + 1)
+                        : deps.events.findTimeline(taskId, cursor !== undefined ? { seq: cursor } : undefined, size + 1),
+                    deps.events.countByTask(taskId),
+                ]);
+                const page = toRecipeEventPage(rows.map(toSlimEvent), size, total);
+                ledger.recordEvents(taskId, page.events.map((event) => event.id));
+                return dump(page);
+            });
+        },
+
+        [RECIPE_SCAN_TOOL.listRules]: async (raw) => {
+            const { taskId } = parseListRulesArgs(raw);
+            return telemetry(RECIPE_SCAN_TOOL.listRules, { taskId }, async () => {
+                const rules = (await deps.rules.findApplicable(userId, taskId)).map(toSlimRule);
+                ledger.recordRules(rules.map((rule) => rule.id));
+                return dump(rules);
+            });
+        },
+
+        [RECIPE_SCAN_TOOL.searchEvents]: async (raw) => {
+            const { q, taskId, kind, toolName, limit, offset } = parseSearchEventsArgs(raw);
+            return telemetry(
+                RECIPE_SCAN_TOOL.searchEvents,
+                { q, taskId, kind, toolName, limit, offset },
+                async () =>
+                    dump(
+                        await searchEvents(
+                            deps.search,
+                            userId,
+                            {
+                                q,
+                                ...(taskId !== undefined ? { taskId } : {}),
+                                ...(kind !== undefined ? { kind } : {}),
+                                ...(toolName !== undefined ? { toolName } : {}),
+                            },
+                            limit ?? DEFAULT_SEARCH_LIMIT,
+                            offset ?? 0,
+                            ledger,
+                        ),
+                    ),
+            );
+        },
+
+        [RECIPE_SCAN_TOOL.findSimilarTasks]: async (raw) => {
+            const { anchorTaskId, limit } = parseFindSimilarTasksArgs(raw);
+            return telemetry(RECIPE_SCAN_TOOL.findSimilarTasks, { anchorTaskId, limit }, async () => {
+                const found = await findSimilarTasks(
+                    deps.search,
+                    userId,
+                    deps.tasks,
+                    anchorTaskId,
+                    limit ?? DEFAULT_SIMILAR_TASK_LIMIT,
+                );
+                return found === null ? notFound(anchorTaskId) : dump(found);
+            });
+        },
+
+        [RECIPE_SCAN_TOOL.searchRecipes]: async (raw) => {
+            const { q, limit } = parseSearchRecipesArgs(raw);
+            return telemetry(RECIPE_SCAN_TOOL.searchRecipes, { q, limit }, async () =>
+                dump(await searchRecipes(deps.search, userId, q, limit ?? DEFAULT_SIMILAR_TASK_LIMIT, ledger)),
+            );
+        },
+    };
+}
+
+function toSlimEvent(event: EventEntity): RecipeSlimEvent {
+    return {
+        id: event.id,
+        seq: event.seq,
+        kind: event.kind,
+        title: event.title,
+        ...(event.body !== null ? { body: event.body } : {}),
+        ...(event.toolName !== null ? { toolName: event.toolName } : {}),
+        filePaths: event.filePaths,
+        occurredAt: event.occurredAt.toISOString(),
+    };
+}
+
+function toSummaryEvent(event: EventEntity): TaskSummaryEvent {
+    return { ...toSlimEvent(event), metadata: event.metadata };
+}
+
+function notFound(taskId: string): string {
+    return `Task ${taskId} not found.`;
+}
+
+function dump(value: unknown): string {
+    return JSON.stringify(value);
+}
