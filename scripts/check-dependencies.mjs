@@ -30,7 +30,13 @@ function main() {
     if (!fs.existsSync(path.join(ROOT, target.source))) continue;
     const result = spawnSync(
       DEPCRUISE,
-      ["--config", ".dependency-cruiser.mjs", "--ts-config", target.tsconfig, target.source],
+      [
+        "--config",
+        path.join(ROOT, ".dependency-cruiser.mjs"),
+        "--ts-config",
+        path.join(ROOT, target.tsconfig),
+        target.source,
+      ],
       { cwd: ROOT, stdio: "inherit", maxBuffer: 32 * 1024 * 1024 },
     );
     if (result.error) throw result.error;
