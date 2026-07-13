@@ -1,0 +1,52 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@monitor/kernel": [
+        "packages/kernel/src/index.ts"
+      ],
+      "@monitor/kernel/*": [
+        "packages/kernel/src/*"
+      ],
+      "~kernel/*": [
+        "packages/kernel/src/*"
+      ],
+      "@monitor/platform": [
+        "packages/server/libs/platform/src/index.ts"
+      ],
+      "@monitor/platform/*": [
+        "packages/server/libs/platform/src/*"
+      ],
+      "~platform/*": [
+        "packages/server/libs/platform/src/*"
+      ],
+      "@monitor/tracer-domain": [
+        "packages/server/libs/tracer-domain/src/index.ts"
+      ],
+      "@monitor/tracer-domain/*": [
+        "packages/server/libs/tracer-domain/src/*"
+      ],
+      "~tracer-domain/*": [
+        "packages/server/libs/tracer-domain/src/*"
+      ],
+      "~runtime-api/*": [
+        "packages/server/apps/runtime-api/src/*"
+      ],
+      "~tracer-api/*": [
+        "packages/server/apps/tracer-api/src/*"
+      ],
+      "~projector/*": [
+        "packages/server/apps/projector/src/*"
+      ],
+      "~ai-agent-worker/*": [
+        "packages/server/apps/ai-agent-worker/src/*"
+      ],
+      "~runtime/*": [
+        "packages/runtime/src/*"
+      ],
+      "~web/*": [
+        "packages/web/src/*"
+      ]
+    }
+  }
+}
