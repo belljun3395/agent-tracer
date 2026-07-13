@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// 워크스페이스 스크립트를 병렬로 돌린다.
-// 대상 목록은 `npm query .workspace`가 소유하므로 배포 단위를 추가해도 이 파일은 고치지 않는다.
+// 대상 목록을 `npm query .workspace`가 소유하므로 배포 단위가 늘어도 이 파일은 고치지 않는다.
 
 import { execFile, spawn } from "node:child_process";
 import { cpus } from "node:os";

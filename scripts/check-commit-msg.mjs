@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 커밋 메시지 규칙을 검사한다. 커밋 훅과 CI가 이 스크립트를 그대로 재사용한다.
+// 커밋 훅과 CI가 함께 쓰는 커밋 메시지 검사기다.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -14,7 +14,7 @@ const SCOPES = [
 ];
 const HEADER_PATTERN = /^(\w+)(?:\(([\w-]+)\))?: (.+)$/;
 const KOREAN_PATTERN = /[가-힣]/;
-// 제목은 무엇을 했는지 서술하는 행위 문장이다. 명사구 제목을 막는다.
+// 명사구 제목을 막고 행위 문장을 강제한다.
 const ACTION_SENTENCE_PATTERN = /다$/;
 const TRAILER_PATTERN = /^[A-Za-z-]+:\s*\S+@|^Co-authored-by:/i;
 // 근거와 검증을 정형 블록으로 나열하던 관습을 막는다.

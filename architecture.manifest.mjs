@@ -1,5 +1,4 @@
-// 구조 규칙의 유일한 서술이다. 의존 그래프 검사기와 린터가 이것을 읽어 규칙을 계산하고,
-// 경로 별칭이 여기서 생성된다. 같은 경계를 두 곳에 손으로 적지 않는다.
+// 구조 규칙의 유일한 서술이며 의존 그래프 검사기와 린터와 경로 별칭 생성기가 모두 이것을 읽는다.
 
 /** 슬라이스 안에서 각 계층이 import할 수 있는 계층. */
 export const LAYERS = Object.freeze({
@@ -10,7 +9,7 @@ export const LAYERS = Object.freeze({
   model: [],
 });
 
-/** 역할을 말하는 파일 접미사. 기술의 차이는 디렉터리가 아니라 여기가 말한다. */
+/** 기술의 차이를 디렉터리 대신 말하는 파일 접미사. */
 export const ROLES = Object.freeze({
   entrypoint: [".controller.ts", ".consumer.ts", ".workflow.ts", ".activity.ts", ".hook.ts"],
   usecase: [".usecase.ts"],
@@ -19,11 +18,7 @@ export const ROLES = Object.freeze({
   adapter: [".adapter.ts"],
 });
 
-/**
- * 배포 단위. shape는 그 단위가 어떤 규칙 집합을 받는지 정한다.
- * sliced는 도메인 슬라이스와 다섯 계층, lib는 공개 표면을 가진 라이브러리,
- * kernel은 아무 배포 단위도 알지 않는 최내곽, fsd는 여섯 레이어, plugin은 수집기다.
- */
+/** 배포 단위이며 shape가 그 단위에 적용할 규칙 집합을 고른다. */
 export const UNITS = Object.freeze([
   { name: "kernel", dir: "packages/kernel", alias: "~kernel", shape: "kernel", importable: true },
   { name: "platform", dir: "packages/server/libs/platform", alias: "~platform", shape: "lib", importable: true },
@@ -36,13 +31,13 @@ export const UNITS = Object.freeze([
   { name: "web", dir: "packages/web", alias: "~web", shape: "fsd", importable: false },
 ]);
 
-/** 서로를 직접 import하지 못하는 우산. 넷은 kernel로만 연결된다. */
+/** 서로를 직접 import하지 못하고 kernel로만 연결되는 우산. */
 export const UMBRELLAS = Object.freeze(["server", "runtime", "web"]);
 
-/** 대시보드의 레이어. 위가 아래를 부르고 같은 레이어끼리는 부르지 않는다. */
+/** 위가 아래만 부르는 대시보드의 레이어. */
 export const FSD = Object.freeze(["app", "pages", "widgets", "features", "entities", "shared"]);
 
-/** 기술이 새지 않는 경계. allow는 경로 조각, denyLayers는 계층 이름이다. */
+/** 기술이 새지 않는 경계이며 allow는 경로 조각을, denyLayers는 계층 이름을 받는다. */
 export const SEALS = Object.freeze([
   { pkg: "typeorm", allow: ["/adapter/", "/config/", "/migration/", "/libs/tracer-domain/"] },
   { pkg: "@temporalio/worker", allow: ["/config/"] },
@@ -50,7 +45,7 @@ export const SEALS = Object.freeze([
   { pkg: "zod", allowFileSuffix: ".schema.ts" },
 ]);
 
-/** 넘기지 않는 선. 예산을 두고 백로그를 관리하지 않는다. */
+/** 예산 없이 지키는 상한. */
 export const BUDGETS = Object.freeze({
   maxFileLines: 300,
   oversizedFiles: 0,
@@ -60,7 +55,7 @@ export const BUDGETS = Object.freeze({
 /** shape가 sliced인 배포 단위의 이름. */
 export const SLICED = Object.freeze(UNITS.filter((unit) => unit.shape === "sliced").map((unit) => unit.name));
 
-/** 별칭에서 소스 디렉터리로 가는 표. 린터와 경로 별칭 생성기가 함께 쓴다. */
+/** 린터와 경로 별칭 생성기가 함께 쓰는 별칭 표. */
 export const ALIASES = Object.freeze(
   Object.fromEntries(UNITS.map((unit) => [unit.alias, `${unit.dir}/src`])),
 );

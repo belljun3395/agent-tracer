@@ -1,13 +1,12 @@
 import { FSD, LAYERS, SEALS, SLICED, UMBRELLAS } from "./architecture.manifest.mjs";
 
-// 규칙은 파일 이름을 모른다. 디렉터리 역할과 파일 접미사만이 피연산자다.
-// 슬라이스를 추가해도 규칙 수는 늘지 않는다. 정규식 역참조가 이름을 대신 센다.
+// 규칙의 피연산자는 디렉터리 역할과 파일 접미사뿐이며 슬라이스 이름은 정규식 역참조가 센다.
 
 const SLICE = `^packages/server/apps/(?:${SLICED.join("|")})/src/domain`;
 const WEB = "^packages/web/src";
 const SLICED_LAYERS = Object.keys(LAYERS);
 
-// 슬라이스 안의 계층 방향. LAYERS의 항목 하나가 규칙 하나가 된다.
+// 슬라이스 안의 계층 방향이며 LAYERS의 항목 하나가 규칙 하나가 된다.
 const layerRules = Object.entries(LAYERS).map(([layer, allowed]) => {
   const forbidden = SLICED_LAYERS.filter((name) => name !== layer && !allowed.includes(name));
   return {
@@ -19,7 +18,7 @@ const layerRules = Object.entries(LAYERS).map(([layer, allowed]) => {
   };
 });
 
-// 대시보드의 레이어 방향. 아래를 부르고 위를 부르지 않는다.
+// 대시보드의 레이어 방향이며 아래만 부른다.
 const webLayerRules = FSD
   .map((layer, index) => ({ layer, above: FSD.slice(0, index) }))
   .filter(({ above }) => above.length > 0)
@@ -31,7 +30,7 @@ const webLayerRules = FSD
     to: { path: `${WEB}/(?:${above.join("|")})/` },
   }));
 
-// 기술 봉인. SEALS의 항목 하나가 규칙 하나가 된다.
+// 기술 봉인이며 SEALS의 항목 하나가 규칙 하나가 된다.
 const sealRules = SEALS.map((seal) => {
   const to = { path: `node_modules/${seal.pkg}` };
   if (seal.allowFileSuffix) {

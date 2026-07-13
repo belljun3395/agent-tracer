@@ -1,13 +1,12 @@
 #!/usr/bin/env node
-// 커밋의 공동 작성자 트레일러를 허용 목록과 대조한다.
-// 커밋 훅은 --file로 작성 중인 메시지를, CI는 --range로 푸시된 커밋 범위를 검사한다.
+// 커밋 훅은 --file로 작성 중인 메시지를, CI는 --range로 커밋 범위를 허용 목록과 대조한다.
 
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-// 사람 기여자는 저장소 소유자뿐이다. 도구가 붙이는 트레일러만 예외로 둔다.
+// 사람 기여자는 저장소 소유자뿐이므로 도구가 붙이는 트레일러만 예외로 둔다.
 const ALLOWED_EMAILS = new Set(["noreply@anthropic.com"]);
 const COAUTHOR_PATTERN = /^Co-authored-by:\s*(?<name>.*?)\s*<(?<email>[^>]+)>\s*$/gim;
 

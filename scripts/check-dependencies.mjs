@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// 의존 그래프 규칙을 검사한다.
-// 배포 단위마다 자기 tsconfig로 돌려야 별칭이 해석된다. 해석할 수 없는 import도 오류다.
+// 배포 단위마다 자기 tsconfig로 돌려야 별칭이 해석되므로 우산 단위로 나눠 검사한다.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,7 +11,7 @@ import { UMBRELLAS, UNITS } from "../architecture.manifest.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEPCRUISE = path.join(ROOT, "node_modules/.bin/depcruise");
 
-/** 우산마다 한 번씩 돈다. server의 앱들은 루트 tsconfig의 별칭을 공유한다. */
+/** 우산마다 한 번씩 도는 검사 대상이며 server의 앱들은 루트 별칭을 공유한다. */
 export function cruiseTargets() {
   return UMBRELLAS.concat("kernel").map((umbrella) => {
     const unit = UNITS.find((candidate) => candidate.name === umbrella);
