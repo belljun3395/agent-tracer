@@ -9,7 +9,8 @@ import { execFileSync } from "node:child_process";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
 
-const INGEST_URL = "http://127.0.0.1:3847/ingest/v1/events";
+const INGEST_URL = "http://127.0.0.1:3901/ingest/v1/events";
+const CONTRACT_VERSION = "0.5.7";
 const USER = "e2e-failure";
 
 function compose(args) {
@@ -43,7 +44,7 @@ function ulid() {
 }
 
 function ingestBatch(events) {
-    const body = JSON.stringify({ events });
+    const body = JSON.stringify({ contractVersion: CONTRACT_VERSION, events });
     return execFileSync(
         "curl",
         ["-sf", "-X", "POST", INGEST_URL, "-H", "Content-Type: application/json", "-H", `x-monitor-user: ${USER}`, "-d", body],
