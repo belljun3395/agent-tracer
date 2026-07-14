@@ -10,29 +10,39 @@ DTO를 검증·저장한다.
 
 ## 다른 백엔드와 비교
 
-같은 에이전트의 SDK 구현도 `ai-agent-worker`에 함께 존재한다. `claude-sdk`는 워커가
-Agent SDK 하위 프로세스를 직접 기동하고, `openai-sdk`는 워커 프로세스 안에서 실행한다.
-`worker.entry`가 모든 구현을 registry로 조립하고, `AGENT_BACKEND`(기본 `python`) 또는 잡 입력
-`agentBackend`로 백엔드를 고른다. `AGENT_BACKEND=ts`는 `claude-sdk`와 호환된다. SDK 두 구현은
-같은 TS `AgentSpec`을 공유하지만 Python 구현은 의도적으로 독립된 에이전트다. 비교 대상은
-prompt byte가 아니라 최종 DTO·성공률·근거 정확도·도구 호출·비용·지연이다.
+같은 에이전트의 SDK 구현도 `ai-agent-worker`에 함께 존재한다. `claude-sdk`는 워커가 Agent SDK
+하위 프로세스를 직접 기동한다. 백엔드는 `python`과 `claude-sdk` 둘뿐이고, 워커가 둘을 registry로
+조립해 `AGENT_BACKEND`(기본 `python`) 또는 잡 입력 `agentBackend`로 고른다. `AGENT_BACKEND=ts`는
+`claude-sdk`의 별칭이다. `claude-sdk` 구현은 TS `AgentSpec`을 쓰지만 Python 구현은 의도적으로
+독립된 에이전트다. 비교 대상은 prompt byte가 아니라 최종 DTO·성공률·근거 정확도·도구 호출·비용·지연이다.
 
 ## 에이전트
 
-| 엔드포인트 | 그래프 | 도구 | 출력 |
-|---|---|---|---|
-| `POST /agents/title-suggestion` | 컨텍스트 판정 → 선택적 수집 → 합성 → 검증/수정 | 태스크 이벤트 조회 | 제목 후보 목록 |
-| `POST /agents/task-cleanup` | 후보 배치 순회 → 조사 계획/수집 → 판정 → 검증/수정 | 정리 후보·태스크 이벤트 조회 | 정리 제안 목록 |
-| `POST /agents/recipe-scan` | 앵커 → 계획 → 수집 → 충분성 → 합성 → 검증/수정 | 태스크·룰·기존 레시피 조회 | 레시피 후보 목록 |
+| 엔드포인트 | 도구 | 출력 |
+|---|---|---|
+| `POST /agents/title-suggestion` | 태스크 이벤트 조회 | 제목 후보 목록 |
+| `POST /agents/task-cleanup` | 정리 후보·태스크 이벤트 조회 | 정리 제안 목록 |
+| `POST /agents/recipe-scan` | 태스크·룰·기존 레시피 조회 | 레시피 후보 목록 |
 
-각 에이전트는 전용 그래프를 쓰며 노드가 사용할 도구와 반복 한도를 결정한다. 데이터 조회는
-`toolCallback`으로 실행하며, 사용자 권한과 저장소를 아는 핸들러는 ai-agent-worker가 소유한다.
-모든 그래프의 노드·분기·검증 이벤트는 응답 `steps`에 포함되어 attempt별로 저장된다.
+셋은 같은 위상을 쓴다. `investigate` → 검증(`validate_candidate` 또는 `validate_decisions`) →
+`repair`(검증으로 되돌아간다) → `finalize` 또는 `empty`다. 수리는 한 번만 시도하고, 그래도 검증을
+통과하지 못하면 `empty`로 끝난다. 슬라이스마다 다른 것은 위상이 아니라 프롬프트와 도구와
+검증 규칙이다. 데이터 조회는 `toolCallback`으로 실행하며, 사용자 권한과 저장소를 아는 핸들러는
+ai-agent-worker가 소유한다.
 
 - `GET /health`: 헬스체크.
 - `POST /agents/runs/{run_id}/cancel`: 진행 중 실행 취소.
 
-오류는 HTTP 실패가 아니라 응답 본문 `error.subtype`으로 돌려준다. 호출부(ai-agent-worker)가
+## 실행 계약
+
+세 엔드포인트는 실행을 접수만 하고 202로 즉시 답한다(`{"status":"accepted","runId":...}`). 결과는
+요청 본문의 `completionCallback`(URL+토큰, 필수)으로 따로 배달된다. 오래 걸리는 유료 실행이 HTTP
+연결의 수명에 매이지 않게 하기 위함이다.
+
+완료 창구로 가는 본문이 `data`·`error`·`steps`·`usage`를 담는다. 모든 그래프의 노드·분기·검증
+이벤트는 그 `steps`에 실려 attempt별로 저장된다.
+
+오류도 HTTP 실패가 아니라 그 본문의 `error.subtype`으로 돌려준다. 호출부(ai-agent-worker)가
 Anthropic이 준 오류 타입(`authentication_error` 등)으로 재시도 여부를 판단하게 하기 위함이다.
 
 ## 개발
@@ -55,10 +65,17 @@ python -m agent_graph               # 로컬 기동(기본 :8800)
 | 키 | 기본값 | 용도 |
 |---|---|---|
 | `AGENT_GRAPH_HOST` / `AGENT_GRAPH_PORT` | `0.0.0.0` / `8800` | 서비스 바인딩 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | 없음 | 없으면 관측을 끈 채 뜬다 |
+| `OTEL_SDK_DISABLED` | 없음 | `true`면 엔드포인트가 있어도 관측을 끈다 |
+| `OTEL_SERVICE_NAME` | `agents` | 스팬에 붙는 서비스 이름 |
 
-설정은 바인딩 주소가 전부다. 이 서비스는 무상태라 DB·OpenSearch에 직접 접속하지 않는다.
-에이전트 도구의 데이터 조회는 요청 본문 `toolCallback`(URL+토큰)으로 ai-agent-worker를
-되불러서만 이뤄지고, 소유 스코프는 그 토큰이 정한다.
+설정은 바인딩 주소와 관측 뿐이다. 이 서비스는 DB·OpenSearch에 직접 접속하지 않는다. 에이전트
+도구의 데이터 조회는 요청 본문 `toolCallback`(URL+토큰)으로 ai-agent-worker를 되불러서만 이뤄지고,
+소유 스코프는 그 토큰이 정한다.
+
+다만 프로세스 안에는 상태가 있다. 취소를 걸 수 있게 진행 중 실행을 등록해 두고, 같은 요청이
+다시 오면 재실행하지 않도록 멱등 캐시를 5분간 들고 있다. 둘 다 프로세스 로컬이라 인스턴스를
+늘리면 공유되지 않는다.
 
 Anthropic API 키는 **요청 본문 `apiKey`로만** 받는다(환경변수 폴백 없음). 호출부(ai-agent-worker)가
 DB(app_settings)에 등록된 키를 실어 보내며, 키가 없으면 서비스는 422로 거부한다.
