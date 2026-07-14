@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { InvariantViolationError, RecipeEntity, type RecipeCandidateInput } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/recipe/port/__fakes__/fixed.clock.js";
 import { InMemoryRecipeRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.repository.js";
 import type { RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
 import { EditRecipeUseCase } from "./edit.recipe.usecase.js";
+
+const clock = new FixedClock(new Date("2026-01-01T00:00:00.000Z"));
 
 function candidateInput(id: string): RecipeCandidateInput {
     return {
@@ -27,7 +30,7 @@ describe("EditRecipeUseCase", () => {
     it("존재하지 않는 레시피는 NotFound를 던진다", async () => {
         const repo = new InMemoryRecipeRepository();
         const index = { upsert: vi.fn() } as unknown as RecipeSearchPort;
-        const useCase = new EditRecipeUseCase(repo, index);
+        const useCase = new EditRecipeUseCase(repo, index, clock);
 
         await expect(useCase.execute("u1", "missing", { title: "새 제목" })).rejects.toThrow(NotFoundException);
     });
@@ -38,7 +41,7 @@ describe("EditRecipeUseCase", () => {
         recipe.accept(new Date("2026-01-01T00:01:00.000Z"));
         repo.seed(recipe);
         const index = { upsert: vi.fn() } as unknown as RecipeSearchPort;
-        const useCase = new EditRecipeUseCase(repo, index);
+        const useCase = new EditRecipeUseCase(repo, index, clock);
 
         await expect(useCase.execute("intruder", "r1", { title: "새 제목" })).rejects.toThrow(NotFoundException);
         expect(repo.all()[0]!.userEdited).toBe(false);
@@ -48,7 +51,7 @@ describe("EditRecipeUseCase", () => {
         const repo = new InMemoryRecipeRepository();
         repo.seed(RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z")));
         const index = { upsert: vi.fn() } as unknown as RecipeSearchPort;
-        const useCase = new EditRecipeUseCase(repo, index);
+        const useCase = new EditRecipeUseCase(repo, index, clock);
 
         await expect(useCase.execute("u1", "r1", { title: "새 제목" })).rejects.toThrow(InvariantViolationError);
     });
@@ -60,7 +63,7 @@ describe("EditRecipeUseCase", () => {
         repo.seed(recipe);
         const upsert = vi.fn(async () => undefined);
         const index = { upsert } as unknown as RecipeSearchPort;
-        const useCase = new EditRecipeUseCase(repo, index);
+        const useCase = new EditRecipeUseCase(repo, index, clock);
 
         const result = await useCase.execute("u1", "r1", {
             title: "편집 제목",

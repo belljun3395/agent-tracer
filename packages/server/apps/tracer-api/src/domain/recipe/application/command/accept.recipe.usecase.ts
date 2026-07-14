@@ -1,4 +1,5 @@
 import { Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/recipe/port/clock.port.js";
 import { RECIPE_REPOSITORY, type RecipeRepositoryPort } from "~tracer-api/domain/recipe/port/recipe.repository.port.js";
 import { RECIPE_SEARCH, type RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
 import { mapRecipe, type RecipeDto } from "~tracer-api/domain/recipe/application/recipe.support.js";
@@ -8,6 +9,8 @@ export class AcceptRecipeUseCase {
     constructor(
         @Inject(RECIPE_REPOSITORY)
         private readonly recipes: RecipeRepositoryPort,
+        @Inject(CLOCK)
+        private readonly clock: ClockPort,
         @Optional()
         @Inject(RECIPE_SEARCH)
         private readonly search: RecipeSearchPort | null = null,
@@ -19,7 +22,7 @@ export class AcceptRecipeUseCase {
         if (recipe === null || recipe.userId !== userId) throw new NotFoundException("Recipe not found");
         const parentCandidate = recipe.parentRecipeId !== null ? await this.recipes.findById(recipe.parentRecipeId) : null;
         const parent = parentCandidate !== null && parentCandidate.userId === userId ? parentCandidate : null;
-        const now = new Date();
+        const now = this.clock.now();
         recipe.accept(now);
         if (parent !== null) parent.supersede(recipe.id, now);
         if (parent !== null) await this.recipes.upsert(parent);

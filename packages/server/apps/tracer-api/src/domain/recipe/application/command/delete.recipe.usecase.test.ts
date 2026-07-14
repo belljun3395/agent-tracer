@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { RecipeEntity, type RecipeRepository } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/recipe/port/__fakes__/fixed.clock.js";
 import type { RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
 import { DeleteRecipeUseCase } from "./delete.recipe.usecase.js";
 
@@ -39,7 +40,7 @@ function makeUseCase(args: { readonly recipes: readonly RecipeEntity[]; readonly
     const search = {
         remove: async (id: string) => void args.removed?.push(id),
     } as unknown as RecipeSearchPort;
-    return new DeleteRecipeUseCase(recipes, search);
+    return new DeleteRecipeUseCase(recipes, new FixedClock(new Date("2026-01-01T00:00:00.000Z")), search);
 }
 
 describe("DeleteRecipeUseCase", () => {

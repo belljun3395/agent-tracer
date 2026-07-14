@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { RECIPE_STATUS } from "@monitor/kernel";
 import { InvariantViolationError, RecipeEntity, type RecipeCandidateInput } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/recipe/port/__fakes__/fixed.clock.js";
 import { InMemoryRecipeRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.repository.js";
 import { RetireRecipeUseCase } from "./retire.recipe.usecase.js";
+
+const clock = new FixedClock(new Date("2026-01-01T00:00:00.000Z"));
 
 function candidateInput(id: string): RecipeCandidateInput {
     return {
@@ -26,7 +29,7 @@ function candidateInput(id: string): RecipeCandidateInput {
 describe("RetireRecipeUseCase", () => {
     it("존재하지 않는 레시피를 폐기하려 하면 NotFound를 던진다", async () => {
         const repo = new InMemoryRecipeRepository();
-        const useCase = new RetireRecipeUseCase(repo);
+        const useCase = new RetireRecipeUseCase(repo, clock);
         await expect(useCase.execute("u1", "missing")).rejects.toThrow(NotFoundException);
     });
 
@@ -35,7 +38,7 @@ describe("RetireRecipeUseCase", () => {
         const recipe = RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z"));
         recipe.accept(new Date());
         repo.seed(recipe);
-        const useCase = new RetireRecipeUseCase(repo);
+        const useCase = new RetireRecipeUseCase(repo, clock);
         const result = await useCase.execute("u1", "r1");
         expect(result.recipe.status).toBe(RECIPE_STATUS.retired);
     });
@@ -44,7 +47,7 @@ describe("RetireRecipeUseCase", () => {
         const repo = new InMemoryRecipeRepository();
         const recipe = RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z"));
         repo.seed(recipe);
-        const useCase = new RetireRecipeUseCase(repo);
+        const useCase = new RetireRecipeUseCase(repo, clock);
         await expect(useCase.execute("u1", "r1")).rejects.toThrow(InvariantViolationError);
     });
 });
