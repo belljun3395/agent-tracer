@@ -27,6 +27,7 @@ export {
   ChevronRightIcon,
   CopyIcon,
   DownIcon,
+  ExternalLinkIcon,
   GearIcon,
   HamburgerIcon,
   MonitorIcon,

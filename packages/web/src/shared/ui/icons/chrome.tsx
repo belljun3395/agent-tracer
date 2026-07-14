@@ -121,6 +121,29 @@ export function GearIcon({ size = 14, className }: IconProps) {
   );
 }
 
+/** 앱 밖으로 나가는 링크에 붙이는 화살표와 상자. */
+
+export function ExternalLinkIcon({ size = 12, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+
 /** 체크 표시가 달린 짧은 선 두 줄. */
 
 export function ChecklistIcon({ size = 14, className }: IconProps) {

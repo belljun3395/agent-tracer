@@ -1,7 +1,7 @@
 import type { ResumeTargetDto } from "@monitor/kernel";
 import { buildResumeCommand } from "~web/entities/task/model/resume-command.js";
+import { resolveDaemonBaseUrl } from "~web/shared/config/daemon-base-url.js";
 
-const DEFAULT_RESUME_HELPER_BASE_URL = "http://127.0.0.1:3848";
 const RESUME_TOKEN_HEADER = "x-agent-tracer-resume-token";
 
 export type ResumeOpenStatus = "opened" | "copied";
@@ -22,9 +22,9 @@ export async function openResumeSession(
   options: ResumeOpenOptions = {},
 ): Promise<ResumeOpenResult> {
   const command = buildResumeCommand(target);
-  const helperBaseUrl = normalizeBaseUrl(
-    options.helperBaseUrl ?? resolveResumeHelperBaseUrl(),
-  );
+  const helperBaseUrl = options.helperBaseUrl
+    ? normalizeBaseUrl(options.helperBaseUrl)
+    : resolveDaemonBaseUrl();
   const token = options.token ?? resolveResumeHelperToken();
 
   try {
@@ -45,13 +45,6 @@ export async function openResumeSession(
 
   await navigator.clipboard.writeText(command);
   return { status: "copied", command };
-}
-
-function resolveResumeHelperBaseUrl(): string {
-  return (
-    (import.meta.env.VITE_AGENT_TRACER_RESUME_BASE_URL as string | undefined) ??
-    DEFAULT_RESUME_HELPER_BASE_URL
-  );
 }
 
 function resolveResumeHelperToken(): string | undefined {

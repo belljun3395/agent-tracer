@@ -31,4 +31,5 @@ export {
   BookIcon,
   GearIcon,
   ChecklistIcon,
+  ExternalLinkIcon,
 } from "~web/shared/ui/icons/chrome.js";

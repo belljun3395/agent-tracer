@@ -77,4 +77,34 @@ describe("데몬 상태 설정", () => {
       expect(screen.getByText("stale")).not.toBeNull();
     });
   });
+
+  it("데몬이 보고 중이면 제어 화면 링크를 연다", async () => {
+    fetchDaemonHealthMock.mockResolvedValue({
+      snapshot: {
+        spoolBacklogBytes: 0,
+        deadLetterCount: 0,
+        lastDeadReasons: [],
+        swallowedErrors: 0,
+        daemonVersion: "0.4.0",
+        retryStatusSince: null,
+        reportedAt: new Date().toISOString(),
+      },
+    });
+    renderSection();
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: "Open control page" });
+      expect(link.getAttribute("href")).toBe("http://127.0.0.1:3848/");
+      expect(link.getAttribute("target")).toBe("_blank");
+    });
+  });
+
+  it("보고가 끊기면 제어 화면 링크를 열지 않는다", async () => {
+    fetchDaemonHealthMock.mockResolvedValue({ snapshot: null });
+    renderSection();
+    await waitFor(() => {
+      expect(screen.getByText("No health report received yet.")).not.toBeNull();
+    });
+    expect(screen.queryByRole("link", { name: "Open control page" })).toBeNull();
+    expect(screen.getByText("Open control page").getAttribute("aria-disabled")).toBe("true");
+  });
 });
