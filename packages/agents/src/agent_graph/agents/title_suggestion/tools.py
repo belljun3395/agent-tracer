@@ -1,20 +1,19 @@
-"""title-suggestion의 이벤트 조회 정책과 콜백 실행."""
+"""title-suggestion의 도구 계약과 콜백 실행."""
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..runtime.callback import invoke_remote_tool
+from ..runtime.llm.tool_loop import ToolSpec
 from ..runtime.telemetry.spans import tool_span
 from ..shared.models import ToolCallback, TrimmedStr
-from .models import TitleEventRecord
 
 GET_TASK_EVENTS_TOOL_NAME = "get_task_events"
 EVENT_PAGE_LIMIT = 100
-MAX_EVENT_PAGES = 2
 
 
 class GetTaskEventsArgs(BaseModel):
@@ -23,51 +22,33 @@ class GetTaskEventsArgs(BaseModel):
     taskId: TrimmedStr = Field(min_length=1)
     limit: int = Field(default=EVENT_PAGE_LIMIT, ge=1, le=EVENT_PAGE_LIMIT)
     cursor: TrimmedStr | None = Field(default=None, min_length=1)
-    order: Literal["desc"] = "desc"
+    order: Literal["desc", "asc"] = "desc"
 
 
-class TitleEventPage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+TITLE_TOOL_SPECS: tuple[ToolSpec, ...] = (
+    ToolSpec(
+        GET_TASK_EVENTS_TOOL_NAME,
+        "Read one page of the task's raw events when the recorded conversation cannot name the work.",
+        GetTaskEventsArgs,
+    ),
+)
 
-    events: list[dict[str, object]]
-    truncated: bool
-    nextCursor: TrimmedStr | None = Field(default=None, min_length=1)
-    total: int = Field(ge=0)
+
+def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """모델이 고른 도구 인자를 소유 스키마로 검증해 콜백 인자를 만든다."""
+    if name != GET_TASK_EVENTS_TOOL_NAME:
+        raise ValueError(f"unknown title-suggestion tool: {name}")
+    validated: dict[str, Any] = GetTaskEventsArgs.model_validate(args).model_dump(exclude_none=True)
+    return validated
 
 
-async def gather_task_events(
+async def invoke_tool(
     client: httpx.AsyncClient,
     callback: ToolCallback,
-    task_id: str,
-) -> list[TitleEventRecord]:
-    """고정된 태스크의 최신 이벤트를 최대 두 페이지까지 읽는다."""
-    records: list[TitleEventRecord] = []
-    cursor: str | None = None
-    for _ in range(MAX_EVENT_PAGES):
-        args = GetTaskEventsArgs(taskId=task_id, cursor=cursor).model_dump(exclude_none=True)
-        async with tool_span(
-            GET_TASK_EVENTS_TOOL_NAME,
-            agent_name="title-suggestion",
-            parameters=args,
-        ):
-            content = await invoke_remote_tool(
-                client,
-                callback,
-                GET_TASK_EVENTS_TOOL_NAME,
-                args,
-            )
-        records.append(TitleEventRecord(args=args, content=content))
-        page = _parse_page(content)
-        if not page.truncated:
-            break
-        if page.nextCursor is None:
-            raise ValueError("get_task_events returned a truncated page without nextCursor")
-        cursor = page.nextCursor
-    return records
-
-
-def _parse_page(content: str) -> TitleEventPage:
-    try:
-        return TitleEventPage.model_validate_json(content)
-    except ValueError as err:
-        raise ValueError("get_task_events returned an invalid response") from err
+    name: str,
+    args: dict[str, Any],
+) -> str:
+    """모델이 고른 도구를 인자 검증 뒤 워커 콜백으로 실행한다."""
+    validated = validate_tool_args(name, args)
+    async with tool_span(name, agent_name="title-suggestion", parameters=validated):
+        return await invoke_remote_tool(client, callback, name, validated)

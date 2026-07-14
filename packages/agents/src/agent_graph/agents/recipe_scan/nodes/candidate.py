@@ -27,11 +27,11 @@ def create_candidate_nodes(
 ) -> tuple[RecipeNode, RecipeNode, RecipeNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
+    async def run_tool(name: str, args: dict[str, Any]) -> str:
+        return await invoke_tool(client, req.toolCallback, name, args)
+
     async def investigate(state: RecipeScanState) -> dict[str, Any]:
         catalog = state["provenance"]
-
-        async def run_tool(name: str, args: dict[str, Any]) -> str:
-            return await invoke_tool(client, req.toolCallback, name, args)
 
         def observe(name: str, args: dict[str, Any], content: str) -> None:
             record_evidence(catalog, name, args, content)
@@ -67,6 +67,11 @@ def create_candidate_nodes(
     async def repair(state: RecipeScanState) -> dict[str, Any]:
         if not state["candidates"]:
             return {"repair_attempted": True}
+        catalog = state["provenance"]
+
+        def observe(name: str, args: dict[str, Any], content: str) -> None:
+            record_evidence(catalog, name, args, content)
+
         draft, cost = await continue_tool_loop(
             chat,
             messages=state["messages"],
@@ -74,14 +79,18 @@ def create_candidate_nodes(
             tools=RECIPE_TOOL_SPECS,
             schema=RecipeDraft,
             trace=usage,
+            run_tool=run_tool,
+            observe=observe,
             agent_name=agent_name,
             model_name=req.model,
+            max_rounds=MAX_TOOL_ROUNDS,
             max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
             spent=state["model_cost_usd"],
         )
         return {
             "candidates": draft.recipes,
             "messages": state["messages"],
+            "provenance": catalog,
             "repair_attempted": True,
             "model_cost_usd": cost,
         }

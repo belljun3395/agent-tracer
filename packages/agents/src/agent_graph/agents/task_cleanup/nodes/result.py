@@ -11,7 +11,7 @@ async def finalize(state: TaskCleanupState) -> dict[str, Any]:
     """검증된 제안을 보관 작업 결과로 직렬화한다."""
     suggestions = [
         {"kind": "archive", "taskId": item.taskId, "rationale": item.rationale}
-        for item in state["accepted_suggestions"][: state["max_suggestions"]]
+        for item in state["suggestions"][: state["max_suggestions"]]
     ]
     return {"result": {"suggestions": suggestions}}
 

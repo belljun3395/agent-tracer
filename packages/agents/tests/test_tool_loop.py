@@ -5,11 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from agent_graph.agents.runtime.execution.trace import ExecutionTrace
-from agent_graph.agents.runtime.llm.tool_loop import ROLLING_BREAKPOINTS, ToolSpec, run_tool_loop
+from agent_graph.agents.runtime.llm.tool_loop import (
+    ROLLING_BREAKPOINTS,
+    ToolSpec,
+    continue_tool_loop,
+    run_tool_loop,
+)
 from tests.fakes import FakeToolLoopChat
 
 
@@ -113,8 +118,55 @@ class TestRunToolLoop:
         assert answer.found == ["event-9"]
         assert "budget is exhausted" in str(messages[-1].content)
 
-    async def test_구조화_출력이_스키마를_어기면_실행을_실패로_올린다(self) -> None:
-        chat = FakeToolLoopChat([{"found": "not-a-list"}])
+    async def test_스키마를_어긴_출력은_사유를_돌려주고_한_번_다시_받는다(self) -> None:
+        chat = FakeToolLoopChat([{"found": "not-a-list"}, {"found": ["event-1"]}])
+
+        answer, messages, _cost = await _run(chat)
+
+        assert answer.found == ["event-1"]
+        assert "did not match the required schema" in str(messages[-1].content)
+
+    async def test_다시_받은_출력도_스키마를_어기면_실행을_실패로_올린다(self) -> None:
+        chat = FakeToolLoopChat([{"found": "not-a-list"}, {"found": "still-wrong"}])
 
         with pytest.raises(ValueError, match="parse failed"):
             await _run(chat)
+
+
+class TestContinueToolLoop:
+    async def test_이어진_대화에서도_모델이_도구를_더_부를_수_있다(self) -> None:
+        chat = FakeToolLoopChat([
+            [{"name": "get_task_events", "args": {"taskId": "t1"}}],
+            {"found": ["event-1"]},
+        ])
+        messages: list[Any] = [
+            SystemMessage(content="You investigate."),
+            HumanMessage(content="Anchor task: t1"),
+        ]
+
+        async def run_tool(name: str, args: dict[str, Any]) -> str:
+            return f"result of {name} {args['taskId']}"
+
+        answer, _cost = await continue_tool_loop(
+            chat,
+            messages=messages,
+            directive="Validation failed. Ground your citations.",
+            tools=TOOLS,
+            schema=Answer,
+            trace=ExecutionTrace(),
+            run_tool=run_tool,
+            observe=lambda *_: None,
+            agent_name="task-cleanup",
+            model_name="claude-haiku-4-5",
+            max_rounds=4,
+            max_cost_usd=1.0,
+        )
+
+        assert answer.found == ["event-1"]
+        # 도구를 부른 답 바로 뒤에 도구 결과가 와야 대화가 깨지지 않는다.
+        calling = next(
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, AIMessage) and message.tool_calls
+        )
+        assert isinstance(messages[calling + 1], ToolMessage)

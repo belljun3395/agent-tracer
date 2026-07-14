@@ -1,101 +1,104 @@
-"""task-cleanup의 도구 계약, callback 실행, 결과 정규화."""
+"""task-cleanup의 도구 계약과 콜백 실행과 근거 장부 기록."""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 import httpx
-from langchain_core.messages import AIMessage, ToolMessage
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..runtime.callback import invoke_remote_tool
-from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.llm.tool_loop import ToolSpec
 from ..runtime.telemetry.spans import tool_span
-from ..shared.models import ToolCallback
-from .models import CandidatePage, EventEvidence, EventPage, InspectionTarget
+from ..shared.models import ToolCallback, TrimmedStr
+from .models import CandidatePage, CleanupCandidate, EventPage
 
 LIST_CANDIDATE_TASKS = "list_candidate_tasks"
 GET_TASK_EVENTS = "get_task_events"
-MAX_CANDIDATE_PAGES = 10
-MAX_EVENT_READS = 50
-MAX_PARALLEL_EVENT_READS = 8
+CANDIDATE_PAGE_LIMIT = 100
+EVENT_PAGE_LIMIT = 100
 
 
-async def load_candidate_pages(
-    client: httpx.AsyncClient,
-    callback: ToolCallback,
-    usage: ExecutionTrace,
-) -> list[CandidatePage]:
-    pages: list[CandidatePage] = []
-    cursor: str | None = None
-    seen_cursors: set[str] = set()
-    for index in range(MAX_CANDIDATE_PAGES):
-        args: dict[str, Any] = {"limit": 100}
-        if cursor is not None:
-            args["cursor"] = cursor
-        content = await _invoke(client, callback, LIST_CANDIDATE_TASKS, args)
-        _record_tool(usage, LIST_CANDIDATE_TASKS, args, content, f"cleanup-bootstrap-{index + 1}")
-        page = _parse_required(content, CandidatePage, LIST_CANDIDATE_TASKS)
-        pages.append(page)
-        if not page.truncated:
-            return pages
-        if page.nextCursor is None or page.nextCursor in seen_cursors:
-            raise ValueError("list_candidate_tasks returned an invalid pagination cursor")
-        seen_cursors.add(page.nextCursor)
-        cursor = page.nextCursor
-    raise ValueError(f"list_candidate_tasks exceeded {MAX_CANDIDATE_PAGES} pages")
+class ListCandidateTasksArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(default=CANDIDATE_PAGE_LIMIT, ge=1, le=CANDIDATE_PAGE_LIMIT)
+    cursor: TrimmedStr | None = Field(default=None, min_length=1)
 
 
-async def inspect_target(
-    client: httpx.AsyncClient,
-    callback: ToolCallback,
-    usage: ExecutionTrace,
-    target: InspectionTarget,
-    call_id: str,
-) -> EventEvidence:
-    args = target.model_dump(exclude={"purpose"}, exclude_none=True)
-    content = await _invoke(client, callback, GET_TASK_EVENTS, args)
-    _record_tool(usage, GET_TASK_EVENTS, args, content, call_id)
-    try:
-        page = EventPage.model_validate_json(content)
-    except (ValidationError, ValueError):
-        page = None
-    return EventEvidence(taskId=target.taskId, args=args, content=content, page=page)
+class GetTaskEventsArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    taskId: TrimmedStr = Field(min_length=1)
+    limit: int = Field(default=EVENT_PAGE_LIMIT, ge=1, le=EVENT_PAGE_LIMIT)
+    cursor: TrimmedStr | None = Field(default=None, min_length=1)
+    order: Literal["desc", "asc"] = "desc"
 
 
-async def _invoke(
+CLEANUP_TOOL_SPECS: tuple[ToolSpec, ...] = (
+    ToolSpec(
+        LIST_CANDIDATE_TASKS,
+        "List tasks that look abandoned or mislabeled. Page with cursor while truncated is true.",
+        ListCandidateTasksArgs,
+    ),
+    ToolSpec(
+        GET_TASK_EVENTS,
+        "Read one page of a candidate task's events to judge whether it is really abandoned.",
+        GetTaskEventsArgs,
+    ),
+)
+
+_ARGS_BY_TOOL: dict[str, type[BaseModel]] = {
+    LIST_CANDIDATE_TASKS: ListCandidateTasksArgs,
+    GET_TASK_EVENTS: GetTaskEventsArgs,
+}
+
+
+def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """모델이 고른 도구 인자를 소유 스키마로 검증해 콜백 인자를 만든다."""
+    args_model = _ARGS_BY_TOOL.get(name)
+    if args_model is None:
+        raise ValueError(f"unknown task-cleanup tool: {name}")
+    validated: dict[str, Any] = args_model.model_validate(args).model_dump(exclude_none=True)
+    return validated
+
+
+async def invoke_tool(
     client: httpx.AsyncClient,
     callback: ToolCallback,
     name: str,
     args: dict[str, Any],
 ) -> str:
-    async with tool_span(name, agent_name="task-cleanup", parameters=args):
-        return await invoke_remote_tool(client, callback, name, args)
+    """모델이 고른 도구를 인자 검증 뒤 워커 콜백으로 실행한다."""
+    validated = validate_tool_args(name, args)
+    async with tool_span(name, agent_name="task-cleanup", parameters=validated):
+        return await invoke_remote_tool(client, callback, name, validated)
 
 
-def _parse_required[SchemaT: CandidatePage](
-    content: str,
-    schema: type[SchemaT],
-    tool_name: str,
-) -> SchemaT:
-    try:
-        return schema.model_validate(json.loads(content))
-    except (json.JSONDecodeError, ValidationError, ValueError) as err:
-        raise ValueError(f"{tool_name} returned an invalid response") from err
-
-
-def _record_tool(
-    usage: ExecutionTrace,
+def record_evidence(
+    exposed: dict[str, CleanupCandidate],
+    event_ids_by_task: dict[str, set[str]],
     name: str,
     args: dict[str, Any],
     content: str,
-    call_id: str,
 ) -> None:
-    usage.record_message(
-        AIMessage(
-            content=f"Read cleanup evidence with {name}.",
-            tool_calls=[{"name": name, "args": args, "id": call_id, "type": "tool_call"}],
-        )
-    )
-    usage.record_message(ToolMessage(content=content, name=name, tool_call_id=call_id))
+    """도구가 실제로 돌려준 후보와 이벤트만 인용 가능한 근거로 올린다."""
+    parsed = _parse(content)
+    if parsed is None:
+        return
+    if name == LIST_CANDIDATE_TASKS:
+        for candidate in CandidatePage.model_validate(parsed).candidates:
+            exposed[candidate.id] = candidate
+    elif name == GET_TASK_EVENTS:
+        task_id = str(args.get("taskId", ""))
+        known = event_ids_by_task.setdefault(task_id, set())
+        for event in EventPage.model_validate(parsed).events:
+            known.add(event.id)
+
+
+def _parse(content: str) -> Any:
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return None

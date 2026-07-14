@@ -12,8 +12,9 @@ from .models import TitleSuggestionDraft, TitleSuggestionState
 
 TITLE_MAX_OUTPUT_TOKENS = 4_000
 MAX_TITLE_MODEL_COST_USD = 0.2
+# 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
+MAX_TOOL_ROUNDS = 4
 
-type AssessmentRoute = Callable[[TitleSuggestionState], Literal["empty", "gather_events", "synthesize"]]
 type ValidationRoute = Callable[[TitleSuggestionState], Literal["repair", "finalize", "empty"]]
 
 
@@ -44,32 +45,8 @@ def validate_title_candidate(
     return errors
 
 
-def build_routes(trace: ExecutionTrace) -> tuple[AssessmentRoute, ValidationRoute]:
-    """컨텍스트 평가와 후보 검증 결과에 따른 분기 함수를 만든다."""
-
-    def route_assessment(
-        state: TitleSuggestionState,
-    ) -> Literal["empty", "gather_events", "synthesize"]:
-        assessment = state["assessment"]
-        action = assessment.action if assessment is not None else "gather"
-        route: Literal["empty", "gather_events", "synthesize"]
-        if action == "keep" and not _is_placeholder(_normalize_title(state["context"].title)):
-            route = "empty"
-        elif action == "keep":
-            route = "synthesize"
-            reason = "The current title is a placeholder and cannot be kept."
-        elif action == "gather":
-            route = "gather_events"
-        else:
-            route = "synthesize"
-        if action != "keep" or route == "empty":
-            reason = assessment.reason if assessment is not None else "No assessment was produced."
-        trace.record_graph_event(
-            "route.selected",
-            f"assess_context -> {route}: {reason}",
-            node_name="assess_context",
-        )
-        return route
+def build_routes(trace: ExecutionTrace) -> ValidationRoute:
+    """후보 검증 결과에 따른 분기 함수를 만든다."""
 
     def route_validation(
         state: TitleSuggestionState,
@@ -90,7 +67,7 @@ def build_routes(trace: ExecutionTrace) -> tuple[AssessmentRoute, ValidationRout
         )
         return route
 
-    return route_assessment, route_validation
+    return route_validation
 
 
 def _normalize_title(value: str) -> str:

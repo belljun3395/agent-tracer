@@ -6,8 +6,6 @@ import json as _json
 from typing import Any
 
 from langchain_core.messages import AIMessage
-from langchain_core.runnables import RunnableLambda
-from pydantic import BaseModel
 
 
 def mk_ai(
@@ -29,25 +27,6 @@ def mk_ai(
         },
         response_metadata=response_metadata or {},
     )
-
-
-class FakeStructuredChat:
-    """구조화 체인 대역. 단계별 Pydantic 출력을 순서대로 재생한다."""
-
-    def __init__(self, outputs: list[Any]) -> None:
-        self.outputs = list(outputs)
-        self.calls: list[type[BaseModel]] = []
-
-    def with_structured_output(self, schema: type[BaseModel], include_raw: bool = False) -> Any:
-        async def invoke(_input: Any) -> dict[str, Any]:
-            if not self.outputs:
-                raise AssertionError(f"no fake structured output remains for {schema.__name__}")
-            self.calls.append(schema)
-            parsed = schema.model_validate(self.outputs.pop(0))
-            raw = mk_ai(content=_json.dumps(parsed.model_dump(mode="json"), ensure_ascii=False))
-            return {"raw": raw, "parsed": parsed, "parsing_error": None}
-
-        return RunnableLambda(invoke)
 
 
 class FakeToolLoopChat:

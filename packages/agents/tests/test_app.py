@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from agent_graph import app as app_module
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.title_suggestion import agent as title_mod
-from tests.fakes import FakeStructuredChat, FakeToolClient, FakeToolLoopChat
+from tests.fakes import FakeToolClient, FakeToolLoopChat
 from tests.test_observability import SHARED_SPAN_EXPORTER
 
 _TOOLS: dict[str, object] = {
@@ -122,9 +122,8 @@ def test_실행을_접수하고_결과는_완료_창구로_돌려준다(
     monkeypatch.setattr(
         title_mod,
         "make_chat",
-        lambda *a, **k: FakeStructuredChat(
+        lambda *a, **k: FakeToolLoopChat(
             [
-                {"action": "suggest", "reason": "대화 발췌가 충분하다."},
                 {
                     "suggestions": [
                         {"title": "인증 토큰 누수 수정", "rationale": "누수 수정이 핵심이다."},
@@ -207,7 +206,7 @@ def test_worker가_보낸_traceparent를_이어받아_같은_trace로_invoke_age
     monkeypatch.setattr(
         title_mod,
         "make_chat",
-        lambda *a, **k: FakeStructuredChat([{"action": "keep", "reason": "현재 제목을 유지한다."}]),
+        lambda *a, **k: FakeToolLoopChat([{"suggestions": []}]),
     )
     SHARED_SPAN_EXPORTER.clear()
 

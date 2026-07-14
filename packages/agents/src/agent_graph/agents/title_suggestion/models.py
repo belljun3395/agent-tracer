@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import TypedDict
 
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..shared.models import AgentExecutionRequest, Language, Rationale, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
 
 
 class TitleSuggestionTurn(BaseModel):
@@ -42,11 +43,6 @@ class TitleSuggestionRequest(AgentExecutionRequest):
     toolCallback: ToolCallback
 
 
-class ContextAssessment(BaseModel):
-    action: Literal["keep", "gather", "suggest"]
-    reason: Rationale = Field(min_length=1)
-
-
 class TitleSuggestion(BaseModel):
     title: TrimmedStr = Field(min_length=1, max_length=80)
     rationale: TrimmedStr = Field(min_length=1, max_length=200)
@@ -56,17 +52,12 @@ class TitleSuggestionDraft(BaseModel):
     suggestions: list[TitleSuggestion] = Field(default_factory=list, max_length=3)
 
 
-class TitleEventRecord(BaseModel):
-    args: dict[str, object]
-    content: str
-
-
 class TitleSuggestionState(TypedDict):
     task_id: str
     language: Language
     context: TitleSuggestionContext
-    event_records: list[TitleEventRecord]
-    assessment: ContextAssessment | None
+    # 근거는 프롬프트에 다시 붙이지 않고 대화 이력에 남아 캐시된다.
+    messages: list[BaseMessage]
     model_cost_usd: float
     candidate: TitleSuggestionDraft | None
     validation_errors: list[str]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..shared.models import Language
 
-PROMPT_VERSION = "title-suggestion-native-v1"
+PROMPT_VERSION = "title-suggestion-native-v2"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "auto": "Mirror the language of the current title and the user's messages.",
@@ -14,33 +14,36 @@ LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "zh": "Write every title and rationale in Simplified Chinese. Translate prose but preserve identifiers.",
 }
 
-ASSESS_SYSTEM_PROMPT = f"""You decide how a controlled coding-task title agent should proceed.
+INVESTIGATOR_SYSTEM_PROMPT = f"""You propose better titles for one recorded coding-agent task.
 Prompt version: {PROMPT_VERSION}.
 
-Return `keep` only when the current title is already concrete, accurate, and readable. Return `suggest`
-when the supplied conversation excerpt is enough to name the work. Return `gather` only when raw task
-events are needed because the excerpt is empty, ambiguous, or omits load-bearing work. Do not propose a
-title in this step. Gathering is bounded to the latest two pages, so request it only when it can change
-the decision.
+The task context below is the conversation as recorded. When it is enough to name the work, name it.
+When it is empty, ambiguous, or omits load-bearing work, call get_task_events to read the raw event
+sequence before deciding. Read only what changes your answer.
+
+If the current title is already concrete, accurate, and readable, return an empty list: that is a real
+answer, not a failure. Otherwise return exactly 2-3 distinct alternatives. Each title must be concrete,
+under 80 characters, and normally 4-9 words in languages where words are space-delimited. Prefer an
+imperative or noun phrase that names the area and action. Never use placeholder titles such as
+"Task 123", "Untitled", or "Test". Do not repeat the current title or another suggestion. Each rationale
+is one evidence-grounded sentence under 200 characters. Do not invent work the evidence does not show.
 """
 
-SYNTHESIS_SYSTEM_PROMPT = f"""You propose better titles for one recorded coding-agent task.
-Prompt version: {PROMPT_VERSION}.
+REPAIR_DIRECTIVE = """Deterministic validation rejected your output:
+{errors}
 
-Use only the supplied task context and gathered raw events. If the current title is already the best
-concise description, return an empty list. Otherwise return exactly 2-3 distinct alternatives.
-
-Each title must be concrete, under 80 characters, and normally 4-9 words in languages where words are
-space-delimited. Prefer an imperative or noun phrase that names the area and action. Never use placeholder
-titles such as "Task 123", "Untitled", or "Test". Do not repeat the current title or another suggestion.
-Each rationale is one evidence-grounded sentence under 200 characters. Do not invent work that the task
-context does not show.
+Change only what is necessary to satisfy these errors. Return either an empty list or 2-3 distinct
+alternatives. Do not repeat the current title, use placeholders, or invent unsupported work.
 """
 
-REPAIR_SYSTEM_PROMPT = f"""You repair a title-suggestion candidate after deterministic validation.
-Prompt version: {PROMPT_VERSION}.
 
-Change only what is necessary to satisfy the listed errors. Return a complete candidate containing either
-an empty list or 2-3 distinct alternatives. Do not repeat the current title, use placeholders, or invent
-unsupported work.
-"""
+def build_user_prompt(task_id: str, context: str, language: Language) -> str:
+    """이름 붙일 대상 태스크와 출력 언어를 담은 최초 지시문이다."""
+    return "\n".join(
+        [
+            f"Task ID: {task_id}",
+            f"Output language: {LANGUAGE_DIRECTIVES[language]}",
+            "Task context:",
+            context,
+        ]
+    )

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import TypedDict
 
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..shared.models import AgentExecutionRequest, Language, Purpose, Rationale, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
 
 
 class TaskCleanupRequest(AgentExecutionRequest):
@@ -65,47 +66,12 @@ class EventPage(BaseModel):
     total: int = Field(ge=0)
 
 
-class InspectionTarget(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    taskId: TrimmedStr = Field(min_length=1)
-    order: Literal["asc", "desc"] = "desc"
-    limit: int = Field(default=50, ge=1, le=100)
-    cursor: TrimmedStr | None = Field(default=None, min_length=1)
-    purpose: Purpose = Field(min_length=1)
-
-
-class InspectionPlan(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    rationale: Rationale = Field(min_length=1)
-    targets: list[InspectionTarget] = Field(default_factory=list, max_length=25)
-
-
-class EventEvidence(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    taskId: str
-    args: dict[str, object]
-    content: str
-    page: EventPage | None = None
-
-
 class CleanupDraftSuggestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     taskId: TrimmedStr = Field(min_length=1)
     rationale: TrimmedStr = Field(min_length=1, max_length=500)
     evidenceEventIds: list[TrimmedStr] = Field(default_factory=list, max_length=100)
-
-
-class CleanupAssessment(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    rationale: Rationale = Field(min_length=1)
-    suggestions: list[CleanupDraftSuggestion] = Field(default_factory=list, max_length=50)
-    needsMoreEvidence: bool = False
-    missingEvidence: list[TrimmedStr] = Field(default_factory=list, max_length=10)
 
 
 class CleanupDraft(BaseModel):
@@ -118,19 +84,12 @@ class TaskCleanupState(TypedDict):
     scanned_at: str
     language: Language
     max_suggestions: int
-    candidates: list[CleanupCandidate]
-    model_candidates: list[CleanupCandidate]
-    candidate_offset: int
-    evidence: list[EventEvidence]
+    # 근거는 프롬프트에 다시 붙이지 않고 대화 이력에 남아 캐시된다.
+    messages: list[BaseMessage]
+    exposed_candidates: dict[str, CleanupCandidate]
     event_ids_by_task: dict[str, set[str]]
-    plan: InspectionPlan | None
-    assessment: CleanupAssessment | None
-    gather_rounds: int
-    event_reads: int
     model_cost_usd: float
-    accepted_suggestions: list[CleanupDraftSuggestion]
-    valid_suggestions: list[CleanupDraftSuggestion]
-    invalid_suggestions: list[CleanupDraftSuggestion]
+    suggestions: list[CleanupDraftSuggestion]
     validation_errors: list[str]
     repair_attempted: bool
     result: dict[str, object] | None

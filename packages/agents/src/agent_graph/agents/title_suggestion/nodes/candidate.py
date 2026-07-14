@@ -1,50 +1,60 @@
-"""title-suggestion 후보의 합성과 검증과 결과 노드를 제공한다."""
+"""title-suggestion의 조사와 검증과 복구와 결과 노드를 제공한다."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+import httpx
+
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.structured import invoke_structured, prompt
+from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
 from ...runtime.serialization import json_value
-from ..evidence import task_context
 from ..models import TitleSuggestionDraft, TitleSuggestionRequest, TitleSuggestionState
-from ..policy import MAX_TITLE_MODEL_COST_USD, validate_title_candidate
-from ..prompts import LANGUAGE_DIRECTIVES, REPAIR_SYSTEM_PROMPT, SYNTHESIS_SYSTEM_PROMPT
+from ..policy import MAX_TITLE_MODEL_COST_USD, MAX_TOOL_ROUNDS, validate_title_candidate
+from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
+from ..tools import TITLE_TOOL_SPECS, invoke_tool
 
 type TitleNode = Callable[[TitleSuggestionState], Awaitable[dict[str, Any]]]
 
 
 def create_candidate_nodes(
     req: TitleSuggestionRequest,
+    client: httpx.AsyncClient,
     usage: ExecutionTrace,
     chat: Any,
     *,
     agent_name: str,
 ) -> tuple[TitleNode, TitleNode, TitleNode]:
-    """후보 합성과 결정적 검증 노드를 모델 실행 의존성에 결합한다."""
+    """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    async def synthesize(state: TitleSuggestionState) -> dict[str, Any]:
-        chain_prompt = prompt(
-            SYNTHESIS_SYSTEM_PROMPT,
-            "Output language: {language}\nTask evidence: {context}\nReturn title alternatives.",
-        )
-        candidate, cost = await invoke_structured(
+    async def run_tool(name: str, args: dict[str, Any]) -> str:
+        return await invoke_tool(client, req.toolCallback, name, args)
+
+    def observe(_name: str, _args: dict[str, Any], _content: str) -> None:
+        return None
+
+    async def investigate(state: TitleSuggestionState) -> dict[str, Any]:
+        draft, messages, cost = await run_tool_loop(
             chat,
-            chain_prompt,
-            {
-                "language": LANGUAGE_DIRECTIVES[state["language"]],
-                "context": task_context(state),
-            },
-            TitleSuggestionDraft,
-            usage,
-            state["model_cost_usd"],
-            req.model,
+            system=INVESTIGATOR_SYSTEM_PROMPT,
+            user=build_user_prompt(
+                state["task_id"],
+                json_value(state["context"].model_dump(mode="json", exclude_none=True)),
+                state["language"],
+            ),
+            tools=TITLE_TOOL_SPECS,
+            schema=TitleSuggestionDraft,
+            trace=usage,
+            run_tool=run_tool,
+            observe=observe,
             agent_name=agent_name,
+            model_name=req.model,
+            max_rounds=MAX_TOOL_ROUNDS,
             max_cost_usd=MAX_TITLE_MODEL_COST_USD,
+            spent=state["model_cost_usd"],
         )
-        return {"candidate": candidate, "model_cost_usd": cost}
+        return {"candidate": draft, "messages": messages, "model_cost_usd": cost}
 
     async def validate_candidate(state: TitleSuggestionState) -> dict[str, Any]:
         errors = validate_title_candidate(state["candidate"], state["context"].title)
@@ -57,38 +67,29 @@ def create_candidate_nodes(
         return {"validation_errors": errors}
 
     async def repair(state: TitleSuggestionState) -> dict[str, Any]:
-        candidate = state["candidate"]
-        if candidate is None:
-            return {"repair_attempted": True}
-        chain_prompt = prompt(
-            REPAIR_SYSTEM_PROMPT,
-            "Output language: {language}\nCurrent title: {current_title}\nCandidate: {candidate}\n"
-            "Validation errors: {errors}\nTask evidence: {context}\nReturn the repaired candidate.",
-        )
-        repaired, cost = await invoke_structured(
+        draft, cost = await continue_tool_loop(
             chat,
-            chain_prompt,
-            {
-                "language": LANGUAGE_DIRECTIVES[state["language"]],
-                "current_title": state["context"].title,
-                "candidate": json_value(candidate),
-                "errors": json_value(state["validation_errors"]),
-                "context": task_context(state),
-            },
-            TitleSuggestionDraft,
-            usage,
-            state["model_cost_usd"],
-            req.model,
+            messages=state["messages"],
+            directive=REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
+            tools=TITLE_TOOL_SPECS,
+            schema=TitleSuggestionDraft,
+            trace=usage,
+            run_tool=run_tool,
+            observe=observe,
             agent_name=agent_name,
+            model_name=req.model,
+            max_rounds=MAX_TOOL_ROUNDS,
             max_cost_usd=MAX_TITLE_MODEL_COST_USD,
+            spent=state["model_cost_usd"],
         )
         return {
-            "candidate": repaired,
+            "candidate": draft,
+            "messages": state["messages"],
             "repair_attempted": True,
             "model_cost_usd": cost,
         }
 
-    return synthesize, validate_candidate, repair
+    return investigate, validate_candidate, repair
 
 
 async def finalize(state: TitleSuggestionState) -> dict[str, Any]:

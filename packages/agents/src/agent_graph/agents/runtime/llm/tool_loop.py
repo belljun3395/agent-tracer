@@ -26,6 +26,11 @@ FINALIZE_DIRECTIVE = (
     "using only the evidence you already verified."
 )
 
+REPARSE_DIRECTIVE = (
+    "Your last output did not match the required schema: {error}\n"
+    "Return the corrected structured output. Change nothing else."
+)
+
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -85,26 +90,21 @@ async def run_tool_loop[SchemaT: BaseModel](
     spent: float = 0.0,
 ) -> tuple[SchemaT, list[BaseMessage], float]:
     """모델이 도구를 다 쓸 때까지 돌리고 마지막 구조화 출력을 돌려준다."""
-    model = _bind(chat, tools, schema)
     messages: list[BaseMessage] = [_cached_system(system), HumanMessage(content=user)]
     for message in messages:
         trace.record_message(message)
-    budget = ToolLoopBudget(agent_name, model_name, max_cost_usd, spent)
-
-    for _ in range(max_rounds):
-        answer = await _step(model, messages, trace, budget, agent_name)
-        if not answer.tool_calls:
-            return _parse(answer, schema, agent_name), messages, budget.spent
-        messages.append(answer)
-        for call in answer.tool_calls:
-            result = await _run(dict(call), run_tool, observe)
-            trace.record_message(result)
-            messages.append(result)
-        _roll_breakpoints(messages)
-
-    messages.append(HumanMessage(content=FINALIZE_DIRECTIVE))
-    answer = await _step(model, messages, trace, budget, agent_name)
-    return _parse(answer, schema, agent_name), messages, budget.spent
+    parsed, spent_now = await _loop(
+        _bind(chat, tools, schema),
+        messages,
+        schema=schema,
+        trace=trace,
+        run_tool=run_tool,
+        observe=observe,
+        agent_name=agent_name,
+        budget=ToolLoopBudget(agent_name, model_name, max_cost_usd, spent),
+        max_rounds=max_rounds,
+    )
+    return parsed, messages, spent_now
 
 
 async def continue_tool_loop[SchemaT: BaseModel](
@@ -115,18 +115,59 @@ async def continue_tool_loop[SchemaT: BaseModel](
     tools: Sequence[ToolSpec],
     schema: type[SchemaT],
     trace: ExecutionTrace,
+    run_tool: ToolRunner,
+    observe: ToolObserver,
     agent_name: str,
     model_name: str,
+    max_rounds: int,
     max_cost_usd: float,
     spent: float = 0.0,
 ) -> tuple[SchemaT, float]:
-    """같은 대화를 이어 한 번 더 구조화 출력을 받는다. 앞선 접두사는 캐시에서 읽는다."""
-    model = _bind(chat, tools, schema)
+    """같은 대화를 이어 다시 돌린다. 모델은 도구를 더 부를 수 있고 앞선 접두사는 캐시에서 읽는다."""
     messages.append(HumanMessage(content=directive))
     trace.record_message(messages[-1])
-    budget = ToolLoopBudget(agent_name, model_name, max_cost_usd, spent)
+    return await _loop(
+        _bind(chat, tools, schema),
+        messages,
+        schema=schema,
+        trace=trace,
+        run_tool=run_tool,
+        observe=observe,
+        agent_name=agent_name,
+        budget=ToolLoopBudget(agent_name, model_name, max_cost_usd, spent),
+        max_rounds=max_rounds,
+    )
+
+
+async def _loop[SchemaT: BaseModel](
+    model: Any,
+    messages: list[BaseMessage],
+    *,
+    schema: type[SchemaT],
+    trace: ExecutionTrace,
+    run_tool: ToolRunner,
+    observe: ToolObserver,
+    agent_name: str,
+    budget: ToolLoopBudget,
+    max_rounds: int,
+) -> tuple[SchemaT, float]:
+    for _ in range(max_rounds):
+        answer = await _step(model, messages, trace, budget, agent_name)
+        if not answer.tool_calls:
+            parsed = await _parse_or_retry(model, messages, answer, schema, trace, budget, agent_name)
+            return parsed, budget.spent
+        messages.append(answer)
+        for call in answer.tool_calls:
+            result = await _run(dict(call), run_tool, observe)
+            trace.record_message(result)
+            messages.append(result)
+        _roll_breakpoints(messages)
+
+    messages.append(HumanMessage(content=FINALIZE_DIRECTIVE))
+    trace.record_message(messages[-1])
     answer = await _step(model, messages, trace, budget, agent_name)
-    return _parse(answer, schema, agent_name), budget.spent
+    parsed = await _parse_or_retry(model, messages, answer, schema, trace, budget, agent_name)
+    return parsed, budget.spent
 
 
 def _bind(chat: Any, tools: Sequence[ToolSpec], schema: type[BaseModel]) -> Any:
@@ -197,6 +238,28 @@ def _text_of(message: BaseMessage) -> str:
         if isinstance(block, dict) and block.get("type") == "text"
     ]
     return "".join(parts)
+
+
+async def _parse_or_retry[SchemaT: BaseModel](
+    model: Any,
+    messages: list[BaseMessage],
+    answer: AIMessage,
+    schema: type[SchemaT],
+    trace: ExecutionTrace,
+    budget: ToolLoopBudget,
+    agent_name: str,
+) -> SchemaT:
+    """스키마를 어긴 출력은 그 사유를 모델에게 돌려주고 한 번만 다시 받는다."""
+    try:
+        return _parse(answer, schema, agent_name)
+    except ValueError as error:
+        messages.append(answer)
+        messages.append(HumanMessage(content=REPARSE_DIRECTIVE.format(error=error)))
+        trace.record_message(messages[-1])
+        retried = await _step(model, messages, trace, budget, agent_name)
+        if retried.tool_calls:
+            raise ValueError(f"{agent_name} kept calling tools instead of answering") from error
+        return _parse(retried, schema, agent_name)
 
 
 def _parse[SchemaT: BaseModel](answer: AIMessage, schema: type[SchemaT], agent_name: str) -> SchemaT:
