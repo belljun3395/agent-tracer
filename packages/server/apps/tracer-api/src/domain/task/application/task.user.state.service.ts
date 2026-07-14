@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { TaskUserStateEntity } from "@monitor/tracer-domain";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/task/port/clock.port.js";
 import { TASK_SEARCH_INDEX, type TaskSearchIndexPort } from "~tracer-api/domain/task/port/task.search.index.port.js";
 import { TASK_USER_STATE_REPOSITORY, type TaskUserStateRepositoryPort } from "~tracer-api/domain/task/port/task.user.state.repository.port.js";
 
@@ -9,6 +10,7 @@ export class TaskUserStateService {
     constructor(
         @Inject(TASK_USER_STATE_REPOSITORY) private readonly states: TaskUserStateRepositoryPort,
         @Inject(TASK_SEARCH_INDEX) private readonly search: TaskSearchIndexPort,
+        @Inject(CLOCK) private readonly clock: ClockPort,
     ) {}
 
     async archive(userId: string, taskId: string): Promise<void> {
@@ -33,7 +35,7 @@ export class TaskUserStateService {
         apply: (state: TaskUserStateEntity, now: Date) => void,
         indexPatch: Record<string, unknown>,
     ): Promise<void> {
-        const now = new Date();
+        const now = this.clock.now();
         const state = (await this.states.findById(taskId)) ?? TaskUserStateEntity.init(taskId, userId, now);
         apply(state, now);
         await this.states.save(state);

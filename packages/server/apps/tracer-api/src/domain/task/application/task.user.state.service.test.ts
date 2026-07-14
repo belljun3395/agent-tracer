@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TaskUserStateEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/task/port/__fakes__/fixed.clock.js";
 import { InMemoryTaskUserStateRepository } from "~tracer-api/domain/task/port/__fakes__/in-memory.task.user.state.repository.js";
 import type { TaskSearchIndexPort } from "~tracer-api/domain/task/port/task.search.index.port.js";
 import { TaskUserStateService } from "./task.user.state.service.js";
@@ -22,7 +23,7 @@ function makeService(seed: readonly TaskUserStateEntity[] = []): Harness {
         },
     } satisfies TaskSearchIndexPort;
     return {
-        service: new TaskUserStateService(repo, search),
+        service: new TaskUserStateService(repo, search, new FixedClock(NOW)),
         stored: (taskId) => repo.all().find((state) => state.taskId === taskId),
         indexed,
     };

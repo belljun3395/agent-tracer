@@ -1,3 +1,4 @@
+import { SystemClock } from "@monitor/platform";
 import {
     EventRepository,
     SessionRepository,
@@ -19,6 +20,7 @@ import { ListTasksUseCase } from "~tracer-api/domain/task/application/query/list
 import { ListTurnsUseCase } from "~tracer-api/domain/task/application/query/list.turns.usecase.js";
 import { TaskUserStateService } from "~tracer-api/domain/task/application/task.user.state.service.js";
 import { OpenSearchTaskIndex } from "~tracer-api/domain/task/adapter/opensearch.task.index.js";
+import { CLOCK } from "~tracer-api/domain/task/port/clock.port.js";
 import { EVENT_READER } from "~tracer-api/domain/task/port/event.reader.port.js";
 import { SESSION_READER } from "~tracer-api/domain/task/port/session.reader.port.js";
 import { TASK_REPOSITORY } from "~tracer-api/domain/task/port/task.repository.port.js";
@@ -54,5 +56,6 @@ export const taskFeature = {
         { provide: TURN_READER, useExisting: TurnRepository },
         { provide: VERDICT_READER, useExisting: VerdictRepository },
         { provide: TASK_SEARCH_INDEX, useExisting: OpenSearchTaskIndex },
+        { provide: CLOCK, useClass: SystemClock },
     ],
 };

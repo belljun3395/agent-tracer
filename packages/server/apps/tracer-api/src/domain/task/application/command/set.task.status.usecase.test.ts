@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { TaskEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/task/port/__fakes__/fixed.clock.js";
 import { InMemoryTaskRepository } from "~tracer-api/domain/task/port/__fakes__/in-memory.task.repository.js";
 import { SetTaskStatusUseCase } from "./set.task.status.usecase.js";
 
@@ -31,7 +32,7 @@ function makeUseCase(tasks: readonly TaskEntity[]): { useCase: SetTaskStatusUseC
     const repo = new InMemoryTaskRepository();
     repo.seed(...tasks);
     return {
-        useCase: new SetTaskStatusUseCase(repo),
+        useCase: new SetTaskStatusUseCase(repo, new FixedClock(NOW)),
         stored: () => repo.all(),
     };
 }
