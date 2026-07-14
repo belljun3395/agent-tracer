@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
-from .models import ProvenanceCatalog, RecipeCandidate, RecipeScanState
+from .models import MAX_RECIPE_CANDIDATES, ProvenanceCatalog, RecipeCandidate, RecipeScanState
 
 MAX_GATHER_ROUNDS = 2
 MAX_RECIPE_MODEL_COST_USD = 2.0
@@ -16,14 +16,44 @@ AssessRoute = Callable[[RecipeScanState], Literal["plan_evidence", "synthesize",
 ValidationRoute = Callable[[RecipeScanState], Literal["repair", "finalize", "empty"]]
 
 
+def validate_recipe_candidates(
+    candidates: list[RecipeCandidate],
+    anchor_task_id: str,
+    provenance: ProvenanceCatalog,
+) -> list[str]:
+    """후보 목록이 수집한 출처만 인용하고 같은 turn을 두 번 쓰지 않는지 검증한다."""
+    if not candidates:
+        return ["No recipe candidate was produced."]
+    if len(candidates) > MAX_RECIPE_CANDIDATES:
+        return [f"At most {MAX_RECIPE_CANDIDATES} recipe candidates may be returned."]
+    errors: list[str] = []
+    for index, candidate in enumerate(candidates, start=1):
+        errors.extend(
+            f"Recipe {index}: {error}"
+            for error in validate_recipe_candidate(candidate, anchor_task_id, provenance)
+        )
+    errors.extend(_duplicate_turn_errors(candidates))
+    return errors
+
+
+def _duplicate_turn_errors(candidates: list[RecipeCandidate]) -> list[str]:
+    claimed: dict[tuple[str, str], int] = {}
+    errors: list[str] = []
+    for index, candidate in enumerate(candidates, start=1):
+        for item in candidate.contributing_slices:
+            for turn_id in item.turnIds:
+                owner = claimed.setdefault((item.taskId, turn_id), index)
+                if owner != index:
+                    errors.append(f"Recipe {index}: turn {turn_id} was already claimed by recipe {owner}.")
+    return errors
+
+
 def validate_recipe_candidate(
-    candidate: RecipeCandidate | None,
+    candidate: RecipeCandidate,
     anchor_task_id: str,
     provenance: ProvenanceCatalog,
 ) -> list[str]:
     """recipe 후보가 수집한 출처만 인용하는지 검증한다."""
-    if candidate is None:
-        return ["No recipe candidate was produced."]
     errors: list[str] = []
     slices = {item.taskId: item for item in candidate.contributing_slices}
     if anchor_task_id not in slices:
@@ -35,6 +65,9 @@ def validate_recipe_candidate(
     for item in candidate.contributing_slices:
         if item.taskId not in provenance.taskIds:
             errors.append(f"Unsupported contributing task ID: {item.taskId}.")
+        unknown_turns = sorted(set(item.turnIds) - provenance.turnIdsByTask.get(item.taskId, set()))
+        if unknown_turns:
+            errors.append(f"Unsupported turn IDs for task {item.taskId}: {', '.join(unknown_turns)}.")
         supported = provenance.eventIdsByTask.get(item.taskId, set())
         unknown = sorted(set(item.eventIds) - supported)
         if unknown:

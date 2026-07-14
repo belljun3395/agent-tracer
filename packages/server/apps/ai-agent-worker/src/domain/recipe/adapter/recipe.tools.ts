@@ -91,7 +91,7 @@ export function buildRecipeToolHandlers(
                     deps.events.countByTask(taskId),
                 ]);
                 const page = toRecipeEventPage(rows.map(toSlimEvent), size, total);
-                ledger.recordEvents(taskId, page.events.map((event) => event.id));
+                ledger.recordEvents(taskId, page.events);
                 return dump(page);
             });
         },
@@ -156,6 +156,7 @@ function toSlimEvent(event: EventEntity): RecipeSlimEvent {
     return {
         id: event.id,
         seq: event.seq,
+        ...(event.turnId !== null ? { turnId: event.turnId } : {}),
         kind: event.kind,
         title: event.title,
         ...(event.body !== null ? { body: event.body } : {}),

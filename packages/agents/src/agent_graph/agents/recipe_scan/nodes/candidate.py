@@ -10,7 +10,7 @@ from ...runtime.llm.structured import invoke_structured, prompt
 from ...runtime.serialization import json_value
 from ..evidence import evidence_context
 from ..models import RecipeDraft, RecipeScanRequest, RecipeScanState
-from ..policy import MAX_RECIPE_MODEL_COST_USD, validate_recipe_candidate
+from ..policy import MAX_RECIPE_MODEL_COST_USD, validate_recipe_candidates
 from ..prompts import LANGUAGE_DIRECTIVES, REPAIR_SYSTEM_PROMPT, SYNTHESIS_SYSTEM_PROMPT
 
 type RecipeNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
@@ -33,7 +33,7 @@ def create_candidate_nodes(
             "Output language: {language}\n"
             "Evidence: {evidence}\n"
             "Provenance catalog: {provenance}\n"
-            "Write one recipe candidate.",
+            "Write one candidate per distinct reusable workflow.",
         )
         draft, cost = await invoke_structured(
             chat,
@@ -52,10 +52,10 @@ def create_candidate_nodes(
             agent_name=agent_name,
             max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
         )
-        return {"candidate": draft.recipe, "model_cost_usd": cost}
+        return {"candidates": draft.recipes, "model_cost_usd": cost}
 
     async def validate_candidate(state: RecipeScanState) -> dict[str, Any]:
-        errors = validate_recipe_candidate(state["candidate"], state["task_id"], state["provenance"])
+        errors = validate_recipe_candidates(state["candidates"], state["task_id"], state["provenance"])
         if errors:
             usage.record_graph_event(
                 "validation.failed",
@@ -65,22 +65,22 @@ def create_candidate_nodes(
         return {"validation_errors": errors}
 
     async def repair(state: RecipeScanState) -> dict[str, Any]:
-        candidate = state["candidate"]
-        if candidate is None:
+        candidates = state["candidates"]
+        if not candidates:
             return {"repair_attempted": True}
         chain_prompt = prompt(
             REPAIR_SYSTEM_PROMPT,
-            "Invalid candidate: {candidate}\n"
+            "Invalid candidates: {candidates}\n"
             "Validation errors: {errors}\n"
             "Provenance catalog: {provenance}\n"
             "Evidence: {evidence}\n"
-            "Return the complete repaired candidate.",
+            "Return the complete repaired candidate list.",
         )
         repaired, cost = await invoke_structured(
             chat,
             chain_prompt,
             {
-                "candidate": json_value(candidate),
+                "candidates": json_value(candidates),
                 "errors": json_value(state["validation_errors"]),
                 "provenance": json_value(state["provenance"]),
                 "evidence": evidence_context(state),
@@ -93,7 +93,7 @@ def create_candidate_nodes(
             max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
         )
         return {
-            "candidate": repaired.recipe,
+            "candidates": repaired.recipes,
             "repair_attempted": True,
             "model_cost_usd": cost,
         }

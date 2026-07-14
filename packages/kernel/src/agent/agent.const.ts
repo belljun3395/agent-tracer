@@ -12,3 +12,6 @@ export const AGENT = {
 } as const;
 
 export type AgentId = (typeof AGENT)[keyof typeof AGENT]["id"];
+
+/** 한 태스크가 서로 다른 작업 turn을 담을 수 있어 recipe-scan 한 번이 낼 수 있는 후보 수다. */
+export const RECIPE_CANDIDATE_LIMIT = 4;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RECIPE_CANDIDATE_LIMIT } from "./agent.const.js";
 
 // 어느 백엔드로 실행하든 최종 심판이 되는 recipe-scan 에이전트의 구조화 출력이다.
 
@@ -22,6 +23,7 @@ export const recipeTouchedFileSchema = z.object({
 
 export const recipeSliceSchema = z.object({
     taskId: z.string().trim().min(1),
+    turnIds: z.array(z.string().trim().min(1)).max(50).default([]),
     eventIds: z.array(z.string().trim().min(1)).max(200).default([]),
 });
 
@@ -55,7 +57,7 @@ export const recipeCandidateSchema = z.object({
 });
 
 export const recipeCandidatesListSchema = z.object({
-    recipes: z.array(recipeCandidateSchema).max(1).default([]),
+    recipes: z.array(recipeCandidateSchema).max(RECIPE_CANDIDATE_LIMIT).default([]),
 });
 
 export type RecipeCandidatePayload = z.infer<typeof recipeCandidateSchema>;

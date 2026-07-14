@@ -24,20 +24,33 @@ function candidate(overrides: Partial<RecipeCandidatePayload> = {}): RecipeCandi
         governing_rules: [],
         steps: [],
         touched_files: [{ path: "src/a.ts", role: "write" }],
-        contributing_slices: [{ taskId: "task-1", eventIds: ["evt-1"] }],
+        contributing_slices: [{ taskId: "task-1", turnIds: [], eventIds: ["evt-1"] }],
         rationale: "근거",
         ...overrides,
     };
 }
 
 describe("ScanRecipeUsecase", () => {
-    it("근거 장부가 확인한 이벤트 인용만 남긴 후보를 낸다", async () => {
+    it("근거 장부가 확인한 이벤트와 turn 인용만 남긴 후보를 낸다", async () => {
         const repository = seedRepository();
         repository.ownedTaskIds.add("task-1");
         const agent = new FakeRecipeAgent(
             emptyOutput({
-                recipes: [candidate({ contributing_slices: [{ taskId: "task-1", eventIds: ["evt-1", "evt-ghost"] }] })],
-                provenance: { eventIdsByTask: { "task-1": ["evt-1"] }, ruleIds: [], recipeRevs: {} },
+                recipes: [
+                    candidate({
+                        contributing_slices: [{
+                            taskId: "task-1",
+                            turnIds: ["turn-1", "turn-ghost"],
+                            eventIds: ["evt-1", "evt-ghost"],
+                        }],
+                    }),
+                ],
+                provenance: {
+                    eventIdsByTask: { "task-1": ["evt-1"] },
+                    turnIdsByTask: { "task-1": ["turn-1"] },
+                    ruleIds: [],
+                    recipeRevs: {},
+                },
             }),
         );
         const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
@@ -45,8 +58,41 @@ describe("ScanRecipeUsecase", () => {
         const output = await target.execute(prep(), attemptRun());
 
         expect(output.recipes).toHaveLength(1);
-        expect(output.recipes[0]?.contributingSlices).toEqual([{ taskId: "task-1", eventIds: ["evt-1"] }]);
+        expect(output.recipes[0]?.contributingSlices).toEqual([
+            { taskId: "task-1", turnIds: ["turn-1"], eventIds: ["evt-1"] },
+        ]);
         expect(agent.calls[0]?.apiKey).toBe("sk-test");
+    });
+
+    it("서로 다른 turn을 인용한 후보는 각각 별도 레시피로 남는다", async () => {
+        const repository = seedRepository();
+        repository.ownedTaskIds.add("task-1");
+        const agent = new FakeRecipeAgent(
+            emptyOutput({
+                recipes: [
+                    candidate({
+                        title: "첫 작업",
+                        contributing_slices: [{ taskId: "task-1", turnIds: ["turn-1"], eventIds: ["evt-1"] }],
+                    }),
+                    candidate({
+                        title: "둘째 작업",
+                        contributing_slices: [{ taskId: "task-1", turnIds: ["turn-2"], eventIds: ["evt-2"] }],
+                    }),
+                ],
+                provenance: {
+                    eventIdsByTask: { "task-1": ["evt-1", "evt-2"] },
+                    turnIdsByTask: { "task-1": ["turn-1", "turn-2"] },
+                    ruleIds: [],
+                    recipeRevs: {},
+                },
+            }),
+        );
+        const target = new ScanRecipeUsecase(repository, agentRegistry(agent), fixedClock);
+
+        const output = await target.execute(prep(), attemptRun());
+
+        expect(output.recipes.map((recipe) => recipe.title)).toEqual(["첫 작업", "둘째 작업"]);
+        expect(output.recipes.map((recipe) => recipe.id)).toHaveLength(new Set(output.recipes.map((recipe) => recipe.id)).size);
     });
 
     it("사용자 소유가 아닌 태스크만 인용한 후보는 버린다", async () => {

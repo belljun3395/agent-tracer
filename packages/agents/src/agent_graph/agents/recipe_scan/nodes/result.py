@@ -8,11 +8,9 @@ from ..models import RecipeScanState
 
 
 async def finalize(state: RecipeScanState) -> dict[str, Any]:
-    """검증된 후보 하나를 레시피 결과로 직렬화한다."""
-    candidate = state["candidate"]
-    if candidate is None:
-        return {"result": {"recipes": []}}
-    return {"result": {"recipes": [candidate.model_dump(mode="json", exclude_none=True)]}}
+    """검증된 후보 목록을 레시피 결과로 직렬화한다."""
+    recipes = [candidate.model_dump(mode="json", exclude_none=True) for candidate in state["candidates"]]
+    return {"result": {"recipes": recipes}}
 
 
 async def empty(_state: RecipeScanState) -> dict[str, Any]:

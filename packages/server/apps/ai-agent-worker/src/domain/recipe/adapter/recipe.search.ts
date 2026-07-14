@@ -96,11 +96,14 @@ export async function searchEvents(
     const hits = searchHits(response);
     const truncated = hits.length > size;
     const page = truncated ? hits.slice(0, size) : hits;
-    for (const hit of page) {
-        const taskId = readString(hit._source?.["taskId"]);
-        if (taskId !== undefined && hit._id !== undefined) ledger.recordEvents(taskId, [hit._id]);
-    }
     const events = page.map((hit) => toSlimEvent(hit._id ?? "", hit._source ?? {}));
+    for (const [index, hit] of page.entries()) {
+        const taskId = readString(hit._source?.["taskId"]);
+        const event = events[index];
+        if (taskId !== undefined && event !== undefined && event.id !== "") {
+            ledger.recordEvents(taskId, [event]);
+        }
+    }
     return { events, truncated, total: searchTotal(response) ?? events.length };
 }
 
@@ -201,6 +204,7 @@ function toSlimRecipe(id: string, source: Record<string, unknown>): SlimRecipe {
     };
 }
 
+// 검색 색인은 원장 레코드만 보고 만들어지고 turnId는 그 뒤 투영이 붙이므로 검색 결과에는 turn이 없다.
 function toSlimEvent(id: string, source: Record<string, unknown>): RecipeSlimEvent {
     const body = readString(source["body"]);
     const toolName = readString(source["toolName"]);

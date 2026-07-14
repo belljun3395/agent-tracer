@@ -9,6 +9,7 @@ import {
     isEventVerified,
     isEventVerifiedAnyTask,
     isRuleVerified,
+    isTurnVerified,
     verifiedRecipeRev,
     type ProvenanceSnapshot,
 } from "./recipe.provenance.model.js";
@@ -52,6 +53,7 @@ export function filterCandidateByProvenance(
         .filter((slice) => ownedTaskIds.has(slice.taskId))
         .map((slice) => ({
             taskId: slice.taskId,
+            turnIds: slice.turnIds.filter((turnId) => isTurnVerified(provenance, slice.taskId, turnId)),
             eventIds: slice.eventIds.filter((eventId) => isEventVerified(provenance, slice.taskId, eventId)),
         }));
     if (contributingSlices.length === 0) return null;

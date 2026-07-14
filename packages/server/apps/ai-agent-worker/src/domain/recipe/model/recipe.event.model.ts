@@ -4,6 +4,8 @@ import { KIND } from "@monitor/kernel";
 export interface RecipeSlimEvent {
     readonly id: string;
     readonly seq: string;
+    /** 사용자 작업 하나의 경계이며 recipe 후보를 나누는 축이다. */
+    readonly turnId?: string;
     readonly kind: string;
     readonly title: string;
     readonly body?: string;

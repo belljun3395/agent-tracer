@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { RECIPE_CANDIDATE_LIMIT } from "./agent.const.js";
 import { recipeCandidateSchema, recipeCandidatesListSchema } from "./recipe.scan.schema.js";
 
 function candidate(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -25,7 +26,7 @@ function candidate(overrides: Record<string, unknown> = {}): Record<string, unkn
         ],
         governing_rules: ["rule-1"],
         revises_recipe_id: "recipe-old",
-        contributing_slices: [{ taskId: "task-1", eventIds: ["event-1"] }],
+        contributing_slices: [{ taskId: "task-1", turnIds: ["turn-1"], eventIds: ["event-1"] }],
         rationale: "앵커 태스크의 성공 과정이 재사용 가능한 절차를 담고 있다.",
         ...overrides,
     };
@@ -65,12 +66,39 @@ describe("recipeCandidateSchema", () => {
 });
 
 describe("recipeCandidatesListSchema", () => {
-    it("단일 앵커 스캔은 후보를 최대 1개만 허용한다", () => {
+    it("작업 turn이 다르면 후보를 여러 개 받는다", () => {
+        const parsed = recipeCandidatesListSchema.parse({
+            recipes: [
+                candidate({
+                    title: "a",
+                    contributing_slices: [{ taskId: "task-1", turnIds: ["turn-1"], eventIds: ["event-1"] }],
+                }),
+                candidate({
+                    title: "b",
+                    contributing_slices: [{ taskId: "task-1", turnIds: ["turn-2"], eventIds: ["event-2"] }],
+                }),
+            ],
+        });
+
+        expect(parsed.recipes.map((recipe) => recipe.title)).toEqual(["a", "b"]);
+    });
+
+    it("한 번의 스캔이 낼 수 있는 후보 수를 넘기면 거부한다", () => {
         expect(() =>
             recipeCandidatesListSchema.parse({
-                recipes: [candidate({ title: "a" }), candidate({ title: "b" })],
+                recipes: Array.from({ length: RECIPE_CANDIDATE_LIMIT + 1 }, (_, index) =>
+                    candidate({ title: `recipe-${index}` }),
+                ),
             }),
         ).toThrow();
+    });
+
+    it("turn을 인용하지 않은 슬라이스는 빈 목록으로 받는다", () => {
+        const parsed = recipeCandidatesListSchema.parse({
+            recipes: [candidate({ contributing_slices: [{ taskId: "task-1", eventIds: ["event-1"] }] })],
+        });
+
+        expect(parsed.recipes[0]?.contributing_slices[0]?.turnIds).toEqual([]);
     });
 
     it("실행 백엔드와 공유하는 결과 계약 픽스처를 허용한다", () => {

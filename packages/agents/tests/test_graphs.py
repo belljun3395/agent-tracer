@@ -40,7 +40,7 @@ def _recipe() -> dict[str, object]:
         "corrections": [],
         "pitfalls": [],
         "governing_rules": ["rule-1"],
-        "contributing_slices": [{"taskId": "t1", "eventIds": ["event-1"]}],
+        "contributing_slices": [{"taskId": "t1", "turnIds": ["turn-1"], "eventIds": ["event-1"]}],
         "rationale": "근거",
     }
 
@@ -53,7 +53,7 @@ class TestRecipeScanGraph:
                 "get_task_summary": {"id": "t1", "title": "x", "eventCount": 3},
                 "list_rules": [{"id": "rule-1"}],
                 "get_task_events": {
-                    "events": [{"id": "event-1", "title": "done"}],
+                    "events": [{"id": "event-1", "turnId": "turn-1", "title": "done"}],
                     "truncated": False,
                     "total": 1,
                 },
@@ -78,7 +78,7 @@ class TestRecipeScanGraph:
             [
                 {"rationale": "초기 근거면 충분하다", "queries": []},
                 {"sufficient": True, "reason": "검증된 작업 흐름이 있다", "missingEvidence": []},
-                {"recipe": _recipe()},
+                {"recipes": [_recipe()]},
             ]
         )
         monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
@@ -147,8 +147,8 @@ class TestRecipeScanGraph:
             [
                 {"rationale": "충분하다", "queries": []},
                 {"sufficient": True, "reason": "완료 근거가 있다", "missingEvidence": []},
-                {"recipe": invalid},
-                {"recipe": _recipe()},
+                {"recipes": [invalid]},
+                {"recipes": [_recipe()]},
             ]
         )
         monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
@@ -167,6 +167,79 @@ class TestRecipeScanGraph:
         assert len(failures) == 1 and "invented-rule" in failures[0].content
         assert sum(step.nodeName == "repair" and step.eventKind == "node.started" for step in res.steps) == 1
 
+    @staticmethod
+    def _two_turn_client() -> FakeToolClient:
+        return FakeToolClient(
+            {
+                "get_task_summary": {"id": "t1", "title": "x", "eventCount": 2},
+                "list_rules": [{"id": "rule-1"}],
+                "get_task_events": {
+                    "events": [
+                        {"id": "event-1", "turnId": "turn-1", "title": "마이그레이션"},
+                        {"id": "event-2", "turnId": "turn-2", "title": "대시보드"},
+                    ],
+                    "truncated": False,
+                    "total": 2,
+                },
+                "search_events": {"events": [], "truncated": False, "total": 0},
+            }
+        )
+
+    async def test_서로_다른_turn은_각각의_후보로_남는다(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        second = {
+            **_recipe(),
+            "title": "Add dashboard",
+            "contributing_slices": [{"taskId": "t1", "turnIds": ["turn-2"], "eventIds": ["event-2"]}],
+        }
+        chat = FakeStructuredChat(
+            [
+                {"rationale": "충분하다", "queries": []},
+                {"sufficient": True, "reason": "두 작업이 모두 완료됐다", "missingEvidence": []},
+                {"recipes": [_recipe(), second]},
+            ]
+        )
+        monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
+        req = self._request()
+
+        res = await execute(
+            "recipe-scan",
+            req.model,
+            req.deadlineMs,
+            lambda u: recipe_mod.run_recipe_scan(req, self._two_turn_client(), u),
+        )
+
+        assert res.error is None and res.data is not None
+        assert [recipe["title"] for recipe in res.data["recipes"]] == ["Add migration", "Add dashboard"]
+
+    async def test_같은_turn을_두_후보가_주장하면_수정을_요구한다(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        duplicate = {**_recipe(), "title": "Add dashboard"}
+        chat = FakeStructuredChat(
+            [
+                {"rationale": "충분하다", "queries": []},
+                {"sufficient": True, "reason": "두 작업이 모두 완료됐다", "missingEvidence": []},
+                {"recipes": [_recipe(), duplicate]},
+                {"recipes": [_recipe()]},
+            ]
+        )
+        monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
+        req = self._request()
+
+        res = await execute(
+            "recipe-scan",
+            req.model,
+            req.deadlineMs,
+            lambda u: recipe_mod.run_recipe_scan(req, self._two_turn_client(), u),
+        )
+
+        assert res.error is None and res.data is not None
+        assert [recipe["title"] for recipe in res.data["recipes"]] == ["Add migration"]
+        failures = [step for step in res.steps if step.eventKind == "validation.failed"]
+        assert len(failures) == 1 and "turn-1" in failures[0].content
+
     async def test_수정_후에도_ID가_거짓이면_후보를_버린다(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -175,8 +248,8 @@ class TestRecipeScanGraph:
             [
                 {"rationale": "충분하다", "queries": []},
                 {"sufficient": True, "reason": "완료 근거가 있다", "missingEvidence": []},
-                {"recipe": invalid},
-                {"recipe": invalid},
+                {"recipes": [invalid]},
+                {"recipes": [invalid]},
             ]
         )
         monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)

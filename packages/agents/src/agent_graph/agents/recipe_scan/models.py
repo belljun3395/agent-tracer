@@ -8,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
 
+# 한 태스크가 서로 다른 작업 turn을 담을 수 있어 스캔 한 번이 낼 수 있는 후보 수다.
+MAX_RECIPE_CANDIDATES = 4
+
 RecipeToolName = Literal[
     "get_task_summary",
     "get_task_events",
@@ -60,6 +63,7 @@ class RecipeTouchedFile(BaseModel):
 
 class RecipeSlice(BaseModel):
     taskId: TrimmedStr = Field(min_length=1)
+    turnIds: list[TrimmedStr] = Field(default_factory=list, max_length=50)
     eventIds: list[TrimmedStr] = Field(default_factory=list, max_length=200)
 
 
@@ -99,7 +103,7 @@ class RecipeCandidate(BaseModel):
 
 
 class RecipeDraft(BaseModel):
-    recipe: RecipeCandidate
+    recipes: list[RecipeCandidate] = Field(default_factory=list, max_length=MAX_RECIPE_CANDIDATES)
 
 
 class EvidenceRecord(BaseModel):
@@ -113,6 +117,7 @@ class EvidenceRecord(BaseModel):
 class ProvenanceCatalog(BaseModel):
     taskIds: set[str] = Field(default_factory=set)
     eventIdsByTask: dict[str, set[str]] = Field(default_factory=dict)
+    turnIdsByTask: dict[str, set[str]] = Field(default_factory=dict)
     ruleIds: set[str] = Field(default_factory=set)
     recipeIds: set[str] = Field(default_factory=set)
 
@@ -127,7 +132,7 @@ class RecipeScanState(TypedDict):
     assessment: EvidenceAssessment | None
     gather_rounds: int
     model_cost_usd: float
-    candidate: RecipeCandidate | None
+    candidates: list[RecipeCandidate]
     validation_errors: list[str]
     repair_attempted: bool
     result: dict[str, object] | None

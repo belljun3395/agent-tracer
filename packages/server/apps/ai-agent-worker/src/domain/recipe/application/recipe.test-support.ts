@@ -39,7 +39,7 @@ export function emptyOutput(
         numTurns: 2,
         usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheCreationTokens: 0 },
         steps: [],
-        provenance: { eventIdsByTask: {}, ruleIds: [], recipeRevs: {} },
+        provenance: { eventIdsByTask: {}, turnIdsByTask: {}, ruleIds: [], recipeRevs: {} },
         ...overrides,
     };
 }

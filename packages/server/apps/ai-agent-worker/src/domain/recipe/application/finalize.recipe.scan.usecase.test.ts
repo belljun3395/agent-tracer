@@ -25,7 +25,7 @@ function output(recipeCount: number): RecipeScanGenerateOutput {
             governingRules: [],
             steps: [],
             touchedFiles: [],
-            contributingSlices: [{ taskId: "task-1", eventIds: [] }],
+            contributingSlices: [{ taskId: "task-1", turnIds: [], eventIds: [] }],
             rationale: "근거",
         })),
         jobSteps: [],

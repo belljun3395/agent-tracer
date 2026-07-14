@@ -67,7 +67,7 @@ async def run_recipe_scan(
             "assessment": None,
             "gather_rounds": 0,
             "model_cost_usd": 0.0,
-            "candidate": None,
+            "candidates": [],
             "validation_errors": [],
             "repair_attempted": False,
             "result": None,

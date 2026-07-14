@@ -29,10 +29,13 @@ def _add_events(catalog: ProvenanceCatalog, record: EvidenceRecord, raw_events: 
             continue
         task_id = raw.get("taskId") or default_task_id
         event_id = raw.get("id")
+        turn_id = raw.get("turnId")
         if not isinstance(task_id, str) or not task_id or not isinstance(event_id, str) or not event_id:
             continue
         catalog.taskIds.add(task_id)
         catalog.eventIdsByTask.setdefault(task_id, set()).add(event_id)
+        if isinstance(turn_id, str) and turn_id:
+            catalog.turnIdsByTask.setdefault(task_id, set()).add(turn_id)
 
 
 def _add_ids(target: set[str], values: list[object]) -> None:
