@@ -9,6 +9,7 @@ import {
     VERDICT_STATUS,
 } from "@monitor/kernel";
 import { RuleEntity, VerdictEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { InMemoryVerdictRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.verdict.repository.js";
 import { RecordNudgeUseCase } from "./record.nudge.usecase.js";
@@ -52,7 +53,7 @@ function makeUseCase(verdicts: readonly VerdictEntity[]): {
     rules.seed(rule());
     const verdictRepo = new InMemoryVerdictRepository();
     verdictRepo.seed(...verdicts);
-    return { useCase: new RecordNudgeUseCase(rules, verdictRepo), verdictRepo };
+    return { useCase: new RecordNudgeUseCase(rules, verdictRepo, new FixedClock(NOW)), verdictRepo };
 }
 
 function openVerdict(nudgeCount: number): VerdictEntity {
@@ -66,7 +67,7 @@ describe("RecordNudgeUseCase", () => {
     it("살아 있는 판정에 알린 횟수를 누적해 저장한다", async () => {
         const { useCase, verdictRepo } = makeUseCase([openVerdict(0)]);
 
-        const result = await useCase.execute("u1", "r1", NOW);
+        const result = await useCase.execute("u1", "r1");
 
         expect(result.nudgeCount).toBe(1);
         expect(result.escalated).toBe(false);
@@ -76,7 +77,7 @@ describe("RecordNudgeUseCase", () => {
     it("상한만큼 알린 판정은 에스컬레이션으로 알린다", async () => {
         const { useCase } = makeUseCase([openVerdict(NUDGE_LIMIT - 1)]);
 
-        const result = await useCase.execute("u1", "r1", NOW);
+        const result = await useCase.execute("u1", "r1");
 
         expect(result.nudgeCount).toBe(NUDGE_LIMIT);
         expect(result.escalated).toBe(true);
@@ -87,7 +88,7 @@ describe("RecordNudgeUseCase", () => {
         verdict.status = VERDICT_STATUS.satisfied;
         const { useCase, verdictRepo } = makeUseCase([verdict]);
 
-        const result = await useCase.execute("u1", "r1", NOW);
+        const result = await useCase.execute("u1", "r1");
 
         expect(result).toEqual({ nudgeCount: 2, escalated: false });
         expect((await verdictRepo.findByRule("r1"))?.nudgeCount).toBe(2);
@@ -96,12 +97,12 @@ describe("RecordNudgeUseCase", () => {
     it("판정이 아직 없으면 셀 것도 없다", async () => {
         const { useCase } = makeUseCase([]);
 
-        expect(await useCase.execute("u1", "r1", NOW)).toEqual({ nudgeCount: 0, escalated: false });
+        expect(await useCase.execute("u1", "r1")).toEqual({ nudgeCount: 0, escalated: false });
     });
 
     it("남의 규칙은 존재하지 않는 규칙처럼 거부한다", async () => {
         const { useCase } = makeUseCase([openVerdict(0)]);
 
-        await expect(useCase.execute("u2", "r1", NOW)).rejects.toThrow(NotFoundException);
+        await expect(useCase.execute("u2", "r1")).rejects.toThrow(NotFoundException);
     });
 });

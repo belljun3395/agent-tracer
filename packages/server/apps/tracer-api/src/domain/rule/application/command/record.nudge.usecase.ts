@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { isEscalated } from "@monitor/kernel";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/rule/port/clock.port.js";
 import { RULE_REPOSITORY, type RuleRepositoryPort } from "~tracer-api/domain/rule/port/rule.repository.port.js";
 import {
     RULE_VERDICT_REPOSITORY,
@@ -19,9 +20,11 @@ export class RecordNudgeUseCase {
         private readonly rules: RuleRepositoryPort,
         @Inject(RULE_VERDICT_REPOSITORY)
         private readonly verdicts: VerdictRepositoryPort,
+        @Inject(CLOCK)
+        private readonly clock: ClockPort,
     ) {}
 
-    async execute(userId: string, ruleId: string, now: Date = new Date()): Promise<NudgeResult> {
+    async execute(userId: string, ruleId: string): Promise<NudgeResult> {
         const rule = await this.rules.findById(ruleId);
         // 남의 규칙은 존재 여부도 드러내지 않는다.
         if (rule === null || rule.userId !== userId) throw new NotFoundException("Rule not found");
@@ -31,7 +34,7 @@ export class RecordNudgeUseCase {
             return { nudgeCount: verdict?.nudgeCount ?? 0, escalated: false };
         }
 
-        verdict.recordNudge(now);
+        verdict.recordNudge(this.clock.now());
         await this.verdicts.upsert(verdict);
         return {
             nudgeCount: verdict.nudgeCount,

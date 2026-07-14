@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { RuleEvaluator, type RuleEntity } from "@monitor/tracer-domain";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/rule/port/clock.port.js";
 import { RULE_EVENT_READER, type EventReaderPort } from "~tracer-api/domain/rule/port/event.reader.port.js";
 import { RULE_TURN_REPOSITORY, type TurnRepositoryPort } from "~tracer-api/domain/rule/port/turn.repository.port.js";
 import {
@@ -17,11 +18,14 @@ export class RuleBackfillService {
         private readonly events: EventReaderPort,
         @Inject(RULE_VERDICT_REPOSITORY)
         private readonly verdicts: VerdictRepositoryPort,
+        @Inject(CLOCK)
+        private readonly clock: ClockPort,
     ) {}
 
-    async backfill(rule: RuleEntity, taskId: string, now: Date = new Date()): Promise<number> {
+    async backfill(rule: RuleEntity, taskId: string): Promise<number> {
         if (!rule.isActive()) return 0;
 
+        const now = this.clock.now();
         const evaluator = new RuleEvaluator({
             events: this.events,
             turns: this.turns,

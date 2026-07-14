@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { RULE_EXPECTATION_KIND, RULE_REVIEW_STATE, RULE_SEVERITY, RULE_SOURCE } from "@monitor/kernel";
 import { InvariantViolationError, RuleEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryEventReader } from "~tracer-api/domain/rule/port/__fakes__/in-memory.event.reader.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { InMemoryTurnRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.turn.repository.js";
 import { InMemoryVerdictRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.verdict.repository.js";
 import { RuleBackfillService } from "~tracer-api/domain/rule/application/rule.backfill.service.js";
 import { ApproveRuleUseCase } from "./approve.rule.usecase.js";
+
+const NOW = new Date("2026-01-01T00:00:00.000Z");
 
 function rule(id: string, reviewState: RuleEntity["reviewState"]): RuleEntity {
     const entity = new RuleEntity();
@@ -37,6 +40,7 @@ function makeUseCase(rules: RuleEntity[]): { useCase: ApproveRuleUseCase; repo: 
         new InMemoryTurnRepository(),
         new InMemoryEventReader(),
         new InMemoryVerdictRepository(),
+        new FixedClock(NOW),
     );
     return { useCase: new ApproveRuleUseCase(repo, backfill), repo };
 }

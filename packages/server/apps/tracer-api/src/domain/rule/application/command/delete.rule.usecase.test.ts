@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { RULE_EXPECTATION_KIND, RULE_SOURCE } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { DeleteRuleUseCase } from "./delete.rule.usecase.js";
+
+const NOW = new Date("2026-01-01T00:00:00.000Z");
 
 function rule(id: string): RuleEntity {
     const entity = new RuleEntity();
@@ -28,7 +31,7 @@ function rule(id: string): RuleEntity {
 function makeUseCase(rules: RuleEntity[]): { useCase: DeleteRuleUseCase; repo: InMemoryRuleRepository } {
     const repo = new InMemoryRuleRepository();
     repo.seed(...rules);
-    return { useCase: new DeleteRuleUseCase(repo), repo };
+    return { useCase: new DeleteRuleUseCase(repo, new FixedClock(NOW)), repo };
 }
 
 describe("DeleteRuleUseCase", () => {

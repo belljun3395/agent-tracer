@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { RULE_EXPECTATION_KIND } from "@monitor/kernel";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";
+
+const NOW = new Date("2026-01-01T00:00:00.000Z");
 
 describe("CreateRuleUseCase", () => {
     it("agent 생성 규칙은 미편집 provenance로 저장한다", async () => {
         const repo = new InMemoryRuleRepository();
-        const useCase = new CreateRuleUseCase(repo);
+        const useCase = new CreateRuleUseCase(repo, new FixedClock(NOW));
 
         const result = await useCase.execute({
             userId: "u1",
@@ -32,7 +35,7 @@ describe("CreateRuleUseCase", () => {
 
     it("human 생성 규칙은 사용자 편집 provenance로 저장한다", async () => {
         const repo = new InMemoryRuleRepository();
-        const useCase = new CreateRuleUseCase(repo);
+        const useCase = new CreateRuleUseCase(repo, new FixedClock(NOW));
 
         const result = await useCase.execute({
             userId: "u1",
@@ -52,7 +55,7 @@ describe("CreateRuleUseCase", () => {
 
     it("같은 발화의 같은 기대는 중복으로 보고 기존 규칙을 돌려준다", async () => {
         const repo = new InMemoryRuleRepository();
-        const useCase = new CreateRuleUseCase(repo);
+        const useCase = new CreateRuleUseCase(repo, new FixedClock(NOW));
         const input = {
             userId: "u1",
             name: "명령 확인",
@@ -71,7 +74,7 @@ describe("CreateRuleUseCase", () => {
 
     it("다른 발화라면 같은 기대라도 규칙을 새로 만든다", async () => {
         const repo = new InMemoryRuleRepository();
-        const useCase = new CreateRuleUseCase(repo);
+        const useCase = new CreateRuleUseCase(repo, new FixedClock(NOW));
         const base = {
             userId: "u1",
             name: "명령 확인",

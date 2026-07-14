@@ -9,6 +9,7 @@ import {
     VERDICT_STATUS,
 } from "@monitor/kernel";
 import { EventEntity, RuleEntity, TurnEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryEventReader } from "~tracer-api/domain/rule/port/__fakes__/in-memory.event.reader.js";
 import { InMemoryTurnRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.turn.repository.js";
 import { InMemoryVerdictRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.verdict.repository.js";
@@ -84,7 +85,7 @@ function makeService(turn: TurnEntity, events: readonly EventEntity[]) {
     const verdictRepo = new InMemoryVerdictRepository();
     turnRepo.seed(turn);
     eventRepo.seed(...events);
-    const service = new RuleBackfillService(turnRepo, eventRepo, verdictRepo);
+    const service = new RuleBackfillService(turnRepo, eventRepo, verdictRepo, new FixedClock(NOW));
     return { service, verdictRepo };
 }
 
@@ -93,7 +94,7 @@ describe("RuleBackfillService", () => {
         const turn = pastTurn();
         const { service, verdictRepo } = makeService(turn, [anchorEvent(turn), lintEvent(turn)]);
 
-        const reevaluated = await service.backfill(rule(RULE_REVIEW_STATE.active), "task-1", NOW);
+        const reevaluated = await service.backfill(rule(RULE_REVIEW_STATE.active), "task-1");
 
         expect(reevaluated).toBe(1);
         expect(verdictRepo.all()).toMatchObject([
@@ -105,7 +106,7 @@ describe("RuleBackfillService", () => {
         const turn = pastTurn();
         const { service, verdictRepo } = makeService(turn, [anchorEvent(turn), lintEvent(turn)]);
 
-        const reevaluated = await service.backfill(rule(RULE_REVIEW_STATE.pendingReview), "task-1", NOW);
+        const reevaluated = await service.backfill(rule(RULE_REVIEW_STATE.pendingReview), "task-1");
 
         expect(reevaluated).toBe(0);
         expect(verdictRepo.all()).toHaveLength(0);

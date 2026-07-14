@@ -8,6 +8,7 @@ import {
     type RuleExpectation,
 } from "@monitor/kernel";
 import { EventEntity, RuleEntity, TurnEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryEventReader } from "~tracer-api/domain/rule/port/__fakes__/in-memory.event.reader.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { InMemoryTurnRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.turn.repository.js";
@@ -95,7 +96,10 @@ function makeUseCase(rules: readonly RuleEntity[], turns: readonly TurnEntity[],
     ruleRepo.seed(...rules);
     turnRepo.seed(...turns);
     eventRepo.seed(...events);
-    const useCase = new ReevaluateRuleUseCase(ruleRepo, new RuleBackfillService(turnRepo, eventRepo, verdictRepo));
+    const useCase = new ReevaluateRuleUseCase(
+        ruleRepo,
+        new RuleBackfillService(turnRepo, eventRepo, verdictRepo, new FixedClock(NOW)),
+    );
     return { useCase, verdictRepo, turnRepo };
 }
 

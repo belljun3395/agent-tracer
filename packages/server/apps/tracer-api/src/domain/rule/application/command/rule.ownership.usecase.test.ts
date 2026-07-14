@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { RULE_EXPECTATION_KIND, RULE_REVIEW_STATE, RULE_SEVERITY, RULE_SOURCE } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/rule/port/__fakes__/fixed.clock.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { DeleteRuleUseCase } from "./delete.rule.usecase.js";
 import { UpdateRuleUseCase } from "./update.rule.usecase.js";
+
+const NOW = new Date("2026-01-01T00:00:00.000Z");
 
 function foreignRule(): RuleEntity {
     const entity = new RuleEntity();
@@ -36,7 +39,7 @@ function repository(): InMemoryRuleRepository {
 describe("규칙 API 소유권", () => {
     it("남의 규칙은 삭제할 수 없고 존재 여부도 드러내지 않는다", async () => {
         const rules = repository();
-        const useCase = new DeleteRuleUseCase(rules);
+        const useCase = new DeleteRuleUseCase(rules, new FixedClock(NOW));
 
         await expect(useCase.execute("attacker", "r1")).rejects.toThrow(NotFoundException);
 
@@ -46,7 +49,7 @@ describe("규칙 API 소유권", () => {
 
     it("소유자는 자기 규칙을 삭제한다", async () => {
         const rules = repository();
-        const useCase = new DeleteRuleUseCase(rules);
+        const useCase = new DeleteRuleUseCase(rules, new FixedClock(NOW));
 
         await expect(useCase.execute("owner", "r1")).resolves.toEqual({ deleted: true });
     });

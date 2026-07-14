@@ -9,6 +9,7 @@ import {
     type RuleSource,
 } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/rule/port/clock.port.js";
 import { RULE_REPOSITORY, type RuleRepositoryPort } from "~tracer-api/domain/rule/port/rule.repository.port.js";
 import { mapRule, type RuleDto, type RuleExpectationInput } from "~tracer-api/domain/rule/model/rule.model.js";
 
@@ -29,10 +30,12 @@ export class CreateRuleUseCase {
     constructor(
         @Inject(RULE_REPOSITORY)
         private readonly rules: RuleRepositoryPort,
+        @Inject(CLOCK)
+        private readonly clock: ClockPort,
     ) {}
 
     async execute(input: CreateRuleInput): Promise<{ readonly rule: RuleDto; readonly created: boolean }> {
-        const now = new Date();
+        const now = this.clock.now();
         const signature = computeRuleSignature(input.expectation);
 
         const siblings = await this.rules.findByAnchor(input.userId, input.anchorEventId);
