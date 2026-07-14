@@ -12,22 +12,7 @@ const REAP_BATCH = 1_000;
 /** 보존 기간을 넘긴 recipe-scan 잡 궤적을 주기적으로 삭제한다. */
 @Injectable()
 export class AiJobStepReaperService {
-    private timer: NodeJS.Timeout | null = null;
-
     constructor(@Inject(ADVISORY_LOCK) private readonly lock: AdvisoryLockPort<AiJobStepReaperRepositories>) {}
-
-    start(intervalMs: number, retentionMs: number): void {
-        if (this.timer !== null) return;
-        this.timer = setInterval(() => void this.runOnce(new Date(), retentionMs), intervalMs);
-        // 회수 타이머가 프로세스 종료를 막지 않게 한다.
-        this.timer.unref();
-    }
-
-    stop(): void {
-        if (this.timer === null) return;
-        clearInterval(this.timer);
-        this.timer = null;
-    }
 
     async runOnce(now: Date, retentionMs: number): Promise<number> {
         const cutoff = new Date(now.getTime() - retentionMs);

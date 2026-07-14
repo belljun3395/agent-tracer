@@ -14,21 +14,7 @@ const RUNNING_ONLY = [JOB_STATUS.running] as const;
 /** 리스가 만료된 실행 중 잡을 대기 상태로 되돌린다. */
 @Injectable()
 export class JobLeaseReaperService {
-    private timer: NodeJS.Timeout | null = null;
-
     constructor(@Inject(ADVISORY_LOCK) private readonly lock: AdvisoryLockPort<JobLeaseReaperRepositories>) {}
-
-    start(intervalMs: number): void {
-        if (this.timer !== null) return;
-        this.timer = setInterval(() => void this.runOnce(new Date()), intervalMs);
-        this.timer.unref();
-    }
-
-    stop(): void {
-        if (this.timer === null) return;
-        clearInterval(this.timer);
-        this.timer = null;
-    }
 
     async runOnce(now: Date): Promise<number> {
         try {

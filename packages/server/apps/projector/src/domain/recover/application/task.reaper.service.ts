@@ -19,25 +19,10 @@ const REAP_BATCH = 200;
 /** idle 임계값을 넘겨 고착된 자식 작업을 completed로 회수한다. */
 @Injectable()
 export class TaskReaperService {
-    private timer: NodeJS.Timeout | null = null;
-
     constructor(
         @Inject(ADVISORY_LOCK) private readonly lock: AdvisoryLockPort<TaskReaperRepositories>,
         @Inject(NOTIFICATION_PUBLISHER) private readonly publisher: NotificationPublisherPort,
     ) {}
-
-    start(intervalMs: number, idleMs: number): void {
-        if (this.timer !== null) return;
-        this.timer = setInterval(() => void this.runOnce(new Date(), idleMs), intervalMs);
-        // 회수 타이머가 프로세스 종료를 막지 않게 한다.
-        this.timer.unref();
-    }
-
-    stop(): void {
-        if (this.timer === null) return;
-        clearInterval(this.timer);
-        this.timer = null;
-    }
 
     async runOnce(now: Date, idleMs: number): Promise<number> {
         const before = new Date(now.getTime() - idleMs);

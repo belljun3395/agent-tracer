@@ -10,6 +10,7 @@ import {
     createOpenSearchClient,
     loadApplicationConfig,
     SchemaOutOfDateError,
+    SystemClock,
 } from "@monitor/platform";
 import { TypeOrmTracerDatabaseAdapter } from "~projector/domain/project/adapter/typeorm.tracer.database.adapter.js";
 import { DbConsumer } from "~projector/domain/project/inbound/db.consumer.js";
@@ -23,6 +24,7 @@ import { SearchEventsReaperService } from "~projector/domain/index/application/s
 import { SearchOutboxDrainService } from "~projector/domain/index/application/search.outbox.drain.service.js";
 import { SearchConsumer } from "~projector/domain/index/inbound/search.consumer.js";
 import { OtlpConsumer } from "~projector/domain/export/inbound/otlp.consumer.js";
+import { PeriodicScheduler } from "~projector/config/periodic.scheduler.js";
 import { loadProjectorRuntimeConfig } from "~projector/config/projector.runtime.config.js";
 import { errorMessage, logError, logInfo } from "~projector/support/log.js";
 import { startHealthServer } from "~projector/support/health.server.js";
@@ -101,13 +103,17 @@ async function bootstrap(): Promise<void> {
     await dbConsumer.start();
     await searchConsumer.start();
     if (otlpConsumer) await otlpConsumer.start();
-    reaper.start(runtimeConfig.taskReaper.intervalMs, runtimeConfig.taskReaper.idleMs);
-    aiJobStepReaper.start(runtimeConfig.aiJobStepReaper.intervalMs, runtimeConfig.aiJobStepReaper.retentionMs);
-    jobLeaseReaper.start(runtimeConfig.jobLeaseReapIntervalMs);
-    searchOutboxDrain.start(runtimeConfig.searchOutboxDrainIntervalMs);
-    searchEventsReaper.start(
-        runtimeConfig.searchEventsReaper.intervalMs,
-        runtimeConfig.searchEventsReaper.retentionMs,
+    const scheduler = new PeriodicScheduler(new SystemClock());
+    scheduler.every(runtimeConfig.taskReaper.intervalMs, (now) =>
+        reaper.runOnce(now, runtimeConfig.taskReaper.idleMs),
+    );
+    scheduler.every(runtimeConfig.aiJobStepReaper.intervalMs, (now) =>
+        aiJobStepReaper.runOnce(now, runtimeConfig.aiJobStepReaper.retentionMs),
+    );
+    scheduler.every(runtimeConfig.jobLeaseReapIntervalMs, (now) => jobLeaseReaper.runOnce(now));
+    scheduler.every(runtimeConfig.searchOutboxDrainIntervalMs, () => searchOutboxDrain.runOnce());
+    scheduler.every(runtimeConfig.searchEventsReaper.intervalMs, (now) =>
+        searchEventsReaper.runOnce(now, runtimeConfig.searchEventsReaper.retentionMs),
     );
     logInfo({ msg: "projector.started", otlpExport: otlp !== undefined });
 
@@ -123,11 +129,7 @@ async function bootstrap(): Promise<void> {
         }, SHUTDOWN_TIMEOUT_MS);
         forceExit.unref();
         try {
-            reaper.stop();
-            aiJobStepReaper.stop();
-            jobLeaseReaper.stop();
-            searchOutboxDrain.stop();
-            searchEventsReaper.stop();
+            scheduler.stopAll();
             await dbConsumer.stop();
             await searchConsumer.stop();
             if (otlpConsumer) await otlpConsumer.stop();

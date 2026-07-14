@@ -38,21 +38,10 @@ function recipeDocument(recipe: RecipeEntity): Record<string, unknown> {
 /** 도메인 커밋과 같은 트랜잭션에 적재된 검색 반영 요청을 주기적으로 배출한다. */
 @Injectable()
 export class SearchOutboxDrainService {
-    private timer: NodeJS.Timeout | null = null;
-
     constructor(
         @Inject(ADVISORY_LOCK) private readonly lock: AdvisoryLockPort<SearchOutboxDrainRepositories>,
         @Inject(SEARCH_INDEX_WRITER) private readonly searchIndex: SearchIndexWriterPort,
     ) {}
-
-    start(intervalMs: number): void {
-        this.timer = setInterval(() => void this.runOnce(), intervalMs);
-    }
-
-    stop(): void {
-        if (this.timer !== null) clearInterval(this.timer);
-        this.timer = null;
-    }
 
     async runOnce(): Promise<number> {
         const drained = await this.lock.withAdvisoryLock(ADVISORY_LOCK_KEY.searchOutboxDrain, async (repos) => {
