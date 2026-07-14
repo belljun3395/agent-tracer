@@ -1,0 +1,193 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh StatusLine"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SessionStart" }
+        ]
+      }
+    ],
+    "Setup": [
+      {
+        "matcher": "init|maintenance",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh Setup" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh UserPromptSubmit" }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh UserPromptExpansion" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PreToolUse" }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PermissionRequest" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse" }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUseFailure" }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolBatch" }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PermissionDenied" }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh InstructionsLoaded" }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh ConfigChange" }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh CwdChanged" }
+        ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "matcher": "CLAUDE.md|.env|.envrc|.claude/settings.json|.claude/settings.local.json",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh FileChanged" }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh WorktreeCreate" }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh WorktreeRemove" }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh Notification" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PreCompact" }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostCompact" }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SubagentStart" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SubagentStop" }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh TaskCreated" }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh TaskCompleted" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh Stop" }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh StopFailure" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SessionEnd" }
+        ]
+      }
+    ]
+  }
+}

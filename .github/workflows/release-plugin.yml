@@ -1,0 +1,60 @@
+name: 플러그인 릴리스
+
+# 수집기 소스가 main에 들어오면 훅 번들을 다시 만들어 태그에 실어 보낸다.
+# 설치본은 저장소를 그대로 클론하므로 빌드 단계가 없다. 번들이 태그에 없으면 훅이 죽는다.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/runtime/**"
+      - ".claude-plugin/marketplace.json"
+      - ".github/workflows/release-plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-plugin
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: 훅 번들 빌드
+        run: npm run build --workspace @monitor/runtime
+
+      - name: 번들 자립 확인
+        run: |
+          set -euo pipefail
+          if grep -rlq "ZodObject" packages/runtime/dist/agent; then
+            echo "::error::훅 번들이 스키마 검증기를 값으로 지고 있다"
+            exit 1
+          fi
+
+      - name: 버전 조회
+        id: version
+        run: echo "value=$(node -p "require('./packages/runtime/.claude-plugin/plugin.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: 번들을 실은 릴리스 태그를 만든다
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f packages/runtime/dist
+          git commit -m "chore(runtime): 훅 번들을 릴리스에 싣는다 [skip ci]"
+          git tag -f "plugin-v${VERSION}"
+          git push -f origin "plugin-v${VERSION}"

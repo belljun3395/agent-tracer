@@ -1,32 +1,11 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-import {fileURLToPath} from "node:url";
 import {DAEMON_HEALTH_LAST_DEAD_REASONS_MAX, type DaemonHealthReportPayload} from "@monitor/kernel/daemon/daemon.health.const.js";
-import {isRecord} from "~runtime/support/json.js";
-
-// 플러그인 클론은 패키지 매니페스트 대신 플러그인 매니페스트에만 버전을 둔다.
-const VERSION_MANIFEST_CANDIDATES = [
-    "../../../package.json",
-    "../../../.claude-plugin/plugin.json",
-] as const;
+import {readRuntimeManifestVersion, resolveRuntimeRoot} from "~runtime/config/runtime.root.js";
 
 export const UNKNOWN_DAEMON_VERSION = "unknown";
 
-export function resolveDaemonVersion(
-    baseDir: string = path.dirname(fileURLToPath(import.meta.url)),
-): string {
-    for (const candidate of VERSION_MANIFEST_CANDIDATES) {
-        try {
-            const parsed = JSON.parse(fs.readFileSync(path.join(baseDir, candidate), "utf8")) as unknown;
-            const version = isRecord(parsed) && typeof parsed["version"] === "string"
-                ? parsed["version"].trim()
-                : "";
-            if (version) return version;
-        } catch {
-            continue;
-        }
-    }
-    return UNKNOWN_DAEMON_VERSION;
+/** 훅과 데몬이 같은 매니페스트를 읽어야 버전 비교가 성립한다. */
+export function resolveDaemonVersion(root: string = resolveRuntimeRoot()): string {
+    return readRuntimeManifestVersion(root) || UNKNOWN_DAEMON_VERSION;
 }
 
 /** 이번 데몬 프로세스 수명 동안의 dead-letter 건수와 삼킨 오류를 인메모리로 집계한다. */

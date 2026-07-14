@@ -1,9 +1,10 @@
 {
   "name": "@monitor/runtime",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node --import @swc-node/register/esm-register build.ts",
     "lint:types": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

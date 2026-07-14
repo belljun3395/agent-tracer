@@ -1,8 +1,8 @@
 import {spawn} from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {fileURLToPath} from "node:url";
 import {ensureAgentTracerHome, resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
+import {resolveRuntimeRoot} from "~runtime/config/runtime.root.js";
 import {probeSocket, requestDaemon} from "~runtime/daemon/ipc/socket.client.js";
 import {resolveDaemonAction} from "~runtime/daemon/lifecycle/daemon.version.js";
 import {
@@ -29,16 +29,13 @@ const ASSISTANT_TEXT_MAX = 8_000;
 // swc-node 소스 실행이므로 컴파일된 진입점이 없으면 로더를 붙여 소스를 그대로 띄운다.
 const SOURCE_LOADER = "@swc-node/register/esm-register";
 
-function runtimeRoot(): string {
-    return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-}
-
 function daemonEntry(): {readonly executable: string; readonly args: readonly string[]} {
-    const compiled = path.join(runtimeRoot(), "dist/daemon/main.js");
+    const root = resolveRuntimeRoot();
+    const compiled = path.join(root, "dist/daemon/main.js");
     if (fs.existsSync(compiled)) return {executable: process.execPath, args: [compiled]};
     return {
         executable: process.execPath,
-        args: ["--import", SOURCE_LOADER, path.join(runtimeRoot(), "src/daemon/main.ts")],
+        args: ["--import", SOURCE_LOADER, path.join(root, "src/daemon/main.ts")],
     };
 }
 
