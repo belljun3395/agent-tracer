@@ -41,6 +41,19 @@ export async function createTemporalWorkers(options: TemporalWorkerOptions): Pro
         taskQueue: AI_JOB_QUEUE,
         workflowsPath,
         activities: options.lightActivities,
+        // 워크플로 번들러는 자체 리졸버를 써서 tsconfig 별칭을 모르므로 여기서 알려준다.
+        bundlerOptions: {
+            webpackConfigHook: (config) => {
+                config.resolve = {
+                    ...config.resolve,
+                    alias: {
+                        ...config.resolve?.alias,
+                        "~ai-agent-worker": new URL("..", import.meta.url).pathname,
+                    },
+                };
+                return config;
+            },
+        },
     });
 
     // 최대 15분인 생성 활동이 짧은 활동의 슬롯을 굶기지 않도록 전용 큐에서 낮은 동시성으로 돈다.

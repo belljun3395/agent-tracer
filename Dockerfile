@@ -32,13 +32,14 @@ RUN --mount=type=cache,target=/root/.npm npm prune --omit=dev
 # swc-node 로더는 이 소스실행 모델의 런타임 요구사항이라 prune 후에도 각 package.json에 남는다.
 FROM deps-base AS runtime-deps
 COPY --from=pruned-deps /app/node_modules ./node_modules
-COPY tsconfig.base.json application*.yaml ./
+COPY tsconfig.base.json tsconfig.paths.json application*.yaml ./
 COPY scripts/register-otel.mjs scripts/
+COPY packages/kernel packages/kernel
 COPY packages/server packages/server
 
 # ---- 빌드 의존성: web 정적 자산 빌드에는 전체 설치가 그대로 필요하다 ----
 FROM deps AS build-deps
-COPY tsconfig.base.json ./
+COPY tsconfig.base.json tsconfig.paths.json ./
 COPY packages/kernel packages/kernel
 COPY packages/web packages/web
 

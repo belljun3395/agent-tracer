@@ -4,6 +4,7 @@
 !package.json
 !package-lock.json
 !tsconfig.base.json
+!tsconfig.paths.json
 !application*.yaml
 !nginx.conf
 !scripts
