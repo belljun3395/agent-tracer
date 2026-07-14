@@ -96,6 +96,13 @@ export default {
       to: { path: "^packages/(?:runtime|server/apps/[^/]+)/src/config/" },
     },
     {
+      name: "config-not-to-domain",
+      comment: "config는 앱 전역 기술 기반이다. 도메인을 모른다. 조립 근원만 슬라이스를 안다",
+      severity: "error",
+      from: { path: "^packages/(?:runtime|server/apps/[^/]+)/src/config/" },
+      to: { path: "^packages/(?:runtime|server/apps/[^/]+)/src/domain/" },
+    },
+    {
       name: "support-knows-nothing",
       comment: "support는 순수 유틸이다. config와 도메인을 모른다",
       severity: "error",

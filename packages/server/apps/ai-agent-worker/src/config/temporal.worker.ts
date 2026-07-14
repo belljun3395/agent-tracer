@@ -30,8 +30,9 @@ export async function createTemporalWorkers(options: TemporalWorkerOptions): Pro
     });
 
     const connection = await NativeConnection.connect({ address: options.address });
+    // 워크플로 번들의 진입점은 슬라이스를 전부 아는 조립 근원이므로 config가 아니라 src 뿌리에 있다.
     const workflowsPath = new URL(
-        `./workflows.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`,
+        `../workflows.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`,
         import.meta.url,
     ).pathname;
 
