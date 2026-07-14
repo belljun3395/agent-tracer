@@ -2,6 +2,7 @@ import {bindingKey, turnStateOf} from "~runtime/domain/binding/model/binding.mod
 import type {BindingStorePort} from "~runtime/domain/binding/port/binding.store.port.js";
 import {toIngestEvents} from "~runtime/domain/ingest/model/event.envelope.model.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
+import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {buildTurnSpan, type TurnSpanInput} from "~runtime/domain/turn/model/turn.span.model.js";
 
 /** 진행 중인 턴을 닫는 데 필요한 입력이다. */
@@ -15,6 +16,7 @@ export class CloseTurnUsecase {
     constructor(
         private readonly bindings: BindingStorePort,
         private readonly sink: EventSinkPort,
+        private readonly ids: IdGeneratorPort,
         private readonly runtimeSource: string,
     ) {}
 
@@ -24,7 +26,11 @@ export class CloseTurnUsecase {
             ...input,
             ...(binding ? {sessionStartedAt: binding.createdAt} : {}),
         });
-        await this.sink.append(toIngestEvents([span.event], this.runtimeSource));
+        await this.sink.append(toIngestEvents(
+            [span.event],
+            this.runtimeSource,
+            () => this.ids.next(),
+        ));
         return span.turnId;
     }
 }

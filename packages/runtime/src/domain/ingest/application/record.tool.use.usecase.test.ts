@@ -3,12 +3,13 @@ import {AGENT_TRACER_ATTR, SEMCONV_ATTR} from "@monitor/kernel/observability/sem
 import {describe, expect, it} from "vitest";
 import {RecordToolUseUsecase} from "~runtime/domain/ingest/application/record.tool.use.usecase.js";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
+import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
 
 const TARGET = {taskId: "task-1", sessionId: "session-1", turnId: "turn-1"};
 const CONTEXT = {projectDir: "/repo"};
 
 function usecase(sink: InMemoryEventSink): RecordToolUseUsecase {
-    return new RecordToolUseUsecase(sink, "claude-plugin", CONTEXT);
+    return new RecordToolUseUsecase(sink, new SequentialIdGenerator(), "claude-plugin", CONTEXT);
 }
 
 describe("RecordToolUseUsecase", () => {

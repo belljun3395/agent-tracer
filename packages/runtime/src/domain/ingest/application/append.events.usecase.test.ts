@@ -4,12 +4,13 @@ import {describe, expect, it} from "vitest";
 import {AppendEventsUsecase} from "~runtime/domain/ingest/application/append.events.usecase.js";
 import {LANE} from "~runtime/domain/ingest/model/event.model.js";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
+import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
 
 describe("AppendEventsUsecase", () => {
     it("런타임 이벤트에 출처 속성과 태그를 붙여 스풀에 넣는다", async () => {
         const sink = new InMemoryEventSink();
 
-        await new AppendEventsUsecase(sink, "claude-plugin").execute([{
+        await new AppendEventsUsecase(sink, new SequentialIdGenerator(), "claude-plugin").execute([{
             kind: KIND.executeTool,
             taskId: "task-1",
             lane: LANE.implementation,
@@ -25,7 +26,7 @@ describe("AppendEventsUsecase", () => {
     it("payload가 고정된 이벤트는 봉투만 씌워 그대로 보낸다", async () => {
         const sink = new InMemoryEventSink();
 
-        await new AppendEventsUsecase(sink, "claude-plugin").execute([{
+        await new AppendEventsUsecase(sink, new SequentialIdGenerator(), "claude-plugin").execute([{
             kind: KIND.sessionEnded,
             taskId: "task-1",
             payload: {summary: "끝"},
@@ -37,7 +38,7 @@ describe("AppendEventsUsecase", () => {
     it("이벤트가 없으면 스풀을 건드리지 않는다", async () => {
         const sink = new InMemoryEventSink();
 
-        await new AppendEventsUsecase(sink, "claude-plugin").execute([]);
+        await new AppendEventsUsecase(sink, new SequentialIdGenerator(), "claude-plugin").execute([]);
 
         expect(sink.events).toHaveLength(0);
     });

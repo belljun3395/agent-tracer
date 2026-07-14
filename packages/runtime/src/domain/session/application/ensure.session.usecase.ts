@@ -8,12 +8,12 @@ import type {BindingStorePort} from "~runtime/domain/binding/port/binding.store.
 import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import {toRunIngestEvent} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
+import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {
     sessionStartedEvent,
     taskLinkedEvent,
     type SessionBindingInput,
 } from "~runtime/domain/session/model/session.event.model.js";
-import {generateUlid} from "~runtime/support/ulid.js";
 
 /** 바인딩을 복원했는지 새로 만들었는지까지 알려주는 세션 확보 결과다. */
 export interface EnsuredSession extends IngestTarget {
@@ -25,6 +25,7 @@ export class EnsureSessionUsecase {
     constructor(
         private readonly bindings: BindingStorePort,
         private readonly sink: EventSinkPort,
+        private readonly ids: IdGeneratorPort,
     ) {}
 
     async execute(input: SessionBindingInput): Promise<EnsuredSession> {
@@ -45,8 +46,8 @@ export class EnsureSessionUsecase {
             existing = store[key];
             if (!existing) {
                 created = {
-                    taskId: input.taskId?.trim() || generateUlid(),
-                    sessionId: generateUlid(),
+                    taskId: input.taskId?.trim() || this.ids.next(),
+                    sessionId: this.ids.next(),
                     runtimeSource: input.runtimeSource,
                     runtimeSessionId: input.runtimeSessionId,
                     createdAt: new Date().toISOString(),
@@ -75,7 +76,11 @@ export class EnsureSessionUsecase {
     }
 
     private async append(event: Parameters<typeof toRunIngestEvent>[0]): Promise<void> {
-        await this.sink.append([toRunIngestEvent(event, new Date().toISOString())]);
+        await this.sink.append([toRunIngestEvent(
+            event,
+            new Date().toISOString(),
+            () => this.ids.next(),
+        )]);
     }
 }
 

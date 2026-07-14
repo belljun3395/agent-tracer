@@ -1,13 +1,14 @@
 import {KIND} from "@monitor/kernel";
 import {describe, expect, it} from "vitest";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
+import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
 import {EndSessionUsecase} from "~runtime/domain/session/application/end.session.usecase.js";
 
 describe("EndSessionUsecase", () => {
     it("종료 사유와 태스크 완료 여부를 payload에 실어 남긴다", async () => {
         const sink = new InMemoryEventSink();
 
-        await new EndSessionUsecase(sink).execute({
+        await new EndSessionUsecase(sink, new SequentialIdGenerator()).execute({
             taskId: "task-1",
             sessionId: "session-1",
             runtimeSource: "claude-plugin",

@@ -21,6 +21,7 @@ import {RecordToolFailureUsecase} from "~runtime/domain/ingest/application/recor
 import {RecordToolUseUsecase} from "~runtime/domain/ingest/application/record.tool.use.usecase.js";
 import type {IngestHook} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {defaultTaskTitle} from "~runtime/domain/ingest/model/workspace.path.model.js";
+import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {BuildRecipeContextUsecase} from "~runtime/domain/recipe/application/build.recipe.context.usecase.js";
@@ -39,6 +40,7 @@ import {CloseTurnUsecase} from "~runtime/domain/turn/application/close.turn.usec
 import {OpenTurnUsecase} from "~runtime/domain/turn/application/open.turn.usecase.js";
 import type {TurnHook} from "~runtime/domain/turn/inbound/turn.hook.js";
 import type {JsonObject} from "~runtime/support/json.js";
+import {generateUlid} from "~runtime/support/ulid.js";
 import type {ReaderResult} from "~runtime/agent/claude-code/payload/field.payload.js";
 
 const transport = resolveMonitorTransportConfig();
@@ -51,22 +53,23 @@ const todoSnapshots = new FileTodoSnapshotAdapter(projectDir);
 const recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 const recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 const shapeContext = {projectDir};
+const ids: IdGeneratorPort = {next: generateUlid};
 
 const ingest: IngestHook = {
-    appendEvents: new AppendEventsUsecase(sink, CLAUDE_RUNTIME_SOURCE),
-    recordToolUse: new RecordToolUseUsecase(sink, CLAUDE_RUNTIME_SOURCE, shapeContext),
-    recordToolFailure: new RecordToolFailureUsecase(sink, CLAUDE_RUNTIME_SOURCE, shapeContext),
-    recordTodo: new RecordTodoUsecase(sink, todoSnapshots, CLAUDE_RUNTIME_SOURCE),
+    appendEvents: new AppendEventsUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE),
+    recordToolUse: new RecordToolUseUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
+    recordToolFailure: new RecordToolFailureUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
+    recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, CLAUDE_RUNTIME_SOURCE),
 };
 
 const session: SessionHook = {
-    ensureSession: new EnsureSessionUsecase(bindings, sink),
-    endSession: new EndSessionUsecase(sink),
+    ensureSession: new EnsureSessionUsecase(bindings, sink, ids),
+    endSession: new EndSessionUsecase(sink, ids),
 };
 
 const turn: TurnHook = {
     openTurn: new OpenTurnUsecase(bindings),
-    closeTurn: new CloseTurnUsecase(bindings, sink, CLAUDE_RUNTIME_SOURCE),
+    closeTurn: new CloseTurnUsecase(bindings, sink, ids, CLAUDE_RUNTIME_SOURCE),
 };
 
 const binding: BindingHook = {

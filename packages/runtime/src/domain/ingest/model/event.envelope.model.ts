@@ -15,11 +15,13 @@ export function runtimeAttributes(runtimeSource: string): Record<string, unknown
 export function toIngestEvents(
     events: readonly RuntimeIngestEvent[],
     runtimeSource: string,
+    nextId: () => string,
     occurredAt: string = new Date().toISOString(),
 ): IngestEvent[] {
     const attributes = runtimeAttributes(runtimeSource);
     return events.map((event) => toIngestEvent(
         {...event, metadata: {...withTags(event.metadata), ...attributes}},
         occurredAt,
+        nextId,
     ));
 }

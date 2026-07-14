@@ -2,11 +2,12 @@ import {KIND} from "@monitor/kernel";
 import {describe, expect, it} from "vitest";
 import {RecordToolFailureUsecase} from "~runtime/domain/ingest/application/record.tool.failure.usecase.js";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
+import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
 
 const TARGET = {taskId: "task-1", sessionId: "session-1"};
 
 function usecase(sink: InMemoryEventSink): RecordToolFailureUsecase {
-    return new RecordToolFailureUsecase(sink, "claude-plugin", {projectDir: "/repo"});
+    return new RecordToolFailureUsecase(sink, new SequentialIdGenerator(), "claude-plugin", {projectDir: "/repo"});
 }
 
 describe("RecordToolFailureUsecase", () => {
