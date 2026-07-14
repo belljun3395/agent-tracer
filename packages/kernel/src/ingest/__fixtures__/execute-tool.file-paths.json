@@ -1,0 +1,559 @@
+{
+    "id": "ev-execute-tool-file-paths",
+    "kind": "execute_tool",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "exploration",
+        "title": "cat src/file-1.ts src/file-2.ts src/file-3.ts src/file-4.ts src/file-5.ts src/fi",
+        "body": "cat src/file-1.ts src/file-2.ts src/file-3.ts src/file-4.ts src/file-5.ts src/file-6.ts src/file-7.ts src/file-8.ts src/file-9.ts src/file-10.ts src/file-11.ts src/file-12.ts src/file-13.ts src/file-14.ts src/file-15.ts src/file-16.ts src/file-17.ts src/file-18.ts src/file-19.ts src/file-20.ts src/file-21.ts src/file-22.ts src/file-23.ts src/file-24.ts src/file-25.ts src/file-26.ts src/file-27.ts src/file-28.ts src/file-29.ts src/file-30.ts src/file-31.ts src/file-32.ts src/file-33.ts src/file-34.ts src/file-35.ts src/file-36.ts src/file-37.ts src/file-38.ts src/file-39.ts src/file-40.ts src/file-41.ts src/file-42.ts src/file-43.ts src/file-44.ts src/file-45.ts src/file-46.ts src/file-47.ts src/file-48.ts src/file-49.ts src/file-50.ts src/file-51.ts src/file-52.ts src/file-53.ts src/file-54.ts src/file-55.ts src/file-56.ts src/file-57.ts src/file-58.ts src/file-59.ts src/file-60.ts src/file-61.ts src/file-62.ts src/file-63.ts src/file-64.ts src/file-65.ts src/file-66.ts src/file-67.ts src/file-68.ts src/file-69.ts src/file-70.ts src/file-71.ts src/file-72.ts src/file-73.ts src/file-74.ts src/file-75.ts src/file-76.ts src/file-77.ts src/file-78.ts src/file-79.ts src/file-80.ts src/file-81.ts src/file-82.ts src/file-83.ts src/file-84.ts src/file-85.ts src/file-86.ts src/file-87.ts src/file-88.ts src/file-89.ts src/file-90.ts src/file-91.ts src/file-92.ts src/file-93.ts src/file-94.ts src/file-95.ts src/file-96.ts src/file-97.ts src/file-98.ts src/file-99.ts src/file-100.ts src/file-101.ts src/file-102.ts xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+        "filePaths": [
+            "src/file-1.ts",
+            "src/file-2.ts",
+            "src/file-3.ts",
+            "src/file-4.ts",
+            "src/file-5.ts",
+            "src/file-6.ts",
+            "src/file-7.ts",
+            "src/file-8.ts",
+            "src/file-9.ts",
+            "src/file-10.ts",
+            "src/file-11.ts",
+            "src/file-12.ts",
+            "src/file-13.ts",
+            "src/file-14.ts",
+            "src/file-15.ts",
+            "src/file-16.ts",
+            "src/file-17.ts",
+            "src/file-18.ts",
+            "src/file-19.ts",
+            "src/file-20.ts",
+            "src/file-21.ts",
+            "src/file-22.ts",
+            "src/file-23.ts",
+            "src/file-24.ts",
+            "src/file-25.ts",
+            "src/file-26.ts",
+            "src/file-27.ts",
+            "src/file-28.ts",
+            "src/file-29.ts",
+            "src/file-30.ts",
+            "src/file-31.ts",
+            "src/file-32.ts",
+            "src/file-33.ts",
+            "src/file-34.ts",
+            "src/file-35.ts",
+            "src/file-36.ts",
+            "src/file-37.ts",
+            "src/file-38.ts",
+            "src/file-39.ts",
+            "src/file-40.ts",
+            "src/file-41.ts",
+            "src/file-42.ts",
+            "src/file-43.ts",
+            "src/file-44.ts",
+            "src/file-45.ts",
+            "src/file-46.ts",
+            "src/file-47.ts",
+            "src/file-48.ts",
+            "src/file-49.ts",
+            "src/file-50.ts",
+            "src/file-51.ts",
+            "src/file-52.ts",
+            "src/file-53.ts",
+            "src/file-54.ts",
+            "src/file-55.ts",
+            "src/file-56.ts",
+            "src/file-57.ts",
+            "src/file-58.ts",
+            "src/file-59.ts",
+            "src/file-60.ts",
+            "src/file-61.ts",
+            "src/file-62.ts",
+            "src/file-63.ts",
+            "src/file-64.ts",
+            "src/file-65.ts",
+            "src/file-66.ts",
+            "src/file-67.ts",
+            "src/file-68.ts",
+            "src/file-69.ts",
+            "src/file-70.ts",
+            "src/file-71.ts",
+            "src/file-72.ts",
+            "src/file-73.ts",
+            "src/file-74.ts",
+            "src/file-75.ts",
+            "src/file-76.ts",
+            "src/file-77.ts",
+            "src/file-78.ts",
+            "src/file-79.ts",
+            "src/file-80.ts",
+            "src/file-81.ts",
+            "src/file-82.ts",
+            "src/file-83.ts",
+            "src/file-84.ts",
+            "src/file-85.ts",
+            "src/file-86.ts",
+            "src/file-87.ts",
+            "src/file-88.ts",
+            "src/file-89.ts",
+            "src/file-90.ts",
+            "src/file-91.ts",
+            "src/file-92.ts",
+            "src/file-93.ts",
+            "src/file-94.ts",
+            "src/file-95.ts",
+            "src/file-96.ts",
+            "src/file-97.ts",
+            "src/file-98.ts",
+            "src/file-99.ts",
+            "src/file-100.ts"
+        ],
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Observed directly by the Bash PostToolUse hook.",
+            "agent_tracer.subtype.key": "shell_probe",
+            "agent_tracer.subtype.label": "Shell probe",
+            "agent_tracer.subtype.group": "shell",
+            "agent_tracer.tool.family": "terminal",
+            "agent_tracer.operation": "read_file",
+            "agent_tracer.entity.type": "command",
+            "agent_tracer.entity.name": "cat",
+            "agent_tracer.source_tool": "Bash",
+            "gen_ai.tool.name": "Bash",
+            "agent_tracer.command": "cat src/file-1.ts src/file-2.ts src/file-3.ts src/file-4.ts src/file-5.ts src/file-6.ts src/file-7.ts src/file-8.ts src/file-9.ts src/file-10.ts src/file-11.ts src/file-12.ts src/file-13.ts src/file-14.ts src/file-15.ts src/file-16.ts src/file-17.ts src/file-18.ts src/file-19.ts src/file-20.ts src/file-21.ts src/file-22.ts src/file-23.ts src/file-24.ts src/file-25.ts src/file-26.ts src/file-27.ts src/file-28.ts src/file-29.ts src/file-30.ts src/file-31.ts src/file-32.ts src/file-33.ts src/file-34.ts src/file-35.ts src/file-36.ts src/file-37.ts src/file-38.ts src/file-39.ts src/file-40.ts src/file-41.ts src/file-42.ts src/file-43.ts src/file-44.ts src/file-45.ts src/file-46.ts src/file-47.ts src/file-48.ts src/file-49.ts src/file-50.ts src/file-51.ts src/file-52.ts src/file-53.ts src/file-54.ts src/file-55.ts src/file-56.ts src/file-57.ts src/file-58.ts src/file-59.ts src/file-60.ts src/file-61.ts src/file-62.ts src/file-63.ts src/file-64.ts src/file-65.ts src/file-66.ts src/file-67.ts src/file-68.ts src/file-69.ts src/file-70.ts src/file-71.ts src/file-72.ts src/file-73.ts src/file-74.ts src/file-75.ts src/file-76.ts src/file-77.ts src/file-78.ts src/file-79.ts src/file-80.ts src/file-81.ts src/file-82.ts src/file-83.ts src/file-84.ts src/file-85.ts src/file-86.ts src/file-87.ts src/file-88.ts src/file-89.ts src/file-90.ts src/file-91.ts src/file-92.ts src/file-93.ts src/file-94.ts src/file-95.ts src/file-96.ts src/file-97.ts src/file-98.ts src/file-99.ts src/file-100.ts src/file-101.ts src/file-102.ts xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+            "commandAnalysis": {
+                "raw": "cat src/file-1.ts src/file-2.ts src/file-3.ts src/file-4.ts src/file-5.ts src/file-6.ts src/file-7.ts src/file-8.ts src/file-9.ts src/file-10.ts src/file-11.ts src/file-12.ts src/file-13.ts src/file-14.ts src/file-15.ts src/file-16.ts src/file-17.ts src/file-18.ts src/file-19.ts src/file-20.ts src/file-21.ts src/file-22.ts src/file-23.ts src/file-24.ts src/file-25.ts src/file-26.ts src/file-27.ts src/file-28.ts src/file-29.ts src/file-30.ts src/file-31.ts src/file-32.ts src/file-33.ts src/file-34.ts src/file-35.ts src/file-36.ts src/file-37.ts src/file-38.ts src/file-39.ts src/file-40.ts src/file-41.ts src/file-42.ts src/file-43.ts src/file-44.ts src/file-45.ts src/file-46.ts src/file-47.ts src/file-48.ts src/file-49.ts src/file-50.ts src/file-51.ts src/file-52.ts src/file-53.ts src/file-54.ts src/file-55.ts src/file-56.ts src/file-57.ts src/file-58.ts src/file-59.ts src/file-60.ts src/file-61.ts src/file-62.ts src/file-63.ts src/file-64.ts src/file-65.ts src/file-66.ts src/file-67.ts src/file-68.ts src/file-69.ts src/file-70.ts src/file-71.ts src/file-72.ts src/file-73.ts src/file-74.ts src/file-75.ts src/file-76.ts src/file-77.ts src/file-78.ts src/file-79.ts src/file-80.ts src/file-81.ts src/file-82.ts src/file-83.ts src/file-84.ts src/file-85.ts src/file-86.ts src/file-87.ts src/file-88.ts src/file-89.ts src/file-90.ts src/file-91.ts src/file-92.ts src/file-93.ts src/file-94.ts src/file-95.ts src/file-96.ts src/file-97.ts src/file-98.ts src/file-99.ts src/file-100.ts src/file-101.ts src/file-102.ts xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+                "structure": "simple",
+                "overallEffect": "read_only",
+                "confidence": "high",
+                "steps": [
+                    {
+                        "raw": "cat src/file-1.ts src/file-2.ts src/file-3.ts src/file-4.ts src/file-5.ts src/file-6.ts src/file-7.ts src/file-8.ts src/file-9.ts src/file-10.ts src/file-11.ts src/file-12.ts src/file-13.ts src/file-14.ts src/file-15.ts src/file-16.ts src/file-17.ts src/file-18.ts src/file-19.ts src/file-20.ts src/file-21.ts src/file-22.ts src/file-23.ts src/file-24.ts src/file-25.ts src/file-26.ts src/file-27.ts src/file-28.ts src/file-29.ts src/file-30.ts src/file-31.ts src/file-32.ts src/file-33.ts src/file-34.ts src/file-35.ts src/file-36.ts src/file-37.ts src/file-38.ts src/file-39.ts src/file-40.ts src/file-41.ts src/file-42.ts src/file-43.ts src/file-44.ts src/file-45.ts src/file-46.ts src/file-47.ts src/file-48.ts src/file-49.ts src/file-50.ts src/file-51.ts src/file-52.ts src/file-53.ts src/file-54.ts src/file-55.ts src/file-56.ts src/file-57.ts src/file-58.ts src/file-59.ts src/file-60.ts src/file-61.ts src/file-62.ts src/file-63.ts src/file-64.ts src/file-65.ts src/file-66.ts src/file-67.ts src/file-68.ts src/file-69.ts src/file-70.ts src/file-71.ts src/file-72.ts src/file-73.ts src/file-74.ts src/file-75.ts src/file-76.ts src/file-77.ts src/file-78.ts src/file-79.ts src/file-80.ts src/file-81.ts src/file-82.ts src/file-83.ts src/file-84.ts src/file-85.ts src/file-86.ts src/file-87.ts src/file-88.ts src/file-89.ts src/file-90.ts src/file-91.ts src/file-92.ts src/file-93.ts src/file-94.ts src/file-95.ts src/file-96.ts src/file-97.ts src/file-98.ts src/file-99.ts src/file-100.ts src/file-101.ts src/file-102.ts xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+                        "commandName": "cat",
+                        "operation": "read_file",
+                        "targets": [
+                            {
+                                "type": "file",
+                                "value": "src/file-1.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-2.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-3.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-4.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-5.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-6.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-7.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-8.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-9.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-10.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-11.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-12.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-13.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-14.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-15.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-16.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-17.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-18.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-19.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-20.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-21.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-22.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-23.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-24.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-25.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-26.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-27.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-28.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-29.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-30.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-31.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-32.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-33.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-34.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-35.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-36.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-37.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-38.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-39.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-40.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-41.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-42.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-43.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-44.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-45.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-46.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-47.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-48.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-49.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-50.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-51.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-52.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-53.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-54.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-55.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-56.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-57.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-58.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-59.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-60.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-61.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-62.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-63.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-64.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-65.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-66.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-67.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-68.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-69.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-70.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-71.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-72.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-73.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-74.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-75.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-76.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-77.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-78.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-79.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-80.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-81.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-82.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-83.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-84.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-85.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-86.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-87.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-88.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-89.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-90.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-91.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-92.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-93.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-94.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-95.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-96.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-97.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-98.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-99.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-100.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-101.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "src/file-102.ts"
+                            },
+                            {
+                                "type": "file",
+                                "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts"
+                            }
+                        ],
+                        "effect": "read_only",
+                        "confidence": "high"
+                    }
+                ]
+            },
+            "exitCode": 0
+        }
+    }
+}

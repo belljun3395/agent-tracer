@@ -1,0 +1,28 @@
+{
+    "id": "ev-invoke-agent-mcp",
+    "kind": "invoke_agent",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "coordination",
+        "title": "MCP: github/create_issue",
+        "body": "Used MCP tool github/create_issue",
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Observed directly by the Mcp PostToolUse hook.",
+            "agent_tracer.subtype.key": "mcp_call",
+            "agent_tracer.subtype.label": "MCP call",
+            "agent_tracer.subtype.group": "coordination",
+            "agent_tracer.tool.family": "coordination",
+            "agent_tracer.operation": "invoke",
+            "agent_tracer.entity.type": "mcp",
+            "agent_tracer.entity.name": "github/create_issue",
+            "agent_tracer.source_tool": "mcp__github__create_issue",
+            "activityType": "mcp_call",
+            "agent_tracer.mcp.server": "github",
+            "mcp.tool.name": "create_issue"
+        }
+    }
+}

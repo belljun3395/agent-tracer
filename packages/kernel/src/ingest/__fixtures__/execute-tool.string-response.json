@@ -1,0 +1,46 @@
+{
+    "id": "ev-execute-tool-string-response",
+    "kind": "execute_tool",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "implementation",
+        "title": "npm run lint",
+        "body": "npm run lint",
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Observed directly by the Bash PostToolUse hook.",
+            "agent_tracer.subtype.key": "run_lint",
+            "agent_tracer.subtype.label": "Run lint",
+            "agent_tracer.subtype.group": "execution",
+            "agent_tracer.tool.family": "terminal",
+            "agent_tracer.operation": "execute",
+            "agent_tracer.entity.type": "command",
+            "agent_tracer.entity.name": "npm",
+            "agent_tracer.source_tool": "Bash",
+            "gen_ai.tool.name": "Bash",
+            "agent_tracer.command": "npm run lint",
+            "commandAnalysis": {
+                "raw": "npm run lint",
+                "structure": "simple",
+                "overallEffect": "execute_check",
+                "confidence": "high",
+                "steps": [
+                    {
+                        "raw": "npm run lint",
+                        "commandName": "npm",
+                        "operation": "run_lint",
+                        "targets": [],
+                        "effect": "execute_check",
+                        "confidence": "high",
+                        "scriptName": "lint"
+                    }
+                ]
+            },
+            "stdout": "lint passed\n",
+            "stdoutBytes": 12
+        }
+    }
+}

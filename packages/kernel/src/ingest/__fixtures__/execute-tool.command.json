@@ -1,0 +1,48 @@
+{
+    "id": "ev-execute-tool-command",
+    "kind": "execute_tool",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "implementation",
+        "title": "run tests",
+        "body": "run tests\n\n$ npm test",
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Observed directly by the Bash PostToolUse hook.",
+            "agent_tracer.subtype.key": "run_test",
+            "agent_tracer.subtype.label": "Run test",
+            "agent_tracer.subtype.group": "execution",
+            "agent_tracer.tool.family": "terminal",
+            "agent_tracer.operation": "execute",
+            "agent_tracer.entity.type": "command",
+            "agent_tracer.entity.name": "npm",
+            "agent_tracer.source_tool": "Bash",
+            "gen_ai.tool.name": "Bash",
+            "agent_tracer.command": "npm test",
+            "commandAnalysis": {
+                "raw": "npm test",
+                "structure": "simple",
+                "overallEffect": "execute_check",
+                "confidence": "high",
+                "steps": [
+                    {
+                        "raw": "npm test",
+                        "commandName": "npm",
+                        "operation": "run_test",
+                        "targets": [],
+                        "effect": "execute_check",
+                        "confidence": "high",
+                        "scriptName": "test"
+                    }
+                ]
+            },
+            "description": "run tests",
+            "exitCode": 0,
+            "stdout": "ok",
+            "stdoutBytes": 2
+        }
+    }
+}

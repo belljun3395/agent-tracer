@@ -1,0 +1,21 @@
+{
+    "id": "ev-user-message",
+    "kind": "agent_tracer.user.message",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "user",
+        "title": "Fix the bug in Bash.ts",
+        "body": "Fix the bug in Bash.ts",
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Captured directly by the UserPromptSubmit hook.",
+            "messageId": "msg-1",
+            "captureMode": "raw",
+            "source": "claude-code",
+            "phase": "initial"
+        }
+    }
+}

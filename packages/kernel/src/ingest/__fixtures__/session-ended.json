@@ -1,0 +1,14 @@
+{
+    "id": "ev-session-ended",
+    "kind": "agent_tracer.session.ended",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "runtimeSource": "claude-code",
+        "runtimeSessionId": "session-1",
+        "summary": "Claude Code session ended (other)",
+        "completionReason": "runtime_terminated",
+        "completeTask": true
+    }
+}

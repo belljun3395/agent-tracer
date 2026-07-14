@@ -1,0 +1,13 @@
+{
+    "id": "ev-session-started",
+    "kind": "agent_tracer.session.started",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "runtimeSource": "claude-code",
+        "runtimeSessionId": "session-1",
+        "title": "Fix the bug in Bash.ts",
+        "workspacePath": "/repo"
+    }
+}

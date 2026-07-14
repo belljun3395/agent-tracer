@@ -1,0 +1,30 @@
+{
+    "id": "ev-execute-tool-failure",
+    "kind": "execute_tool",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "implementation",
+        "title": "Failed Bash",
+        "body": "Command failed: exit 127",
+        "toolName": "Bash",
+        "command": "rm -rf /nonexistent",
+        "metadata": {
+            "agent_tracer.subtype.key": "run_command",
+            "agent_tracer.subtype.label": "Run command",
+            "agent_tracer.subtype.group": "execution",
+            "agent_tracer.tool.family": "terminal",
+            "agent_tracer.operation": "execute",
+            "agent_tracer.entity.type": "command",
+            "agent_tracer.entity.name": "rm",
+            "agent_tracer.source_tool": "Bash",
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Observed directly by the PostToolUseFailure hook.",
+            "failed": true,
+            "error": "Command failed: exit 127",
+            "isInterrupt": false
+        }
+    }
+}

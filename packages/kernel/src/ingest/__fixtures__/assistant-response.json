@@ -1,0 +1,20 @@
+{
+    "id": "ev-assistant-response",
+    "kind": "agent_tracer.assistant.response",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "turnId": "turn-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "lane": "user",
+        "title": "I fixed the bug.",
+        "body": "I fixed the bug.",
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "Emitted by the Stop hook.",
+            "messageId": "msg-2",
+            "source": "claude-code",
+            "gen_ai.response.finish_reasons": "end_turn"
+        }
+    }
+}

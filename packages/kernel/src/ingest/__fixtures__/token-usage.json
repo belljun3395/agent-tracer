@@ -1,0 +1,21 @@
+{
+    "id": "ev-token-usage",
+    "kind": "gen_ai.client.inference.operation.details",
+    "taskId": "task-1",
+    "sessionId": "session-1",
+    "occurredAt": "2026-07-11T00:00:00.000Z",
+    "payload": {
+        "title": "Token usage",
+        "lane": "telemetry",
+        "inputTokens": 120,
+        "outputTokens": 45,
+        "cacheReadTokens": 10,
+        "cacheCreateTokens": 0,
+        "model": "claude-opus-4",
+        "promptId": "turn-1",
+        "metadata": {
+            "agent_tracer.evidence_level": "proven",
+            "agent_tracer.evidence_reason": "token usage"
+        }
+    }
+}
