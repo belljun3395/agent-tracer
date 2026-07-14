@@ -12,14 +12,17 @@ export function selectBlockingVerdicts(verdicts: readonly GuardrailVerdict[]): G
 /** 턴 차단 시 에이전트 대화에 주입하는 사유 문자열이다. */
 export function formatBlockReason(verdicts: readonly GuardrailVerdict[]): string {
     const lines = verdicts.map((verdict, index) => {
-        const expected = verdict.expectedPattern !== undefined ? ` — 기대 행동: ${verdict.expectedPattern}` : "";
-        const detail = `${expected} — 도구 호출 ${verdict.actualToolCallCount}건에서 이행 확인 안 됨`;
-        return `${index + 1}. '${verdict.ruleName}'${detail}`;
+        const expected = verdict.expectedPattern !== undefined ? ` — expected: ${verdict.expectedPattern}` : "";
+        const seen = `no matching call among the ${verdict.actualToolCallCount} recorded since the request`;
+        return `${index + 1}. '${verdict.ruleName}'${expected} — ${seen}`;
     });
+    const plural = verdicts.length === 1 ? "rule" : "rules";
     return [
-        `사용자의 요구에서 나온 규칙 ${verdicts.length}건이 아직 이행되지 않았습니다:`,
+        `You cannot end the turn yet: ${verdicts.length} ${plural} derived from the user's request are still unfulfilled.`,
         ...lines,
-        "미이행 기대 행동을 지금 수행한 뒤 턴을 마치세요.",
+        "",
+        "Perform the missing actions now, then finish. Claiming you already did them is not evidence — only the recorded tool call is.",
+        "If a rule cannot be fulfilled, do the closest thing the user actually asked for and say why in your reply, written in the user's language.",
     ].join("\n");
 }
 
