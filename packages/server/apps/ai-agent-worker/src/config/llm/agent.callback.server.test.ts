@@ -1,18 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AgentCallbackServer } from "./agent.callback.server.js";
 
 const PORT = 18_812;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 describe("AgentCallbackServer", () => {
-    let server: AgentCallbackServer;
+    // fetch는 응답을 받은 소켓을 keep-alive 풀에 남긴다. 테스트마다 서버를 닫고 다시 열면
+    // 그 소켓이 닫힌 서버를 가리킨 채 재사용되어 요청이 소켓 오류로 끊긴다.
+    const server = new AgentCallbackServer(PORT, BASE, "worker-1");
 
-    beforeEach(async () => {
-        server = new AgentCallbackServer(PORT, BASE, "worker-1");
+    beforeAll(async () => {
         await server.start();
     });
 
-    afterEach(async () => {
+    afterAll(async () => {
         await server.close();
     });
 
