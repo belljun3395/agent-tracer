@@ -376,7 +376,7 @@ import * as path3 from "node:path";
 import * as fs4 from "node:fs";
 import * as path2 from "node:path";
 import { fileURLToPath } from "node:url";
-var ROOT_MANIFESTS = ["package.json", ".claude-plugin/plugin.json"];
+var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
   return ROOT_MANIFESTS.some((manifest) => fs4.existsSync(path2.join(dir, manifest)));
 }
@@ -3714,6 +3714,31 @@ function onLifecycleEvent(hook, events) {
   return hook.appendEvents.execute(events);
 }
 
+// src/domain/ingest/model/guardrail.event.model.ts
+function turnBlockedEvent(target, input) {
+  const expected = input.expectedPattern !== void 0 ? `Expected: ${input.expectedPattern}. ` : "";
+  const metadata = {
+    ...provenEvidence("Emitted by the Stop hook when the guardrail halted the turn."),
+    ruleStatus: "unfulfilled",
+    ruleOutcome: "turn_blocked",
+    rulePolicy: "guardrail",
+    ruleId: input.ruleId,
+    ruleSeverity: input.severity,
+    ...input.expectedPattern !== void 0 ? { expectedPattern: input.expectedPattern } : {},
+    actualToolCallCount: input.actualToolCallCount
+  };
+  return {
+    kind: KIND.ruleLogged,
+    taskId: target.taskId,
+    sessionId: target.sessionId,
+    ...turnOf(target),
+    lane: LANE.rule,
+    title: `Turn blocked: ${input.ruleName}`,
+    body: `${expected}No matching call among the ${input.actualToolCallCount} recorded since the request.`,
+    metadata
+  };
+}
+
 // src/domain/turn/inbound/turn.hook.ts
 function onTurnClose(hook, input) {
   return hook.closeTurn.execute(input);
@@ -3734,6 +3759,16 @@ await runHook("Stop", {
         payload.lastAssistantMessage
       );
       if (blocking.length > 0) {
+        await onLifecycleEvent(
+          claudeRuntime.ingest,
+          blocking.map((verdict) => turnBlockedEvent(target, {
+            ruleId: verdict.ruleId,
+            ruleName: verdict.ruleName,
+            severity: verdict.severity,
+            ...verdict.expectedPattern !== void 0 ? { expectedPattern: verdict.expectedPattern } : {},
+            actualToolCallCount: verdict.actualToolCallCount
+          }))
+        );
         blockTurn(blocking);
         return;
       }

@@ -292,7 +292,7 @@ import * as path3 from "node:path";
 import * as fs4 from "node:fs";
 import * as path2 from "node:path";
 import { fileURLToPath } from "node:url";
-var ROOT_MANIFESTS = ["package.json", ".claude-plugin/plugin.json"];
+var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
   return ROOT_MANIFESTS.some((manifest) => fs4.existsSync(path2.join(dir, manifest)));
 }

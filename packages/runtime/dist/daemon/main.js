@@ -32121,7 +32121,7 @@ var DAEMON_HEALTH_LAST_DEAD_REASONS_MAX = 10;
 import * as fs10 from "node:fs";
 import * as path5 from "node:path";
 import { fileURLToPath } from "node:url";
-var ROOT_MANIFESTS = ["package.json", ".claude-plugin/plugin.json"];
+var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
   return ROOT_MANIFESTS.some((manifest) => fs10.existsSync(path5.join(dir, manifest)));
 }
