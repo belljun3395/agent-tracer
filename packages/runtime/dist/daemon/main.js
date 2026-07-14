@@ -5074,7 +5074,7 @@ function aJ($, Q, J) {
 function xs() {
   return process.env.CLAUDE_CODE_DIAGNOSTICS_FILE;
 }
-function fs4($) {
+function fs5($) {
   let { buffer: Q, bytesRead: J } = m$().readSync($, { length: 4096 });
   if (J === 0) return "utf8";
   if (J >= 2) {
@@ -5093,7 +5093,7 @@ function ys($) {
 function gs($) {
   let Q = m$(), { resolvedPath: J, isSymlink: Y } = N5(Q, $);
   if (Y) X$(`Reading through symlink: ${$} -> ${J}`);
-  let X = fs4(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
+  let X = fs5(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
   return { content: W.replaceAll(`\r
 `, `
 `), encoding: X, lineEndings: G };
@@ -27997,18 +27997,13 @@ var init_rulegen_tool_schema = __esm({
   }
 });
 
-// src/config/env.ts
-function resolveMonitorBaseUrl(env = process.env) {
-  const explicit = (env.MONITOR_BASE_URL ?? "").trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  const port = parseInt(env.MONITOR_PORT ?? "", 10) || 3847;
-  const host = (env.MONITOR_PUBLIC_HOST ?? "127.0.0.1").trim() || "127.0.0.1";
-  return `http://${host}:${port}`;
-}
-function monitorUserHeader(env = process.env) {
-  const email = (env.MONITOR_USER_EMAIL ?? "").trim();
-  return email ? { "x-monitor-user": email } : {};
-}
+// src/config/monitor.identity.ts
+import * as fs2 from "node:fs";
+
+// ../kernel/src/user/user.header.const.ts
+var MONITOR_USER_HEADER = "x-monitor-user";
+var DEFAULT_USER_ID = "local";
+var MONITOR_LEASE_OWNER_HEADER = "x-monitor-lease-owner";
 
 // src/config/home.paths.ts
 import * as fs from "node:fs";
@@ -28028,6 +28023,7 @@ function resolveAgentTracerPaths(env = process.env) {
     deadPath: path.join(spoolDir, "dead.jsonl"),
     cacheDir,
     recipesCachePath: path.join(cacheDir, "recipes.json"),
+    configPath: path.join(homeDir, "config.json"),
     bindingsPath: path.join(homeDir, "bindings.json"),
     bindingsLockPath: path.join(homeDir, "bindings.lock"),
     socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
@@ -28055,8 +28051,59 @@ function ensureCacheDir(paths2 = resolveAgentTracerPaths()) {
   mkdirSecure(paths2.cacheDir);
 }
 
+// src/support/json.ts
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// src/config/monitor.identity.ts
+var DEFAULT_PORT = 3847;
+var DEFAULT_HOST = "127.0.0.1";
+function readMonitorConfigFile(paths2 = resolveAgentTracerPaths()) {
+  try {
+    const parsed = JSON.parse(fs2.readFileSync(paths2.configPath, "utf8"));
+    if (!isRecord(parsed)) return {};
+    const userId = trimmed(parsed["userId"]);
+    const baseUrl = trimmed(parsed["baseUrl"]);
+    return { ...userId ? { userId } : {}, ...baseUrl ? { baseUrl } : {} };
+  } catch {
+    return {};
+  }
+}
+function trimmed(value) {
+  if (typeof value !== "string") return void 0;
+  const next = value.trim();
+  return next.length > 0 ? next : void 0;
+}
+function envBaseUrl(env) {
+  const explicit = trimmed(env.MONITOR_BASE_URL);
+  if (explicit) return explicit;
+  const port = trimmed(env.MONITOR_PORT);
+  const host = trimmed(env.MONITOR_PUBLIC_HOST);
+  if (!port && !host) return void 0;
+  return `http://${host ?? DEFAULT_HOST}:${parseInt(port ?? "", 10) || DEFAULT_PORT}`;
+}
+function normalizeBaseUrl(value) {
+  return value.replace(/\/$/, "");
+}
+function resolveMonitorIdentity(env = process.env, config = readMonitorConfigFile()) {
+  const envUser = trimmed(env.MONITOR_USER_EMAIL);
+  const fromEnv = envBaseUrl(env);
+  const userId = envUser ?? config.userId ?? DEFAULT_USER_ID;
+  const baseUrl = fromEnv ?? config.baseUrl ?? `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
+  return {
+    userId,
+    baseUrl: normalizeBaseUrl(baseUrl),
+    userIdOrigin: envUser ? "env" : config.userId ? "file" : "default",
+    baseUrlOrigin: fromEnv ? "env" : config.baseUrl ? "file" : "default"
+  };
+}
+function monitorUserHeaders(identity) {
+  return identity.userId === DEFAULT_USER_ID ? {} : { [MONITOR_USER_HEADER]: identity.userId };
+}
+
 // src/config/spool.ts
-import * as fs2 from "node:fs";
+import * as fs3 from "node:fs";
 import * as path2 from "node:path";
 
 // src/support/ulid.ts
@@ -28102,19 +28149,19 @@ function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId =
 `).join("");
   const tmpPath = path2.join(paths2.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
   const finalPath = path2.join(paths2.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
-  const fd = fs2.openSync(tmpPath, "w");
+  const fd = fs3.openSync(tmpPath, "w");
   try {
-    fs2.writeSync(fd, payload);
-    fs2.fsyncSync(fd);
+    fs3.writeSync(fd, payload);
+    fs3.fsyncSync(fd);
   } finally {
-    fs2.closeSync(fd);
+    fs3.closeSync(fd);
   }
-  fs2.renameSync(tmpPath, finalPath);
+  fs3.renameSync(tmpPath, finalPath);
 }
 function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
   let entries;
   try {
-    entries = fs2.readdirSync(paths2.spoolDir);
+    entries = fs3.readdirSync(paths2.spoolDir);
   } catch {
     return [];
   }
@@ -28123,7 +28170,7 @@ function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
   for (const name of names) {
     const full = path2.join(paths2.spoolDir, name);
     try {
-      segments.push({ path: full, name, size: fs2.statSync(full).size });
+      segments.push({ path: full, name, size: fs3.statSync(full).size });
     } catch {
       continue;
     }
@@ -28136,7 +28183,7 @@ function spoolBacklogBytes(paths2 = resolveAgentTracerPaths()) {
 function readSpoolSegment(segmentPath) {
   let content;
   try {
-    content = fs2.readFileSync(segmentPath, "utf8");
+    content = fs3.readFileSync(segmentPath, "utf8");
   } catch {
     return [];
   }
@@ -28144,7 +28191,7 @@ function readSpoolSegment(segmentPath) {
 }
 function removeSpoolSegment(segmentPath) {
   try {
-    fs2.unlinkSync(segmentPath);
+    fs3.unlinkSync(segmentPath);
   } catch {
     return;
   }
@@ -28152,7 +28199,7 @@ function removeSpoolSegment(segmentPath) {
 function appendDeadLetter(lines, paths2 = resolveAgentTracerPaths()) {
   if (lines.length === 0) return;
   ensureSpoolDir(paths2);
-  fs2.appendFileSync(paths2.deadPath, lines.map((line) => `${line}
+  fs3.appendFileSync(paths2.deadPath, lines.map((line) => `${line}
 `).join(""));
 }
 function enforceSpoolSizeCap(paths2 = resolveAgentTracerPaths()) {
@@ -28502,13 +28549,13 @@ function isRuleExpectedAction(value) {
   return RULE_EXPECTED_ACTION_SET.has(value);
 }
 function canonicalizeToolName(tool) {
-  const trimmed = tool.trim();
-  return TOOL_NAME_ALIASES.get(trimmed.toLowerCase()) ?? trimmed;
+  const trimmed2 = tool.trim();
+  return TOOL_NAME_ALIASES.get(trimmed2.toLowerCase()) ?? trimmed2;
 }
 function normalizeRuleExpectedAction(value) {
-  const trimmed = value.trim();
-  if (isRuleExpectedAction(trimmed)) return trimmed;
-  return ACTION_BY_TOOL.get(canonicalizeToolName(trimmed)) ?? null;
+  const trimmed2 = value.trim();
+  if (isRuleExpectedAction(trimmed2)) return trimmed2;
+  return ACTION_BY_TOOL.get(canonicalizeToolName(trimmed2)) ?? null;
 }
 
 // ../kernel/src/rule/evaluation/rule.evaluation.context.ts
@@ -28805,10 +28852,11 @@ var RefreshRulesUsecase = class {
   }
 };
 
-// src/support/json.ts
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+// ../kernel/src/api/rule.query.const.ts
+var RULES_PATH = "/api/v1/rules";
+var RULES_ALL_FLAG = "all";
+var RULES_ALL_FLAG_VALUE = "true";
+var RULES_ALL_PATH = `${RULES_PATH}?${RULES_ALL_FLAG}=${RULES_ALL_FLAG_VALUE}`;
 
 // src/config/http.ts
 var DEFAULT_TIMEOUT_MS = 5e3;
@@ -28831,7 +28879,6 @@ async function postJson(url, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
 }
 
 // src/domain/guardrail/adapter/http.rule.source.adapter.ts
-var RULES_ENDPOINT = "/api/v1/rules?scope=all";
 var FETCH_TIMEOUT_MS = 3e3;
 var HttpRuleSourceAdapter = class {
   constructor(baseUrl, headers) {
@@ -28842,7 +28889,7 @@ var HttpRuleSourceAdapter = class {
   headers;
   async fetchAll() {
     const body = await getJson(
-      `${this.baseUrl}${RULES_ENDPOINT}`,
+      `${this.baseUrl}${RULES_ALL_PATH}`,
       this.headers,
       FETCH_TIMEOUT_MS
     );
@@ -28851,7 +28898,7 @@ var HttpRuleSourceAdapter = class {
   }
   async recordNudge(ruleId) {
     await postJson(
-      `${this.baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}/nudge`,
+      `${this.baseUrl}${RULES_PATH}/${encodeURIComponent(ruleId)}/nudge`,
       this.headers,
       {}
     );
@@ -29085,7 +29132,7 @@ var ComputeHintsUsecase = class {
 };
 
 // src/domain/recipe/adapter/http.recipe.cache.adapter.ts
-import * as fs3 from "node:fs";
+import * as fs4 from "node:fs";
 var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
 var REQUEST_TIMEOUT_MS = 5e3;
 var HttpRecipeCacheAdapter = class {
@@ -29099,7 +29146,7 @@ var HttpRecipeCacheAdapter = class {
   paths;
   load() {
     try {
-      return extractRecipes(JSON.parse(fs3.readFileSync(this.paths.recipesCachePath, "utf8")));
+      return extractRecipes(JSON.parse(fs4.readFileSync(this.paths.recipesCachePath, "utf8")));
     } catch {
       return [];
     }
@@ -29114,8 +29161,8 @@ var HttpRecipeCacheAdapter = class {
     const recipes = extractRecipes(text ? JSON.parse(text) : []);
     ensureCacheDir(this.paths);
     const tmp = `${this.paths.recipesCachePath}.tmp`;
-    fs3.writeFileSync(tmp, JSON.stringify({ recipes }));
-    fs3.renameSync(tmp, this.paths.recipesCachePath);
+    fs4.writeFileSync(tmp, JSON.stringify({ recipes }));
+    fs4.renameSync(tmp, this.paths.recipesCachePath);
     return true;
   }
 };
@@ -29167,9 +29214,9 @@ var RULE_GENERATION_FOCUS = {
 var RULE_GENERATION_INTENT_MAX_LENGTH = 500;
 function normalizeRuleGenerationIntent(value) {
   if (typeof value !== "string") return void 0;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return void 0;
-  return trimmed.slice(0, RULE_GENERATION_INTENT_MAX_LENGTH);
+  const trimmed2 = value.trim();
+  if (trimmed2.length === 0) return void 0;
+  return trimmed2.slice(0, RULE_GENERATION_INTENT_MAX_LENGTH);
 }
 var RECIPE_SCAN_TRIGGER = {
   dashboard: "dashboard",
@@ -29353,10 +29400,10 @@ function hasRecipeScanCommand(prompt) {
   return RECIPE_COMMAND.test(prompt.trimStart());
 }
 function readRecipeScanIntent(prompt) {
-  const trimmed = prompt.trimStart();
-  const command = RECIPE_COMMAND.exec(trimmed);
+  const trimmed2 = prompt.trimStart();
+  const command = RECIPE_COMMAND.exec(trimmed2);
   if (!command) return void 0;
-  const intent = trimmed.slice(command[0].length).trim();
+  const intent = trimmed2.slice(command[0].length).trim();
   return intent.length > 0 ? intent : void 0;
 }
 
@@ -29633,9 +29680,6 @@ var HttpRuleEvidenceAdapter = class {
   }
 };
 
-// ../kernel/src/user/user.header.const.ts
-var MONITOR_LEASE_OWNER_HEADER = "x-monitor-lease-owner";
-
 // src/domain/rulegen/adapter/http.rule.job.adapter.ts
 var ACTIVE_STATUSES2 = /* @__PURE__ */ new Set([JOB_STATUS.pending, JOB_STATUS.running]);
 var HELD_LEASE = { leaseHeld: true, canceled: false };
@@ -29744,9 +29788,9 @@ var RULE_GENERATION_MAX_RULES = 2;
 var MAX_RULES_LIMIT = 20;
 var RULE_COMMAND = /^(?:\/(?:[\w-]+:)?rule|\$rule)(?:\s|$)/i;
 function readRuleRequest(prompt) {
-  const trimmed = prompt.trimStart();
-  if (!RULE_COMMAND.test(trimmed)) return "";
-  return trimmed.replace(RULE_COMMAND, "").trim();
+  const trimmed2 = prompt.trimStart();
+  if (!RULE_COMMAND.test(trimmed2)) return "";
+  return trimmed2.replace(RULE_COMMAND, "").trim();
 }
 function parseMaxRulesPerTask(raw) {
   const parsed = Number(raw);
@@ -30415,8 +30459,9 @@ var RunRuleJobUsecase = class {
 
 // src/daemon/composition.ts
 function composeDaemonHooks(leaseOwner) {
-  const baseUrl = resolveMonitorBaseUrl();
-  const headers = monitorUserHeader();
+  const identity = resolveMonitorIdentity();
+  const baseUrl = identity.baseUrl;
+  const headers = monitorUserHeaders(identity);
   const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
   const guardrail = {
     evaluateTurn: new EvaluateTurnUsecase(ruleSource),
@@ -30472,13 +30517,13 @@ function parseRetryAfterMs(header, maxMs) {
 }
 
 // src/daemon/control/control.state.ts
-import * as fs6 from "node:fs";
+import * as fs7 from "node:fs";
 
 // src/config/dead.letter.ts
-import * as fs5 from "node:fs";
+import * as fs6 from "node:fs";
 function readLines(paths2) {
   try {
-    return fs5.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    return fs6.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   } catch {
     return [];
   }
@@ -30500,13 +30545,13 @@ function parseEntry(line) {
 }
 function deadLetterBytes(paths2) {
   try {
-    return fs5.statSync(paths2.deadPath).size;
+    return fs6.statSync(paths2.deadPath).size;
   } catch {
     return 0;
   }
 }
 function writeDeadLetter(lines, paths2) {
-  fs5.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
+  fs6.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
 `).join(""));
 }
 function readDeadLetter(limit, paths2 = resolveAgentTracerPaths()) {
@@ -30577,7 +30622,7 @@ function resolvePipelineStatus(state, pendingSegments) {
 }
 function fileBytes(filePath) {
   try {
-    return fs6.statSync(filePath).size;
+    return fs7.statSync(filePath).size;
   } catch {
     return 0;
   }
@@ -30636,7 +30681,11 @@ function buildControlSnapshot(state, paths2 = resolveAgentTracerPaths(), now = D
       uptimeMs: now - state.startedAt,
       entryPath: state.entryPath,
       socketPath: paths2.socketPath,
-      baseUrl: state.baseUrl,
+      configPath: paths2.configPath,
+      baseUrl: state.identity.baseUrl,
+      baseUrlOrigin: state.identity.baseUrlOrigin,
+      userId: state.identity.userId,
+      userIdOrigin: state.identity.userIdOrigin,
       activeConnections: state.activeConnections,
       idleInMs: Math.max(0, state.idleShutdownMs - (now - state.lastActivityAt)),
       swallowedErrors: state.swallowedErrors
@@ -30715,20 +30764,20 @@ function buildInvocation(runtimeSource, runtimeSessionId) {
   return `claude --resume ${shellQuote(runtimeSessionId)}`;
 }
 function normalizeRequired(field, value) {
-  const trimmed = value.trim();
-  if (trimmed.length === 0 || hasControlCharacter(trimmed)) {
+  const trimmed2 = value.trim();
+  if (trimmed2.length === 0 || hasControlCharacter(trimmed2)) {
     throw new ResumeCommandError(`${field} is invalid`, "invalid_request");
   }
-  return trimmed;
+  return trimmed2;
 }
 function normalizeWorkspacePath(value) {
   if (value === void 0) return void 0;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return void 0;
-  if (hasControlCharacter(trimmed) || !path4.isAbsolute(trimmed)) {
+  const trimmed2 = value.trim();
+  if (trimmed2.length === 0) return void 0;
+  if (hasControlCharacter(trimmed2) || !path4.isAbsolute(trimmed2)) {
     throw new ResumeCommandError("workspacePath is invalid", "invalid_request");
   }
-  return trimmed;
+  return trimmed2;
 }
 function hasControlCharacter(value) {
   return value.includes("\0") || /[\r\n]/.test(value);
@@ -30894,8 +30943,8 @@ async function readBody(request) {
 function readString3(record, key) {
   const value = record[key];
   if (typeof value !== "string") return void 0;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : void 0;
+  const trimmed2 = value.trim();
+  return trimmed2.length > 0 ? trimmed2 : void 0;
 }
 function normalizeError(error2) {
   if (error2 instanceof ResumeLaunchError) return error2;
@@ -30939,7 +30988,8 @@ function renderStatus(s) {
     card("Backoff", t.backoffMs ? dur(t.backoffMs) : "none",
       t.retryStatusSince ? "stuck since " + clock(t.retryStatusSince) : "", t.backoffMs ? "warn" : ""),
     card("Uptime", dur(d.uptimeMs), "pid " + d.pid),
-    card("Ingest endpoint", d.baseUrl, "", "", true),
+    card("Ingest endpoint", d.baseUrl, "from " + d.baseUrlOrigin, "", true),
+    card("Identity", d.userId, "from " + d.userIdOrigin + " — " + d.configPath, "", true),
     card("Daemon entry", d.entryPath, "the path proves which build is actually running", "", true),
     card("Swallowed errors", d.swallowedErrors, d.swallowedErrors ? "silently ignored failures" : "",
       d.swallowedErrors ? "warn" : ""),
@@ -31544,7 +31594,7 @@ function writeJson2(response, status, body) {
 }
 
 // src/daemon/control/resume.token.ts
-import * as fs7 from "node:fs";
+import * as fs8 from "node:fs";
 import { randomBytes as randomBytes2 } from "node:crypto";
 var TOKEN_FILE_MODE = 384;
 var TOKEN_BYTES = 24;
@@ -31552,16 +31602,16 @@ function ensureResumeToken(paths2) {
   const existing = readExistingToken(paths2.resumeTokenPath);
   if (existing !== null) return existing;
   const token = randomBytes2(TOKEN_BYTES).toString("base64url");
-  fs7.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
+  fs8.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
   try {
-    fs7.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
+    fs8.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
   } catch {
   }
   return token;
 }
 function readExistingToken(tokenPath) {
   try {
-    const content = fs7.readFileSync(tokenPath, "utf8").trim();
+    const content = fs8.readFileSync(tokenPath, "utf8").trim();
     return content.length > 0 ? content : null;
   } catch {
     return null;
@@ -31576,10 +31626,11 @@ var SEND_TIMEOUT_MS = 5e3;
 var DAEMON_HEALTH_ENDPOINT = "/api/v1/daemon-health";
 async function sendIngestBatch(lines, daemonVersion) {
   const body = `{"contractVersion":${JSON.stringify(daemonVersion)},"events":[${lines.join(",")}]}`;
+  const identity = resolveMonitorIdentity();
   try {
-    const response = await fetch(`${resolveMonitorBaseUrl()}${INGEST_EVENTS_ENDPOINT}`, {
+    const response = await fetch(`${identity.baseUrl}${INGEST_EVENTS_ENDPOINT}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...monitorUserHeader() },
+      headers: { "Content-Type": "application/json", ...monitorUserHeaders(identity) },
       body,
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS)
     });
@@ -31604,10 +31655,11 @@ async function sendIngestBatch(lines, daemonVersion) {
   }
 }
 async function sendDaemonHealth(payload) {
+  const identity = resolveMonitorIdentity();
   try {
-    await fetch(`${resolveMonitorBaseUrl()}${DAEMON_HEALTH_ENDPOINT}`, {
+    await fetch(`${identity.baseUrl}${DAEMON_HEALTH_ENDPOINT}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...monitorUserHeader() },
+      headers: { "Content-Type": "application/json", ...monitorUserHeaders(identity) },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS)
     });
@@ -31662,11 +31714,11 @@ function eventIdOfSpoolLine(line) {
 }
 
 // src/daemon/lifecycle/daemon.pid.ts
-import * as fs8 from "node:fs";
+import * as fs9 from "node:fs";
 var PID_FILE_MODE = 384;
 function writeDaemonPid(paths2, pid = process.pid) {
   try {
-    fs8.writeFileSync(paths2.pidPath, `${pid}
+    fs9.writeFileSync(paths2.pidPath, `${pid}
 `, { mode: PID_FILE_MODE });
   } catch {
     return;
@@ -31678,7 +31730,7 @@ function ownsDaemonPid(paths2) {
 function removeDaemonPid(paths2) {
   if (!ownsDaemonPid(paths2)) return;
   try {
-    fs8.unlinkSync(paths2.pidPath);
+    fs9.unlinkSync(paths2.pidPath);
   } catch {
     return;
   }
@@ -31686,7 +31738,7 @@ function removeDaemonPid(paths2) {
 function readPidFile(paths2) {
   let raw;
   try {
-    raw = fs8.readFileSync(paths2.pidPath, "utf8");
+    raw = fs9.readFileSync(paths2.pidPath, "utf8");
   } catch {
     return void 0;
   }
@@ -32066,12 +32118,12 @@ function send(socket, response) {
 var DAEMON_HEALTH_LAST_DEAD_REASONS_MAX = 10;
 
 // src/config/runtime.root.ts
-import * as fs9 from "node:fs";
+import * as fs10 from "node:fs";
 import * as path5 from "node:path";
 import { fileURLToPath } from "node:url";
 var ROOT_MANIFESTS = ["package.json", ".claude-plugin/plugin.json"];
 function manifestDir(dir) {
-  return ROOT_MANIFESTS.some((manifest) => fs9.existsSync(path5.join(dir, manifest)));
+  return ROOT_MANIFESTS.some((manifest) => fs10.existsSync(path5.join(dir, manifest)));
 }
 function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))) {
   const start = path5.resolve(from);
@@ -32086,7 +32138,7 @@ function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))
 function readRuntimeManifestVersion(root = resolveRuntimeRoot()) {
   for (const manifest of ROOT_MANIFESTS) {
     try {
-      const parsed = JSON.parse(fs9.readFileSync(path5.join(root, manifest), "utf8"));
+      const parsed = JSON.parse(fs10.readFileSync(path5.join(root, manifest), "utf8"));
       const version2 = isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"].trim() : "";
       if (version2) return version2;
     } catch {
@@ -32130,7 +32182,7 @@ var DaemonHealthTracker = class {
 };
 
 // src/daemon/lifecycle/servers.ts
-import * as fs10 from "node:fs";
+import * as fs11 from "node:fs";
 import * as http from "node:http";
 import * as net2 from "node:net";
 
@@ -32171,7 +32223,7 @@ function createDaemonServers(options) {
   };
   socketServer.on("listening", () => {
     try {
-      fs10.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
+      fs11.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
     } catch {
     }
     writeDaemonPid(options.paths);
@@ -32226,7 +32278,7 @@ async function reclaimSocket(options, listenOnSocket) {
     process.exit(0);
   }
   try {
-    fs10.unlinkSync(options.paths.socketPath);
+    fs11.unlinkSync(options.paths.socketPath);
   } catch {
   }
   listenOnSocket();
@@ -32557,7 +32609,7 @@ function currentState() {
     pid: process.pid,
     startedAt,
     entryPath: process.argv[1] ?? "unknown",
-    baseUrl: resolveMonitorBaseUrl(),
+    identity: resolveMonitorIdentity(),
     activeConnections,
     lastActivityAt,
     idleShutdownMs: IDLE_SHUTDOWN_MS,
@@ -32584,7 +32636,7 @@ function currentState() {
 function currentDelivery() {
   return {
     reachable: isServerReachable(spoolSender.state().lastSendOutcome),
-    baseUrl: resolveMonitorBaseUrl(),
+    baseUrl: resolveMonitorIdentity().baseUrl,
     backlogBytes: listSpoolSegments(paths).reduce((total, segment) => total + segment.size, 0)
   };
 }

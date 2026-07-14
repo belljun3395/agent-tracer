@@ -83,17 +83,109 @@ function readSetup(raw) {
 // src/agent/claude-code/runtime.ts
 import * as path10 from "node:path";
 
+// src/config/monitor.identity.ts
+import * as fs2 from "node:fs";
+
+// ../kernel/src/user/user.header.const.ts
+var MONITOR_USER_HEADER = "x-monitor-user";
+var DEFAULT_USER_ID = "local";
+
+// src/config/home.paths.ts
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+var HOME_DIRNAME = ".agent-tracer";
+var HOME_MODE = 448;
+function resolveAgentTracerPaths(env = process.env) {
+  const home = env.HOME && env.HOME.trim() ? env.HOME : os.homedir();
+  const homeDir = path.join(home, HOME_DIRNAME);
+  const spoolDir = path.join(homeDir, "spool");
+  const cacheDir = path.join(homeDir, "cache");
+  const explicitSocket = (env.AGENT_TRACER_DAEMON_SOCKET ?? "").trim();
+  return {
+    homeDir,
+    spoolDir,
+    deadPath: path.join(spoolDir, "dead.jsonl"),
+    cacheDir,
+    recipesCachePath: path.join(cacheDir, "recipes.json"),
+    configPath: path.join(homeDir, "config.json"),
+    bindingsPath: path.join(homeDir, "bindings.json"),
+    bindingsLockPath: path.join(homeDir, "bindings.lock"),
+    socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
+    logPath: path.join(homeDir, "daemon.log"),
+    resumeTokenPath: path.join(homeDir, "resume.token"),
+    pidPath: path.join(homeDir, "daemon.pid")
+  };
+}
+function mkdirSecure(dir) {
+  fs.mkdirSync(dir, { recursive: true, mode: HOME_MODE });
+  try {
+    fs.chmodSync(dir, HOME_MODE);
+  } catch {
+  }
+}
+function ensureAgentTracerHome(paths = resolveAgentTracerPaths()) {
+  mkdirSecure(paths.homeDir);
+}
+function ensureSpoolDir(paths = resolveAgentTracerPaths()) {
+  mkdirSecure(paths.homeDir);
+  mkdirSecure(paths.spoolDir);
+}
+function ensureCacheDir(paths = resolveAgentTracerPaths()) {
+  mkdirSecure(paths.homeDir);
+  mkdirSecure(paths.cacheDir);
+}
+
+// src/config/monitor.identity.ts
+var DEFAULT_PORT = 3847;
+var DEFAULT_HOST = "127.0.0.1";
+function readMonitorConfigFile(paths = resolveAgentTracerPaths()) {
+  try {
+    const parsed = JSON.parse(fs2.readFileSync(paths.configPath, "utf8"));
+    if (!isRecord(parsed)) return {};
+    const userId = trimmed(parsed["userId"]);
+    const baseUrl = trimmed(parsed["baseUrl"]);
+    return { ...userId ? { userId } : {}, ...baseUrl ? { baseUrl } : {} };
+  } catch {
+    return {};
+  }
+}
+function trimmed(value) {
+  if (typeof value !== "string") return void 0;
+  const next = value.trim();
+  return next.length > 0 ? next : void 0;
+}
+function envBaseUrl(env) {
+  const explicit = trimmed(env.MONITOR_BASE_URL);
+  if (explicit) return explicit;
+  const port = trimmed(env.MONITOR_PORT);
+  const host = trimmed(env.MONITOR_PUBLIC_HOST);
+  if (!port && !host) return void 0;
+  return `http://${host ?? DEFAULT_HOST}:${parseInt(port ?? "", 10) || DEFAULT_PORT}`;
+}
+function normalizeBaseUrl(value) {
+  return value.replace(/\/$/, "");
+}
+function resolveMonitorIdentity(env = process.env, config = readMonitorConfigFile()) {
+  const envUser = trimmed(env.MONITOR_USER_EMAIL);
+  const fromEnv = envBaseUrl(env);
+  const userId = envUser ?? config.userId ?? DEFAULT_USER_ID;
+  const baseUrl = fromEnv ?? config.baseUrl ?? `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
+  return {
+    userId,
+    baseUrl: normalizeBaseUrl(baseUrl),
+    userIdOrigin: envUser ? "env" : config.userId ? "file" : "default",
+    baseUrlOrigin: fromEnv ? "env" : config.baseUrl ? "file" : "default"
+  };
+}
+function monitorUserHeaders(identity) {
+  return identity.userId === DEFAULT_USER_ID ? {} : { [MONITOR_USER_HEADER]: identity.userId };
+}
+
 // src/config/env.ts
 var CLAUDE_RUNTIME_SOURCE = "claude-plugin";
 function resolveProjectDir(env = process.env) {
   return env.CLAUDE_PROJECT_DIR || process.cwd();
-}
-function resolveMonitorBaseUrl(env = process.env) {
-  const explicit = (env.MONITOR_BASE_URL ?? "").trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  const port = parseInt(env.MONITOR_PORT ?? "", 10) || 3847;
-  const host = (env.MONITOR_PUBLIC_HOST ?? "127.0.0.1").trim() || "127.0.0.1";
-  return `http://${host}:${port}`;
 }
 function resolveMonitorTransportConfig(env = process.env) {
   const taskIdOverride = (env.MONITOR_TASK_ID ?? "").trim();
@@ -101,22 +193,18 @@ function resolveMonitorTransportConfig(env = process.env) {
   const rawOrigin = (env.MONITOR_TASK_ORIGIN ?? "").trim();
   const taskOriginOverride = rawOrigin === "user" || rawOrigin === "server-sdk" ? rawOrigin : void 0;
   return {
-    baseUrl: resolveMonitorBaseUrl(env),
+    baseUrl: resolveMonitorIdentity(env).baseUrl,
     taskIdOverride: taskIdOverride || void 0,
     taskTitleOverride: taskTitleOverride || void 0,
     taskOriginOverride
   };
-}
-function monitorUserHeader(env = process.env) {
-  const email = (env.MONITOR_USER_EMAIL ?? "").trim();
-  return email ? { "x-monitor-user": email } : {};
 }
 function isVerboseLogging(env = process.env) {
   return env.NODE_ENV === "development";
 }
 
 // src/config/hook.log.ts
-import * as fs from "node:fs";
+import * as fs3 from "node:fs";
 var REDACT_KEYS = /* @__PURE__ */ new Set([
   "tool_input",
   "tool_response",
@@ -128,8 +216,8 @@ var REDACT_KEYS = /* @__PURE__ */ new Set([
 var MAX_LOG_BYTES = 10 * 1024 * 1024;
 function rotateIfLarge(logFile) {
   try {
-    if (fs.statSync(logFile).size < MAX_LOG_BYTES) return;
-    fs.renameSync(logFile, `${logFile}.old`);
+    if (fs3.statSync(logFile).size < MAX_LOG_BYTES) return;
+    fs3.renameSync(logFile, `${logFile}.old`);
   } catch {
     return;
   }
@@ -138,7 +226,7 @@ function createHookLogger(config) {
   const appendLine = (line) => {
     try {
       rotateIfLarge(config.logFile);
-      fs.appendFileSync(config.logFile, `${line}
+      fs3.appendFileSync(config.logFile, `${line}
 `);
     } catch {
       return;
@@ -187,61 +275,16 @@ async function readStdinJson() {
 
 // src/daemon/ipc/hook.client.ts
 import { spawn } from "node:child_process";
-import * as fs5 from "node:fs";
+import * as fs6 from "node:fs";
 import * as path3 from "node:path";
 
-// src/config/home.paths.ts
-import * as fs2 from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-var HOME_DIRNAME = ".agent-tracer";
-var HOME_MODE = 448;
-function resolveAgentTracerPaths(env = process.env) {
-  const home = env.HOME && env.HOME.trim() ? env.HOME : os.homedir();
-  const homeDir = path.join(home, HOME_DIRNAME);
-  const spoolDir = path.join(homeDir, "spool");
-  const cacheDir = path.join(homeDir, "cache");
-  const explicitSocket = (env.AGENT_TRACER_DAEMON_SOCKET ?? "").trim();
-  return {
-    homeDir,
-    spoolDir,
-    deadPath: path.join(spoolDir, "dead.jsonl"),
-    cacheDir,
-    recipesCachePath: path.join(cacheDir, "recipes.json"),
-    bindingsPath: path.join(homeDir, "bindings.json"),
-    bindingsLockPath: path.join(homeDir, "bindings.lock"),
-    socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
-    logPath: path.join(homeDir, "daemon.log"),
-    resumeTokenPath: path.join(homeDir, "resume.token"),
-    pidPath: path.join(homeDir, "daemon.pid")
-  };
-}
-function mkdirSecure(dir) {
-  fs2.mkdirSync(dir, { recursive: true, mode: HOME_MODE });
-  try {
-    fs2.chmodSync(dir, HOME_MODE);
-  } catch {
-  }
-}
-function ensureAgentTracerHome(paths = resolveAgentTracerPaths()) {
-  mkdirSecure(paths.homeDir);
-}
-function ensureSpoolDir(paths = resolveAgentTracerPaths()) {
-  mkdirSecure(paths.homeDir);
-  mkdirSecure(paths.spoolDir);
-}
-function ensureCacheDir(paths = resolveAgentTracerPaths()) {
-  mkdirSecure(paths.homeDir);
-  mkdirSecure(paths.cacheDir);
-}
-
 // src/config/runtime.root.ts
-import * as fs3 from "node:fs";
+import * as fs4 from "node:fs";
 import * as path2 from "node:path";
 import { fileURLToPath } from "node:url";
 var ROOT_MANIFESTS = ["package.json", ".claude-plugin/plugin.json"];
 function manifestDir(dir) {
-  return ROOT_MANIFESTS.some((manifest) => fs3.existsSync(path2.join(dir, manifest)));
+  return ROOT_MANIFESTS.some((manifest) => fs4.existsSync(path2.join(dir, manifest)));
 }
 function resolveRuntimeRoot(from = path2.dirname(fileURLToPath(import.meta.url))) {
   const start = path2.resolve(from);
@@ -256,7 +299,7 @@ function resolveRuntimeRoot(from = path2.dirname(fileURLToPath(import.meta.url))
 function readRuntimeManifestVersion(root = resolveRuntimeRoot()) {
   for (const manifest of ROOT_MANIFESTS) {
     try {
-      const parsed = JSON.parse(fs3.readFileSync(path2.join(root, manifest), "utf8"));
+      const parsed = JSON.parse(fs4.readFileSync(path2.join(root, manifest), "utf8"));
       const version = isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"].trim() : "";
       if (version) return version;
     } catch {
@@ -321,7 +364,7 @@ function requestDaemon(socketPath, message, timeoutMs, parse, empty) {
 }
 
 // src/daemon/lifecycle/daemon.pid.ts
-import * as fs4 from "node:fs";
+import * as fs5 from "node:fs";
 function readDaemonPid(paths) {
   const pid = readPidFile(paths);
   if (pid === void 0 || pid === process.pid) return void 0;
@@ -330,7 +373,7 @@ function readDaemonPid(paths) {
 function readPidFile(paths) {
   let raw;
   try {
-    raw = fs4.readFileSync(paths.pidPath, "utf8");
+    raw = fs5.readFileSync(paths.pidPath, "utf8");
   } catch {
     return void 0;
   }
@@ -447,7 +490,7 @@ var SOURCE_LOADER = "@swc-node/register/esm-register";
 function daemonEntry() {
   const root = resolveRuntimeRoot();
   const compiled = path3.join(root, "dist/daemon/main.js");
-  if (fs5.existsSync(compiled)) return { executable: process.execPath, args: [compiled] };
+  if (fs6.existsSync(compiled)) return { executable: process.execPath, args: [compiled] };
   return {
     executable: process.execPath,
     args: ["--import", SOURCE_LOADER, path3.join(root, "src/daemon/main.ts")]
@@ -458,7 +501,7 @@ function spawnDaemon(paths) {
   ensureAgentTracerHome(paths);
   let logFd;
   try {
-    logFd = fs5.openSync(paths.logPath, "a");
+    logFd = fs6.openSync(paths.logPath, "a");
   } catch {
     logFd = void 0;
   }
@@ -474,7 +517,7 @@ function spawnDaemon(paths) {
   child.unref();
   if (logFd === void 0) return;
   try {
-    fs5.closeSync(logFd);
+    fs6.closeSync(logFd);
   } catch {
     return;
   }
@@ -487,7 +530,7 @@ async function ensureDaemonRunning(env = process.env) {
 }
 
 // src/domain/binding/adapter/file.binding.store.adapter.ts
-import * as fs6 from "node:fs";
+import * as fs7 from "node:fs";
 var LOCK_TIMEOUT_MS = 1e3;
 var LOCK_STALE_MS = 1e4;
 var LOCK_RETRY_MS = 20;
@@ -502,7 +545,7 @@ var FileBindingStoreAdapter = class {
   paths;
   read() {
     try {
-      const parsed = JSON.parse(fs6.readFileSync(this.paths.bindingsPath, "utf8"));
+      const parsed = JSON.parse(fs7.readFileSync(this.paths.bindingsPath, "utf8"));
       return isRecord(parsed) ? parsed : {};
     } catch {
       return {};
@@ -511,14 +554,14 @@ var FileBindingStoreAdapter = class {
   write(store) {
     ensureAgentTracerHome(this.paths);
     const tmp = `${this.paths.bindingsPath}.tmp`;
-    fs6.writeFileSync(tmp, JSON.stringify(store));
-    fs6.renameSync(tmp, this.paths.bindingsPath);
+    fs7.writeFileSync(tmp, JSON.stringify(store));
+    fs7.renameSync(tmp, this.paths.bindingsPath);
   }
   async acquireLock() {
     const deadline = Date.now() + LOCK_TIMEOUT_MS;
     for (; ; ) {
       try {
-        fs6.mkdirSync(this.paths.bindingsLockPath);
+        fs7.mkdirSync(this.paths.bindingsLockPath);
         return true;
       } catch (error) {
         if (error.code !== "EEXIST") return false;
@@ -530,16 +573,16 @@ var FileBindingStoreAdapter = class {
   }
   releaseLock() {
     try {
-      fs6.rmdirSync(this.paths.bindingsLockPath);
+      fs7.rmdirSync(this.paths.bindingsLockPath);
     } catch {
       return;
     }
   }
   clearStaleLock() {
     try {
-      const stat = fs6.statSync(this.paths.bindingsLockPath);
+      const stat = fs7.statSync(this.paths.bindingsLockPath);
       if (Date.now() - stat.mtimeMs <= LOCK_STALE_MS) return false;
-      fs6.rmdirSync(this.paths.bindingsLockPath);
+      fs7.rmdirSync(this.paths.bindingsLockPath);
       return true;
     } catch {
       return false;
@@ -613,11 +656,11 @@ import * as path5 from "node:path";
 
 // src/support/json.file.store.ts
 import * as crypto from "node:crypto";
-import * as fs7 from "node:fs";
+import * as fs8 from "node:fs";
 import * as path4 from "node:path";
 function readJsonFile(filePath, validate) {
   try {
-    const parsed = JSON.parse(fs7.readFileSync(filePath, "utf-8"));
+    const parsed = JSON.parse(fs8.readFileSync(filePath, "utf-8"));
     return validate(parsed) ? parsed : null;
   } catch {
     return null;
@@ -630,12 +673,12 @@ function writeJsonFile(filePath, value, spacing) {
     `.${path4.basename(filePath)}.${process.pid}.${crypto.randomUUID()}.tmp`
   );
   try {
-    fs7.mkdirSync(directory, { recursive: true });
-    fs7.writeFileSync(tempFilePath, JSON.stringify(value, null, spacing));
-    fs7.renameSync(tempFilePath, filePath);
+    fs8.mkdirSync(directory, { recursive: true });
+    fs8.writeFileSync(tempFilePath, JSON.stringify(value, null, spacing));
+    fs8.renameSync(tempFilePath, filePath);
   } catch {
     try {
-      fs7.unlinkSync(tempFilePath);
+      fs8.unlinkSync(tempFilePath);
     } catch {
       return;
     }
@@ -643,7 +686,7 @@ function writeJsonFile(filePath, value, spacing) {
 }
 function deleteJsonFile(filePath) {
   try {
-    fs7.unlinkSync(filePath);
+    fs8.unlinkSync(filePath);
   } catch {
     return;
   }
@@ -680,7 +723,7 @@ var FileTodoSnapshotAdapter = class {
 };
 
 // src/config/spool.ts
-import * as fs8 from "node:fs";
+import * as fs9 from "node:fs";
 import * as path6 from "node:path";
 
 // src/support/ulid.ts
@@ -728,14 +771,14 @@ function appendSpoolLines(lines, paths = resolveAgentTracerPaths(), segmentId = 
 `).join("");
   const tmpPath = path6.join(paths.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
   const finalPath = path6.join(paths.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
-  const fd = fs8.openSync(tmpPath, "w");
+  const fd = fs9.openSync(tmpPath, "w");
   try {
-    fs8.writeSync(fd, payload);
-    fs8.fsyncSync(fd);
+    fs9.writeSync(fd, payload);
+    fs9.fsyncSync(fd);
   } finally {
-    fs8.closeSync(fd);
+    fs9.closeSync(fd);
   }
-  fs8.renameSync(tmpPath, finalPath);
+  fs9.renameSync(tmpPath, finalPath);
 }
 
 // src/domain/ingest/adapter/spool.event.sink.adapter.ts
@@ -1065,6 +1108,7 @@ var SPAN_KIND_SET = new Set(SPAN_EVENT_KINDS);
 // src/domain/ingest/model/event.model.ts
 var LANE = {
   user: "user",
+  assistant: "assistant",
   exploration: "exploration",
   planning: "planning",
   implementation: "implementation",
@@ -1545,15 +1589,15 @@ function splitPipeline(command) {
     const next = command[index + 1] ?? "";
     updateShellState(state, char);
     if (!state.quote && state.parenDepth === 0 && char === "|" && next !== "|" && command[index - 1] !== "\\") {
-      const trimmed2 = current.trim();
-      if (trimmed2) parts.push(trimmed2);
+      const trimmed3 = current.trim();
+      if (trimmed3) parts.push(trimmed3);
       current = "";
       continue;
     }
     current += char;
   }
-  const trimmed = current.trim();
-  if (trimmed) parts.push(trimmed);
+  const trimmed2 = current.trim();
+  if (trimmed2) parts.push(trimmed2);
   return parts;
 }
 function tokenizeShell(command) {
@@ -1645,9 +1689,9 @@ function updateShellState(state, char) {
   if (char === ")" && state.parenDepth > 0) state.parenDepth -= 1;
 }
 function pushSequencePart(parts, raw, operatorFromPrevious) {
-  const trimmed = raw.trim();
-  if (!trimmed) return;
-  parts.push({ raw: trimmed, ...operatorFromPrevious ? { operatorFromPrevious } : {} });
+  const trimmed2 = raw.trim();
+  if (!trimmed2) return;
+  parts.push({ raw: trimmed2, ...operatorFromPrevious ? { operatorFromPrevious } : {} });
 }
 function isRedirectOperator(token) {
   return ["<", ">", ">>", "2>", "2>>", "&>"].includes(token);
@@ -2683,7 +2727,7 @@ var RecordToolUseUsecase = class {
 };
 
 // src/domain/recipe/adapter/http.recipe.cache.adapter.ts
-import * as fs9 from "node:fs";
+import * as fs10 from "node:fs";
 var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
 var REQUEST_TIMEOUT_MS = 5e3;
 var HttpRecipeCacheAdapter = class {
@@ -2697,7 +2741,7 @@ var HttpRecipeCacheAdapter = class {
   paths;
   load() {
     try {
-      return extractRecipes(JSON.parse(fs9.readFileSync(this.paths.recipesCachePath, "utf8")));
+      return extractRecipes(JSON.parse(fs10.readFileSync(this.paths.recipesCachePath, "utf8")));
     } catch {
       return [];
     }
@@ -2712,8 +2756,8 @@ var HttpRecipeCacheAdapter = class {
     const recipes = extractRecipes(text ? JSON.parse(text) : []);
     ensureCacheDir(this.paths);
     const tmp = `${this.paths.recipesCachePath}.tmp`;
-    fs9.writeFileSync(tmp, JSON.stringify({ recipes }));
-    fs9.renameSync(tmp, this.paths.recipesCachePath);
+    fs10.writeFileSync(tmp, JSON.stringify({ recipes }));
+    fs10.renameSync(tmp, this.paths.recipesCachePath);
     return true;
   }
 };
@@ -2960,10 +3004,10 @@ function hasRecipeScanCommand(prompt) {
   return RECIPE_COMMAND.test(prompt.trimStart());
 }
 function readRecipeScanIntent(prompt) {
-  const trimmed = prompt.trimStart();
-  const command = RECIPE_COMMAND.exec(trimmed);
+  const trimmed2 = prompt.trimStart();
+  const command = RECIPE_COMMAND.exec(trimmed2);
   if (!command) return void 0;
-  const intent = trimmed.slice(command[0].length).trim();
+  const intent = trimmed2.slice(command[0].length).trim();
   return intent.length > 0 ? intent : void 0;
 }
 
@@ -3122,7 +3166,7 @@ function buildTurnSpan(turn2, input) {
     kind: KIND.invokeAgent,
     taskId: input.taskId,
     sessionId: input.sessionId,
-    lane: LANE.user,
+    lane: LANE.coordination,
     title: `\uC5D0\uC774\uC804\uD2B8 \uD134 (${input.stopReason})`,
     metadata: {
       ...provenEvidence("\uD134 \uACBD\uACC4 \uD6C5\uC774 \uAD00\uCE21\uD588\uB2E4."),
@@ -3189,7 +3233,7 @@ var OpenTurnUsecase = class {
 
 // src/agent/claude-code/runtime.ts
 var transport = resolveMonitorTransportConfig();
-var headers = monitorUserHeader();
+var headers = monitorUserHeaders(resolveMonitorIdentity());
 var projectDir = resolveProjectDir();
 var sink = new SpoolEventSinkAdapter();
 var bindings = new FileBindingStoreAdapter();
