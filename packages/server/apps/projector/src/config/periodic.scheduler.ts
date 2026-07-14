@@ -1,6 +1,6 @@
 import type { IClock } from "@monitor/platform";
 
-/** 주기 실행과 지금을 소유한다. 응용 계층은 지금을 인자로 받는 runOnce만 갖는다. */
+/** 주기 실행과 지금을 소유하므로 응용 계층은 지금을 인자로 받는 runOnce만 갖는다. */
 export class PeriodicScheduler {
     private readonly timers: NodeJS.Timeout[] = [];
 

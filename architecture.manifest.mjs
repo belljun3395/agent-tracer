@@ -45,6 +45,20 @@ export const SEALS = Object.freeze([
   { pkg: "zod", allowFileSuffix: ".schema.ts" },
 ]);
 
+/** 포트 없이 새어 들어오는 주변이며 layers에 적힌 계층은 이것들을 직접 만지지 못한다. */
+export const AMBIENT = Object.freeze({
+  layers: ["application"],
+  banned: Object.freeze([
+    { name: "clock", syntax: "NewExpression[callee.name='Date'][arguments.length=0]" },
+    { name: "clock", syntax: "CallExpression[callee.object.name='Date'][callee.property.name='now']" },
+    { name: "random", syntax: "CallExpression[callee.object.name='Math'][callee.property.name='random']" },
+    { name: "random", syntax: "CallExpression[callee.property.name='randomUUID']" },
+    { name: "env", syntax: "MemberExpression[object.name='process'][property.name='env']" },
+    { name: "scheduler", syntax: "CallExpression[callee.name=/^(setInterval|setTimeout)$/]" },
+  ]),
+  message: "포트 뒤에 둔다",
+});
+
 /** 예산 없이 지키는 상한. */
 export const BUDGETS = Object.freeze({
   maxFileLines: 300,

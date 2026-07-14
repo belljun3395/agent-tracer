@@ -4,7 +4,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-import { ALIASES } from "./architecture.manifest.mjs";
+import { ALIASES, AMBIENT } from "./architecture.manifest.mjs";
 import { localPlugin } from "./eslint-rules/index.mjs";
 
 const ROOT = import.meta.dirname;
@@ -13,6 +13,21 @@ const ROOT = import.meta.dirname;
 const aliasOptionsOf = (unitAlias) => ({
   aliases: { [unitAlias]: path.join(ROOT, ALIASES[unitAlias]) },
 });
+
+// 어떤 계층이 무엇을 만지지 못하는지는 아키텍처 매니페스트가 소유하고 여기서는 옮기기만 한다.
+const ambientRuleConfigs = AMBIENT.layers.map((layer) => ({
+  files: [`packages/**/src/domain/*/${layer}/**/*.ts`],
+  ignores: ["**/*.test.ts", "**/__fakes__/**"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      ...AMBIENT.banned.map(({ name, syntax }) => ({
+        selector: syntax,
+        message: `${name} 의존은 ${AMBIENT.message}`,
+      })),
+    ],
+  },
+}));
 
 const pathRuleConfigs = Object.keys(ALIASES).map((alias) => ({
   files: [`${ALIASES[alias]}/**/*.{ts,tsx}`],
@@ -67,10 +82,13 @@ export default tseslint.config(
     rules: { "local/comment-language": "error" },
   },
 
+  ...ambientRuleConfigs,
+
   {
     files: ["**/*.test.{ts,tsx,mjs}", "**/__fakes__/**/*.{ts,tsx}"],
     plugins: { local: localPlugin },
     rules: {
+      "no-restricted-syntax": "off",
       "local/korean-test-title": "error",
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
