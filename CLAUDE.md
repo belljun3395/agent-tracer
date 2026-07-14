@@ -36,6 +36,8 @@
 | `0021-model-citations-verified-against-a-ledger` | 모델이 낸 출력을 저장할 때. 검증을 느슨하게 풀고 싶을 때 |
 | `0022-execution-outlives-the-connection` | 오래 걸리는 유료 실행을 부를 때 |
 | `0023-entities-own-the-schema` | 컬럼·기본값·인덱스를 바꿀 때. 마이그레이션을 손으로 고치고 싶을 때 |
+| `0024-rules-are-anchored-to-one-utterance` | 규칙이 언제 걸리는지 정할 때. 규칙을 재사용하고 싶을 때 |
+| `0025-judgment-lives-until-fulfilled` | 규칙 이행 여부를 판정할 때. 턴을 막을지 정할 때 |
 
 ## 놓치기 쉬운 규칙
 
