@@ -3,7 +3,7 @@ import { createTemporalConnection, type TemporalHandle } from "@monitor/platform
 import { JOB_KIND, type JobKind } from "@monitor/kernel";
 import type { WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
 
-// temporal-worker가 등록한 큐 이름과 같아야 잡이 소비된다.
+// ai-agent-worker가 등록한 큐 이름과 같아야 잡이 소비된다.
 const TASK_QUEUE = "llm-jobs";
 
 const WORKFLOW_TYPE_BY_KIND: Partial<Record<JobKind, string>> = {

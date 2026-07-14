@@ -48,14 +48,22 @@
 
 | 목적 | 명령 |
 |---|---|
-| 인프라 기동 | `npm run infra:up` |
-| 전체 개발 서버 | `npm run dev` |
+| 인프라 기동 (PG×2·Redpanda·OpenSearch·Temporal) | `npm run infra:up` |
+| 인프라 종료 | `npm run infra:down` |
+| 전체 dev 서버 (인프라 선행 필수, agents 포함) | `npm run dev` |
+| `packages/agents`(Python)만 기동 | `npm run dev:agents` |
 | 검증 (작업 완료 전 필수) | `npm run lint && npm run test && npm run lint:deps` |
 | 의존 그래프 규칙 검사 | `npm run lint:deps` |
-| 문서 검사 | `npm run docs:check` |
+| 마이그레이션 생성/실행 (tracer DB) | `npm run migration:generate` / `npm run migration:run` |
+| 마이그레이션 생성/실행 (runtime DB) | `npm run migration:generate:runtime` / `npm run migration:run:runtime` |
+| 배포 선행 마이그레이션 일괄 실행 | `npm run migrate:all` |
+| 읽기 모델 투영 통째 재생성 | `npm run projection:rebuild -- --confirm` |
+| 검색 인덱스 재인덱싱 | `npm run search:reindex` |
+| 결정적 실패 시나리오 (인프라 필요, 느림) | `npm run e2e:failure` |
+| 외부 프로젝트에 Claude Code 플러그인 연결 | `npm run setup:external -- --target <path>` |
 
 ## 작업 완료 판정
 
 1. `npm run lint && npm run test && npm run lint:deps` 통과
-2. 구조나 명령을 바꿨다면 해당 `CLAUDE.md` 갱신과 `npm run docs:check` 통과
+2. 구조나 명령을 바꿨다면 해당 `CLAUDE.md`를 갱신한다
 3. 커밋이 수직 슬라이스 하나이고 메시지가 규약을 따름
