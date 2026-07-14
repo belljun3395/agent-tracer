@@ -22,10 +22,18 @@ export const ruleExpectationSchema = z.discriminatedUnion("kind", [
     }).strict(),
 ]);
 
+export const RULE_CITATION_MAX = 20;
+
+const ruleCitationSchema = z.array(z.string().trim().min(1)).max(RULE_CITATION_MAX);
+
 // 로컬 데몬과 서버가 같은 스키마로 검증하는 규칙 제안이다.
 export const ruleProposalSchema = z.object({
     name: z.string().trim().min(1).max(120),
     expect: ruleExpectationSchema,
+    /** 이 규칙이 검증하는 의무가 담긴 사용자 턴이며 제안을 낸 실행의 도구가 실제로 돌려준 것만 여기 온다. */
+    citedTurnIds: ruleCitationSchema,
+    /** 의무가 어떻게 이행됐는지 보여 주는 이벤트이며 근거가 없으면 비어 있을 수 있다. */
+    citedEventIds: ruleCitationSchema,
     severity: z.enum(RULE_SEVERITIES).optional(),
     rationale: z.string().trim().min(1).max(500).optional(),
 });

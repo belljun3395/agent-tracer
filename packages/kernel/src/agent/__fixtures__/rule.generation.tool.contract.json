@@ -9,24 +9,36 @@
   "tools": {
     "get_task_turns": {
       "required": ["taskId"],
-      "optional": []
+      "optional": [],
+      "responseFields": ["turnId", "turnIndex", "askedText", "assistantSummary"]
     },
     "get_task_events": {
       "required": ["taskId"],
       "optional": ["limit"],
       "numbers": {
         "limit": { "default": 50, "min": 1, "max": 100 }
-      }
+      },
+      "responseFields": ["eventId", "turnId", "kind", "title", "body"]
     },
     "list_rules": {
       "required": [],
-      "optional": []
+      "optional": [],
+      "responseFields": ["name", "expect"]
     }
   },
   "workspaceTools": ["Read", "Glob", "Grep"],
   "proposal": {
-    "required": ["name", "expect"],
+    "required": ["name", "expect", "citedTurnIds", "citedEventIds"],
     "optional": ["severity", "rationale"],
-    "expectKinds": ["command", "pattern", "action"]
+    "expectKinds": ["command", "pattern", "action"],
+    "citations": {
+      "citedTurnIds": { "source": "get_task_turns", "min": 1, "max": 20 },
+      "citedEventIds": { "source": "get_task_events", "min": 0, "max": 20 }
+    }
+  },
+  "grounding": {
+    "ledgerSources": ["get_task_turns", "get_task_events"],
+    "repairAttempts": 1,
+    "onUngrounded": "drop"
   }
 }

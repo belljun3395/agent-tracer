@@ -13,6 +13,9 @@ const RATIONALE_MAX = 500;
 const PATTERN_MAX = 500;
 const LIST_MAX = 20;
 
+/** 수용 계약(kernel의 ruleProposalSchema)이 인용 개수에 두는 상한과 같은 값이다. */
+export const CITATION_MAX = 20;
+
 type RuleExpectPayload = RuleProposalPayload["expect"];
 
 // 다른 변형의 필드가 조용히 섞이면 판별 유니온의 의미가 무너지므로 변형마다 허용 필드를 닫는다.
@@ -41,6 +44,18 @@ function trimmedText(value: unknown, maxLength: number): string | null {
 
 function textList(value: unknown): string[] | null {
     if (!Array.isArray(value) || value.length === 0 || value.length > LIST_MAX) return null;
+    const list: string[] = [];
+    for (const item of value) {
+        const next = typeof item === "string" ? item.trim() : "";
+        if (next.length === 0) return null;
+        list.push(next);
+    }
+    return list;
+}
+
+/** 근거를 읽었는데 없었다는 것도 근거이므로 빈 인용 목록 자체는 계약 위반이 아니다. */
+function citationList(value: unknown): string[] | null {
+    if (!Array.isArray(value) || value.length > CITATION_MAX) return null;
     const list: string[] = [];
     for (const item of value) {
         const next = typeof item === "string" ? item.trim() : "";
@@ -101,6 +116,12 @@ function parseProposal(candidate: unknown): RuleProposalPayload | string {
     const expect = parseExpect(candidate["expect"]);
     if (expect === null) return "invalid expect";
 
+    const citedTurnIds = citationList(candidate["citedTurnIds"]);
+    if (citedTurnIds === null) return "invalid citedTurnIds";
+
+    const citedEventIds = citationList(candidate["citedEventIds"]);
+    if (citedEventIds === null) return "invalid citedEventIds";
+
     const rawSeverity = candidate["severity"];
     const severity = rawSeverity === undefined ? null : parseSeverity(rawSeverity);
     if (rawSeverity !== undefined && severity === null) return "invalid severity";
@@ -112,6 +133,8 @@ function parseProposal(candidate: unknown): RuleProposalPayload | string {
     return {
         name,
         expect,
+        citedTurnIds,
+        citedEventIds,
         ...(severity === null ? {} : {severity}),
         ...(rationale === null ? {} : {rationale}),
     };

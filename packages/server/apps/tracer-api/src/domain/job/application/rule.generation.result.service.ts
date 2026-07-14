@@ -64,6 +64,7 @@ export class RuleGenerationResultService {
         };
     }
 
+    /** 제안이 인용한 턴과 이벤트 식별자는 로컬 검증기의 합격 기준을 위한 값이므로 규칙에 저장하지 않는다. */
     private async createRules(
         input: PrepareRuleGenerationResultInput,
         proposals: readonly RuleProposalPayload[],

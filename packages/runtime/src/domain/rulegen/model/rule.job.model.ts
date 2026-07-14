@@ -42,6 +42,40 @@ export interface RuleGenerationOutcome {
     readonly error: string | null;
 }
 
+function addTotals(first: number | null, second: number | null): number | null {
+    if (first === null && second === null) return null;
+    return (first ?? 0) + (second ?? 0);
+}
+
+function addUsage(
+    first: RuleGenerationUsage | null,
+    second: RuleGenerationUsage | null,
+): RuleGenerationUsage | null {
+    if (first === null) return second;
+    if (second === null) return first;
+    return {
+        inputTokens: first.inputTokens + second.inputTokens,
+        outputTokens: first.outputTokens + second.outputTokens,
+        cacheReadTokens: first.cacheReadTokens + second.cacheReadTokens,
+        cacheCreationTokens: first.cacheCreationTokens + second.cacheCreationTokens,
+    };
+}
+
+/** 수리까지 두 번 실행하면 비용과 궤적이 둘 다 청구된 것이므로 합쳐서 보고하고 후보는 나중 것만 남긴다. */
+export function mergeRuleGenerationOutcomes(
+    first: RuleGenerationOutcome,
+    second: RuleGenerationOutcome,
+): RuleGenerationOutcome {
+    return {
+        candidates: second.candidates,
+        costUsd: addTotals(first.costUsd, second.costUsd),
+        numTurns: addTotals(first.numTurns, second.numTurns),
+        usage: addUsage(first.usage, second.usage),
+        steps: [...first.steps, ...second.steps].map((step, seq) => ({...step, seq})),
+        error: second.error,
+    };
+}
+
 /** 서버에 보고하는 규칙 생성 결과다. */
 export interface RuleGenerationReport {
     readonly proposals: readonly RuleProposalPayload[];

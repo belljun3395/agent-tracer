@@ -53,13 +53,13 @@ const LIMIT_PARAM: RulegenToolParam = {
 export const RULEGEN_TOOL_SPECS: readonly RulegenToolSpec[] = [
     {
         name: RULEGEN_TOOL.turns,
-        description: "Get what the user asked in each turn of the task, chronologically. askedText is the user's own words, the primary source of every obligation. assistantSummary is a short reply excerpt for context.",
+        description: "Get what the user asked in each turn of the task, chronologically. Returns turnId, turnIndex, askedText, assistantSummary. askedText is the user's own words, the primary source of every obligation, and turnId is the only ID you may cite in citedTurnIds.",
         failureLabel: "Failed to fetch turns",
         params: [TASK_ID_PARAM],
     },
     {
         name: RULEGEN_TOOL.events,
-        description: `Get the chronological event sequence for a task (tool calls, shell commands, file edits). Returns slim records (kind, title, body). Returns the most recent events up to the requested limit, default ${RULEGEN_EVENT_LIMIT.fallback}.`,
+        description: `Get the chronological event sequence for a task (tool calls, shell commands, file edits). Returns slim records (eventId, turnId, kind, title, body); eventId is the only ID you may cite in citedEventIds. Returns the most recent events up to the requested limit, default ${RULEGEN_EVENT_LIMIT.fallback}.`,
         failureLabel: "Failed to fetch events",
         params: [TASK_ID_PARAM, LIMIT_PARAM],
     },

@@ -1,7 +1,9 @@
+import {RULEGEN_REPAIR_ATTEMPTS} from "~runtime/domain/rulegen/model/proposal.grounding.model.js";
 import {buildRuleProposalPolicy} from "~runtime/domain/rulegen/model/proposal.policy.model.js";
 import {RULEGEN_MODE, type RulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
 import {
     RULEGEN_EVENT_LIMIT,
+    RULEGEN_TOOL,
     RULEGEN_WORKSPACE_TOOLS,
     rulegenToolFullName,
     type RulegenToolSpec,
@@ -16,6 +18,12 @@ const RECENT_SCOPE = "This is an AUTO rule-generation job. Focus ONLY on the mos
 const WORKSPACE_ACCESS = `Read, Glob, and Grep let you inspect the workspace read-only. Use them to ground a rule in what the repository actually contains: the real test command, the real path, the real config key. Never turn a file you merely read into an obligation the user never asked for.`;
 
 const CLOSING = "A rule is a checklist item the user will read: did the agent do what I asked? Verify fulfilment, never police the agent's style.";
+
+const CITATIONS = `Every rule must cite the evidence it stands on:
+  - citedTurnIds : the turnId values of the user turns whose request this rule verifies. At least one is required.
+  - citedEventIds: the eventId values of the events that show how the work was done. May be empty when you read the events and found none.
+Both come from the tool responses in THIS run: ${rulegenToolFullName(RULEGEN_TOOL.turns)} returns turnId, ${rulegenToolFullName(RULEGEN_TOOL.events)} returns eventId and turnId.
+A deterministic verifier checks every ID you cite against what those tools actually returned. Never guess, reconstruct, or copy an ID from anywhere else: an ID the tools did not return is not evidence. A rule citing an unknown ID is handed back to you for exactly ${RULEGEN_REPAIR_ATTEMPTS} repair attempt and is then DROPPED, with the run's cost already spent. Workspace files you read with Read, Glob, and Grep carry no IDs, so a rule grounded only in the repository still needs the turn that asked for it.`;
 
 function toolLine(spec: RulegenToolSpec): string {
     const params = spec.params.map((param) => (param.optional ? `${param.name}?` : param.name)).join(", ");
@@ -64,6 +72,7 @@ export function buildRulegenSystemPrompt(options: RulegenPromptOptions): string 
         toolCatalog(options.tools),
         recent ? recentRoute(options.maxTurns) : manualRoute(options.maxTurns),
         WORKSPACE_ACCESS,
+        CITATIONS,
         CLOSING,
         buildRuleProposalPolicy(options),
         "Return JSON conforming to the provided schema immediately after your tool calls.",
@@ -84,5 +93,27 @@ export function buildRulegenUserPrompt(options: RulegenUserPromptOptions): strin
         `Workspace: ${options.workspacePath}`,
         `${options.anchorBlock}${options.intentBlock}`,
         `Propose up to ${options.maxRules} rules for task ${options.taskId}.`,
+    ].join("\n");
+}
+
+/** SDK는 대화를 잇지 않으므로 직전 출력을 프롬프트에 다시 실어 한 번만 수리를 요청한다. */
+export function buildRulegenRepairPrompt(
+    basePrompt: string,
+    previousOutput: unknown,
+    errors: readonly string[],
+): string {
+    return [
+        basePrompt,
+        "",
+        "Your previous output:",
+        JSON.stringify(previousOutput),
+        "",
+        "Deterministic validation rejected it:",
+        ...errors.map((error) => `  - ${error}`),
+        "",
+        `You get ${RULEGEN_REPAIR_ATTEMPTS} repair attempt and this is it. Fix exactly what these errors name, using only identifiers the tools`,
+        "returned in this run. Call the tools again if you need an ID you do not have. Drop any rule you cannot",
+        "ground; returning fewer rules, or none at all, is better than citing an ID you did not observe.",
+        "Then return the complete rule list.",
     ].join("\n");
 }

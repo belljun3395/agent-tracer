@@ -39,6 +39,12 @@ function makeService(existing: readonly RuleEntity[] = []) {
     return { service, rules: store, store, backfill };
 }
 
+const CITATIONS = { citedTurnIds: ["turn-1"], citedEventIds: ["event-1"] };
+
+function cite(proposals: readonly unknown[]): readonly unknown[] {
+    return proposals.map((proposal) => ({ ...(proposal as Record<string, unknown>), ...CITATIONS }));
+}
+
 function prepare(
     service: RuleGenerationResultService,
     rules: InMemoryRuleRepository,
@@ -51,7 +57,7 @@ function prepare(
         sourceJobId: "job-1",
         taskId,
         jobInput: { anchorEventId: "event-1" },
-        proposals,
+        proposals: cite(proposals),
         now: NOW,
     });
 }
@@ -133,9 +139,9 @@ describe("RuleGenerationResultService", () => {
             sourceJobId: "job-1",
             taskId: "task-1",
             jobInput: {},
-            proposals: [
+            proposals: cite([
                 { name: "테스트 실행", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] } },
-            ],
+            ]),
             now: NOW,
         });
 
@@ -170,6 +176,37 @@ describe("RuleGenerationResultService", () => {
             ],
         });
         expect(store.all()).toHaveLength(0);
+    });
+
+    it("인용 목록이 없는 제안은 계약을 어긴 것이라 거부한다", async () => {
+        const { service, rules, store } = makeService();
+
+        const prepared = await service.prepare({
+            rules,
+            userId: "u1",
+            sourceJobId: "job-1",
+            taskId: "task-1",
+            jobInput: { anchorEventId: "event-1" },
+            proposals: [
+                { name: "인용 없음", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] } },
+            ],
+            now: NOW,
+        });
+
+        expect(prepared.jobResult["rulesCreated"]).toBe(0);
+        expect(prepared.jobResult["proposalsRejected"]).toHaveLength(1);
+        expect(store.all()).toHaveLength(0);
+    });
+
+    it("인용한 식별자는 합격 기준을 위한 값이라 규칙에 저장하지 않는다", async () => {
+        const { service, rules, store } = makeService();
+
+        await prepare(service, rules, [
+            { name: "테스트 실행", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] } },
+        ]);
+
+        expect(store.all()[0]).not.toHaveProperty("citedTurnIds");
+        expect(store.all()[0]).not.toHaveProperty("citedEventIds");
     });
 
     it("검증할 수 없는 제안을 거부하고 유효한 제안은 계속 수용한다", async () => {

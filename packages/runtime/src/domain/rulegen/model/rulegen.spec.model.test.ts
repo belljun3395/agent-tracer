@@ -100,9 +100,17 @@ describe("buildRuleGenerationSpec", () => {
         }
     });
 
-    it("출력 스키마는 이름과 기대 조건만 필수로 요구한다", () => {
+    it("출력 스키마는 이름과 기대 조건과 인용 목록을 필수로 요구한다", () => {
         const rules = specFor().outputSchema["properties"] as {rules: {items: Record<string, unknown>}};
 
-        expect(rules.rules.items["required"]).toEqual(["name", "expect"]);
+        expect(rules.rules.items["required"]).toEqual(["name", "expect", "citedTurnIds", "citedEventIds"]);
+    });
+
+    it("인용한 식별자가 도구 응답과 대조되고 수리는 한 번뿐임을 프롬프트가 말한다", () => {
+        const prompt = specFor().systemPrompt;
+
+        expect(prompt).toContain("A deterministic verifier checks every ID you cite");
+        expect(prompt).toContain("1 repair attempt");
+        expect(prompt).toContain("DROPPED");
     });
 });
