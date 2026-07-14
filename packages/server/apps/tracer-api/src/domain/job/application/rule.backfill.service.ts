@@ -16,7 +16,7 @@ export class RuleBackfillService {
         private readonly verdicts: VerdictRepositoryPort,
     ) {}
 
-    async backfill(rule: RuleEntity, taskId: string, now: Date = new Date()): Promise<number> {
+    async backfill(rule: RuleEntity, taskId: string, now: Date): Promise<number> {
         if (!rule.isActive()) return 0;
 
         const evaluator = new RuleEvaluator({

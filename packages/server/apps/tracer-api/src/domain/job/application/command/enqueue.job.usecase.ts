@@ -3,12 +3,16 @@ import { createHash } from "node:crypto";
 import {
     JOB_KIND,
     JOB_STATUS,
-    normalizeAiAgentBackend,
     type AiAgentBackend,
     type JobKind,
 } from "@monitor/kernel";
 import { AiJobEntity, LLM_KEY_SETTING, SettingsCatalog } from "@monitor/tracer-domain";
+import {
+    DEFAULT_AGENT_BACKEND,
+    type DefaultAgentBackendPort,
+} from "~tracer-api/domain/job/port/agent.backend.port.js";
 import { AI_JOB_REPOSITORY, type AiJobRepositoryPort } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/job/port/clock.port.js";
 import { JobIdempotencyConflictError, LlmKeyMissingError } from "~tracer-api/domain/job/model/job.errors.js";
 import { mapJob, type JobDto } from "~tracer-api/domain/job/model/job.model.js";
 import { SETTING_READER, type SettingReaderPort } from "~tracer-api/domain/job/port/setting.reader.port.js";
@@ -25,6 +29,8 @@ export class EnqueueJobUseCase {
         @Inject(AI_JOB_REPOSITORY) private readonly jobs: AiJobRepositoryPort,
         @Inject(SETTING_READER) private readonly settings: SettingReaderPort,
         @Inject(WORKFLOW_DISPATCHER) private readonly dispatcher: WorkflowDispatcherPort,
+        @Inject(CLOCK) private readonly clock: ClockPort,
+        @Inject(DEFAULT_AGENT_BACKEND) private readonly defaultBackend: DefaultAgentBackendPort,
     ) {}
 
     async execute(
@@ -33,12 +39,9 @@ export class EnqueueJobUseCase {
         input: Record<string, unknown>,
         options: EnqueueJobOptions = {},
     ): Promise<{ readonly job: JobDto }> {
-        const remoteAgentBackend = normalizeAiAgentBackend(
-            options.agentBackend ?? process.env["AGENT_BACKEND"],
-        );
         const agentBackend = kind === JOB_KIND.ruleGeneration
             ? options.agentBackend
-            : remoteAgentBackend;
+            : options.agentBackend ?? this.defaultBackend;
         const jobInput = withAgentBackend(input, agentBackend);
         if (kind !== JOB_KIND.ruleGeneration) {
             const catalog = new SettingsCatalog(await this.settings.findAll());
@@ -51,7 +54,7 @@ export class EnqueueJobUseCase {
             userId,
             kind,
             jobInput,
-            new Date(),
+            this.clock.now(),
             idempotencyKey !== undefined && inputHash !== undefined
                 ? { key: idempotencyKey, inputHash }
                 : undefined,

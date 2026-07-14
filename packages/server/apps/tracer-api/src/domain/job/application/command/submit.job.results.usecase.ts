@@ -6,6 +6,7 @@ import {
     type AiJobEntity,
 } from "@monitor/tracer-domain";
 import { AI_JOB_REPOSITORY, type AiJobRepositoryPort } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/job/port/clock.port.js";
 import { mapJob, type JobDto } from "~tracer-api/domain/job/model/job.model.js";
 import { JOB_TRANSACTION, type JobTransactionPort } from "~tracer-api/domain/job/port/transaction.port.js";
 import { RuleGenerationResultService } from "~tracer-api/domain/job/application/rule.generation.result.service.js";
@@ -29,12 +30,13 @@ export class SubmitJobResultsUseCase {
         @Inject(JOB_TRANSACTION)
         private readonly tx: JobTransactionPort,
         private readonly generatedRules: RuleGenerationResultService,
+        @Inject(CLOCK) private readonly clock: ClockPort,
     ) {}
 
     async execute(input: SubmitJobResultsInput): Promise<{ readonly job: JobDto }> {
         const owned = await this.jobs.findById(input.id);
         if (owned === null || !owned.isOwnedBy(input.userId)) throw new NotFoundException("Job not found");
-        const now = new Date();
+        const now = this.clock.now();
 
         const settled = await this.runSubmitTransaction(input, now);
         if (settled === null) {

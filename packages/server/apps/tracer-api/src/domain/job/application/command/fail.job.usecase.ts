@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { JOB_STATUS } from "@monitor/kernel";
 import { InvariantViolationError } from "@monitor/tracer-domain";
 import { AI_JOB_REPOSITORY, type AiJobRepositoryPort } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/job/port/clock.port.js";
 import { mapJob, type JobDto } from "~tracer-api/domain/job/model/job.model.js";
 
 const NON_TERMINAL = [JOB_STATUS.pending, JOB_STATUS.running] as const;
@@ -11,6 +12,7 @@ export class FailJobUseCase {
     constructor(
         @Inject(AI_JOB_REPOSITORY)
         private readonly jobs: AiJobRepositoryPort,
+        @Inject(CLOCK) private readonly clock: ClockPort,
     ) {}
 
     async execute(userId: string, id: string, error: string, leaseOwner?: string): Promise<{ readonly job: JobDto }> {
@@ -20,7 +22,7 @@ export class FailJobUseCase {
         if (job.leaseOwner !== null && !job.isLeaseHeldBy(leaseOwner ?? "")) {
             throw new InvariantViolationError("job.lease-not-held");
         }
-        job.fail(error, new Date());
+        job.fail(error, this.clock.now());
         const won = await this.jobs.commitTransition(job, NON_TERMINAL);
         if (!won) {
             const current = await this.jobs.findById(id);

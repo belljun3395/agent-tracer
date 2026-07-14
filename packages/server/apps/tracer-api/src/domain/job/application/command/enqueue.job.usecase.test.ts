@@ -1,10 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { AI_AGENT_BACKEND, JOB_KIND, JOB_STATUS } from "@monitor/kernel";
+import { describe, expect, it, vi } from "vitest";
+import { AI_AGENT_BACKEND, DEFAULT_AI_AGENT_BACKEND, JOB_KIND, JOB_STATUS, type AiAgentBackend } from "@monitor/kernel";
 import { LLM_KEY_SETTING } from "@monitor/tracer-domain/settings/settings.const.js";
+import { FixedClock } from "~tracer-api/domain/job/port/__fakes__/fixed.clock.js";
 import { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
 import { InMemorySettingReader } from "~tracer-api/domain/job/port/__fakes__/in-memory.setting.reader.js";
 import type { WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
 import { EnqueueJobUseCase } from "./enqueue.job.usecase.js";
+
+const NOW = new Date("2026-01-01T00:00:00.000Z");
 
 function makeSettings(values: ReadonlyMap<string, string> = new Map([[LLM_KEY_SETTING, "sk-test"]])): InMemorySettingReader {
     return new InMemorySettingReader(values);
@@ -16,16 +19,15 @@ function makeDispatcher() {
     } as unknown as WorkflowDispatcherPort & { readonly start: ReturnType<typeof vi.fn<WorkflowDispatcherPort["start"]>> };
 }
 
-function makeUseCase(settings: InMemorySettingReader = makeSettings()) {
+function makeUseCase(
+    settings: InMemorySettingReader = makeSettings(),
+    defaultBackend: AiAgentBackend = DEFAULT_AI_AGENT_BACKEND,
+) {
     const store = new InMemoryAiJobRepository();
     const dispatcher = makeDispatcher();
-    const useCase = new EnqueueJobUseCase(store, settings, dispatcher);
+    const useCase = new EnqueueJobUseCase(store, settings, dispatcher, new FixedClock(NOW), defaultBackend);
     return { store, dispatcher, useCase };
 }
-
-afterEach(() => {
-    vi.unstubAllEnvs();
-});
 
 describe("EnqueueJobUseCase", () => {
     it("같은 idempotency key와 같은 input이면 기존 Job을 반환한다", async () => {
@@ -137,8 +139,7 @@ describe("EnqueueJobUseCase", () => {
     });
 
     it("요청이 backend를 생략하면 서버 기본값을 확정해 같은 provider 키와 workflow 입력을 사용한다", async () => {
-        vi.stubEnv("AGENT_BACKEND", AI_AGENT_BACKEND.claudeSdk);
-        const { dispatcher, store, useCase } = makeUseCase();
+        const { dispatcher, store, useCase } = makeUseCase(makeSettings(), AI_AGENT_BACKEND.claudeSdk);
 
         await useCase.execute("u1", JOB_KIND.recipeScan, { taskId: "task-1" });
 

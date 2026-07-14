@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { JOB_KIND, JOB_STATUS } from "@monitor/kernel";
 import { AiJobEntity, InvariantViolationError } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/job/port/__fakes__/fixed.clock.js";
 import { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
 import { ReleaseJobUseCase } from "./release.job.usecase.js";
 
@@ -10,7 +11,7 @@ const NOW = new Date("2026-01-01T00:00:00.000Z");
 function makeUseCase(jobs: AiJobEntity[]): ReleaseJobUseCase {
     const repo = new InMemoryAiJobRepository();
     repo.seed(...jobs);
-    return new ReleaseJobUseCase(repo);
+    return new ReleaseJobUseCase(repo, new FixedClock(NOW));
 }
 
 function runningJob(owner: string): AiJobEntity {

@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { JOB_KIND, JOB_STATUS } from "@monitor/kernel";
 import { AiJobEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/job/port/__fakes__/fixed.clock.js";
 import { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
 import { StartJobUseCase } from "./start.job.usecase.js";
 
 function makeUseCase(jobs: AiJobEntity[]): { useCase: StartJobUseCase; repo: InMemoryAiJobRepository } {
     const repo = new InMemoryAiJobRepository();
     repo.seed(...jobs);
-    return { useCase: new StartJobUseCase(repo), repo };
+    return { useCase: new StartJobUseCase(repo, new FixedClock(new Date("2026-01-01T00:00:00.000Z"))), repo };
 }
 
 describe("StartJobUseCase", () => {
