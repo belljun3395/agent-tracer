@@ -6,7 +6,7 @@ from typing import Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, Rationale, ToolCallback, TrimmedStr
 
 
 class TitleSuggestionTurn(BaseModel):
@@ -44,7 +44,7 @@ class TitleSuggestionRequest(AgentExecutionRequest):
 
 class ContextAssessment(BaseModel):
     action: Literal["keep", "gather", "suggest"]
-    reason: TrimmedStr = Field(min_length=1, max_length=500)
+    reason: Rationale = Field(min_length=1)
 
 
 class TitleSuggestion(BaseModel):

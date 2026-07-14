@@ -6,7 +6,7 @@ from typing import Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, Purpose, Rationale, ToolCallback, TrimmedStr
 
 
 class TaskCleanupRequest(AgentExecutionRequest):
@@ -72,13 +72,13 @@ class InspectionTarget(BaseModel):
     order: Literal["asc", "desc"] = "desc"
     limit: int = Field(default=50, ge=1, le=100)
     cursor: TrimmedStr | None = Field(default=None, min_length=1)
-    purpose: TrimmedStr = Field(min_length=1, max_length=300)
+    purpose: Purpose = Field(min_length=1)
 
 
 class InspectionPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rationale: TrimmedStr = Field(min_length=1, max_length=500)
+    rationale: Rationale = Field(min_length=1)
     targets: list[InspectionTarget] = Field(default_factory=list, max_length=25)
 
 
@@ -102,7 +102,7 @@ class CleanupDraftSuggestion(BaseModel):
 class CleanupAssessment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rationale: TrimmedStr = Field(min_length=1, max_length=500)
+    rationale: Rationale = Field(min_length=1)
     suggestions: list[CleanupDraftSuggestion] = Field(default_factory=list, max_length=50)
     needsMoreEvidence: bool = False
     missingEvidence: list[TrimmedStr] = Field(default_factory=list, max_length=10)

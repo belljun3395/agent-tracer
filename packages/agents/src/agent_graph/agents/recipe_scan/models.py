@@ -6,7 +6,7 @@ from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, Purpose, Rationale, ToolCallback, TrimmedStr
 
 # 한 태스크가 서로 다른 작업 turn을 담을 수 있어 스캔 한 번이 낼 수 있는 후보 수다.
 MAX_RECIPE_CANDIDATES = 4
@@ -36,18 +36,18 @@ class RecipeScanRequest(AgentExecutionRequest):
 class EvidenceQuery(BaseModel):
     tool: RecipeToolName
     args: dict[str, Any]
-    purpose: TrimmedStr = Field(min_length=1, max_length=300)
+    purpose: Purpose = Field(min_length=1)
 
 
 class EvidencePlan(BaseModel):
-    rationale: TrimmedStr = Field(min_length=1, max_length=500)
+    rationale: Rationale = Field(min_length=1)
     queries: list[EvidenceQuery] = Field(default_factory=list, max_length=4)
 
 
 class EvidenceAssessment(BaseModel):
     sufficient: bool
-    reason: TrimmedStr = Field(min_length=1, max_length=500)
-    missingEvidence: list[TrimmedStr] = Field(default_factory=list, max_length=4)
+    reason: Rationale = Field(min_length=1)
+    missingEvidence: list[Purpose] = Field(default_factory=list, max_length=4)
 
 
 class RecipeStep(BaseModel):

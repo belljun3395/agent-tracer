@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from collections.abc import Callable
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
 
@@ -13,6 +14,22 @@ def _strip(value: object) -> object:
 
 TrimmedStr = Annotated[str, BeforeValidator(_strip)]
 Language = Literal["auto", "ko", "en", "ja", "zh"]
+
+
+def _clamp(limit: int) -> Callable[[object], object]:
+    def clamp(value: object) -> object:
+        return value.strip()[:limit] if isinstance(value, str) else value
+
+    return clamp
+
+
+def narrative(limit: int) -> Any:
+    """그래프 안에서만 도는 서술 필드다. 상한을 넘겨도 잘라서 받고 실행 전체를 버리지 않는다."""
+    return Annotated[str, BeforeValidator(_clamp(limit))]
+
+
+Purpose = narrative(300)
+Rationale = narrative(500)
 
 class ToolCallback(BaseModel):
     """도구 실행 창구. 토큰이 곧 소유 스코프라 실행 백엔드는 userId를 알 필요가 없다."""
