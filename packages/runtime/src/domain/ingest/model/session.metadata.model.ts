@@ -76,6 +76,10 @@ export type RuleLoggedMetadata = RequiredEventMetadata & {
     readonly ruleStatus?: string;
     readonly ruleOutcome?: string;
     readonly rulePolicy?: string;
+    readonly ruleId?: string;
+    readonly ruleSeverity?: string;
+    readonly expectedPattern?: string;
+    readonly actualToolCallCount?: number;
 };
 
 export type SetupMetadata = RequiredEventMetadata & {

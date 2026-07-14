@@ -6,6 +6,7 @@ import {captureTranscriptCommentary} from "~runtime/agent/claude-code/transcript
 import {queryDaemonGuardrail} from "~runtime/daemon/ipc/hook.client.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
+import {turnBlockedEvent} from "~runtime/domain/ingest/model/guardrail.event.model.js";
 import {assistantResponseEvent} from "~runtime/domain/ingest/model/message.event.model.js";
 import {onSessionEnd} from "~runtime/domain/session/inbound/session.hook.js";
 import {subagentSessionId} from "~runtime/domain/session/model/session.event.model.js";
@@ -28,6 +29,18 @@ await runHook("Stop", {
                 payload.lastAssistantMessage,
             );
             if (blocking.length > 0) {
+                await onLifecycleEvent(
+                    claudeRuntime.ingest,
+                    blocking.map((verdict) => turnBlockedEvent(target, {
+                        ruleId: verdict.ruleId,
+                        ruleName: verdict.ruleName,
+                        severity: verdict.severity,
+                        ...(verdict.expectedPattern !== undefined
+                            ? {expectedPattern: verdict.expectedPattern}
+                            : {}),
+                        actualToolCallCount: verdict.actualToolCallCount,
+                    })),
+                );
                 blockTurn(blocking);
                 return;
             }
