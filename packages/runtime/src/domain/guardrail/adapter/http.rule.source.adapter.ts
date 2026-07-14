@@ -1,3 +1,4 @@
+import {RULES_ALL_PATH, RULES_PATH} from "@monitor/kernel/api/rule.query.const.js";
 import {RULE_REVIEW_STATE} from "@monitor/kernel/rule/definition/rule.review.js";
 import type {RuleExpectation} from "@monitor/kernel/rule/definition/rule.vocabulary.js";
 import {VERDICT_STATUSES, type VerdictStatus} from "@monitor/kernel/rule/evaluation/rule.verdict.js";
@@ -6,7 +7,6 @@ import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js"
 import type {RuleSourcePort} from "~runtime/domain/guardrail/port/rule.source.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
-const RULES_ENDPOINT = "/api/v1/rules?scope=all";
 const FETCH_TIMEOUT_MS = 3000;
 
 interface RulesEnvelope {
@@ -22,7 +22,7 @@ export class HttpRuleSourceAdapter implements RuleSourcePort {
 
     async fetchAll(): Promise<readonly GuardrailRule[]> {
         const body = await getJson<RulesEnvelope>(
-            `${this.baseUrl}${RULES_ENDPOINT}`,
+            `${this.baseUrl}${RULES_ALL_PATH}`,
             this.headers,
             FETCH_TIMEOUT_MS,
         );
@@ -32,7 +32,7 @@ export class HttpRuleSourceAdapter implements RuleSourcePort {
 
     async recordNudge(ruleId: string): Promise<void> {
         await postJson(
-            `${this.baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}/nudge`,
+            `${this.baseUrl}${RULES_PATH}/${encodeURIComponent(ruleId)}/nudge`,
             this.headers,
             {},
         );

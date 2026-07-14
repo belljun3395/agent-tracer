@@ -1,5 +1,5 @@
 import { Controller, Headers, HttpCode, HttpStatus, Param, Post } from "@nestjs/common";
-import { MONITOR_USER_HEADER } from "@monitor/kernel";
+import { MONITOR_USER_HEADER, RULES_PATH } from "@monitor/kernel";
 import { ApproveRuleUseCase } from "~tracer-api/domain/rule/application/command/approve.rule.usecase.js";
 import { RecordNudgeUseCase } from "~tracer-api/domain/rule/application/command/record.nudge.usecase.js";
 import { ReevaluateRuleUseCase } from "~tracer-api/domain/rule/application/command/reevaluate.rule.usecase.js";
@@ -7,7 +7,7 @@ import { resolveUserId } from "~tracer-api/support/request-user.js";
 import { pathParamPipe } from "~tracer-api/support/path-param.pipe.js";
 
 /** 규칙 승인과 재평가 HTTP 계약을 제공한다. */
-@Controller("api/v1/rules")
+@Controller(RULES_PATH)
 export class RuleLifecycleController {
     constructor(
         private readonly approveRule: ApproveRuleUseCase,

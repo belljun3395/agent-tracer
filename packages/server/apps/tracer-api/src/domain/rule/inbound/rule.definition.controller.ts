@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Headers, HttpCode, HttpStatus, Param, Patch, Post } from "@nestjs/common";
-import { MONITOR_USER_HEADER } from "@monitor/kernel";
+import { MONITOR_USER_HEADER, RULES_PATH } from "@monitor/kernel";
 import { CreateRuleUseCase } from "~tracer-api/domain/rule/application/command/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "~tracer-api/domain/rule/application/command/delete.rule.usecase.js";
 import { UpdateRuleUseCase } from "~tracer-api/domain/rule/application/command/update.rule.usecase.js";
@@ -14,7 +14,7 @@ import {
 } from "./rule.definition.schema.js";
 
 /** 규칙 정의 생성·수정·삭제 HTTP 계약을 제공한다. */
-@Controller("api/v1/rules")
+@Controller(RULES_PATH)
 export class RuleDefinitionController {
     constructor(
         private readonly createRule: CreateRuleUseCase,

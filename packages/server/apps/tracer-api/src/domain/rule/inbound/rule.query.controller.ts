@@ -1,5 +1,5 @@
 import { Controller, Get, Headers, Param, Query } from "@nestjs/common";
-import { MONITOR_USER_HEADER } from "@monitor/kernel";
+import { MONITOR_USER_HEADER, RULES_ALL_FLAG, RULES_ALL_FLAG_VALUE, RULES_PATH } from "@monitor/kernel";
 import { GetRuleEvidenceUseCase } from "~tracer-api/domain/rule/application/query/get.rule.evidence.usecase.js";
 import { ListRulesUseCase } from "~tracer-api/domain/rule/application/query/list.rules.usecase.js";
 import { resolveUserId } from "~tracer-api/support/request-user.js";
@@ -13,7 +13,7 @@ import {
 } from "./rule.query.schema.js";
 
 /** 규칙 목록과 판정 근거 조회 HTTP 계약을 제공한다. */
-@Controller("api/v1/rules")
+@Controller(RULES_PATH)
 export class RuleQueryController {
     constructor(
         private readonly listRules: ListRulesUseCase,
@@ -27,7 +27,7 @@ export class RuleQueryController {
     ) {
         return this.listRules.execute(resolveUserId(user), {
             ...(query.taskId !== undefined ? { taskId: query.taskId } : {}),
-            ...(query.all === "true" ? { all: true } : {}),
+            ...(query[RULES_ALL_FLAG] === RULES_ALL_FLAG_VALUE ? { all: true } : {}),
         });
     }
 

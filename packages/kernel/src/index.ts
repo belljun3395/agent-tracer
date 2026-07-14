@@ -6,6 +6,7 @@ export * from "./ingest/task.const.js";
 export * from "./ingest/json.text.js";
 export * from "./ingest/contract.version.const.js";
 export * from "./api/envelope.js";
+export * from "./api/rule.query.const.js";
 export * from "./task/task.dto.js";
 export * from "./session/session.dto.js";
 export * from "./timeline/timeline.dto.js";

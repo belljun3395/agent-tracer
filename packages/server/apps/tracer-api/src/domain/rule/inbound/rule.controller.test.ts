@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { INestApplication } from "@nestjs/common";
-import { DEFAULT_USER_ID } from "@monitor/kernel";
+import { DEFAULT_USER_ID, RULES_ALL_PATH } from "@monitor/kernel";
 import { ApproveRuleUseCase } from "~tracer-api/domain/rule/application/command/approve.rule.usecase.js";
 import { CreateRuleUseCase } from "~tracer-api/domain/rule/application/command/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "~tracer-api/domain/rule/application/command/delete.rule.usecase.js";
@@ -48,11 +48,14 @@ const reevaluateRule = {
 const getRuleEvidence = {
     execute: vi.fn(async () => ({ ruleId: "rule-1", items: [] })),
 };
+const listRules = {
+    execute: vi.fn(async () => ({ items: [] })),
+};
 
 @Module({
     controllers: [RuleQueryController, RuleDefinitionController, RuleLifecycleController],
     providers: [
-        { provide: ListRulesUseCase, useValue: { execute: vi.fn() } },
+        { provide: ListRulesUseCase, useValue: listRules },
         { provide: CreateRuleUseCase, useValue: { execute: vi.fn() } },
         { provide: UpdateRuleUseCase, useValue: updateRule },
         { provide: DeleteRuleUseCase, useValue: { execute: vi.fn() } },
@@ -67,11 +70,23 @@ describe("규칙 HTTP 컨트롤러", () => {
     let app: INestApplication | undefined;
 
     afterEach(async () => {
+        listRules.execute.mockClear();
         updateRule.execute.mockClear();
         reevaluateRule.execute.mockClear();
         getRuleEvidence.execute.mockClear();
         await app?.close();
         app = undefined;
+    });
+
+    // 이 계약이 갈라지면 가드레일은 규칙을 한 건도 받지 못한다.
+    it("데몬의 전체 조회 요청을 태스크 문맥 없는 조회로 받는다", async () => {
+        app = await NestFactory.create(TestModule, { logger: false });
+        await app.listen(0, "127.0.0.1");
+
+        const res = await fetch(`${await app.getUrl()}${RULES_ALL_PATH}`);
+
+        expect(res.status).toBe(200);
+        expect(listRules.execute).toHaveBeenCalledWith(DEFAULT_USER_ID, { all: true });
     });
 
     it("수정 요청의 expect를 판별 유니온 그대로 치환한다", async () => {
