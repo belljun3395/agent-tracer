@@ -18,7 +18,7 @@ _TITLE_CONTEXT: dict[str, object] = {
     "totalEventCount": 1,
     "totalTurnCount": 1,
     "truncated": False,
-    "turns": [{"askedText": "인증 누수를 고쳐줘", "assistantText": "수정했습니다."}],
+    "turns": [{"turnIndex": 1, "askedText": "인증 누수를 고쳐줘", "assistantText": "수정했습니다."}],
 }
 
 

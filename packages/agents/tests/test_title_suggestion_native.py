@@ -24,6 +24,7 @@ _CONTEXT = {
     "truncated": True,
     "turns": [
         {
+            "turnIndex": 1,
             "askedText": "인증 미들웨어의 토큰 누수를 고쳐줘",
             "assistantText": "회귀 테스트를 추가하고 누수를 수정했습니다.",
         }

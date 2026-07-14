@@ -40,6 +40,7 @@ _TITLE_CONTEXT: dict[str, object] = {
     "truncated": False,
     "turns": [
         {
+            "turnIndex": 1,
             "askedText": "인증 토큰 누수를 고쳐줘",
             "assistantText": "누수를 수정하고 회귀 테스트를 추가했습니다.",
         }

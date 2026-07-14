@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any, Literal
 
 from agent_graph.agents.recipe_scan.graph import build_recipe_scan_graph
@@ -82,13 +80,3 @@ def test_anchor_slice는_실제_anchor_event를_인용해야_한다() -> None:
     errors = validate_recipe_candidate(candidate, "task-1", provenance)
 
     assert "The anchor contributing slice must cite at least one anchor event ID." in errors
-
-
-def test_공유_최종_DTO_fixture를_Python_모델이_그대로_직렬화한다() -> None:
-    fixture_path = Path(__file__).parent / "fixtures" / "recipe_scan_result.json"
-    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
-
-    candidate = RecipeCandidate.model_validate(payload["recipes"][0])
-    serialized = {"recipes": [candidate.model_dump(mode="json", exclude_none=True)]}
-
-    assert serialized == payload

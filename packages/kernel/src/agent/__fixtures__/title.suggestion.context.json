@@ -1,0 +1,20 @@
+{
+  "title": "Untitled",
+  "status": "completed",
+  "workspacePath": "/repo",
+  "totalEventCount": 42,
+  "totalTurnCount": 3,
+  "truncated": true,
+  "turns": [
+    {
+      "turnIndex": 1,
+      "askedText": "인증 토큰 누수를 고쳐줘",
+      "assistantText": "누수를 수정하고 회귀 테스트를 추가했습니다."
+    },
+    {
+      "turnIndex": 3,
+      "askedText": "회귀 테스트도 추가해줘",
+      "assistantText": null
+    }
+  ]
+}

@@ -12,6 +12,8 @@ from ..shared.models import AgentExecutionRequest, Language, ToolCallback, Trimm
 class TitleSuggestionTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # 컨텍스트가 첫 턴과 최근 창만 싣고 가운데를 잘라내므로 번호로 빠진 구간을 드러낸다.
+    turnIndex: int = Field(ge=0)
     askedText: str
     assistantText: str | None = None
 
