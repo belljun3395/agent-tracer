@@ -39,6 +39,7 @@
 | `0024-rules-are-anchored-to-one-utterance` | 규칙이 언제 걸리는지 정할 때. 규칙을 재사용하고 싶을 때 |
 | `0025-judgment-lives-until-fulfilled` | 규칙 이행 여부를 판정할 때. 턴을 막을지 정할 때 |
 | `0026-two-backends-per-agent` | 에이전트의 도구·출력·예산·검증을 만질 때. 두 백엔드가 갈라졌는지 볼 때 |
+| `0027-local-agent-meets-the-server-bar` | 데몬이 로컬에서 도는 규칙 생성기를 만질 때 |
 
 ## 놓치기 쉬운 규칙
 
