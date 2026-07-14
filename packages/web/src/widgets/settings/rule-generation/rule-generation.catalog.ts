@@ -1,16 +1,10 @@
-import { APP_SETTING_KEYS, SETTING_TOGGLE } from "@monitor/kernel";
+import { APP_SETTING_KEYS } from "@monitor/kernel";
 
 export const RULE_GENERATION_SETTING_KEYS = {
   apiKey: APP_SETTING_KEYS.anthropicApiKey,
   model: APP_SETTING_KEYS.anthropicModel,
   maxRulesPerTask: APP_SETTING_KEYS.ruleGenMaxRulesPerTask,
   outputLanguage: APP_SETTING_KEYS.claudeOutputLanguage,
-  autoOnUserInput: APP_SETTING_KEYS.ruleGenAutoOnUserInput,
-} as const;
-
-export const AUTO_RULE_GENERATION = {
-  on: SETTING_TOGGLE.on,
-  off: SETTING_TOGGLE.off,
 } as const;
 
 export const ANTHROPIC_MODEL_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [

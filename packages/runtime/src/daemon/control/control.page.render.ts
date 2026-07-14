@@ -110,7 +110,6 @@ function renderCaches(s) {
   $("cache-cards").innerHTML = [
     fresh(c.rules, "Rules cache"),
     fresh(c.recipes, "Recipes cache"),
-    card("Auto rule generation", c.autoRuleGeneration ? "on" : "off", ""),
     card("Bindings file", bytes(s.bindingsBytes), ""),
   ].join("");
 }

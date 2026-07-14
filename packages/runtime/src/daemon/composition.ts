@@ -15,12 +15,12 @@ import {AgentRuleGeneratorAdapter} from "~runtime/domain/rulegen/adapter/agent.r
 import {HttpRuleEvidenceAdapter} from "~runtime/domain/rulegen/adapter/http.rule.evidence.adapter.js";
 import {HttpRuleJobAdapter} from "~runtime/domain/rulegen/adapter/http.rule.job.adapter.js";
 import {HttpRuleSettingAdapter} from "~runtime/domain/rulegen/adapter/http.rule.setting.adapter.js";
-import {EnqueueAutoRuleUsecase} from "~runtime/domain/rulegen/application/enqueue.auto.rule.usecase.js";
+import {EnqueueRuleJobUsecase} from "~runtime/domain/rulegen/application/enqueue.rule.job.usecase.js";
 import {PollRuleJobsUsecase} from "~runtime/domain/rulegen/application/poll.rule.jobs.usecase.js";
-import {RefreshAutoTriggerUsecase} from "~runtime/domain/rulegen/application/refresh.auto.trigger.usecase.js";
+import {RefreshRuleSettingUsecase} from "~runtime/domain/rulegen/application/refresh.rule.setting.usecase.js";
 import {RunRuleJobUsecase} from "~runtime/domain/rulegen/application/run.rule.job.usecase.js";
 import type {RulegenHook} from "~runtime/domain/rulegen/inbound/rulegen.hook.js";
-import {AutoTriggerSettingCache} from "~runtime/domain/rulegen/model/auto.trigger.model.js";
+import {RuleGenerationSettingCache} from "~runtime/domain/rulegen/model/rule.command.model.js";
 import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
 
 /** 데몬이 부르는 도메인 진입점 묶음 전체다. */
@@ -58,17 +58,17 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         new AgentRuleGeneratorAdapter(),
         jobs,
     );
-    const autoTriggerCache = new AutoTriggerSettingCache();
+    const ruleSettingCache = new RuleGenerationSettingCache();
     const rulegen: RulegenHook = {
         pollJobs: new PollRuleJobsUsecase(
             jobs,
             (request, signal) => runRuleJob.execute(request, signal),
         ),
-        refreshAutoTrigger: new RefreshAutoTriggerUsecase(
+        refreshSetting: new RefreshRuleSettingUsecase(
             new HttpRuleSettingAdapter(baseUrl, headers),
-            autoTriggerCache,
+            ruleSettingCache,
         ),
-        enqueueAutoRule: new EnqueueAutoRuleUsecase(jobs, autoTriggerCache),
+        enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache),
     };
 
     return {guardrail, hint, recipe, rulegen, recipeCache};

@@ -22,7 +22,6 @@ export interface CacheFreshness {
 export interface DaemonCaches {
     readonly rules: CacheFreshness;
     readonly recipes: CacheFreshness;
-    readonly autoRuleGeneration: boolean;
 }
 
 /** 제어 스냅샷을 조립할 때 데몬이 넘기는 현재 상태다. */

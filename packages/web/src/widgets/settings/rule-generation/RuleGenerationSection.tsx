@@ -17,7 +17,6 @@ import { cn } from "~web/shared/ui/lib/cn.js";
 import { ModelSettingField, SecretSettingField } from "~web/widgets/settings/rule-generation/ProviderSettingFields.js";
 import {
   ANTHROPIC_MODEL_OPTIONS,
-  AUTO_RULE_GENERATION,
   LANGUAGE_OPTIONS,
   RULE_GENERATION_SETTING_KEYS as SETTING_KEYS,
 } from "~web/widgets/settings/rule-generation/rule-generation.catalog.js";
@@ -46,20 +45,6 @@ export function RuleGenerationSection() {
   const maxRules = settingsMap.get(SETTING_KEYS.maxRulesPerTask);
   const language = settingsMap.get(SETTING_KEYS.outputLanguage);
   const currentLanguage = language?.masked ?? "auto";
-  const autoEnabled = settingsMap.get(SETTING_KEYS.autoOnUserInput)?.masked === AUTO_RULE_GENERATION.on;
-
-  async function setAutoRuleGen(next: boolean) {
-    try {
-      await putMutation.mutateAsync({
-        key: SETTING_KEYS.autoOnUserInput,
-        value: next ? AUTO_RULE_GENERATION.on : AUTO_RULE_GENERATION.off,
-      });
-      setFeedback(next ? "Auto rule-generation enabled." : "Auto rule-generation disabled.");
-    } catch (err) {
-      setFeedback(`Failed to update auto rule-generation: ${(err as Error).message}`);
-    }
-  }
-
   async function save(key: string, value: string, draftSetter: (v: string) => void) {
     if (!value.trim()) {
       setFeedback("Value cannot be empty.");
@@ -85,42 +70,13 @@ export function RuleGenerationSection() {
 
   return (
     <Card surface="canvas" className="py-5 px-6">
-      <h2 className="text-[15px] font-semibold mb-1">Rule auto-generation</h2>
+      <h2 className="text-[15px] font-semibold mb-1">Rule generation</h2>
       <GuidanceText
         as="p"
         className="text-ink-muted text-[12.5px] mb-5"
         locale={guidance.locale}
         message={guidance.messages.settings.ruleGenerationIntroduction}
       />
-
-      <Field
-        label="Enable /rule local trigger"
-        help={guidance.messages.settings.localRuleTrigger}
-        helpLocale={guidance.locale}
-      >
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoEnabled}
-            disabled={isLoading || putMutation.isPending}
-            onClick={() => void setAutoRuleGen(!autoEnabled)}
-            className={cn(
-              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0",
-              autoEnabled ? "bg-ink" : "bg-s2",
-              isLoading || putMutation.isPending ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-4 w-4 rounded-full bg-canvas transition-transform",
-                autoEnabled ? "translate-x-4" : "translate-x-0.5",
-              )}
-            />
-          </button>
-          <span className="text-xs text-ink-muted">{autoEnabled ? "On" : "Off"}</span>
-        </div>
-      </Field>
 
       <SecretSettingField
         label="Anthropic API key"

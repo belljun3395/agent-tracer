@@ -3,7 +3,6 @@ export const APP_SETTING_KEYS = {
     anthropicApiKey: "anthropic.api_key",
     anthropicModel: "anthropic.model",
     ruleGenMaxRulesPerTask: "ruleGen.maxRulesPerTask",
-    ruleGenAutoOnUserInput: "ruleGen.autoOnUserInput",
     taskCleanupMaxSuggestions: "taskCleanup.maxSuggestions",
     claudeOutputLanguage: "claude.outputLanguage",
 } as const;

@@ -1,10 +1,10 @@
-import type {AutoRuleGenerationSetting} from "~runtime/domain/rulegen/model/auto.trigger.model.js";
 import type {RuleSettingPort} from "~runtime/domain/rulegen/port/rule.setting.port.js";
 
+/** 규칙 생성 설정 포트의 인메모리 대역이다. */
 export class InMemoryRuleSetting implements RuleSettingPort {
-    constructor(private readonly setting: AutoRuleGenerationSetting | null = null) {}
+    constructor(private readonly maxRulesPerTask: number | null = null) {}
 
-    async fetchAutoRuleGeneration(): Promise<AutoRuleGenerationSetting | null> {
-        return this.setting;
+    async fetchMaxRulesPerTask(): Promise<number | null> {
+        return this.maxRulesPerTask;
     }
 }

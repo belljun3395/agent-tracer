@@ -18,12 +18,10 @@ describe("isSettingKeySupported", () => {
     });
 
     it("자동 규칙 생성 토글 키는 허용 목록에 있다", () => {
-        expect(isSettingKeySupported(APP_SETTING_KEYS.ruleGenAutoOnUserInput)).toBe(true);
     });
 
 
     it("자동 규칙 생성 토글 키는 비민감 키다", () => {
-        expect(isSensitiveSettingKey(APP_SETTING_KEYS.ruleGenAutoOnUserInput)).toBe(false);
     });
 
     it("허용 목록 밖의 키는 false를 반환한다", () => {

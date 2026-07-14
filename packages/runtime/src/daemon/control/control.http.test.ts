@@ -44,7 +44,6 @@ function state(): DaemonRuntimeState {
         caches: {
             rules: {lastRefreshAt: null, lastFailureAt: null, intervalMs: 10_000, entries: 0},
             recipes: {lastRefreshAt: null, lastFailureAt: null, intervalMs: 300_000, entries: 0},
-            autoRuleGeneration: false,
         },
         ring: new RecentEventRing().stats(),
         interventions: new InterventionLog().snapshot(),

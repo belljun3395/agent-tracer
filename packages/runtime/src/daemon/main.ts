@@ -64,7 +64,6 @@ const spoolHistory = new SpoolHistoryObserver({
 });
 
 let cachedRules: readonly GuardrailRule[] = [];
-let autoRuleGeneration = false;
 let lastActivityAt = Date.now();
 let activeConnections = 0;
 let shuttingDown = false;
@@ -114,9 +113,8 @@ async function refreshRecipes(): Promise<void> {
     }
 }
 
-async function refreshAutoTrigger(): Promise<void> {
-    const setting = await onRuleGenerationSettingRefresh(hooks.rulegen);
-    autoRuleGeneration = setting.enabled;
+async function refreshRuleSetting(): Promise<void> {
+    await onRuleGenerationSettingRefresh(hooks.rulegen);
 }
 
 function currentState(): DaemonRuntimeState {
@@ -146,7 +144,6 @@ function currentState(): DaemonRuntimeState {
                 intervalMs: RECIPE_REFRESH_MS,
                 entries: hooks.recipeCache.load().length,
             },
-            autoRuleGeneration,
         },
         ring: ring.stats(),
         interventions: interventions.snapshot(),
@@ -176,7 +173,7 @@ async function shutdown(reason: string): Promise<void> {
 function refreshAll(): void {
     void refreshRecipes();
     void refreshRules();
-    void refreshAutoTrigger();
+    void refreshRuleSetting();
 }
 
 const controlActions: ControlActions = {
@@ -236,7 +233,7 @@ const timers = [
     setInterval(() => {
         if (shuttingDown) return;
         void refreshRules();
-        void refreshAutoTrigger();
+        void refreshRuleSetting();
     }, RULES_REFRESH_MS),
     setInterval(() => {
         if (!shuttingDown) void onRuleGenerationPoll(hooks.rulegen);

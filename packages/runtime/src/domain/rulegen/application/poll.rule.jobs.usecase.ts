@@ -1,5 +1,5 @@
 import {LOCAL_JOB_LEASE_HEARTBEAT_MS} from "@monitor/kernel/job/job.const.js";
-import {readRuleRequest} from "~runtime/domain/rulegen/model/auto.trigger.model.js";
+import {readRuleRequest} from "~runtime/domain/rulegen/model/rule.command.model.js";
 import {
     readJobAnchorEventId,
     toRuleGenerationRequest,

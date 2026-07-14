@@ -9,8 +9,7 @@ asked in this one message, so a message with no request produces no rules and th
 ignores it.
 
 The local daemon already detected this message via the `/rule` prefix and queued a
-`rule.generation` job anchored to it (skipped if the dashboard's `ruleGen.autoOnUserInput`
-toggle is off). A background agent inspects the workspace and derives the obligations
+`rule.generation` job anchored to it. A background agent inspects the workspace and derives the obligations
 $ARGUMENTS implies — one message can yield several rules. **You must not write rules
 yourself or edit rule-related code**; that is the only thing you should skip.
 
