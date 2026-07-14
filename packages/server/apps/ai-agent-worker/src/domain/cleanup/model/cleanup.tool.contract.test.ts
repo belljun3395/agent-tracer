@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { TASK_CLEANUP_MAX_EVIDENCE_EVENT_IDS, TASK_CLEANUP_MAX_SUGGESTIONS } from "@monitor/kernel";
 import { cleanupSuggestionsListSchema } from "@monitor/kernel/agent/task.cleanup.schema.js";
+import { toCleanupCandidatePage, type CleanupCandidate } from "./cleanup.candidate.model.js";
+import { toCleanupEventPage, type CleanupSlimEvent } from "./cleanup.event.model.js";
 import { TASK_CLEANUP_MAX_TURNS } from "./cleanup.prompt.js";
+import { TASK_CLEANUP_SPEC } from "./cleanup.spec.js";
 import {
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
@@ -21,6 +25,12 @@ const CONTRACT = JSON.parse(
 ) as {
     readonly maxTurns: number;
     readonly outputKinds: string[];
+    readonly limits: {
+        readonly maxSuggestions: number;
+        readonly maxEvidenceEventIds: number;
+        readonly maxOutputTokens: number;
+        readonly maxBudgetUsd: number;
+    };
     readonly tools: Record<
         string,
         {
@@ -30,6 +40,7 @@ const CONTRACT = JSON.parse(
             readonly order?: { readonly default: string; readonly values: string[] };
         }
     >;
+    readonly responses: Record<string, { readonly page: string[]; readonly item: string[] }>;
 };
 
 function partitionFields(toolName: string): { readonly required: string[]; readonly optional: string[] } {
@@ -98,13 +109,61 @@ describe("task-cleanup 도구 계약", () => {
     it("제안 종류가 골든 계약과 같다", () => {
         for (const kind of CONTRACT.outputKinds) {
             const parsed = cleanupSuggestionsListSchema.safeParse({
-                suggestions: [{ kind, taskId: "task-1", rationale: "이벤트가 하나도 없다" }],
+                suggestions: [{ kind, taskId: "task-1", rationale: "이벤트가 하나도 없다", evidenceEventIds: [] }],
             });
             expect(parsed.success).toBe(true);
         }
         const foreign = cleanupSuggestionsListSchema.safeParse({
-            suggestions: [{ kind: "merge", taskId: "task-1", rationale: "이벤트가 하나도 없다" }],
+            suggestions: [{ kind: "merge", taskId: "task-1", rationale: "이벤트가 하나도 없다", evidenceEventIds: [] }],
         });
         expect(foreign.success).toBe(false);
     });
+
+    it("제안 상한과 근거 상한과 토큰과 비용 예산이 골든 계약과 같다", () => {
+        expect(TASK_CLEANUP_MAX_SUGGESTIONS).toBe(CONTRACT.limits.maxSuggestions);
+        expect(TASK_CLEANUP_MAX_EVIDENCE_EVENT_IDS).toBe(CONTRACT.limits.maxEvidenceEventIds);
+        expect(TASK_CLEANUP_SPEC.limits.maxOutputTokens).toBe(CONTRACT.limits.maxOutputTokens);
+        expect(TASK_CLEANUP_SPEC.limits.maxBudgetUsd).toBe(CONTRACT.limits.maxBudgetUsd);
+    });
+
+    it("list_candidate_tasks의 응답 본문이 골든 계약과 같다", () => {
+        const page = toCleanupCandidatePage([sampleCandidate("task-1"), sampleCandidate("task-2")], 1, true);
+        const responses = CONTRACT.responses[TASK_CLEANUP_TOOL.listCandidateTasks]!;
+
+        expect(new Set(Object.keys(page))).toEqual(new Set(responses.page));
+        expect(new Set(Object.keys(page.candidates[0]!))).toEqual(new Set(responses.item));
+    });
+
+    it("get_task_events의 응답 본문이 골든 계약과 같다", () => {
+        const page = toCleanupEventPage([sampleEvent("event-1"), sampleEvent("event-2")], 1, 2);
+        const responses = CONTRACT.responses[TASK_CLEANUP_TOOL.getTaskEvents]!;
+
+        expect(new Set(Object.keys(page))).toEqual(new Set(responses.page));
+        expect(new Set(Object.keys(page.events[0]!))).toEqual(new Set(responses.item));
+    });
 });
+
+function sampleCandidate(id: string): CleanupCandidate {
+    return {
+        id,
+        visibleTitle: "정리해줘",
+        status: "running",
+        lastEventAt: "2026-07-14T00:00:00Z",
+        hasEvents: true,
+        activeChildCount: 0,
+        candidateReasons: ["placeholder-title"],
+    };
+}
+
+function sampleEvent(id: string): CleanupSlimEvent {
+    return {
+        id,
+        seq: "1",
+        kind: "execute_tool",
+        title: "무의미한 활동",
+        body: "본문",
+        toolName: "Read",
+        filePaths: [],
+        occurredAt: "2026-07-14T00:00:00Z",
+    };
+}

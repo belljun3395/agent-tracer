@@ -1,6 +1,12 @@
 {
   "maxTurns": 16,
   "outputKinds": ["archive"],
+  "limits": {
+    "maxSuggestions": 50,
+    "maxEvidenceEventIds": 100,
+    "maxOutputTokens": 16000,
+    "maxBudgetUsd": 0.5
+  },
   "tools": {
     "list_candidate_tasks": {
       "required": [],
@@ -12,6 +18,24 @@
       "optional": ["limit", "cursor", "order"],
       "limit": { "default": 100, "min": 1, "max": 300 },
       "order": { "default": "asc", "values": ["asc", "desc"] }
+    }
+  },
+  "responses": {
+    "list_candidate_tasks": {
+      "page": ["candidates", "truncated", "nextCursor", "total", "moreCandidatesOutsideBatch"],
+      "item": [
+        "id",
+        "visibleTitle",
+        "status",
+        "lastEventAt",
+        "hasEvents",
+        "activeChildCount",
+        "candidateReasons"
+      ]
+    },
+    "get_task_events": {
+      "page": ["events", "truncated", "nextCursor", "total"],
+      "item": ["id", "seq", "kind", "title", "body", "toolName", "filePaths", "occurredAt"]
     }
   }
 }

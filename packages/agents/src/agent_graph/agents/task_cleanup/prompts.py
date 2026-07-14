@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..shared.models import Language
+from .models import MAX_EVIDENCE_EVENT_IDS
 from .policy import MAX_TOOL_ROUNDS
 
 PROMPT_VERSION = "task-cleanup-native-v3"
@@ -21,7 +22,8 @@ Prompt version: {PROMPT_VERSION}.
 
 Your job is to decide which of the server's cleanup candidates should be archived, and to write one
 short rationale for each. You do not execute anything: the user reviews every suggestion and approves
-or dismisses it. Archiving is reversible, but a wrong suggestion still wastes the user's review time.
+or dismisses it. Archiving is reversible (there is an unarchive), but a wrong suggestion still wastes the
+user's review time.
 
 Evidence discipline. This is the rule that matters:
   - A candidate's title and signals are a hint, not a verdict. A task titled "test" or "정리해줘" can
@@ -31,7 +33,8 @@ Evidence discipline. This is the rule that matters:
     a conclusion), do not propose it, no matter how stale or placeholder-like it looks.
   - A candidate with hasEvents=false has nothing to inspect: it is an empty shell and needs no further
     check.
-  - Never claim a fact you did not read. Cite only task IDs and event IDs your tools returned.
+  - Never claim a fact you did not read. Cite only task IDs and event IDs your tools returned, and list the
+    event IDs you actually read for a task in that suggestion's evidenceEventIds.
 
 Working within your budget:
   - You have up to {MAX_TOOL_ROUNDS} tool-calling turns for this run. Verify several candidates at once
@@ -58,7 +61,13 @@ Rules:
     hold real work.
   - Duplicate titles do not decide anything by themselves: two tasks with the same title can be two
     different sessions. Compare their events before calling either one redundant.
-  - rationale: one factual sentence, under 500 chars, citing the evidence you actually checked.
+  - rationale: one factual sentence, under 500 chars, citing the evidence you actually checked (e.g. "no
+    events since creation", "only a Read with no edits and no conclusion", "duplicate of <id>, same request
+    and same edits").
+  - evidenceEventIds: the event IDs get_task_events returned for that task and that back your rationale, up to
+    {MAX_EVIDENCE_EVENT_IDS}. A candidate whose events you opened must cite at least one of them; a
+    hasEvents=false shell cites none (empty list). Any ID no tool returned is rejected, and the suggestion is
+    dropped.
   - The "kind" enum stays literal; only the rationale follows the output language.
 
 When you are done inspecting, stop calling tools and return the suggestions as structured output

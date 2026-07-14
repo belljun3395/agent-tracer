@@ -1,3 +1,8 @@
+/** 한 번의 정리 스캔이 낼 수 있는 보관 제안의 절대 상한이다. */
+export const TASK_CLEANUP_MAX_SUGGESTIONS = 50;
+/** 제안 하나가 인용할 수 있는 근거 이벤트 ID의 상한이다. */
+export const TASK_CLEANUP_MAX_EVIDENCE_EVENT_IDS = 100;
+
 export const TASK_CLEANUP_SUGGESTION_KIND = {
     archive: "archive",
 } as const;

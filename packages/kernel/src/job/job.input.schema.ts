@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TASK_CLEANUP_MAX_SUGGESTIONS } from "../cleanup/cleanup.const.js";
 import {
     JOB_KIND,
     RECIPE_SCAN_TRIGGER,
@@ -24,7 +25,7 @@ export const recipeScanJobInputSchema = z.object({
 
 export const taskCleanupJobInputSchema = z.object({
     filters: z.object({
-        maxSuggestions: z.number().int().positive().max(50).optional(),
+        maxSuggestions: z.number().int().positive().max(TASK_CLEANUP_MAX_SUGGESTIONS).optional(),
     }).strict().optional(),
 }).strict();
 

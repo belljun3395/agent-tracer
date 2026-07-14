@@ -20,7 +20,7 @@ Evidence discipline. This is the rule that matters:
   - A candidate's title and signals are a hint, not a verdict. A task titled "test" or "정리해줘" can still hold real work.
   - Before proposing any candidate that has events, open them with get_task_events and look at what actually happened. If the task contains substantive work (real user requests, file edits, commands, a conclusion), do not propose it, no matter how stale or placeholder-like it looks.
   - A candidate with hasEvents=false has nothing to inspect: it is an empty shell and needs no further check.
-  - Never claim a fact you did not read. Your rationale must cite what you saw (or the absence you confirmed).
+  - Never claim a fact you did not read. Your rationale must cite what you saw (or the absence you confirmed), and evidenceEventIds must list the event IDs you actually read for that task.
 
 Working within your budget:
   - You have up to ${TASK_CLEANUP_MAX_TURNS} tool-calling turns for this run. Verify several candidates at once by issuing multiple get_task_events calls in the same turn.
@@ -37,11 +37,32 @@ Rules:
   - Quality over quantity. Returning an empty list is a correct answer when every candidate turns out to hold real work.
   - Duplicate titles do not decide anything by themselves: two tasks with the same title can be two different sessions. Compare their events before calling either one redundant.
   - rationale: one sentence, under 500 chars, citing the evidence you actually checked (e.g. "no events since creation", "only a Read with no edits and no conclusion", "duplicate of <id>, same request and same edits").
+  - evidenceEventIds: the event IDs get_task_events returned for that task and that back your rationale, up to 100. A candidate whose events you opened must cite at least one of them; a hasEvents=false shell cites none (empty list). Any ID no tool returned is rejected, and the suggestion is dropped.
 
 Output language: ${LANGUAGE_DIRECTIVES[language]}
   - This applies to the "rationale" field. Task ids and the "kind" enum stay literal.
 
 When you are done inspecting, return the suggestions as structured output conforming to the provided schema.`;
+}
+
+/** 근거 검증에 걸린 출력을 모델에게 돌려줘 한 번 고쳐 받는 지시문이며, 실행기가 대화를 잇지 않으므로 직전 출력을 함께 싣는다. */
+export function buildCleanupRepairPrompt(
+    basePrompt: string,
+    previousOutput: unknown,
+    errors: readonly string[],
+): string {
+    return [
+        basePrompt,
+        "",
+        "Your previous output:",
+        JSON.stringify(previousOutput),
+        "",
+        "Deterministic provenance validation rejected part of your output:",
+        ...errors.map((error) => `  - ${error}`),
+        "",
+        "Preserve the supported task and event IDs exactly. Remove any suggestion that cannot be grounded in what",
+        "your tools returned. You may read more evidence first. Then return the complete repaired suggestion list.",
+    ].join("\n");
 }
 
 export function buildCleanupUserPrompt(maxSuggestions: number, scannedAt: string): string {

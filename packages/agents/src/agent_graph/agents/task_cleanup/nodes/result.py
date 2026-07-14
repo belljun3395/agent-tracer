@@ -9,10 +9,7 @@ from ..models import TaskCleanupState
 
 async def finalize(state: TaskCleanupState) -> dict[str, Any]:
     """검증된 제안을 보관 작업 결과로 직렬화한다."""
-    suggestions = [
-        item.model_dump(exclude={"evidenceEventIds"})
-        for item in state["suggestions"][: state["max_suggestions"]]
-    ]
+    suggestions = [item.model_dump() for item in state["suggestions"][: state["max_suggestions"]]]
     return {"result": {"suggestions": suggestions}}
 
 

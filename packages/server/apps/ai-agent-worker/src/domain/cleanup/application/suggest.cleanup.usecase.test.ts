@@ -19,8 +19,8 @@ describe("SuggestCleanupUsecase", () => {
         const agent = new FakeCleanupAgent(
             emptyOutput({
                 suggestions: [
-                    { kind: "archive", taskId: "task-1", rationale: "이벤트가 없다" },
-                    { kind: "archive", taskId: "task-ghost", rationale: "근거 없음" },
+                    { kind: "archive", taskId: "task-1", rationale: "이벤트가 없다", evidenceEventIds: [] },
+                    { kind: "archive", taskId: "task-ghost", rationale: "근거 없음", evidenceEventIds: [] },
                 ],
             }),
         );
@@ -38,8 +38,8 @@ describe("SuggestCleanupUsecase", () => {
         const agent = new FakeCleanupAgent(
             emptyOutput({
                 suggestions: [
-                    { kind: "archive", taskId: "task-1", rationale: "빈 껍데기" },
-                    { kind: "archive", taskId: "task-2", rationale: "중복" },
+                    { kind: "archive", taskId: "task-1", rationale: "빈 껍데기", evidenceEventIds: [] },
+                    { kind: "archive", taskId: "task-2", rationale: "중복", evidenceEventIds: [] },
                 ],
             }),
         );

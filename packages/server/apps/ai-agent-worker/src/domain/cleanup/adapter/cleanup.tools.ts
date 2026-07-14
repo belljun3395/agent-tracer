@@ -8,6 +8,7 @@ import {
     type CleanupCandidate,
 } from "~ai-agent-worker/domain/cleanup/model/cleanup.candidate.model.js";
 import { toCleanupEventPage, type CleanupSlimEvent } from "~ai-agent-worker/domain/cleanup/model/cleanup.event.model.js";
+import { CleanupProvenanceLedger } from "~ai-agent-worker/domain/cleanup/model/cleanup.provenance.model.js";
 import {
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
@@ -35,11 +36,12 @@ export interface CleanupToolBatch {
     readonly batchTruncated: boolean;
 }
 
-/** 사용자 범위와 후보 배치를 고정한 cleanup 슬라이스 소유의 도구 핸들러를 만든다. */
+/** 사용자 범위와 후보 배치와 실행 단위 근거 장부를 고정한 cleanup 슬라이스 소유의 도구 핸들러를 만든다. */
 export function buildCleanupToolHandlers(
     userId: string,
     deps: CleanupToolDeps,
     batch: CleanupToolBatch,
+    ledger: CleanupProvenanceLedger = new CleanupProvenanceLedger(),
 ): ToolHandlers {
     return {
         [TASK_CLEANUP_TOOL.listCandidateTasks]: async (raw) => {
@@ -49,6 +51,7 @@ export function buildCleanupToolHandlers(
                 () => {
                     const size = clampInt(limit, DEFAULT_CANDIDATE_LIMIT, 1, MAX_CANDIDATE_LIMIT);
                     const page = toCleanupCandidatePage(batch.candidates, size, batch.batchTruncated, cursor);
+                    ledger.recordCandidates(page.candidates);
                     return Promise.resolve(JSON.stringify(page));
                 },
             );
@@ -77,7 +80,9 @@ export function buildCleanupToolHandlers(
                             ),
                         deps.events.countByTask(taskId),
                     ]);
-                    return JSON.stringify(toCleanupEventPage(rows.map(toSlimEvent), size, total));
+                    const page = toCleanupEventPage(rows.map(toSlimEvent), size, total);
+                    ledger.recordInspection(taskId, page.events);
+                    return JSON.stringify(page);
                 },
             );
         },

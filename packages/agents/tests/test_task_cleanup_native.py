@@ -158,8 +158,13 @@ async def test_모델이_후보를_스스로_열람하고_이벤트를_읽은_�
     assert res.error is None
     assert client.calls == ["list_candidate_tasks", "get_task_events"]
     assert res.data["suggestions"] == [
-        {"kind": "archive", "taskId": "task-1", "rationale": "의미 있는 작업이 없다"},
-        {"kind": "archive", "taskId": "task-2", "rationale": "빈 껍데기다"},
+        {
+            "kind": "archive",
+            "taskId": "task-1",
+            "rationale": "의미 있는 작업이 없다",
+            "evidenceEventIds": ["event-1"],
+        },
+        {"kind": "archive", "taskId": "task-2", "rationale": "빈 껍데기다", "evidenceEventIds": []},
     ]
 
 
