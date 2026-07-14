@@ -100,9 +100,9 @@ describe("buildRuleGenerationSpec", () => {
         }
     });
 
-    it("출력 스키마는 이름과 기대 조건과 근거만 필수로 요구한다", () => {
+    it("출력 스키마는 이름과 기대 조건만 필수로 요구한다", () => {
         const rules = specFor().outputSchema["properties"] as {rules: {items: Record<string, unknown>}};
 
-        expect(rules.rules.items["required"]).toEqual(["name", "expect", "rationale"]);
+        expect(rules.rules.items["required"]).toEqual(["name", "expect"]);
     });
 });

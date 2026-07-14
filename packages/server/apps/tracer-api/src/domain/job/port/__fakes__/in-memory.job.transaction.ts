@@ -1,4 +1,5 @@
 import type { RuleEntity } from "@monitor/tracer-domain";
+import { InMemoryAiJobStepRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.step.repository.js";
 import type { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
 import type { JobTransactionContext, JobTransactionPort } from "~tracer-api/domain/job/port/transaction.port.js";
 
@@ -45,16 +46,19 @@ export class InMemoryJobTransaction implements JobTransactionPort {
     constructor(
         private readonly jobs: InMemoryAiJobRepository,
         private readonly rules: InMemoryRuleStore,
+        readonly jobSteps: InMemoryAiJobStepRepository = new InMemoryAiJobStepRepository(),
     ) {}
 
     async run<T>(work: (tx: JobTransactionContext) => Promise<T>): Promise<T> {
         const jobsSnapshot = this.jobs.snapshot();
         const rulesSnapshot = this.rules.snapshot();
+        const stepsSnapshot = this.jobSteps.snapshot();
         try {
-            return await work({ jobs: this.jobs, rules: this.rules });
+            return await work({ jobs: this.jobs, rules: this.rules, jobSteps: this.jobSteps });
         } catch (error) {
             this.jobs.restore(jobsSnapshot);
             this.rules.restore(rulesSnapshot);
+            this.jobSteps.restore(stepsSnapshot);
             throw error;
         }
     }

@@ -12,6 +12,7 @@ import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refr
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {AgentRuleGeneratorAdapter} from "~runtime/domain/rulegen/adapter/agent.rule.generator.adapter.js";
+import {ClaudeRuleAgentRunnerAdapter} from "~runtime/domain/rulegen/adapter/claude.rule.agent.runner.adapter.js";
 import {HttpRuleEvidenceAdapter} from "~runtime/domain/rulegen/adapter/http.rule.evidence.adapter.js";
 import {HttpRuleJobAdapter} from "~runtime/domain/rulegen/adapter/http.rule.job.adapter.js";
 import {HttpRuleSettingAdapter} from "~runtime/domain/rulegen/adapter/http.rule.setting.adapter.js";
@@ -67,7 +68,7 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
     const runRuleJob = new RunRuleJobUsecase(
         new HttpRuleEvidenceAdapter(baseUrl, headers),
-        new AgentRuleGeneratorAdapter(),
+        new AgentRuleGeneratorAdapter(new ClaudeRuleAgentRunnerAdapter()),
         jobs,
         clock,
     );

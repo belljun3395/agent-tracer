@@ -1,0 +1,32 @@
+{
+  "maxTurns": 15,
+  "limits": {
+    "maxBudgetUsd": 2,
+    "maxOutputTokens": 8000,
+    "deadlineMs": 720000,
+    "effort": "medium"
+  },
+  "tools": {
+    "get_task_turns": {
+      "required": ["taskId"],
+      "optional": []
+    },
+    "get_task_events": {
+      "required": ["taskId"],
+      "optional": ["limit"],
+      "numbers": {
+        "limit": { "default": 50, "min": 1, "max": 100 }
+      }
+    },
+    "list_rules": {
+      "required": [],
+      "optional": []
+    }
+  },
+  "workspaceTools": ["Read", "Glob", "Grep"],
+  "proposal": {
+    "required": ["name", "expect"],
+    "optional": ["severity", "rationale"],
+    "expectKinds": ["command", "pattern", "action"]
+  }
+}

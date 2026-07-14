@@ -3,6 +3,7 @@ import {
     normalizeRuleGenerationIntent,
     type RuleGenerationFocus,
 } from "@monitor/kernel/job/job.const.js";
+import type {AiJobStepPayload} from "@monitor/kernel/job/job.step.const.js";
 import type {RuleProposalPayload} from "@monitor/kernel/rule/proposal/rule.proposal.schema.js";
 import type {RuleGenerationRequest} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
 
@@ -31,12 +32,13 @@ export interface RuleGenerationUsage {
     readonly cacheCreationTokens: number;
 }
 
-/** 실행기가 명세를 돌리고 돌려주는 원시 결과다. */
+/** 실행기가 명세를 돌리고 돌려주는 원시 결과이며 실패해도 그때까지의 비용과 궤적을 싣는다. */
 export interface RuleGenerationOutcome {
     readonly candidates: readonly unknown[];
     readonly costUsd: number | null;
     readonly numTurns: number | null;
     readonly usage: RuleGenerationUsage | null;
+    readonly steps: readonly AiJobStepPayload[];
     readonly error: string | null;
 }
 
@@ -48,6 +50,23 @@ export interface RuleGenerationReport {
     readonly costUsd: number | null;
     readonly numTurns: number | null;
     readonly usage?: RuleGenerationUsage;
+    readonly steps: readonly AiJobStepPayload[];
+}
+
+/** 서버에 보고하는 규칙 생성 실패이며 실패한 시도가 이미 청구한 비용과 궤적을 그대로 넘긴다. */
+export interface RuleGenerationFailure {
+    readonly error: string;
+    readonly modelUsed: string | null;
+    readonly durationMs: number | null;
+    readonly costUsd: number | null;
+    readonly numTurns: number | null;
+    readonly usage?: RuleGenerationUsage;
+    readonly steps: readonly AiJobStepPayload[];
+}
+
+/** 실행기를 부르기도 전에 끝난 실패라 청구한 것도 남긴 궤적도 없다. */
+export function ruleGenerationFailure(error: string): RuleGenerationFailure {
+    return {error, modelUsed: null, durationMs: null, costUsd: null, numTurns: null, steps: []};
 }
 
 /** 폴러가 클레임한 잡 하나를 끝까지 처리하는 실행 경로다. */

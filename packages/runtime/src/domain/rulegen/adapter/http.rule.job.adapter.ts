@@ -3,6 +3,7 @@ import {MONITOR_LEASE_OWNER_HEADER} from "@monitor/kernel/user/user.header.const
 import {getJson, postJson} from "~runtime/config/http.js";
 import type {
     PendingRuleJob,
+    RuleGenerationFailure,
     RuleGenerationReport,
     RuleJobLeaseState,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
@@ -96,8 +97,8 @@ export class HttpRuleJobAdapter implements RuleJobPort {
         return false;
     }
 
-    async fail(jobId: string, error: string): Promise<void> {
-        await postJson(this.jobUrl(jobId, "fail"), this.leaseHeaders, {error});
+    async fail(jobId: string, failure: RuleGenerationFailure): Promise<void> {
+        await postJson(this.jobUrl(jobId, "fail"), this.leaseHeaders, failure);
     }
 
     async release(jobId: string): Promise<void> {

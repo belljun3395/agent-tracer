@@ -1,4 +1,5 @@
 import {describe, expect, it, vi, afterEach} from "vitest";
+import {AI_JOB_STEP_ROLE, type AiJobStepPayload} from "@monitor/kernel/job/job.step.const.js";
 import {RunRuleJobUsecase} from "~runtime/domain/rulegen/application/run.rule.job.usecase.js";
 import {FixedClock} from "~runtime/domain/rulegen/port/__fakes__/fixed.clock.js";
 
@@ -22,8 +23,18 @@ const VALID_RULE = {
 
 const REQUEST = {jobId: "job-1", taskId: "task-1", workspacePath: "/tmp/ws"};
 
+const STEP: AiJobStepPayload = {
+    seq: 0,
+    role: AI_JOB_STEP_ROLE.assistant,
+    content: "턴을 읽는다",
+    truncated: false,
+    toolCalls: [{id: "call-1", name: "get_task_turns", args: {taskId: "task-1"}}],
+};
+
+const USAGE = {inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheCreationTokens: 0};
+
 function outcome(overrides: Partial<RuleGenerationOutcome> = {}): RuleGenerationOutcome {
-    return {candidates: [], costUsd: 0.1, numTurns: 2, usage: null, error: null, ...overrides};
+    return {candidates: [], costUsd: 0.1, numTurns: 2, usage: null, steps: [], error: null, ...overrides};
 }
 
 function events(count: number): {kind: string; title: string; body: string}[] {
@@ -68,6 +79,17 @@ describe("RunRuleJobUsecase", () => {
         await usecase.execute(REQUEST);
 
         expect(jobs.reported[0]?.report).not.toHaveProperty("usage");
+    });
+
+    it("결과 보고에 실행 궤적을 싣는다", async () => {
+        const jobs = new InMemoryRuleJob();
+        const generator = new InMemoryRuleGenerator(outcome({steps: [STEP], usage: USAGE}));
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
+
+        await usecase.execute(REQUEST);
+
+        expect(jobs.reported[0]?.report.steps).toEqual([STEP]);
+        expect(jobs.reported[0]?.report.usage).toEqual(USAGE);
     });
 
     it("실행기에 근거를 더 가져오는 도구를 넘긴다", async () => {
@@ -151,6 +173,24 @@ describe("RunRuleJobUsecase", () => {
         expect(jobs.reported).toEqual([]);
     });
 
+    it("실패한 실행이 쓴 비용과 궤적도 실패 보고에 싣는다", async () => {
+        const jobs = new InMemoryRuleJob();
+        const generator = new InMemoryRuleGenerator(
+            outcome({error: "error_max_turns", costUsd: 0.42, numTurns: 15, usage: USAGE, steps: [STEP]}),
+        );
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
+
+        await usecase.execute({...REQUEST, jobId: "job-8"});
+
+        expect(jobs.failures[0]?.failure).toMatchObject({
+            error: "error_max_turns",
+            costUsd: 0.42,
+            numTurns: 15,
+            usage: USAGE,
+            steps: [STEP],
+        });
+    });
+
     it("결과 보고가 실패하면 같은 잡을 실패로 종결시킨다", async () => {
         const jobs = new InMemoryRuleJob();
         jobs.reportOk = false;
@@ -172,14 +212,14 @@ describe("RunRuleJobUsecase", () => {
         expect(jobs.failed).toEqual([{jobId: "job-3", error: "SDK 없음"}]);
     });
 
-    it("취소된 잡은 실패로 보고하지 않는다", async () => {
+    it("취소된 잡은 실행기가 오류 결과로 답해도 실패로 보고하지 않는다", async () => {
         const jobs = new InMemoryRuleJob();
         const generator = new InMemoryRuleGenerator(outcome());
-        vi.spyOn(generator, "generate").mockRejectedValue(new Error("aborted"));
         const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
 
         await usecase.execute({...REQUEST, jobId: "job-4"}, AbortSignal.abort());
 
         expect(jobs.failed).toEqual([]);
+        expect(jobs.reported).toEqual([]);
     });
 });

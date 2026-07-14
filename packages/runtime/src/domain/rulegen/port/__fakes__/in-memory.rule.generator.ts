@@ -8,7 +8,18 @@ const EMPTY_OUTCOME: RuleGenerationOutcome = {
     costUsd: 0,
     numTurns: 1,
     usage: null,
+    steps: [],
     error: null,
+};
+
+/** 실제 실행기는 중단을 던지지 않고 오류 결과로 답하므로 가짜도 그렇게 답한다. */
+const ABORTED_OUTCOME: RuleGenerationOutcome = {
+    candidates: [],
+    costUsd: 0.4,
+    numTurns: 3,
+    usage: null,
+    steps: [],
+    error: "This operation was aborted",
 };
 
 export class InMemoryRuleGenerator implements RuleGeneratorPort {
@@ -17,9 +28,14 @@ export class InMemoryRuleGenerator implements RuleGeneratorPort {
 
     constructor(private readonly outcome: RuleGenerationOutcome = EMPTY_OUTCOME) {}
 
-    async generate(spec: RuleGenerationSpec, toolset: RulegenToolset): Promise<RuleGenerationOutcome> {
+    async generate(
+        spec: RuleGenerationSpec,
+        toolset: RulegenToolset,
+        signal: AbortSignal,
+    ): Promise<RuleGenerationOutcome> {
         this.specs.push(spec);
         this.toolsets.push(toolset);
+        if (signal.aborted) return ABORTED_OUTCOME;
         return this.outcome;
     }
 }

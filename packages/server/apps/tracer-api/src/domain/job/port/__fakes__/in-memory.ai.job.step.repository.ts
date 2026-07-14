@@ -3,7 +3,7 @@ import type { AiJobStepRepositoryPort } from "~tracer-api/domain/job/port/ai.job
 
 /** 잡 스텝 저장소 포트의 인메모리 대역이다. */
 export class InMemoryAiJobStepRepository implements AiJobStepRepositoryPort {
-    private readonly rows: AiJobStepEntity[] = [];
+    private rows: AiJobStepEntity[] = [];
 
     seed(...steps: readonly AiJobStepEntity[]): void {
         this.rows.push(...steps);
@@ -11,6 +11,19 @@ export class InMemoryAiJobStepRepository implements AiJobStepRepositoryPort {
 
     all(): readonly AiJobStepEntity[] {
         return [...this.rows];
+    }
+
+    insertMany(steps: readonly AiJobStepEntity[]): Promise<void> {
+        this.rows.push(...steps);
+        return Promise.resolve();
+    }
+
+    snapshot(): readonly AiJobStepEntity[] {
+        return [...this.rows];
+    }
+
+    restore(snapshot: readonly AiJobStepEntity[]): void {
+        this.rows = [...snapshot];
     }
 
     findByJobId(jobId: string, userId: string): Promise<AiJobStepEntity[]> {

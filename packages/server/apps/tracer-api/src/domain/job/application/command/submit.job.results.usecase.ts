@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { JOB_KIND, JOB_STATUS } from "@monitor/kernel";
+import { JOB_KIND, JOB_STATUS, type AiJobStepPayload } from "@monitor/kernel";
 import {
     JobTransitionLostError,
     isJobTransitionLost,
@@ -8,6 +8,7 @@ import {
 import { AI_JOB_REPOSITORY, type AiJobRepositoryPort } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
 import { CLOCK, type ClockPort } from "~tracer-api/domain/job/port/clock.port.js";
 import { mapJob, type JobDto } from "~tracer-api/domain/job/model/job.model.js";
+import { persistJobSteps } from "~tracer-api/domain/job/application/job.step.service.js";
 import { JOB_TRANSACTION, type JobTransactionPort } from "~tracer-api/domain/job/port/transaction.port.js";
 import { RuleGenerationResultService } from "~tracer-api/domain/job/application/rule.generation.result.service.js";
 
@@ -19,6 +20,7 @@ export interface SubmitJobResultsInput {
     readonly proposals?: readonly unknown[];
     readonly result?: Record<string, unknown>;
     readonly usage?: Record<string, unknown>;
+    readonly steps?: readonly AiJobStepPayload[];
 }
 
 /** AI 잡 결과를 수락해 산출물을 저장하고 잡을 종결한다. */
@@ -77,6 +79,12 @@ export class SubmitJobResultsUseCase {
                 if (!(await tx.jobs.commitTransition(job, NON_TERMINAL))) {
                     throw new JobTransitionLostError(job.id);
                 }
+                await persistJobSteps(tx.jobSteps, {
+                    jobId: job.id,
+                    userId: job.userId,
+                    steps: input.steps ?? [],
+                    now,
+                });
                 return { job, afterCommit };
             });
         } catch (error) {

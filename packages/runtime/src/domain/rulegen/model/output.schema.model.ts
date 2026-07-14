@@ -48,7 +48,8 @@ export function buildRuleOutputSchema(): Record<string, unknown> {
                         severity: {type: "string", enum: [...RULE_SEVERITIES]},
                         rationale: {type: "string"},
                     },
-                    required: ["name", "expect", "rationale"],
+                    // 수용 계약(kernel의 ruleProposalSchema)이 rationale을 선택으로 두므로 구조화 출력도 강제하지 않는다.
+                    required: ["name", "expect"],
                 },
             },
         },

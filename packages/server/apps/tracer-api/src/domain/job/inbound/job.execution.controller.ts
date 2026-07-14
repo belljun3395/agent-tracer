@@ -5,6 +5,7 @@ import { ReleaseJobUseCase } from "~tracer-api/domain/job/application/command/re
 import { RenewJobLeaseUseCase } from "~tracer-api/domain/job/application/command/renew.job.lease.usecase.js";
 import { StartJobUseCase } from "~tracer-api/domain/job/application/command/start.job.usecase.js";
 import { SubmitJobResultsUseCase } from "~tracer-api/domain/job/application/command/submit.job.results.usecase.js";
+import { buildJobUsage } from "~tracer-api/domain/job/model/job.usage.model.js";
 import { resolveUserId } from "~tracer-api/support/request-user.js";
 import { pathParamPipe } from "~tracer-api/support/path-param.pipe.js";
 import { SchemaValidationPipe } from "~tracer-api/support/schema.validation.pipe.js";
@@ -65,13 +66,14 @@ export class JobExecutionController {
         @Param("id", pathParamPipe) id: string,
         @Body(new SchemaValidationPipe(resultsBodySchema)) body: ResultsBody,
     ) {
-        const usage = buildResultsUsage(body);
+        const usage = buildJobUsage(body);
         return this.submitResults.execute({
             userId: resolveUserId(user),
             id,
             ...(body.proposals !== undefined ? { proposals: body.proposals } : {}),
             ...(body.result !== undefined ? { result: body.result } : {}),
             ...(usage !== undefined ? { usage } : {}),
+            ...(body.steps !== undefined ? { steps: body.steps } : {}),
         });
     }
 
@@ -83,15 +85,14 @@ export class JobExecutionController {
         @Param("id", pathParamPipe) id: string,
         @Body(new SchemaValidationPipe(failBodySchema)) body: FailBody,
     ) {
-        return this.failJob.execute(resolveUserId(user), id, body.error, leaseOwner);
+        const usage = buildJobUsage(body);
+        return this.failJob.execute({
+            userId: resolveUserId(user),
+            id,
+            error: body.error,
+            leaseOwner,
+            ...(usage !== undefined ? { usage } : {}),
+            ...(body.steps !== undefined ? { steps: body.steps } : {}),
+        });
     }
-}
-
-function buildResultsUsage(body: ResultsBody): Record<string, unknown> | undefined {
-    const usage = { ...(body.usage ?? {}) };
-    if (body.modelUsed !== undefined) usage["model"] = body.modelUsed;
-    if (body.durationMs !== undefined) usage["durationMs"] = body.durationMs;
-    if (body.costUsd !== undefined) usage["costUsd"] = body.costUsd;
-    if (body.numTurns !== undefined) usage["numTurns"] = body.numTurns;
-    return Object.keys(usage).length > 0 ? usage : undefined;
 }

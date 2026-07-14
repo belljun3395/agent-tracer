@@ -2,6 +2,7 @@ import {LOCAL_JOB_LEASE_HEARTBEAT_MS} from "@monitor/kernel/job/job.const.js";
 import {readRuleRequest} from "~runtime/domain/rulegen/model/rule.command.model.js";
 import {
     readJobAnchorEventId,
+    ruleGenerationFailure,
     toRuleGenerationRequest,
     type PendingRuleJob,
     type RuleJobRunner,
@@ -63,7 +64,7 @@ export class PollRuleJobsUsecase {
         const workspacePath = await this.jobs.workspacePath(taskId);
         if (workspacePath === null) {
             log(`no workspacePath for task ${taskId}, failing job ${job.id}`);
-            await this.jobs.fail(job.id, `task ${taskId} has no workspacePath`)
+            await this.jobs.fail(job.id, ruleGenerationFailure(`task ${taskId} has no workspacePath`))
                 .catch(() => log(`failed to mark job ${job.id} failed`));
             return;
         }
@@ -98,7 +99,7 @@ export class PollRuleJobsUsecase {
             .catch((error: unknown) => {
                 log(`job ${job.id} threw: ${String(error)}`);
                 if (cancel.signal.aborted) return;
-                void this.jobs.fail(job.id, String(error))
+                void this.jobs.fail(job.id, ruleGenerationFailure(String(error)))
                     .catch(() => log(`failed to mark job ${job.id} failed after throw`));
             })
             .finally(() => {

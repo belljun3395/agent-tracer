@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { NotFoundException } from "@nestjs/common";
-import { JOB_KIND, JOB_STATUS, RULE_EXPECTATION_KIND } from "@monitor/kernel";
+import { AI_JOB_STEP_ROLE, JOB_KIND, JOB_STATUS, RULE_EXPECTATION_KIND } from "@monitor/kernel";
 import { AiJobEntity } from "@monitor/tracer-domain";
 import type { RuleEntity } from "@monitor/tracer-domain";
 import { FixedClock } from "~tracer-api/domain/job/port/__fakes__/fixed.clock.js";
 import { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
+import { InMemoryAiJobStepRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.step.repository.js";
 import { InMemoryJobTransaction, InMemoryRuleStore } from "~tracer-api/domain/job/port/__fakes__/in-memory.job.transaction.js";
 import { SubmitJobResultsUseCase } from "./submit.job.results.usecase.js";
 import type { RuleBackfillService } from "~tracer-api/domain/job/application/rule.backfill.service.js";
@@ -20,6 +21,7 @@ interface MakeUseCaseOptions {
 function makeUseCase(jobs: AiJobEntity[], rules: RuleEntity[] = [], options: MakeUseCaseOptions = {}): {
     readonly useCase: SubmitJobResultsUseCase;
     readonly ruleStore: InMemoryRuleStore;
+    readonly stepStore: InMemoryAiJobStepRepository;
 } {
     const jobRepo = new InMemoryAiJobRepository();
     jobRepo.seed(...jobs);
@@ -27,14 +29,16 @@ function makeUseCase(jobs: AiJobEntity[], rules: RuleEntity[] = [], options: Mak
     ruleStore.seed(...rules);
     if (options.commitWins === false) jobRepo.loseNextTransitionToCancel(CANCELED_AT);
     const backfill = {} as RuleBackfillService;
+    const stepStore = new InMemoryAiJobStepRepository();
     return {
         useCase: new SubmitJobResultsUseCase(
             jobRepo,
-            new InMemoryJobTransaction(jobRepo, ruleStore),
+            new InMemoryJobTransaction(jobRepo, ruleStore, stepStore),
             options.generatedRules ?? new RuleGenerationResultService(backfill),
             new FixedClock(new Date("2026-01-01T00:00:00.000Z")),
         ),
         ruleStore,
+        stepStore,
     };
 }
 
@@ -44,6 +48,27 @@ describe("SubmitJobResultsUseCase", () => {
         const { useCase } = makeUseCase([job]);
         const result = await useCase.execute({ userId: "u1", id: job.id, result: { title: "제안" } });
         expect(result.job.status).toBe(JOB_STATUS.completed);
+    });
+
+    it("결과와 함께 온 실행 궤적을 잡 종결과 한 커밋으로 저장한다", async () => {
+        const job = AiJobEntity.create("u1", JOB_KIND.ruleGeneration, { taskId: "t1" }, new Date("2026-01-01T00:00:00.000Z"));
+        const { useCase, stepStore } = makeUseCase([job]);
+
+        await useCase.execute({
+            userId: "u1",
+            id: job.id,
+            proposals: [],
+            steps: [{
+                seq: 0,
+                role: AI_JOB_STEP_ROLE.assistant,
+                content: "턴을 읽는다",
+                truncated: false,
+                toolCalls: [{ id: "call-1", name: "get_task_turns", args: { taskId: "t1" } }],
+            }],
+        });
+
+        expect(stepStore.all()).toHaveLength(1);
+        expect(stepStore.all()[0]).toMatchObject({ jobId: job.id, userId: "u1", seq: 0, attempt: 1 });
     });
 
     it("리스를 잃은 실행기의 결과도 잡이 종결 전이면 받아들인다", async () => {

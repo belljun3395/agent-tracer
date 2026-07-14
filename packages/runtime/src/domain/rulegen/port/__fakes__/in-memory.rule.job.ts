@@ -1,5 +1,6 @@
 import type {
     PendingRuleJob,
+    RuleGenerationFailure,
     RuleGenerationReport,
     RuleJobLeaseState,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
@@ -15,6 +16,7 @@ export class InMemoryRuleJob implements RuleJobPort {
     readonly claimed: string[] = [];
     readonly released: string[] = [];
     readonly failed: {jobId: string; error: string}[] = [];
+    readonly failures: {jobId: string; failure: RuleGenerationFailure}[] = [];
     readonly reported: {jobId: string; report: RuleGenerationReport}[] = [];
     readonly enqueued: RecordedEnqueue[] = [];
     readonly renewed: string[] = [];
@@ -57,8 +59,9 @@ export class InMemoryRuleJob implements RuleJobPort {
         return this.reportOk;
     }
 
-    async fail(jobId: string, error: string): Promise<void> {
-        this.failed.push({jobId, error});
+    async fail(jobId: string, failure: RuleGenerationFailure): Promise<void> {
+        this.failed.push({jobId, error: failure.error});
+        this.failures.push({jobId, failure});
     }
 
     async release(jobId: string): Promise<void> {

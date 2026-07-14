@@ -1,5 +1,6 @@
 import type {
     PendingRuleJob,
+    RuleGenerationFailure,
     RuleGenerationReport,
     RuleJobLeaseState,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
@@ -12,7 +13,7 @@ export interface RuleJobPort {
     claim(jobId: string): Promise<boolean>;
     renewLease(jobId: string): Promise<RuleJobLeaseState>;
     reportResult(jobId: string, report: RuleGenerationReport): Promise<boolean>;
-    fail(jobId: string, error: string): Promise<void>;
+    fail(jobId: string, failure: RuleGenerationFailure): Promise<void>;
     release(jobId: string): Promise<void>;
     hasActiveJob(taskId: string): Promise<boolean>;
     enqueue(taskId: string, anchorEventId: string, maxRules: number): Promise<boolean>;

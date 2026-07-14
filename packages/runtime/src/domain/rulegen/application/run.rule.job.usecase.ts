@@ -1,9 +1,15 @@
-import {createDeadline, DEFAULT_RULEGEN_DEADLINE_MS} from "~runtime/domain/rulegen/model/deadline.model.js";
+import {createDeadline, isRulegenCanceled} from "~runtime/domain/rulegen/model/deadline.model.js";
 import {validateRuleProposals} from "~runtime/domain/rulegen/model/proposal.validation.model.js";
-import type {RuleGenerationReport} from "~runtime/domain/rulegen/model/rule.job.model.js";
+import {
+    ruleGenerationFailure,
+    type RuleGenerationFailure,
+    type RuleGenerationOutcome,
+    type RuleGenerationReport,
+} from "~runtime/domain/rulegen/model/rule.job.model.js";
 import {
     buildRuleGenerationSpec,
     type RuleGenerationRequest,
+    type RuleGenerationSpec,
 } from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
 import {
     resolveEventLimit,
@@ -30,14 +36,17 @@ export class RunRuleJobUsecase {
     ) {}
 
     async execute(request: RuleGenerationRequest, cancelSignal?: AbortSignal): Promise<void> {
-        const deadline = createDeadline(DEFAULT_RULEGEN_DEADLINE_MS, cancelSignal);
+        const spec = buildRuleGenerationSpec(request);
+        const deadline = createDeadline(spec.deadlineMs, cancelSignal);
         const signal = deadline.controller.signal;
         const startedAt = this.clock.now();
         try {
-            const spec = buildRuleGenerationSpec(request);
             const outcome = await this.generator.generate(spec, this.toolset(signal), signal);
+            // 취소됐거나 리스를 잃은 잡은 더 이상 이 데몬의 것이 아니므로 실패로 종결하지 않는다.
+            if (isRulegenCanceled(signal.reason)) return;
+
             if (outcome.error !== null) {
-                await this.jobs.fail(request.jobId, outcome.error);
+                await this.jobs.fail(request.jobId, this.failure(spec, startedAt, outcome, outcome.error));
                 return;
             }
             const {accepted, rejected} = validateRuleProposals(outcome.candidates);
@@ -51,16 +60,36 @@ export class RunRuleJobUsecase {
                 costUsd: outcome.costUsd,
                 numTurns: outcome.numTurns,
                 ...(outcome.usage !== null ? {usage: outcome.usage} : {}),
+                steps: outcome.steps,
             };
             if (!await this.jobs.reportResult(request.jobId, report)) {
-                await this.jobs.fail(request.jobId, RESULT_REPORT_FAILED);
+                await this.jobs.fail(request.jobId, this.failure(spec, startedAt, outcome, RESULT_REPORT_FAILED));
             }
         } catch (error) {
-            if (signal.aborted) return;
-            await this.jobs.fail(request.jobId, error instanceof Error ? error.message : String(error));
+            if (isRulegenCanceled(signal.reason)) return;
+            const message = error instanceof Error ? error.message : String(error);
+            await this.jobs.fail(request.jobId, ruleGenerationFailure(message));
         } finally {
             deadline.dispose();
         }
+    }
+
+    /** 실패한 실행도 이미 비용을 청구했으므로 그 비용과 궤적을 실패 보고에 함께 싣는다. */
+    private failure(
+        spec: RuleGenerationSpec,
+        startedAt: number,
+        outcome: RuleGenerationOutcome,
+        error: string,
+    ): RuleGenerationFailure {
+        return {
+            error,
+            modelUsed: spec.model,
+            durationMs: this.clock.now() - startedAt,
+            costUsd: outcome.costUsd,
+            numTurns: outcome.numTurns,
+            ...(outcome.usage !== null ? {usage: outcome.usage} : {}),
+            steps: outcome.steps,
+        };
     }
 
     private toolset(signal: AbortSignal): RulegenToolset {
