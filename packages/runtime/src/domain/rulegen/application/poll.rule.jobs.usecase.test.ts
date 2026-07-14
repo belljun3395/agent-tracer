@@ -4,6 +4,7 @@ import {PollRuleJobsUsecase} from "~runtime/domain/rulegen/application/poll.rule
 import type {PendingRuleJob, RuleJobRunner} from "~runtime/domain/rulegen/model/rule.job.model.js";
 import type {RuleGenerationRequest} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
 import {InMemoryRuleJob} from "~runtime/domain/rulegen/port/__fakes__/in-memory.rule.job.js";
+import {ManualScheduler} from "~runtime/domain/rulegen/port/__fakes__/manual.scheduler.js";
 
 interface RunnerSpy {
     readonly runner: RuleJobRunner;
@@ -46,7 +47,7 @@ describe("PollRuleJobsUsecase", () => {
         ]));
         const spy = spyRunner();
 
-        await new PollRuleJobsUsecase(jobs, spy.runner).execute();
+        await new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler()).execute();
 
         expect(jobs.claimed).toEqual(["job-1"]);
         expect(spy.requests[0]).toEqual({
@@ -64,7 +65,7 @@ describe("PollRuleJobsUsecase", () => {
         jobs.anchors.set("evt-1", "린트를 돌려줘");
         const spy = spyRunner();
 
-        await new PollRuleJobsUsecase(jobs, spy.runner).execute();
+        await new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler()).execute();
 
         expect(spy.requests[0]?.anchorText).toBe("린트를 돌려줘");
     });
@@ -74,7 +75,7 @@ describe("PollRuleJobsUsecase", () => {
         const jobs = withWorkspace(new InMemoryRuleJob([jobWith({intent: "   "})]));
         const spy = spyRunner();
 
-        await new PollRuleJobsUsecase(jobs, spy.runner).execute();
+        await new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler()).execute();
 
         expect(spy.requests[0]).not.toHaveProperty("intent");
     });
@@ -84,7 +85,7 @@ describe("PollRuleJobsUsecase", () => {
         const jobs = new InMemoryRuleJob([jobWith({})]);
         const spy = spyRunner();
 
-        await new PollRuleJobsUsecase(jobs, spy.runner).execute();
+        await new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler()).execute();
 
         expect(jobs.claimed).toEqual([]);
         expect(jobs.failed).toEqual([{jobId: "job-1", error: "task task-1 has no workspacePath"}]);
@@ -97,7 +98,7 @@ describe("PollRuleJobsUsecase", () => {
         jobs.claimable = false;
         const spy = spyRunner();
 
-        await new PollRuleJobsUsecase(jobs, spy.runner).execute();
+        await new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler()).execute();
 
         expect(spy.requests).toEqual([]);
     });
@@ -111,7 +112,7 @@ describe("PollRuleJobsUsecase", () => {
         jobs.workspaces.set("task-1", "/tmp/workspace");
         const spy = spyRunner((signal) => new Promise((resolve) => signal.addEventListener("abort", () => resolve())));
 
-        await new PollRuleJobsUsecase(jobs, spy.runner, 1).execute();
+        await new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler(), 1).execute();
 
         expect(jobs.claimed).toEqual(["job-1"]);
     });
@@ -120,7 +121,7 @@ describe("PollRuleJobsUsecase", () => {
         vi.spyOn(process.stderr, "write").mockReturnValue(true);
         const jobs = withWorkspace(new InMemoryRuleJob([jobWith({})]));
         const spy = spyRunner((signal) => new Promise((resolve) => signal.addEventListener("abort", () => resolve())));
-        const usecase = new PollRuleJobsUsecase(jobs, spy.runner);
+        const usecase = new PollRuleJobsUsecase(jobs, spy.runner, new ManualScheduler());
 
         await usecase.execute();
         expect(usecase.hasRunning()).toBe(true);

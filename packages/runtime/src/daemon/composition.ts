@@ -21,6 +21,7 @@ import {RefreshRuleSettingUsecase} from "~runtime/domain/rulegen/application/ref
 import {RunRuleJobUsecase} from "~runtime/domain/rulegen/application/run.rule.job.usecase.js";
 import type {RulegenHook} from "~runtime/domain/rulegen/inbound/rulegen.hook.js";
 import {RuleGenerationSettingCache} from "~runtime/domain/rulegen/model/rule.command.model.js";
+import type {SchedulerPort} from "~runtime/domain/rulegen/port/scheduler.port.js";
 import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
 
 /** 데몬이 부르는 도메인 진입점 묶음 전체다. */
@@ -39,6 +40,14 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const headers = monitorUserHeaders(identity);
 
     const clock = {now: (): number => Date.now()};
+    const scheduler: SchedulerPort = {
+        every: (intervalMs, run) => {
+            const timer = setInterval(run, intervalMs);
+            // 하트비트가 프로세스 종료를 막지 않게 한다.
+            timer.unref();
+            return () => clearInterval(timer);
+        },
+    };
 
     const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
     const guardrail: GuardrailHook = {
@@ -67,6 +76,7 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         pollJobs: new PollRuleJobsUsecase(
             jobs,
             (request, signal) => runRuleJob.execute(request, signal),
+            scheduler,
         ),
         refreshSetting: new RefreshRuleSettingUsecase(
             new HttpRuleSettingAdapter(baseUrl, headers),

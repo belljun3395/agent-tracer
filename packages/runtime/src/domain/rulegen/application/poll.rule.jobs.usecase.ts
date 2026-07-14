@@ -7,6 +7,7 @@ import {
     type RuleJobRunner,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
 import type {RuleJobPort} from "~runtime/domain/rulegen/port/rule.job.port.js";
+import type {SchedulerPort} from "~runtime/domain/rulegen/port/scheduler.port.js";
 
 const MAX_CONCURRENT_JOBS = 2;
 
@@ -21,6 +22,7 @@ export class PollRuleJobsUsecase {
     constructor(
         private readonly jobs: RuleJobPort,
         private readonly runner: RuleJobRunner,
+        private readonly scheduler: SchedulerPort,
         private readonly maxConcurrent: number = MAX_CONCURRENT_JOBS,
     ) {}
 
@@ -88,7 +90,7 @@ export class PollRuleJobsUsecase {
 
         const cancel = new AbortController();
         this.running.set(job.id, cancel);
-        const heartbeat = this.startHeartbeat(job.id, cancel);
+        const stopHeartbeat = this.startHeartbeat(job.id, cancel);
         log(`starting job ${job.id} for task ${taskId}`);
 
         void this.runner(request, cancel.signal)
@@ -100,21 +102,19 @@ export class PollRuleJobsUsecase {
                     .catch(() => log(`failed to mark job ${job.id} failed after throw`));
             })
             .finally(() => {
-                clearInterval(heartbeat);
+                stopHeartbeat();
                 this.running.delete(job.id);
             });
     }
 
-    private startHeartbeat(jobId: string, cancel: AbortController): NodeJS.Timeout {
-        const heartbeat = setInterval(() => {
+    private startHeartbeat(jobId: string, cancel: AbortController): () => void {
+        return this.scheduler.every(LOCAL_JOB_LEASE_HEARTBEAT_MS, () => {
             void this.jobs.renewLease(jobId)
                 .then((state) => {
                     if (!state.leaseHeld || state.canceled) cancel.abort(new Error("job canceled"));
                 })
                 .catch(() => undefined);
-        }, LOCAL_JOB_LEASE_HEARTBEAT_MS);
-        heartbeat.unref();
-        return heartbeat;
+        });
     }
 }
 
