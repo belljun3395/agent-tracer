@@ -37,7 +37,8 @@ export const EN_FEED = {
     "Hide lanes that have no events.",
   ),
   lanes: {
-    user: createGuidanceMessage("User prompts, replies, and approvals."),
+    user: createGuidanceMessage("User prompts, slash-command expansions, and approvals."),
+    asst: createGuidanceMessage("Assistant commentary and the reply that ends a turn."),
     plan: createGuidanceMessage("Reasoning, intent, and decisions."),
     explore: createGuidanceMessage("File reads, searches, and listings."),
     implement: createGuidanceMessage("File writes, shell commands, and edits."),

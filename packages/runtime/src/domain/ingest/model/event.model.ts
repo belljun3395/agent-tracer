@@ -9,6 +9,7 @@ import type {KIND} from "@monitor/kernel/ingest/event.kind.const.js";
 
 export const EVENT_LANES = [
     "user",
+    "assistant",
     "exploration",
     "planning",
     "implementation",
@@ -24,6 +25,7 @@ export type EventLane = (typeof EVENT_LANES)[number];
 
 export const LANE = {
     user: "user",
+    assistant: "assistant",
     exploration: "exploration",
     planning: "planning",
     implementation: "implementation",

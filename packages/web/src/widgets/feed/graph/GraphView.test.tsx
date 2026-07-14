@@ -16,7 +16,7 @@ describe("GraphView", () => {
     expect(screen.getByText("IMPL")).not.toBeNull();
     expect(screen.queryByText("USER")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "+6 empty lanes" }));
+    fireEvent.click(screen.getByRole("button", { name: "+7 empty lanes" }));
 
     expect(screen.getByText("USER")).not.toBeNull();
     expect(screen.getByRole("button", { name: "all lanes" })).toHaveAttribute(

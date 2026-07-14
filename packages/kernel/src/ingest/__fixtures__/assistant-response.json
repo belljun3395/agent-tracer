@@ -6,7 +6,7 @@
     "turnId": "turn-1",
     "occurredAt": "2026-07-11T00:00:00.000Z",
     "payload": {
-        "lane": "user",
+        "lane": "assistant",
         "title": "I fixed the bug.",
         "body": "I fixed the bug.",
         "metadata": {

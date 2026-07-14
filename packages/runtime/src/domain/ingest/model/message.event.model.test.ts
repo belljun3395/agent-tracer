@@ -1,5 +1,6 @@
 import {KIND} from "@monitor/kernel";
 import {describe, expect, it} from "vitest";
+import {LANE} from "~runtime/domain/ingest/model/event.model.js";
 import {
     assistantCommentaryEvent,
     assistantResponseEvent,
@@ -29,6 +30,7 @@ describe("사용자 발화 이벤트", () => {
         expect(event.title).toHaveLength(120);
         expect(event.body).toBe(prompt);
         expect((event.metadata as Record<string, unknown>)["phase"]).toBe("initial");
+        expect(event.lane).toBe(LANE.user);
     });
 });
 
@@ -42,6 +44,7 @@ describe("어시스턴트 응답 이벤트", () => {
 
         expect(event.title).toBe("Response (end_turn)");
         expect(event.body).toBeUndefined();
+        expect(event.lane).toBe(LANE.assistant);
     });
 
     it("실패한 턴은 오류 종류를 종료 사유에 접두한다", () => {
@@ -54,6 +57,7 @@ describe("어시스턴트 응답 이벤트", () => {
 
         expect(event.title).toBe("Turn failed (overloaded)");
         expect((event.metadata as Record<string, unknown>)["stopReason"]).toBe("error:overloaded");
+        expect(event.lane).toBe(LANE.assistant);
     });
 
     it("중간 발화는 멱등키를 이벤트 ID로 쓴다", () => {
@@ -68,6 +72,7 @@ describe("어시스턴트 응답 이벤트", () => {
 
         expect(event.kind).toBe(KIND.assistantCommentary);
         expect(event.id).toBe("commentary-1");
+        expect(event.lane).toBe(LANE.assistant);
         expect((event.metadata as Record<string, unknown>)["contentIndex"]).toBe(2);
         expect((event.metadata as Record<string, unknown>)["sourceId"]).toBe("sub--agent-1");
     });

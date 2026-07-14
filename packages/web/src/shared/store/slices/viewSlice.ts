@@ -4,6 +4,7 @@ export type InspectorTab = "inspect" | "rules" | "trace";
 /** 사용자가 화면에 유지하기로 고른 시각 레인. */
 export type VisibleLane =
   | "user"
+  | "asst"
   | "plan"
   | "expl"
   | "impl"
@@ -13,6 +14,7 @@ export type VisibleLane =
 
 export const ALL_VISIBLE_LANES: readonly VisibleLane[] = [
   "user",
+  "asst",
   "plan",
   "expl",
   "impl",

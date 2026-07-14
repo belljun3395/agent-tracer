@@ -35,7 +35,8 @@ export const KO_FEED = {
     "이벤트가 없는 레인을 숨깁니다.",
   ),
   lanes: {
-    user: createGuidanceMessage("사용자 프롬프트, 응답, 승인입니다."),
+    user: createGuidanceMessage("사용자 프롬프트, 슬래시 커맨드 확장, 승인입니다."),
+    asst: createGuidanceMessage("어시스턴트의 중간 발화와 턴을 마치는 최종 응답입니다."),
     plan: createGuidanceMessage("추론, 의도, 결정입니다."),
     explore: createGuidanceMessage("파일 읽기, 검색, 목록 조회입니다."),
     implement: createGuidanceMessage("파일 쓰기, 셸 명령, 편집입니다."),

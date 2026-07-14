@@ -3,6 +3,7 @@ import type { TimelineEventRecord, TimelineLane } from "~web/entities/task/model
 
 export type LaneKey =
   | "user"
+  | "asst"
   | "plan"
   | "expl"
   | "impl"
@@ -19,6 +20,7 @@ export interface LaneTheme {
 
 const LANE_TO_KEY: Readonly<Record<TimelineLane, LaneKey>> = {
   user: "user",
+  assistant: "asst",
   exploration: "expl",
   planning: "plan",
   implementation: "impl",
@@ -32,6 +34,7 @@ const LANE_TO_KEY: Readonly<Record<TimelineLane, LaneKey>> = {
 
 const KEY_TO_LABEL: Readonly<Record<LaneKey, string>> = {
   user: "USER",
+  asst: "ASST",
   plan: "PLAN",
   expl: "EXPL",
   impl: "IMPL",
@@ -43,6 +46,7 @@ const KEY_TO_LABEL: Readonly<Record<LaneKey, string>> = {
 
 const KEY_TO_VAR: Readonly<Record<LaneKey, string>> = {
   user: "var(--ph-user)",
+  asst: "var(--ph-asst)",
   plan: "var(--ph-plan)",
   expl: "var(--ph-expl)",
   impl: "var(--ph-impl)",

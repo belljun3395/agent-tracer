@@ -18,10 +18,28 @@ describe("extractEventFields", () => {
         expect(fields.metadata).toEqual(metadata);
     });
 
-    it("중간 어시스턴트 발화의 기본 레인을 user로 정한다", () => {
+    it("중간 어시스턴트 발화의 기본 레인을 assistant로 정한다", () => {
         const fields = extractEventFields(record({}, KIND.assistantCommentary));
 
-        expect(fields.lane).toBe("user");
+        expect(fields.lane).toBe("assistant");
+    });
+
+    it("과거 원장이 user 레인으로 적어둔 어시스턴트 응답도 assistant로 투영한다", () => {
+        const fields = extractEventFields(record({ lane: "user" }, KIND.assistantResponse));
+
+        expect(fields.lane).toBe("assistant");
+    });
+
+    it("턴 전체를 감싸는 invoke_agent는 coordination으로 투영한다", () => {
+        const fields = extractEventFields(record({ lane: "user" }, KIND.invokeAgent));
+
+        expect(fields.lane).toBe("coordination");
+    });
+
+    it("도구 호출의 레인은 페이로드가 정한 대로 남긴다", () => {
+        const fields = extractEventFields(record({ lane: "exploration" }, KIND.executeTool));
+
+        expect(fields.lane).toBe("exploration");
     });
 });
 

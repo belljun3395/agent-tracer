@@ -1,5 +1,6 @@
 export const EVENT_LANES = [
     "user",
+    "assistant",
     "exploration",
     "planning",
     "implementation",
@@ -13,6 +14,7 @@ export const EVENT_LANES = [
 
 export const LANE = {
     user: "user",
+    assistant: "assistant",
     exploration: "exploration",
     planning: "planning",
     implementation: "implementation",

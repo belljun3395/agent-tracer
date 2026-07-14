@@ -45,7 +45,7 @@ export function buildTurnSpan(turn: TurnState | undefined, input: TurnSpanInput)
         kind: KIND.invokeAgent,
         taskId: input.taskId,
         sessionId: input.sessionId,
-        lane: LANE.user,
+        lane: LANE.coordination,
         title: `에이전트 턴 (${input.stopReason})`,
         metadata: {
             ...provenEvidence("턴 경계 훅이 관측했다."),

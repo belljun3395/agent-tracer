@@ -44,6 +44,7 @@
   --compact:       #caa14a;
 
   --ph-user:       #f7f8f8;  /* USER  — white (chat bubble) */
+  --ph-asst:       #9aa3ad;  /* ASST  — slate (the reply to USER's white) */
   --ph-plan:       #7e7fad;  /* PLAN  — violet */
   --ph-expl:       #5e7fa3;  /* EXPL  — steel-blue */
   --ph-impl:       #a37060;  /* IMPL  — orange-brown */
@@ -86,6 +87,7 @@
   /* Lane phase — same hues, lower lightness so they hold the same
      semantic against a bright canvas */
   --ph-user:       #0a0b0d;  /* USER  — near-black (white was the dark-only trick) */
+  --ph-asst:       #55606b;
   --ph-plan:       #5b5d99;
   --ph-expl:       #3d6790;
   --ph-impl:       #875240;
@@ -142,6 +144,7 @@
   --color-compact: var(--compact);
 
   --color-ph-user: var(--ph-user);
+  --color-ph-asst: var(--ph-asst);
   --color-ph-plan: var(--ph-plan);
   --color-ph-expl: var(--ph-expl);
   --color-ph-impl: var(--ph-impl);

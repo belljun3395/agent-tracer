@@ -13,6 +13,7 @@ import type { VerificationOverlayEntry } from "~web/entities/task/model/timeline
 /** 그래프가 위에서 아래로 표시하는 레인 순서. */
 export const GRAPH_LANE_KEYS = [
   "user",
+  "asst",
   "plan",
   "expl",
   "impl",

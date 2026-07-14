@@ -74,6 +74,11 @@ function laneThemeForKey(
       veri: false,
       guidanceKey: "user",
     },
+    asst: {
+      lane: "assistant",
+      veri: false,
+      guidanceKey: "asst",
+    },
     plan: {
       lane: "planning",
       veri: false,

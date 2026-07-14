@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AGENT_TRACER_ATTR, SEMCONV_ATTR } from "../observability/semconv.const.js";
+import { LANE } from "./event.lane.const.js";
 import { parseIngestBatch } from "./ingest.schema.js";
 
 const FIXTURE_DIR = new URL("./__fixtures__/", import.meta.url);
@@ -67,10 +68,11 @@ describe("골든 픽스처", () => {
         expect(metadataOf(payload)["messageId"]).toBe("msg-1");
     });
 
-    it("어시스턴트 응답은 최종 발화 본문과 종료 이유를 보존한다", () => {
+    it("어시스턴트 응답은 최종 발화 본문과 종료 이유를 보존하고 assistant 레인에 남는다", () => {
         const payload = payloadOf("assistant-response");
 
         expect(payload["body"]).toBe("I fixed the bug.");
+        expect(payload["lane"]).toBe(LANE.assistant);
         expect(metadataOf(payload)[SEMCONV_ATTR.responseFinishReasons]).toBe("end_turn");
     });
 

@@ -23,11 +23,18 @@ export interface EventFields {
     readonly metadata: Record<string, unknown>;
 }
 
+/** 초기 런타임이 원장에 user로 적어둔 종류라 페이로드 레인을 무시하고 여기서 바로잡는다. */
+const KIND_OWNED_LANE: Partial<Record<EventKind, EventLane>> = {
+    [KIND.assistantCommentary]: LANE.assistant,
+    [KIND.assistantResponse]: LANE.assistant,
+    [KIND.invokeAgent]: LANE.coordination,
+};
+
 function deriveLane(kind: EventKind): EventLane {
     if (TELEMETRY_SET.has(kind)) return LANE.telemetry;
     if (COORDINATION_SET.has(kind)) return LANE.coordination;
-    if (kind === KIND.userMessage || kind === KIND.assistantCommentary
-        || kind === KIND.assistantResponse) return LANE.user;
+    if (kind === KIND.assistantCommentary || kind === KIND.assistantResponse) return LANE.assistant;
+    if (kind === KIND.userMessage) return LANE.user;
     if (kind === KIND.questionLogged) return LANE.questions;
     if (kind === KIND.todoLogged) return LANE.todos;
     if (kind === KIND.ruleLogged) return LANE.rule;
@@ -38,7 +45,7 @@ function deriveLane(kind: EventKind): EventLane {
 export function extractEventFields(record: LedgerRecord): EventFields {
     const payload = parseStoredEventPayload(record.payload);
     return {
-        lane: payload.lane ?? deriveLane(record.kind),
+        lane: KIND_OWNED_LANE[record.kind] ?? payload.lane ?? deriveLane(record.kind),
         title: payload.title ?? "",
         body: payload.body ?? null,
         toolName: payload.toolName ?? null,

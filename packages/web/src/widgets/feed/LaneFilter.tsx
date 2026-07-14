@@ -13,6 +13,7 @@ import { GuidanceText, Tooltip } from "~web/shared/ui/index.js";
 
 const LANE_LABEL: Readonly<Record<VisibleLane, string>> = {
   user: "USER",
+  asst: "ASST",
   plan: "PLAN",
   expl: "EXPL",
   impl: "IMPL",
@@ -23,6 +24,7 @@ const LANE_LABEL: Readonly<Record<VisibleLane, string>> = {
 
 const LANE_COLOR: Readonly<Record<VisibleLane, string>> = {
   user: "var(--ph-user)",
+  asst: "var(--ph-asst)",
   plan: "var(--ph-plan)",
   expl: "var(--ph-expl)",
   impl: "var(--ph-impl)",
