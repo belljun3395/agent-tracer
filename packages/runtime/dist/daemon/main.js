@@ -29887,13 +29887,15 @@ function log(message) {
 `);
 }
 var PollRuleJobsUsecase = class {
-  constructor(jobs, runner, maxConcurrent = MAX_CONCURRENT_JOBS) {
+  constructor(jobs, runner, scheduler, maxConcurrent = MAX_CONCURRENT_JOBS) {
     this.jobs = jobs;
     this.runner = runner;
+    this.scheduler = scheduler;
     this.maxConcurrent = maxConcurrent;
   }
   jobs;
   runner;
+  scheduler;
   maxConcurrent;
   running = /* @__PURE__ */ new Map();
   hasRunning() {
@@ -29950,25 +29952,23 @@ var PollRuleJobsUsecase = class {
     });
     const cancel = new AbortController();
     this.running.set(job.id, cancel);
-    const heartbeat = this.startHeartbeat(job.id, cancel);
+    const stopHeartbeat = this.startHeartbeat(job.id, cancel);
     log(`starting job ${job.id} for task ${taskId}`);
     void this.runner(request, cancel.signal).then(() => log(`job ${job.id} completed`)).catch((error2) => {
       log(`job ${job.id} threw: ${String(error2)}`);
       if (cancel.signal.aborted) return;
       void this.jobs.fail(job.id, String(error2)).catch(() => log(`failed to mark job ${job.id} failed after throw`));
     }).finally(() => {
-      clearInterval(heartbeat);
+      stopHeartbeat();
       this.running.delete(job.id);
     });
   }
   startHeartbeat(jobId, cancel) {
-    const heartbeat = setInterval(() => {
+    return this.scheduler.every(LOCAL_JOB_LEASE_HEARTBEAT_MS, () => {
       void this.jobs.renewLease(jobId).then((state) => {
         if (!state.leaseHeld || state.canceled) cancel.abort(new Error("job canceled"));
       }).catch(() => void 0);
-    }, LOCAL_JOB_LEASE_HEARTBEAT_MS);
-    heartbeat.unref();
-    return heartbeat;
+    });
   }
 };
 function toRuleRequestText(anchorText) {
@@ -30466,6 +30466,13 @@ function composeDaemonHooks(leaseOwner) {
   const baseUrl = identity.baseUrl;
   const headers = monitorUserHeaders(identity);
   const clock = { now: () => Date.now() };
+  const scheduler = {
+    every: (intervalMs, run) => {
+      const timer = setInterval(run, intervalMs);
+      timer.unref();
+      return () => clearInterval(timer);
+    }
+  };
   const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
   const guardrail = {
     evaluateTurn: new EvaluateTurnUsecase(ruleSource),
@@ -30489,7 +30496,8 @@ function composeDaemonHooks(leaseOwner) {
   const rulegen = {
     pollJobs: new PollRuleJobsUsecase(
       jobs,
-      (request, signal) => runRuleJob.execute(request, signal)
+      (request, signal) => runRuleJob.execute(request, signal),
+      scheduler
     ),
     refreshSetting: new RefreshRuleSettingUsecase(
       new HttpRuleSettingAdapter(baseUrl, headers),
@@ -31382,8 +31390,8 @@ function renderSections() {
   return [
     section("status", `<div class="grid" id="status-cards"></div>`),
     section("interventions", `
-      <p class="note">What the daemon did to the agent. It denies tools, blocks stops, and injects context.
-        Nothing else records this.</p>
+      <p class="note">What the daemon did to the agent. It injects context and blocks turns that leave rules
+        unfulfilled. Nothing else records this.</p>
       <div class="grid" id="iv-cards"></div>
       <h2 style="margin-top:18px">Recent interventions</h2>
       <div id="iv-rows"></div>`),
