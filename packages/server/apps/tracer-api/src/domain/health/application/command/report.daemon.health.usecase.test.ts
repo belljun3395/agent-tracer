@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryDaemonHealthRepository } from "~tracer-api/domain/health/port/__fakes__/in-memory.daemon.health.repository.js";
+import { FixedClock } from "~tracer-api/domain/health/port/__fakes__/fixed.clock.js";
 import { ReportDaemonHealthUseCase } from "./report.daemon.health.usecase.js";
 
 function makeUseCase() {
     const repo = new InMemoryDaemonHealthRepository();
-    return { useCase: new ReportDaemonHealthUseCase(repo), repo };
+    return { useCase: new ReportDaemonHealthUseCase(repo, new FixedClock(new Date("2026-01-01T00:00:00.000Z"))), repo };
 }
 
 describe("ReportDaemonHealthUseCase", () => {
