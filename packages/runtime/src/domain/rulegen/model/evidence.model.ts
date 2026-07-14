@@ -1,4 +1,3 @@
-import {RULEGEN_MODE, type RulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
 import {isRecord} from "~runtime/support/json.js";
 import {truncate} from "~runtime/support/text.js";
 
@@ -10,9 +9,6 @@ export const EVENT_BODY_MAX_LEN = 200;
 export const EXISTING_RULE_NAME_MAX_LEN = 100;
 export const TIMELINE_PAGE_LIMIT = 100;
 export const TIMELINE_MAX_PAGES = 10;
-export const MANUAL_EVENT_LIMIT = 50;
-export const RECENT_EVENT_LIMIT = 5;
-export const RECENT_TURN_LIMIT = 1;
 
 /** 규칙 생성에 필요한 사용자 요구와 응답 요약이다. */
 export interface TurnDigest {
@@ -33,13 +29,6 @@ export interface ExistingRuleEvidence {
     readonly name: string;
     readonly trigger: unknown;
     readonly expect: unknown;
-}
-
-/** 규칙 생성 한 번에 공급하는 근거 묶음이다. */
-export interface RuleGenerationEvidence {
-    readonly turns: readonly TurnDigest[];
-    readonly events: readonly EventEvidence[];
-    readonly existingRules: readonly ExistingRuleEvidence[];
 }
 
 function readString(record: Record<string, unknown>, key: string): string | null {
@@ -89,16 +78,4 @@ export function digestExistingRules(items: readonly unknown[]): ExistingRuleEvid
         });
     }
     return rules;
-}
-
-/** 자동 트리거는 마지막 턴만 검증하므로 근거창을 좁힌다. */
-export function selectEvidence(mode: RulegenMode, evidence: RuleGenerationEvidence): RuleGenerationEvidence {
-    const recent = mode === RULEGEN_MODE.recent;
-    return {
-        turns: recent ? evidence.turns.slice(-RECENT_TURN_LIMIT) : evidence.turns,
-        events: recent
-            ? evidence.events.slice(-RECENT_EVENT_LIMIT)
-            : evidence.events.slice(-MANUAL_EVENT_LIMIT),
-        existingRules: evidence.existingRules,
-    };
 }

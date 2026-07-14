@@ -1,16 +1,11 @@
 import {RULE_GENERATION_FOCUS} from "@monitor/kernel/job/job.const.js";
 import {describe, expect, it} from "vitest";
-import type {RuleGenerationEvidence} from "~runtime/domain/rulegen/model/evidence.model.js";
 import {SEVERITY_CLAUSE, SEVERITY_HEADING} from "~runtime/domain/rulegen/model/severity.clause.model.js";
 import {buildRuleGenerationSpec} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
-
-const EMPTY_EVIDENCE: RuleGenerationEvidence = {turns: [], events: [], existingRules: []};
+import {RULEGEN_TOOL_SPECS, rulegenToolFullName} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 
 function specFor(overrides: Record<string, unknown> = {}) {
-    return buildRuleGenerationSpec(
-        {jobId: "job-1", taskId: "task-1", workspacePath: "/tmp/ws", ...overrides},
-        EMPTY_EVIDENCE,
-    );
+    return buildRuleGenerationSpec({jobId: "job-1", taskId: "task-1", workspacePath: "/tmp/ws", ...overrides});
 }
 
 describe("buildRuleGenerationSpec", () => {
@@ -72,21 +67,15 @@ describe("buildRuleGenerationSpec", () => {
         expect(spec.systemPrompt).toContain("it is the ONE user input these rules must verify");
     });
 
-    it("근거를 프롬프트의 데이터 영역에 태그로 싣는다", () => {
-        const spec = buildRuleGenerationSpec(
-            {jobId: "job-1", taskId: "task-1", workspacePath: "/tmp/ws"},
-            {
-                turns: [{turnIndex: 1, askedText: "테스트 돌려", assistantSummary: "돌렸다"}],
-                events: [{kind: "execute_tool", title: "npm test", body: ""}],
-                existingRules: [{name: "기존 규칙", trigger: null, expect: null}],
-            },
-        );
+    it("근거는 프롬프트에 박지 않고 실행 중에 부를 도구로 안내한다", () => {
+        const spec = specFor();
 
-        expect(spec.userPrompt).toContain("<task-turns>");
-        expect(spec.userPrompt).toContain("테스트 돌려");
-        expect(spec.userPrompt).toContain("<task-events>");
-        expect(spec.userPrompt).toContain("<existing-rules>");
-        expect(spec.userPrompt).toContain("기존 규칙");
+        expect(spec.tools).toEqual(RULEGEN_TOOL_SPECS);
+        for (const tool of RULEGEN_TOOL_SPECS) {
+            expect(spec.systemPrompt).toContain(rulegenToolFullName(tool.name));
+        }
+        expect(spec.systemPrompt).toContain("Tools available:");
+        expect(spec.userPrompt).not.toContain("task-turns");
     });
 
     it("출력 스키마는 이름과 기대 조건과 근거만 필수로 요구한다", () => {

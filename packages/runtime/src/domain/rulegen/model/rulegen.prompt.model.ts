@@ -1,58 +1,67 @@
-import type {RuleGenerationEvidence} from "~runtime/domain/rulegen/model/evidence.model.js";
 import {buildRuleProposalPolicy} from "~runtime/domain/rulegen/model/proposal.policy.model.js";
 import {RULEGEN_MODE, type RulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
-
-export const EVIDENCE_TAG = {
-    turns: "task-turns",
-    events: "task-events",
-    existingRules: "existing-rules",
-} as const;
+import {
+    RULEGEN_EVENT_LIMIT,
+    rulegenToolFullName,
+    type RulegenToolSpec,
+} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 
 const ROLE = `You are a verification-rule designer for Agent Tracer, an observability tool that records coding-agent sessions.
 
 Rules exist to verify that the agent did what the USER asked. The user's words are the source of every rule; the agent's activity is only evidence of fulfilment. Never turn the agent's own habits into rules unless the user asked for that behavior.`;
 
-const MANUAL_ROUTE = `Evidence is supplied inline. You have no filesystem access and no tools, so every rule must come from it:
-  - <${EVIDENCE_TAG.turns}>     : what the user asked in each turn (askedText, the user's own words) plus a short reply summary. THE PRIMARY SOURCE for rules.
-  - <${EVIDENCE_TAG.events}>    : slim activity log (kind, title, body) showing HOW the agent fulfilled the asks.
-  - <${EVIDENCE_TAG.existingRules}>: rules that already exist.
+const RECENT_SCOPE = "This is an AUTO rule-generation job. Focus ONLY on the most recent turn, not the full task history.";
 
-Route:
-  1. Read <${EVIDENCE_TAG.turns}> turn by turn and extract explicit and implied obligations (e.g. "run the tests" → expect npm test).
-  2. Cross-check <${EVIDENCE_TAG.events}> for how the agent actually fulfilled those obligations.
-  3. Read <${EVIDENCE_TAG.existingRules}> and avoid duplicates.
-  4. Produce rules anchored to the user's asks.`;
-
-const RECENT_ROUTE = `This is an AUTO rule-generation job. Focus ONLY on the most recent turn, not the full task history.
-
-Evidence is supplied inline. You have no filesystem access and no tools, so every rule must come from it:
-  - <${EVIDENCE_TAG.turns}>     : the most recent user turn and its assistant reply summary.
-  - <${EVIDENCE_TAG.events}>    : the latest assistant actions that help verify that turn.
-  - <${EVIDENCE_TAG.existingRules}>: rules that already exist.
-
-Route:
-  1. Read <${EVIDENCE_TAG.existingRules}> FIRST and identify existing rule intent and trigger coverage before proposing anything.
-  2. Read the most recent user turn, its assistant reply, and the latest assistant actions.
-  3. Do NOT read the whole task for rule coverage.
-  4. Output 1-2 rules anchored to the latest user turn. If the latest turn introduces no new verifiable obligation, return an EMPTY rules array: {"rules":[]}.`;
+const NO_FILESYSTEM = "You have no filesystem access; every rule must come from the tool evidence above.";
 
 const CLOSING = "Rules are not blockers. They describe what to EXPECT a future agent doing similar work to do.";
+
+function toolLine(spec: RulegenToolSpec): string {
+    const params = spec.params.map((param) => (param.optional ? `${param.name}?` : param.name)).join(", ");
+    return `  - ${rulegenToolFullName(spec.name)}(${params}) : ${spec.description}`;
+}
+
+function toolCatalog(tools: readonly RulegenToolSpec[]): string {
+    return ["Tools available:", ...tools.map(toolLine)].join("\n");
+}
+
+function manualRoute(maxTurns: number): string {
+    return `Suggested route (you have up to ${maxTurns} turns; pull more evidence whenever the asks are unclear):
+  1. Read the task turns turn by turn and extract explicit and implied obligations (e.g. "run the tests" → expect npm test).
+  2. Read the task events to cross-check how the agent actually fulfilled those obligations; raise the limit or call again when ${RULEGEN_EVENT_LIMIT.fallback} events do not cover the work.
+  3. List the existing rules and check for duplicates.
+  4. Produce rules anchored to the user's asks.`;
+}
+
+function recentRoute(maxTurns: number): string {
+    return `Recent-turn route (you have up to ${maxTurns} turns; usually three tool calls suffice):
+  1. List the existing rules FIRST and identify existing rule intent and trigger coverage before proposing anything.
+  2. Pull the latest user turn, its assistant reply, and the latest assistant actions with the tools, and pull less or more as the evidence demands.
+  3. Do NOT read the whole task for rule coverage.
+  4. Output 1-2 rules anchored to the latest user turn. If the latest turn introduces no new verifiable obligation, return an EMPTY rules array: {"rules":[]}.`;
+}
 
 export interface RulegenPromptOptions {
     readonly mode: RulegenMode;
     readonly maxRules: number;
+    readonly maxTurns: number;
     readonly language: string;
     readonly anchorDirective: string;
     readonly intentDirective: string;
+    readonly tools: readonly RulegenToolSpec[];
 }
 
 export function buildRulegenSystemPrompt(options: RulegenPromptOptions): string {
+    const recent = options.mode === RULEGEN_MODE.recent;
     return [
         ROLE,
-        options.mode === RULEGEN_MODE.recent ? RECENT_ROUTE : MANUAL_ROUTE,
+        ...(recent ? [RECENT_SCOPE] : []),
+        toolCatalog(options.tools),
+        recent ? recentRoute(options.maxTurns) : manualRoute(options.maxTurns),
+        NO_FILESYSTEM,
         CLOSING,
         buildRuleProposalPolicy(options),
-        "Return JSON conforming to the provided schema.",
+        "Return JSON conforming to the provided schema immediately after your tool calls.",
     ].join("\n\n");
 }
 
@@ -62,11 +71,6 @@ export interface RulegenUserPromptOptions {
     readonly maxRules: number;
     readonly anchorBlock: string;
     readonly intentBlock: string;
-    readonly evidence: RuleGenerationEvidence;
-}
-
-function tagged(tag: string, value: unknown): string {
-    return `<${tag}>\n${JSON.stringify(value, null, 2)}\n</${tag}>`;
 }
 
 export function buildRulegenUserPrompt(options: RulegenUserPromptOptions): string {
@@ -74,9 +78,6 @@ export function buildRulegenUserPrompt(options: RulegenUserPromptOptions): strin
         `Task ID: ${options.taskId}`,
         `Workspace: ${options.workspacePath}`,
         `${options.anchorBlock}${options.intentBlock}`,
-        tagged(EVIDENCE_TAG.turns, options.evidence.turns),
-        tagged(EVIDENCE_TAG.events, options.evidence.events),
-        tagged(EVIDENCE_TAG.existingRules, options.evidence.existingRules),
         `Propose up to ${options.maxRules} rules for task ${options.taskId}.`,
     ].join("\n");
 }

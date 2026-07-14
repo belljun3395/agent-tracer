@@ -7,9 +7,7 @@ import {
     digestEvents,
     digestExistingRules,
     digestTurns,
-    selectEvidence,
 } from "~runtime/domain/rulegen/model/evidence.model.js";
-import {RULEGEN_MODE} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
 
 describe("digestTurns", () => {
     it("턴의 유저 요구와 응답 요약을 보존한다", () => {
@@ -74,34 +72,5 @@ describe("digestExistingRules", () => {
         expect(digestExistingRules([{name: "기존", trigger: {phrases: ["test"]}}])).toEqual([
             {name: "기존", trigger: {phrases: ["test"]}, expect: null},
         ]);
-    });
-});
-
-describe("selectEvidence", () => {
-    const turns = Array.from({length: 3}, (_, index) => ({
-        turnIndex: index + 1,
-        askedText: `요구 ${index + 1}`,
-        assistantSummary: "응답",
-    }));
-    const events = Array.from({length: 60}, (_, index) => ({
-        kind: "execute_tool",
-        title: `event ${index + 1}`,
-        body: "",
-    }));
-
-    it("자동 트리거는 마지막 턴 하나와 이벤트 다섯 개만 남긴다", () => {
-        const selected = selectEvidence(RULEGEN_MODE.recent, {turns, events, existingRules: []});
-
-        expect(selected.turns.map((turn) => turn.turnIndex)).toEqual([3]);
-        expect(selected.events).toHaveLength(5);
-        expect(selected.events.at(-1)?.title).toBe("event 60");
-    });
-
-    it("수동 생성은 전체 턴과 최근 이벤트 오십 개를 남긴다", () => {
-        const selected = selectEvidence(RULEGEN_MODE.manual, {turns, events, existingRules: []});
-
-        expect(selected.turns).toHaveLength(3);
-        expect(selected.events).toHaveLength(50);
-        expect(selected.events[0]?.title).toBe("event 11");
     });
 });

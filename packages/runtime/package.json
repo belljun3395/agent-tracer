@@ -8,12 +8,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.139"
+    "@anthropic-ai/claude-agent-sdk": "^0.2.139",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@monitor/kernel": "*",
-    "esbuild": "^0.27.7",
     "@types/node": "^24.13.3",
+    "esbuild": "^0.27.7",
     "typescript": "^5.9.2",
     "vitest": "^3.0.0"
   }

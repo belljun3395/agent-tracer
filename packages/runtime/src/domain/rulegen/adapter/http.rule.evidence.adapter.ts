@@ -8,23 +8,12 @@ import {
     type ExistingRuleEvidence,
     type TurnDigest,
 } from "~runtime/domain/rulegen/model/evidence.model.js";
-import type {RuleEvidencePort} from "~runtime/domain/rulegen/port/rule.evidence.port.js";
+import {RuleEvidenceHttpError, type RuleEvidencePort} from "~runtime/domain/rulegen/port/rule.evidence.port.js";
 
 const EVIDENCE_TIMEOUT_MS = 10_000;
 
 interface ItemsEnvelope {
     readonly data?: {readonly items?: unknown[]; readonly nextCursor?: string | null};
-}
-
-/** 규칙 근거 API의 HTTP 실패 정보다. */
-export class RuleEvidenceHttpError extends Error {
-    constructor(
-        readonly resource: string,
-        readonly status: number,
-    ) {
-        super(`${resource} fetch failed: HTTP ${status}`);
-        this.name = "RuleEvidenceHttpError";
-    }
 }
 
 /** 태스크의 턴과 이벤트와 기존 규칙을 서버에서 읽어 도메인 근거 형태로 준다. */
@@ -39,7 +28,7 @@ export class HttpRuleEvidenceAdapter implements RuleEvidencePort {
         return digestTurns(await this.items(url, "turn context", signal));
     }
 
-    async fetchEvents(taskId: string, signal?: AbortSignal): Promise<readonly EventEvidence[]> {
+    async fetchEvents(taskId: string, limit: number, signal?: AbortSignal): Promise<readonly EventEvidence[]> {
         const events: EventEvidence[] = [];
         let cursor: string | undefined;
         for (let page = 0; page < TIMELINE_MAX_PAGES; page += 1) {
@@ -51,7 +40,7 @@ export class HttpRuleEvidenceAdapter implements RuleEvidencePort {
             if (next === undefined || next === null || next.length === 0) break;
             cursor = next;
         }
-        return events;
+        return events.slice(-limit);
     }
 
     async fetchExistingRules(signal?: AbortSignal): Promise<readonly ExistingRuleEvidence[]> {

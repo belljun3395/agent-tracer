@@ -1,19 +1,25 @@
 import {createDeadline, DEFAULT_RULEGEN_DEADLINE_MS} from "~runtime/domain/rulegen/model/deadline.model.js";
-import {selectEvidence, type RuleGenerationEvidence} from "~runtime/domain/rulegen/model/evidence.model.js";
 import {validateRuleProposals} from "~runtime/domain/rulegen/model/proposal.validation.model.js";
 import type {RuleGenerationReport} from "~runtime/domain/rulegen/model/rule.job.model.js";
-import {resolveRulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
 import {
     buildRuleGenerationSpec,
     type RuleGenerationRequest,
 } from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
-import type {RuleEvidencePort} from "~runtime/domain/rulegen/port/rule.evidence.port.js";
+import {
+    resolveEventLimit,
+    rulegenToolFailureText,
+    rulegenToolSpec,
+    RULEGEN_TOOL,
+    type RulegenToolName,
+    type RulegenToolset,
+} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
+import {RuleEvidenceHttpError, type RuleEvidencePort} from "~runtime/domain/rulegen/port/rule.evidence.port.js";
 import type {RuleGeneratorPort} from "~runtime/domain/rulegen/port/rule.generator.port.js";
 import type {RuleJobPort} from "~runtime/domain/rulegen/port/rule.job.port.js";
 
 const RESULT_REPORT_FAILED = "result report failed";
 
-/** 클레임한 잡 하나를 근거 수집부터 결과 보고까지 끝낸다. */
+/** 클레임한 잡 하나를 도구 루프 실행부터 결과 보고까지 끝낸다. */
 export class RunRuleJobUsecase {
     constructor(
         private readonly evidence: RuleEvidencePort,
@@ -26,9 +32,8 @@ export class RunRuleJobUsecase {
         const signal = deadline.controller.signal;
         const startedAt = Date.now();
         try {
-            const evidence = await this.loadEvidence(request, signal);
-            const spec = buildRuleGenerationSpec(request, evidence);
-            const outcome = await this.generator.generate(spec, signal);
+            const spec = buildRuleGenerationSpec(request);
+            const outcome = await this.generator.generate(spec, this.toolset(signal), signal);
             if (outcome.error !== null) {
                 await this.jobs.fail(request.jobId, outcome.error);
                 return;
@@ -56,15 +61,26 @@ export class RunRuleJobUsecase {
         }
     }
 
-    private async loadEvidence(
-        request: RuleGenerationRequest,
-        signal: AbortSignal,
-    ): Promise<RuleGenerationEvidence> {
-        const [turns, events, existingRules] = await Promise.all([
-            this.evidence.fetchTurns(request.taskId, signal),
-            this.evidence.fetchEvents(request.taskId, signal),
-            this.evidence.fetchExistingRules(signal),
-        ]);
-        return selectEvidence(resolveRulegenMode(request.focus), {turns, events, existingRules});
+    private toolset(signal: AbortSignal): RulegenToolset {
+        return {
+            [RULEGEN_TOOL.turns]: (input) =>
+                this.answer(RULEGEN_TOOL.turns, () => this.evidence.fetchTurns(input.taskId, signal)),
+            [RULEGEN_TOOL.events]: (input) =>
+                this.answer(RULEGEN_TOOL.events, () =>
+                    this.evidence.fetchEvents(input.taskId, resolveEventLimit(input.limit), signal)),
+            [RULEGEN_TOOL.rules]: () =>
+                this.answer(RULEGEN_TOOL.rules, () => this.evidence.fetchExistingRules(signal)),
+        };
+    }
+
+    private async answer(name: RulegenToolName, fetch: () => Promise<unknown>): Promise<string> {
+        try {
+            return JSON.stringify(await fetch(), null, 2);
+        } catch (error) {
+            if (error instanceof RuleEvidenceHttpError) {
+                return rulegenToolFailureText(rulegenToolSpec(name), error.status);
+            }
+            throw error;
+        }
     }
 }

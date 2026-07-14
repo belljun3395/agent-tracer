@@ -5,6 +5,11 @@ import type {
     RuleGenerationUsage,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
 import type {RuleGenerationSpec} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
+import {
+    rulegenAllowedTools,
+    RULEGEN_MCP_SERVER,
+    type RulegenToolset,
+} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 import type {RuleGeneratorPort} from "~runtime/domain/rulegen/port/rule.generator.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
@@ -80,19 +85,24 @@ function toCandidates(structured: unknown): readonly unknown[] {
     return Array.isArray(rules) ? rules : [];
 }
 
-/** 규칙 생성 명세를 Claude Agent SDK 헤드리스 실행으로 돌린다. */
+/** 규칙 생성 명세를 도구 루프가 붙은 Claude Agent SDK 헤드리스 실행으로 돌린다. */
 export class AgentRuleGeneratorAdapter implements RuleGeneratorPort {
     constructor(private readonly apiKey?: string) {}
 
-    async generate(spec: RuleGenerationSpec, signal: AbortSignal): Promise<RuleGenerationOutcome> {
+    async generate(
+        spec: RuleGenerationSpec,
+        toolset: RulegenToolset,
+        signal: AbortSignal,
+    ): Promise<RuleGenerationOutcome> {
         const controller = new AbortController();
         const abort = (): void => controller.abort(signal.reason);
         if (signal.aborted) abort();
         else signal.addEventListener("abort", abort, {once: true});
 
         try {
-            // 훅 번들이 SDK를 지고 가지 않도록 데몬이 실행하는 시점에만 적재한다.
+            // 훅 번들이 SDK와 zod를 지고 가지 않도록 데몬이 실행하는 시점에만 적재한다.
             const {query} = await import("@anthropic-ai/claude-agent-sdk");
+            const {createRulegenMcpServer} = await import("~runtime/domain/rulegen/adapter/rulegen.tool.schema.js");
             const claudeExecutablePath = resolveClaudeExecutablePath();
             const conversation = query({
                 prompt: spec.userPrompt,
@@ -100,7 +110,9 @@ export class AgentRuleGeneratorAdapter implements RuleGeneratorPort {
                     abortController: controller,
                     cwd: spec.workspacePath,
                     model: spec.model,
-                    allowedTools: [],
+                    allowedTools: rulegenAllowedTools(spec.tools),
+                    tools: [],
+                    mcpServers: {[RULEGEN_MCP_SERVER]: createRulegenMcpServer(spec.tools, toolset)},
                     maxTurns: spec.maxTurns,
                     maxBudgetUsd: spec.maxBudgetUsd,
                     ...(claudeExecutablePath !== undefined ? {pathToClaudeCodeExecutable: claudeExecutablePath} : {}),

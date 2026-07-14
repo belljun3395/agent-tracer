@@ -1,6 +1,7 @@
 import {RULE_EXPECTED_ACTIONS, RULE_SEVERITIES} from "@monitor/kernel/rule/definition/rule.vocabulary.js";
 import {buildSeverityGuidance} from "~runtime/domain/rulegen/model/severity.clause.model.js";
 import {RULEGEN_MODE, type RulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
+import {RULEGEN_TOOL} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 
 export const RULE_EXPECTATION_FIELD_GUIDE = `  - expect   : { kind, ... } -- kind selects exactly one shape:
                kind="command"  : commandMatches (required, literal commands the agent must run)
@@ -24,7 +25,7 @@ export const GUIDELINE_CLAUSE = {
     anchorToLatestUtterance: '  - Anchor every rule to the latest user utterance: set trigger.phrases to short verbatim quotes from the user\'s ACTUAL words, with triggerOn: "user".',
     triggerlessIsUniversal: "  - A rule without trigger is evaluated on EVERY turn -- reserve that for universal invariants only.",
     taskSpecific: "  - Lean into patterns specific to THIS task.",
-    noOverlapWithExisting: "  - DO NOT propose any rule whose intent, trigger, or expected action overlaps an existing rule from <existing-rules>.",
+    noOverlapWithExisting: `  - DO NOT propose any rule whose intent, trigger, or expected action overlaps an existing rule from ${RULEGEN_TOOL.rules}().`,
     zeroIsCorrect: "  - Returning zero rules is correct when there is no new verifiable obligation.",
 } as const;
 

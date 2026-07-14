@@ -1,6 +1,5 @@
 import type {RuleGenerationFocus} from "@monitor/kernel/job/job.const.js";
 import {buildAnchorBlock, buildAnchorDirective} from "~runtime/domain/rulegen/model/anchor.model.js";
-import type {RuleGenerationEvidence} from "~runtime/domain/rulegen/model/evidence.model.js";
 import {buildIntentBlock, buildIntentDirective} from "~runtime/domain/rulegen/model/intent.model.js";
 import {buildRuleOutputSchema} from "~runtime/domain/rulegen/model/output.schema.model.js";
 import {defaultMaxRules, resolveRulegenMode, type RulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
@@ -8,6 +7,7 @@ import {
     buildRulegenSystemPrompt,
     buildRulegenUserPrompt,
 } from "~runtime/domain/rulegen/model/rulegen.prompt.model.js";
+import {RULEGEN_TOOL_SPECS, type RulegenToolSpec} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 
 export const DEFAULT_RULEGEN_MODEL = "claude-sonnet-4-6";
 export const DEFAULT_RULEGEN_BUDGET_USD = 2;
@@ -40,12 +40,10 @@ export interface RuleGenerationSpec {
     readonly systemPrompt: string;
     readonly userPrompt: string;
     readonly outputSchema: Record<string, unknown>;
+    readonly tools: readonly RulegenToolSpec[];
 }
 
-export function buildRuleGenerationSpec(
-    request: RuleGenerationRequest,
-    evidence: RuleGenerationEvidence,
-): RuleGenerationSpec {
+export function buildRuleGenerationSpec(request: RuleGenerationRequest): RuleGenerationSpec {
     const mode = resolveRulegenMode(request.focus);
     const maxRules = request.maxRules ?? defaultMaxRules(mode);
     const language = request.language ?? DEFAULT_RULEGEN_LANGUAGE;
@@ -60,15 +58,23 @@ export function buildRuleGenerationSpec(
         maxRules,
         maxTurns: RULEGEN_MAX_TURNS,
         maxBudgetUsd: DEFAULT_RULEGEN_BUDGET_USD,
-        systemPrompt: buildRulegenSystemPrompt({mode, maxRules, language, anchorDirective, intentDirective}),
+        systemPrompt: buildRulegenSystemPrompt({
+            mode,
+            maxRules,
+            maxTurns: RULEGEN_MAX_TURNS,
+            language,
+            anchorDirective,
+            intentDirective,
+            tools: RULEGEN_TOOL_SPECS,
+        }),
         userPrompt: buildRulegenUserPrompt({
             taskId: request.taskId,
             workspacePath: request.workspacePath,
             maxRules,
             anchorBlock: buildAnchorBlock(request.anchorText),
             intentBlock: buildIntentBlock(request.intent),
-            evidence,
         }),
         outputSchema: buildRuleOutputSchema(),
+        tools: RULEGEN_TOOL_SPECS,
     };
 }
