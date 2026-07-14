@@ -62,7 +62,8 @@ def validate_recipe_candidate(
     all_event_ids = set().union(*provenance.eventIdsByTask.values()) if provenance.eventIdsByTask else set()
     cited_event_ids: set[str] = set()
     for item in candidate.contributing_slices:
-        if item.taskId not in provenance.taskIds:
+        # 목록에 이름만 오른 태스크는 근거가 아니라 이벤트를 읽은 태스크만 기여할 수 있다.
+        if item.taskId not in provenance.eventIdsByTask:
             errors.append(f"Unsupported contributing task ID: {item.taskId}.")
         unknown_turns = sorted(set(item.turnIds) - provenance.turnIdsByTask.get(item.taskId, set()))
         if unknown_turns:

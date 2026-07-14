@@ -5,30 +5,82 @@
     "maxOutputTokens": 16000,
     "maxBudgetUsd": 2
   },
-  "searchEvents": {
-    "required": ["q"],
-    "optional": ["taskId", "kind", "toolName", "limit", "offset"],
-    "kinds": [
-      "execute_tool",
-      "plan",
-      "agent_tracer.action.logged",
-      "agent_tracer.verification.logged",
-      "agent_tracer.rule.logged",
-      "agent_tracer.thought.logged",
-      "agent_tracer.context.saved",
-      "agent_tracer.context.snapshot",
-      "agent_tracer.user.prompt.expansion",
-      "agent_tracer.permission.request",
-      "agent_tracer.worktree.remove",
-      "agent_tracer.setup.triggered",
-      "agent_tracer.file.changed",
-      "agent_tracer.user.message",
-      "agent_tracer.assistant.commentary",
-      "agent_tracer.assistant.response",
-      "agent_tracer.question.logged",
-      "agent_tracer.todo.logged",
-      "invoke_agent",
-      "agent_tracer.instructions.loaded"
-    ]
+  "steps": {
+    "consecutiveFromOne": true
+  },
+  "tools": {
+    "get_task_summary": {
+      "required": ["taskId"],
+      "optional": ["window"],
+      "numbers": {
+        "window": { "default": 400, "min": 1, "max": 2000 }
+      }
+    },
+    "get_task_events": {
+      "required": ["taskId"],
+      "optional": ["limit", "cursor", "order"],
+      "numbers": {
+        "limit": { "default": 100, "min": 1, "max": 300 }
+      },
+      "enums": {
+        "order": { "default": "asc", "values": ["asc", "desc"] }
+      }
+    },
+    "list_rules": {
+      "required": ["taskId"],
+      "optional": []
+    },
+    "search_events": {
+      "required": ["q"],
+      "optional": ["taskId", "kind", "toolName", "limit", "offset"],
+      "numbers": {
+        "limit": { "default": 20, "min": 1, "max": 100 },
+        "offset": { "default": 0, "min": 0, "max": 9900 }
+      },
+      "enums": {
+        "kind": {
+          "values": [
+            "execute_tool",
+            "plan",
+            "agent_tracer.action.logged",
+            "agent_tracer.verification.logged",
+            "agent_tracer.rule.logged",
+            "agent_tracer.thought.logged",
+            "agent_tracer.context.saved",
+            "agent_tracer.context.snapshot",
+            "agent_tracer.user.prompt.expansion",
+            "agent_tracer.permission.request",
+            "agent_tracer.worktree.remove",
+            "agent_tracer.setup.triggered",
+            "agent_tracer.file.changed",
+            "agent_tracer.user.message",
+            "agent_tracer.assistant.commentary",
+            "agent_tracer.assistant.response",
+            "agent_tracer.question.logged",
+            "agent_tracer.todo.logged",
+            "invoke_agent",
+            "agent_tracer.instructions.loaded"
+          ]
+        }
+      },
+      "responseEvent": {
+        "required": ["id", "taskId", "seq", "kind", "title", "filePaths", "occurredAt"],
+        "optional": ["body", "toolName"]
+      }
+    },
+    "find_similar_tasks": {
+      "required": ["anchorTaskId"],
+      "optional": ["limit"],
+      "numbers": {
+        "limit": { "default": 5, "min": 1, "max": 20 }
+      }
+    },
+    "search_recipes": {
+      "required": ["q"],
+      "optional": ["limit"],
+      "numbers": {
+        "limit": { "default": 5, "min": 1, "max": 20 }
+      }
+    }
   }
 }

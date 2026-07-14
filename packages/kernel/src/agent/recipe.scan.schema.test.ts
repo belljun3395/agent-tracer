@@ -48,6 +48,22 @@ describe("recipeCandidateSchema", () => {
         expect(parsed.revises_recipe_id).toBe("recipe-old");
     });
 
+    it("steps의 order가 1부터 연속하면 받는다", () => {
+        const parsed = recipeCandidateSchema.parse(
+            candidate({ steps: [{ order: 1, action: "a" }, { order: 2, action: "b" }] }),
+        );
+
+        expect(parsed.steps.map((step) => step.order)).toEqual([1, 2]);
+    });
+
+    it("steps의 order가 연속하지 않으면 거부한다", () => {
+        expect(() =>
+            recipeCandidateSchema.parse(
+                candidate({ steps: [{ order: 1, action: "a" }, { order: 3, action: "b" }] }),
+            ),
+        ).toThrow();
+    });
+
     it("correction의 evidence가 비어 있으면 거부한다", () => {
         expect(() =>
             recipeCandidateSchema.parse(

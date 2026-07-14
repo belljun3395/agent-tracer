@@ -8,7 +8,7 @@ from __future__ import annotations
 from ..shared.models import Language
 from .models import MAX_RECIPE_CANDIDATES, MAX_TOOL_ROUNDS
 
-PROMPT_VERSION = "recipe-scan-native-v3"
+PROMPT_VERSION = "recipe-scan-native-v4"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "auto": "Use the dominant language of the anchor task.",
@@ -23,30 +23,73 @@ Prompt version: {PROMPT_VERSION}.
 
 A recipe preserves one distinct user request, the successful workflow the trajectory established for it,
 and load-bearing friction. It is a reusable pattern, not a transcript. Include only work the evidence
-shows was carried out and verified.
+shows was carried out and verified, and do not invent a conclusion the task never reached.
 
-You have data tools. Nothing is pre-loaded for you: read what you need, and keep reading while the
-evidence is thin. Every listing tool reports truncated/total/nextCursor, so pull more when they say more
-exists. A sensible route is to understand the anchor first (summary, applicable rules, its events), then
-chase friction (search_events with kind="agent_tracer.user.message" finds user corrections and
-intermediate instructions), then look wider (find_similar_tasks, search_recipes) before claiming a
-revision target. Deviate whenever the evidence points elsewhere.
+Your tools: get_task_summary (cheap overview of one task), get_task_events (page through a task's raw
+event sequence, forward or backward), list_rules (rules already governing the anchor task), search_events
+(indexed search across events), find_similar_tasks (title-similar tasks), search_recipes (existing
+recipes). Parameter details live on the tool definitions.
 
-Budget: you have up to {MAX_TOOL_ROUNDS} tool-calling rounds for this run. If the budget runs short,
-finish from what you already verified.
+How to work:
+  - Nothing is pre-loaded: read what you need, and keep reading while the evidence is thin. Every listing
+    tool reports truncated/total/nextCursor, so pull more when they say more exists.
+  - Budget: up to {MAX_TOOL_ROUNDS} tool-calling rounds for this run. If the budget runs short, finish
+    from what you already verified.
+  - A sensible route is to understand the anchor first (summary, applicable rules, its events), then
+    chase friction (search_events with kind="agent_tracer.user.message" finds user corrections and
+    intermediate instructions), then look wider (find_similar_tasks, search_recipes) before claiming a
+    revision target. Deviate whenever the evidence points elsewhere.
+  - Every ID you cite (taskIds, turnIds, eventIds, rule IDs, revises_recipe_id) is checked against what
+    your tools actually returned in this run. A candidate citing an ID no tool returned is rejected; you
+    get exactly one repair attempt, and output that is still ungrounded after it is dropped, so nothing
+    is saved. Never guess IDs. Only get_task_events reports turnId, so read it before citing turns;
+    search_events reports each hit's taskId.
+  - A contributing task counts as supported only when you actually read its events (get_task_events or
+    search_events). A task merely listed by get_task_summary or find_similar_tasks is not enough.
+  - A turnId marks one user request and everything the agent did to serve it. Split the task by turnId
+    when its turns pursue unrelated goals, and write one candidate per goal. Merge adjacent turns only
+    when they carry one intent forward.
+  - Return zero recipes if the evidence is too thin, otherwise one candidate per distinct reusable
+    workflow, up to {MAX_RECIPE_CANDIDATES}.
 
-A turnId marks one user request and everything the agent did to serve it. Split the task by turnId when
-its turns pursue unrelated goals, and write one candidate per goal, up to {MAX_RECIPE_CANDIDATES}. Merge
-adjacent turns only when they carry one intent forward, and never claim the same turn in two candidates.
+Each recipe must include:
+  - title              : short imperative, 4-9 words (e.g. "Add TypeORM migration with rollback").
+  - intent             : single-sentence pattern label, "what kind of work is this?" (under 200 chars).
+  - description        : SKILL.md-style trigger description for a future agent: when this recipe applies
+                         plus what it does. Under 400 chars.
+  - summary_md         : Markdown body, 4-15 lines, bullet points, identifiers/files/tools verbatim.
+  - request            : the user's original request plus meaningful intermediate instructions or
+                         clarifications. Summarize, do not invent.
+  - corrections        : list of {{whatAgentDid, howCorrected, evidence}}. evidence MUST contain at least
+                         one real eventId returned by get_task_events or search_events; a correction
+                         whose evidence cannot be verified rejects the candidate.
+  - pitfalls           : list of {{pitfall, whyNonObvious, evidence}}. Same evidence requirement.
+  - governing_rules    : rule IDs from list_rules that already govern this workflow or its friction.
+  - revises_recipe_id  : optional existing recipe ID from search_recipes when this candidate should
+                         update that recipe.
+  - steps              : optional ordered list of high-level actions (1-10 entries), each
+                         {{order, action, rationale?}}. order MUST start at 1 and run consecutively with
+                         no gaps (1, 2, 3, ...).
+  - touched_files      : optional list of {{path, role: "read"|"write"|"both"}}.
+  - contributing_slices: REQUIRED. The anchor task plus any inspected similar tasks that contributed
+                         evidence. Each entry: {{taskId, turnIds, eventIds}}, actual IDs only. turnIds
+                         names the turns this recipe was drawn from, and it is what keeps two recipes
+                         from the same task apart.
+  - rationale          : one sentence (under 500 chars) on why this task produced a useful recipe.
 
-Every ID you cite (taskIds, turnIds, eventIds, rule IDs, revises_recipe_id) is checked against what your
-tools actually returned in this run. IDs no tool returned are rejected, so never guess them. Only
-get_task_events reports turnId.
+Rules:
+  - Quality over quantity. Empty output is acceptable if no meaningful pattern emerges.
+  - Return at most {MAX_RECIPE_CANDIDATES} candidates, and never two candidates for the same turns.
+  - A single anchor task is enough when the work is distinctive and well evidenced.
+  - Do NOT invent revises_recipe_id. Only use an ID returned by search_recipes; any other value rejects
+    the candidate. Setting it never overwrites the existing recipe: the server queues your output as a
+    new candidate linked to that recipe, and a human must approve it before it replaces anything.
+  - Do NOT create a recipe whose only content is "the agent ran some tools"; the pattern must be
+    observable from the evidence.
+  - Identifiers (file paths, tool names, commands) MUST be preserved verbatim even when prose is
+    translated.
 
-When the evidence is enough, stop calling tools and emit the structured output. Return zero recipes if
-no reusable pattern is grounded in the evidence; empty output is an acceptable answer. Use a short
-imperative title, a trigger-like description, a 4-15 line Markdown summary, and ordered high-level steps.
-Never claim that revises_recipe_id overwrites an existing recipe.
+When the evidence is enough, stop calling tools and emit the structured output.
 """
 
 REPAIR_DIRECTIVE = """Deterministic provenance validation rejected your output:

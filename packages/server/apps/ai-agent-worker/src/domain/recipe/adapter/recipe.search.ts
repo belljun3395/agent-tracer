@@ -1,6 +1,6 @@
 import type { TaskRepository } from "@monitor/tracer-domain";
 import { clampInt } from "~ai-agent-worker/support/clamp.js";
-import type { RecipeSlimEvent } from "~ai-agent-worker/domain/recipe/model/recipe.event.model.js";
+import type { RecipeSearchEvent } from "~ai-agent-worker/domain/recipe/model/recipe.event.model.js";
 import type { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
 import {
     DEFAULT_SEARCH_LIMIT,
@@ -45,7 +45,7 @@ export interface SearchEventsInput {
 }
 
 export interface SearchEventsPage {
-    readonly events: readonly RecipeSlimEvent[];
+    readonly events: readonly RecipeSearchEvent[];
     readonly truncated: boolean;
     readonly total: number;
 }
@@ -96,13 +96,9 @@ export async function searchEvents(
     const hits = searchHits(response);
     const truncated = hits.length > size;
     const page = truncated ? hits.slice(0, size) : hits;
-    const events = page.map((hit) => toSlimEvent(hit._id ?? "", hit._source ?? {}));
-    for (const [index, hit] of page.entries()) {
-        const taskId = readString(hit._source?.["taskId"]);
-        const event = events[index];
-        if (taskId !== undefined && event !== undefined && event.id !== "") {
-            ledger.recordEvents(taskId, [event]);
-        }
+    const events = page.map((hit) => toSearchEvent(hit._id ?? "", hit._source ?? {}));
+    for (const event of events) {
+        if (event.taskId !== "" && event.id !== "") ledger.recordEvents(event.taskId, [event]);
     }
     return { events, truncated, total: searchTotal(response) ?? events.length };
 }
@@ -205,12 +201,13 @@ function toSlimRecipe(id: string, source: Record<string, unknown>): SlimRecipe {
 }
 
 // 검색 색인은 원장 레코드만 보고 만들어지고 turnId는 그 뒤 투영이 붙이므로 검색 결과에는 turn이 없다.
-function toSlimEvent(id: string, source: Record<string, unknown>): RecipeSlimEvent {
+function toSearchEvent(id: string, source: Record<string, unknown>): RecipeSearchEvent {
     const body = readString(source["body"]);
     const toolName = readString(source["toolName"]);
     const seq = source["seq"];
     return {
         id,
+        taskId: readString(source["taskId"]) ?? "",
         seq: readString(seq) ?? (typeof seq === "number" ? String(seq) : ""),
         kind: readString(source["kind"]) ?? "",
         title: readString(source["title"]) ?? "",

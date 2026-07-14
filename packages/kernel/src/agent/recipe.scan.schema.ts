@@ -40,6 +40,15 @@ export const recipePitfallSchema = z.object({
     evidence: z.array(z.string().trim().min(1)).min(1).max(50),
 });
 
+// 절차의 순서가 곧 의미이므로 order는 1부터 빈칸 없이 이어져야 한다.
+const recipeStepsSchema = z
+    .array(recipeStepSchema)
+    .max(20)
+    .refine((steps) => steps.every((step, index) => step.order === index + 1), {
+        message: "steps must use consecutive order values starting at 1",
+    })
+    .default([]);
+
 export const recipeCandidateSchema = z.object({
     title: z.string().trim().min(1).max(120),
     intent: z.string().trim().min(1).max(200),
@@ -50,7 +59,7 @@ export const recipeCandidateSchema = z.object({
     pitfalls: z.array(recipePitfallSchema).max(20).default([]),
     governing_rules: z.array(z.string().trim().min(1)).max(50).default([]),
     revises_recipe_id: structuredOptional(z.string().trim().min(1).max(200)),
-    steps: z.array(recipeStepSchema).max(20).default([]),
+    steps: recipeStepsSchema,
     touched_files: z.array(recipeTouchedFileSchema).max(30).default([]),
     contributing_slices: z.array(recipeSliceSchema).min(1).max(20),
     rationale: z.string().trim().min(1).max(500),

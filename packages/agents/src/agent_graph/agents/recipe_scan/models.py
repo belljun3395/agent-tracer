@@ -103,7 +103,6 @@ class EvidenceRecord(BaseModel):
 
 
 class ProvenanceCatalog(BaseModel):
-    taskIds: set[str] = Field(default_factory=set)
     eventIdsByTask: dict[str, set[str]] = Field(default_factory=dict)
     turnIdsByTask: dict[str, set[str]] = Field(default_factory=dict)
     ruleIds: set[str] = Field(default_factory=set)

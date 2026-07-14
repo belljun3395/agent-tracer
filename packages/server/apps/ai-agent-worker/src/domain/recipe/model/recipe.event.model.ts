@@ -14,6 +14,11 @@ export interface RecipeSlimEvent {
     readonly occurredAt: string;
 }
 
+/** 검색은 태스크를 가로질러 돌아오므로 검색 결과 이벤트는 자기 taskId를 함께 싣는다. */
+export interface RecipeSearchEvent extends RecipeSlimEvent {
+    readonly taskId: string;
+}
+
 /** 태스크 이벤트 조회 한 페이지다. */
 export interface RecipeEventPage {
     readonly events: readonly RecipeSlimEvent[];
