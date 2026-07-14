@@ -1,5 +1,26 @@
 import {describe, expect, it} from "vitest";
-import {classifyIngestStatus, parseRetryAfterMs} from "~runtime/daemon/delivery/ingest.retry.js";
+import {
+    classifyIngestStatus,
+    isServerReachable,
+    parseRetryAfterMs,
+} from "~runtime/daemon/delivery/ingest.retry.js";
+
+describe("isServerReachable", () => {
+    it("닿지 못한 전송만 서버가 없는 것으로 본다", () => {
+        expect(isServerReachable("unreachable")).toBe(false);
+    });
+
+    it("한 번도 보낸 적이 없으면 판단하지 않는다", () => {
+        expect(isServerReachable(null)).toBe(true);
+    });
+
+    it("서버가 응답한 실패는 서버가 있다는 뜻이다", () => {
+        expect(isServerReachable("ok")).toBe(true);
+        expect(isServerReachable("dead")).toBe(true);
+        expect(isServerReachable("server-error")).toBe(true);
+        expect(isServerReachable("retry")).toBe(true);
+    });
+});
 
 describe("classifyIngestStatus", () => {
     it("2xx는 성공으로 분류한다", () => {

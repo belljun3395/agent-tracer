@@ -6,9 +6,12 @@ import {resolveRuntimeRoot} from "~runtime/config/runtime.root.js";
 import {probeSocket, requestDaemon} from "~runtime/daemon/ipc/socket.client.js";
 import {resolveDaemonAction} from "~runtime/daemon/lifecycle/daemon.version.js";
 import {
+    parseDaemonDeliveryResponse,
     parseDaemonGuardrailResponse,
     parseDaemonHintsResponse,
     parseDaemonRulesResponse,
+    type DaemonDeliveryRequest,
+    type DaemonDeliveryResponse,
     type DaemonGuardrailRequest,
     type DaemonHintsRequest,
     type DaemonRecipeInjectedRequest,
@@ -93,6 +96,22 @@ export async function queryDaemonHints(
     } catch {
         void ensureDaemonRunning();
         return [];
+    }
+}
+
+/** 데몬이 스풀을 서버로 배출하고 있는지 묻고 데몬이 없으면 판단을 미룬다. */
+export async function queryDaemonDelivery(): Promise<DaemonDeliveryResponse | null> {
+    const paths = resolveAgentTracerPaths();
+    try {
+        return await requestDaemon(
+            paths.socketPath,
+            {type: "delivery"} satisfies DaemonDeliveryRequest,
+            HINTS_TIMEOUT_MS,
+            (parsed) => parseDaemonDeliveryResponse(parsed),
+            null,
+        );
+    } catch {
+        return null;
     }
 }
 

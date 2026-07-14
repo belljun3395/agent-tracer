@@ -5074,7 +5074,7 @@ function aJ($, Q, J) {
 function xs() {
   return process.env.CLAUDE_CODE_DIAGNOSTICS_FILE;
 }
-function fs3($) {
+function fs4($) {
   let { buffer: Q, bytesRead: J } = m$().readSync($, { length: 4096 });
   if (J === 0) return "utf8";
   if (J >= 2) {
@@ -5093,7 +5093,7 @@ function ys($) {
 function gs($) {
   let Q = m$(), { resolvedPath: J, isSymlink: Y } = N5(Q, $);
   if (Y) X$(`Reading through symlink: ${$} -> ${J}`);
-  let X = fs3(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
+  let X = fs4(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
   return { content: W.replaceAll(`\r
 `, `
 `), encoding: X, lineEndings: G };
@@ -28055,6 +28055,121 @@ function ensureCacheDir(paths2 = resolveAgentTracerPaths()) {
   mkdirSecure(paths2.cacheDir);
 }
 
+// src/config/spool.ts
+import * as fs2 from "node:fs";
+import * as path2 from "node:path";
+
+// src/support/ulid.ts
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+var ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+function encodeTime(timeMs) {
+  let value = Math.floor(timeMs);
+  let output = "";
+  for (let index = 0; index < 10; index += 1) {
+    output = ENCODING[value % 32] + output;
+    value = Math.floor(value / 32);
+  }
+  return output;
+}
+function encodeBytes(bytes) {
+  let bits = 0;
+  let bitLength = 0;
+  let output = "";
+  for (const byte of bytes) {
+    bits = bits << 8 | byte;
+    bitLength += 8;
+    while (bitLength >= 5) {
+      output += ENCODING[bits >> bitLength - 5 & 31];
+      bitLength -= 5;
+    }
+  }
+  return output;
+}
+function generateUlid(timeMs = Date.now()) {
+  return `${encodeTime(timeMs)}${encodeBytes(randomBytes(10)).slice(0, 16)}`;
+}
+
+// src/config/spool.ts
+var SPOOL_MAX_BYTES = 50 * 1024 * 1024;
+var SPOOL_BATCH_MAX = 100;
+var SEGMENT_PREFIX = "seg-";
+var SEGMENT_SUFFIX = ".jsonl";
+var TMP_PREFIX = ".tmp-";
+function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId = generateUlid()) {
+  if (lines.length === 0) return;
+  ensureSpoolDir(paths2);
+  const payload = lines.map((line) => `${line}
+`).join("");
+  const tmpPath = path2.join(paths2.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
+  const finalPath = path2.join(paths2.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
+  const fd = fs2.openSync(tmpPath, "w");
+  try {
+    fs2.writeSync(fd, payload);
+    fs2.fsyncSync(fd);
+  } finally {
+    fs2.closeSync(fd);
+  }
+  fs2.renameSync(tmpPath, finalPath);
+}
+function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
+  let entries;
+  try {
+    entries = fs2.readdirSync(paths2.spoolDir);
+  } catch {
+    return [];
+  }
+  const names = entries.filter((name) => name.startsWith(SEGMENT_PREFIX) && name.endsWith(SEGMENT_SUFFIX)).sort();
+  const segments = [];
+  for (const name of names) {
+    const full = path2.join(paths2.spoolDir, name);
+    try {
+      segments.push({ path: full, name, size: fs2.statSync(full).size });
+    } catch {
+      continue;
+    }
+  }
+  return segments;
+}
+function spoolBacklogBytes(paths2 = resolveAgentTracerPaths()) {
+  return listSpoolSegments(paths2).reduce((sum2, segment) => sum2 + segment.size, 0);
+}
+function readSpoolSegment(segmentPath) {
+  let content;
+  try {
+    content = fs2.readFileSync(segmentPath, "utf8");
+  } catch {
+    return [];
+  }
+  return content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+}
+function removeSpoolSegment(segmentPath) {
+  try {
+    fs2.unlinkSync(segmentPath);
+  } catch {
+    return;
+  }
+}
+function appendDeadLetter(lines, paths2 = resolveAgentTracerPaths()) {
+  if (lines.length === 0) return;
+  ensureSpoolDir(paths2);
+  fs2.appendFileSync(paths2.deadPath, lines.map((line) => `${line}
+`).join(""));
+}
+function enforceSpoolSizeCap(paths2 = resolveAgentTracerPaths()) {
+  const segments = listSpoolSegments(paths2);
+  let total = segments.reduce((sum2, segment) => sum2 + segment.size, 0);
+  const droppedSegments = [];
+  let droppedBytes = 0;
+  for (const segment of segments) {
+    if (total <= SPOOL_MAX_BYTES) break;
+    removeSpoolSegment(segment.path);
+    total -= segment.size;
+    droppedBytes += segment.size;
+    droppedSegments.push(segment.name);
+  }
+  return { droppedBytes, droppedSegments };
+}
+
 // ../kernel/src/rule/definition/rule.vocabulary.ts
 var RULE_SEVERITY = {
   info: "info",
@@ -29108,7 +29223,7 @@ var ComputeHintsUsecase = class {
 };
 
 // src/domain/recipe/adapter/http.recipe.cache.adapter.ts
-import * as fs2 from "node:fs";
+import * as fs3 from "node:fs";
 var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
 var REQUEST_TIMEOUT_MS = 5e3;
 var HttpRecipeCacheAdapter = class {
@@ -29122,7 +29237,7 @@ var HttpRecipeCacheAdapter = class {
   paths;
   load() {
     try {
-      return extractRecipes(JSON.parse(fs2.readFileSync(this.paths.recipesCachePath, "utf8")));
+      return extractRecipes(JSON.parse(fs3.readFileSync(this.paths.recipesCachePath, "utf8")));
     } catch {
       return [];
     }
@@ -29137,8 +29252,8 @@ var HttpRecipeCacheAdapter = class {
     const recipes = extractRecipes(text ? JSON.parse(text) : []);
     ensureCacheDir(this.paths);
     const tmp = `${this.paths.recipesCachePath}.tmp`;
-    fs2.writeFileSync(tmp, JSON.stringify({ recipes }));
-    fs2.renameSync(tmp, this.paths.recipesCachePath);
+    fs3.writeFileSync(tmp, JSON.stringify({ recipes }));
+    fs3.renameSync(tmp, this.paths.recipesCachePath);
     return true;
   }
 };
@@ -29400,7 +29515,7 @@ var RequestRecipeScanUsecase = class {
 // src/domain/rulegen/adapter/agent.rule.generator.adapter.ts
 init_rulegen_tool_model();
 import { accessSync, constants } from "node:fs";
-import * as path2 from "node:path";
+import * as path3 from "node:path";
 var SAFE_ENV_KEYS = [
   "PATH",
   "HOME",
@@ -29427,9 +29542,9 @@ function resolveClaudeExecutablePath(env = process.env) {
   const pathEnv = env["PATH"];
   if (pathEnv === void 0) return void 0;
   const exeName = process.platform === "win32" ? "claude.exe" : "claude";
-  for (const dir of pathEnv.split(path2.delimiter)) {
+  for (const dir of pathEnv.split(path3.delimiter)) {
     if (dir.length === 0) continue;
-    const candidate = path2.join(dir, exeName);
+    const candidate = path3.join(dir, exeName);
     try {
       accessSync(candidate, constants.X_OK);
       return candidate;
@@ -30505,123 +30620,29 @@ function composeDaemonHooks(leaseOwner) {
   return { guardrail, hint, recipe, rulegen, recipeCache };
 }
 
+// src/daemon/delivery/ingest.retry.ts
+var DEAD_LETTER_STATUSES = /* @__PURE__ */ new Set([400, 413, 422]);
+var MAX_INGEST_BACKOFF_MS = 6e4;
+function isServerReachable(outcome) {
+  return outcome !== "unreachable";
+}
+function classifyIngestStatus(status) {
+  if (status >= 200 && status < 300) return "ok";
+  if (DEAD_LETTER_STATUSES.has(status)) return "dead";
+  if (status >= 400 && status < 500) return "retry";
+  return "server-error";
+}
+function parseRetryAfterMs(header, maxMs) {
+  if (header === null) return null;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1e3, maxMs);
+  const dateMs = Date.parse(header);
+  if (Number.isFinite(dateMs)) return Math.max(0, Math.min(dateMs - Date.now(), maxMs));
+  return null;
+}
+
 // src/daemon/control/control.state.ts
 import * as fs6 from "node:fs";
-
-// src/config/spool.ts
-import * as fs4 from "node:fs";
-import * as path3 from "node:path";
-
-// src/support/ulid.ts
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-var ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-function encodeTime(timeMs) {
-  let value = Math.floor(timeMs);
-  let output = "";
-  for (let index = 0; index < 10; index += 1) {
-    output = ENCODING[value % 32] + output;
-    value = Math.floor(value / 32);
-  }
-  return output;
-}
-function encodeBytes(bytes) {
-  let bits = 0;
-  let bitLength = 0;
-  let output = "";
-  for (const byte of bytes) {
-    bits = bits << 8 | byte;
-    bitLength += 8;
-    while (bitLength >= 5) {
-      output += ENCODING[bits >> bitLength - 5 & 31];
-      bitLength -= 5;
-    }
-  }
-  return output;
-}
-function generateUlid(timeMs = Date.now()) {
-  return `${encodeTime(timeMs)}${encodeBytes(randomBytes(10)).slice(0, 16)}`;
-}
-
-// src/config/spool.ts
-var SPOOL_MAX_BYTES = 50 * 1024 * 1024;
-var SPOOL_BATCH_MAX = 100;
-var SEGMENT_PREFIX = "seg-";
-var SEGMENT_SUFFIX = ".jsonl";
-var TMP_PREFIX = ".tmp-";
-function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId = generateUlid()) {
-  if (lines.length === 0) return;
-  ensureSpoolDir(paths2);
-  const payload = lines.map((line) => `${line}
-`).join("");
-  const tmpPath = path3.join(paths2.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
-  const finalPath = path3.join(paths2.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
-  const fd = fs4.openSync(tmpPath, "w");
-  try {
-    fs4.writeSync(fd, payload);
-    fs4.fsyncSync(fd);
-  } finally {
-    fs4.closeSync(fd);
-  }
-  fs4.renameSync(tmpPath, finalPath);
-}
-function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
-  let entries;
-  try {
-    entries = fs4.readdirSync(paths2.spoolDir);
-  } catch {
-    return [];
-  }
-  const names = entries.filter((name) => name.startsWith(SEGMENT_PREFIX) && name.endsWith(SEGMENT_SUFFIX)).sort();
-  const segments = [];
-  for (const name of names) {
-    const full = path3.join(paths2.spoolDir, name);
-    try {
-      segments.push({ path: full, name, size: fs4.statSync(full).size });
-    } catch {
-      continue;
-    }
-  }
-  return segments;
-}
-function spoolBacklogBytes(paths2 = resolveAgentTracerPaths()) {
-  return listSpoolSegments(paths2).reduce((sum2, segment) => sum2 + segment.size, 0);
-}
-function readSpoolSegment(segmentPath) {
-  let content;
-  try {
-    content = fs4.readFileSync(segmentPath, "utf8");
-  } catch {
-    return [];
-  }
-  return content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-}
-function removeSpoolSegment(segmentPath) {
-  try {
-    fs4.unlinkSync(segmentPath);
-  } catch {
-    return;
-  }
-}
-function appendDeadLetter(lines, paths2 = resolveAgentTracerPaths()) {
-  if (lines.length === 0) return;
-  ensureSpoolDir(paths2);
-  fs4.appendFileSync(paths2.deadPath, lines.map((line) => `${line}
-`).join(""));
-}
-function enforceSpoolSizeCap(paths2 = resolveAgentTracerPaths()) {
-  const segments = listSpoolSegments(paths2);
-  let total = segments.reduce((sum2, segment) => sum2 + segment.size, 0);
-  const droppedSegments = [];
-  let droppedBytes = 0;
-  for (const segment of segments) {
-    if (total <= SPOOL_MAX_BYTES) break;
-    removeSpoolSegment(segment.path);
-    total -= segment.size;
-    droppedBytes += segment.size;
-    droppedSegments.push(segment.name);
-  }
-  return { droppedBytes, droppedSegments };
-}
 
 // src/config/dead.letter.ts
 import * as fs5 from "node:fs";
@@ -31713,24 +31734,6 @@ function readExistingToken(tokenPath) {
   }
 }
 
-// src/daemon/delivery/ingest.retry.ts
-var DEAD_LETTER_STATUSES = /* @__PURE__ */ new Set([400, 413, 422]);
-var MAX_INGEST_BACKOFF_MS = 6e4;
-function classifyIngestStatus(status) {
-  if (status >= 200 && status < 300) return "ok";
-  if (DEAD_LETTER_STATUSES.has(status)) return "dead";
-  if (status >= 400 && status < 500) return "retry";
-  return "server-error";
-}
-function parseRetryAfterMs(header, maxMs) {
-  if (header === null) return null;
-  const seconds = Number(header);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1e3, maxMs);
-  const dateMs = Date.parse(header);
-  if (Number.isFinite(dateMs)) return Math.max(0, Math.min(dateMs - Date.now(), maxMs));
-  return null;
-}
-
 // src/domain/ingest/model/ingest.event.model.ts
 var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
 
@@ -32090,6 +32093,8 @@ function parseDaemonRequest(value) {
         taskId: value["taskId"],
         request: value["request"]
       } : null;
+    case "delivery":
+      return { type: "delivery" };
     case "rules":
       return typeof value["taskId"] === "string" ? { type: "rules", taskId: value["taskId"] } : null;
     case "recipe-injected":
@@ -32188,6 +32193,9 @@ function handleMessage(socket, line, context) {
         send(socket, {
           rules: context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId))
         });
+        return;
+      case "delivery":
+        send(socket, context.readDelivery());
         return;
       case "guardrail": {
         context.refreshHistory();
@@ -32739,6 +32747,13 @@ function currentState() {
     interventions: interventions.snapshot()
   };
 }
+function currentDelivery() {
+  return {
+    reachable: isServerReachable(spoolSender.state().lastSendOutcome),
+    baseUrl: resolveMonitorBaseUrl(),
+    backlogBytes: listSpoolSegments(paths).reduce((total, segment) => total + segment.size, 0)
+  };
+}
 async function shutdown(reason) {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -32777,6 +32792,7 @@ var servers = createDaemonServers({
     guardrail: hooks.guardrail,
     hint: hooks.hint,
     readRules: () => cachedRules,
+    readDelivery: currentDelivery,
     refreshHistory: () => spoolSender.feedHistory(),
     onHookVersion: (hookVersion) => {
       lastHookVersion = hookVersion;

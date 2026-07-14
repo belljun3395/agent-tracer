@@ -1,3 +1,92 @@
+// ../kernel/src/rule/definition/rule.vocabulary.ts
+var RULE_SEVERITY = {
+  info: "info",
+  warn: "warn",
+  block: "block"
+};
+var RULE_SEVERITIES = [RULE_SEVERITY.info, RULE_SEVERITY.warn, RULE_SEVERITY.block];
+var RULE_SCOPE = {
+  global: "global",
+  task: "task"
+};
+var RULE_SCOPES = [RULE_SCOPE.global, RULE_SCOPE.task];
+var RULE_SOURCE = {
+  human: "human",
+  agent: "agent"
+};
+var RULE_SOURCES = [RULE_SOURCE.human, RULE_SOURCE.agent];
+var RULE_TRIGGER_SOURCE = {
+  user: "user",
+  assistant: "assistant"
+};
+var RULE_TRIGGER_SOURCES = [RULE_TRIGGER_SOURCE.user, RULE_TRIGGER_SOURCE.assistant];
+var RULE_EXPECTED_ACTION = {
+  command: "command",
+  fileRead: "file-read",
+  fileWrite: "file-write",
+  web: "web"
+};
+var RULE_EXPECTED_ACTIONS = [
+  RULE_EXPECTED_ACTION.command,
+  RULE_EXPECTED_ACTION.fileRead,
+  RULE_EXPECTED_ACTION.fileWrite,
+  RULE_EXPECTED_ACTION.web
+];
+var RULE_EXPECTATION_KIND = {
+  command: "command",
+  pattern: "pattern",
+  action: "action"
+};
+var RULE_EXPECTATION_KINDS = [
+  RULE_EXPECTATION_KIND.command,
+  RULE_EXPECTATION_KIND.pattern,
+  RULE_EXPECTATION_KIND.action
+];
+
+// ../kernel/src/rule/evaluation/rule.verdict.ts
+var VERDICT_STATUS = {
+  verified: "verified",
+  contradicted: "contradicted",
+  unverifiable: "unverifiable"
+};
+var VERDICT_STATUSES = [
+  VERDICT_STATUS.verified,
+  VERDICT_STATUS.contradicted,
+  VERDICT_STATUS.unverifiable
+];
+
+// src/domain/guardrail/model/rules.context.model.ts
+var SEVERITY_RANK = {
+  [RULE_SEVERITY.block]: 3,
+  [RULE_SEVERITY.warn]: 2,
+  [RULE_SEVERITY.info]: 1
+};
+
+// src/agent/claude-code/hook.output.ts
+function formatDeliveryWarning(delivery) {
+  if (delivery === null || delivery.reachable) return "";
+  return [
+    `agent-tracer: ${delivery.baseUrl}\uC5D0 \uB2FF\uC9C0 \uBABB\uD55C\uB2E4.`,
+    `\uC774\uBCA4\uD2B8\uAC00 \uB85C\uCEEC \uC2A4\uD480\uC5D0\uB9CC \uC313\uC778\uB2E4(${formatBytes(delivery.backlogBytes)}).`,
+    "\uC11C\uBC84\uB97C \uB744\uC6B0\uAC70\uB098 MONITOR_BASE_URL\uB85C \uC11C\uBC84\uB97C \uAC00\uB9AC\uCF1C\uB77C."
+  ].join(" ");
+}
+function emitDeliveryWarning(delivery) {
+  const systemMessage = formatDeliveryWarning(delivery);
+  if (systemMessage === "") return false;
+  writeStdout({ systemMessage });
+  return true;
+}
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+function writeStdout(value) {
+  process.stdout.write(`${JSON.stringify(value)}
+`);
+}
+
 // src/support/json.ts
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -368,6 +457,14 @@ function parseDaemonVersionResponse(value) {
 function isDaemonAckResponse(value) {
   return isRecord(value) && value["ok"] === true;
 }
+function parseDaemonDeliveryResponse(value) {
+  if (!isRecord(value) || typeof value["reachable"] !== "boolean") return null;
+  return {
+    reachable: value["reachable"],
+    baseUrl: typeof value["baseUrl"] === "string" ? value["baseUrl"] : "",
+    backlogBytes: typeof value["backlogBytes"] === "number" ? value["backlogBytes"] : 0
+  };
+}
 
 // src/daemon/lifecycle/daemon.version.ts
 var VERSION_CHECK_TIMEOUT_MS = 200;
@@ -448,6 +545,7 @@ async function waitUntilSocketFree(socketPath, timeoutMs = SOCKET_FREE_TIMEOUT_M
 }
 
 // src/daemon/ipc/hook.client.ts
+var HINTS_TIMEOUT_MS = 500;
 var SOURCE_LOADER = "@swc-node/register/esm-register";
 function daemonEntry() {
   const root = resolveRuntimeRoot();
@@ -489,6 +587,20 @@ async function ensureDaemonRunning(env = process.env) {
   if (env.AGENT_TRACER_DAEMON_AUTOSTART === "0") return;
   const paths = resolveAgentTracerPaths(env);
   if (await resolveDaemonAction(paths) === "spawn") spawnDaemon(paths);
+}
+async function queryDaemonDelivery() {
+  const paths = resolveAgentTracerPaths();
+  try {
+    return await requestDaemon(
+      paths.socketPath,
+      { type: "delivery" },
+      HINTS_TIMEOUT_MS,
+      (parsed) => parseDaemonDeliveryResponse(parsed),
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 // src/domain/binding/adapter/file.binding.store.adapter.ts
@@ -3329,5 +3441,6 @@ await runHook("SessionStart", {
     const event = sessionTriggerEvent(target, payload.source.toLowerCase());
     if (event !== null) await onLifecycleEvent(claudeRuntime.ingest, [event]);
     await onRecipeCacheRefresh(claudeRuntime.recipe);
+    emitDeliveryWarning(await queryDaemonDelivery());
   }
 });

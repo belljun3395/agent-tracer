@@ -9,6 +9,11 @@ export const DEAD_LETTER_STATUSES: ReadonlySet<number> = new Set([400, 413, 422]
 
 export const MAX_INGEST_BACKOFF_MS = 60_000;
 
+/** 한 번도 보낸 적이 없는 데몬은 서버를 판단할 근거가 없으므로 닿는 것으로 본다. */
+export function isServerReachable(outcome: SendOutcome | null): boolean {
+    return outcome !== "unreachable";
+}
+
 export function classifyIngestStatus(status: number): IngestStatusClass {
     if (status >= 200 && status < 300) return "ok";
     if (DEAD_LETTER_STATUSES.has(status)) return "dead";

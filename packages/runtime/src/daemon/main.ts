@@ -1,12 +1,15 @@
 import {resolveMonitorBaseUrl} from "~runtime/config/env.js";
 import {ensureAgentTracerHome, resolveAgentTracerPaths} from "~runtime/config/home.paths.js";
+import {listSpoolSegments} from "~runtime/config/spool.js";
 import {composeDaemonHooks} from "~runtime/daemon/composition.js";
+import {isServerReachable} from "~runtime/daemon/delivery/ingest.retry.js";
 import {buildControlSnapshot, type DaemonRuntimeState} from "~runtime/daemon/control/control.state.js";
 import {createControlHttpHandler, type ControlActions} from "~runtime/daemon/control/control.http.js";
 import {createResumeHttpHandler} from "~runtime/daemon/control/resume.http.js";
 import {ensureResumeToken} from "~runtime/daemon/control/resume.token.js";
 import {SpoolSender} from "~runtime/daemon/delivery/spool.sender.js";
 import {createDaemonConnectionHandler} from "~runtime/daemon/ipc/socket.server.js";
+import type {DaemonDeliveryResponse} from "~runtime/daemon/port/daemon.socket.port.js";
 import {DaemonHealthTracker, resolveDaemonVersion} from "~runtime/daemon/lifecycle/daemon.health.js";
 import {removeDaemonPid} from "~runtime/daemon/lifecycle/daemon.pid.js";
 import {createDaemonServers} from "~runtime/daemon/lifecycle/servers.js";
@@ -150,6 +153,14 @@ function currentState(): DaemonRuntimeState {
     };
 }
 
+function currentDelivery(): DaemonDeliveryResponse {
+    return {
+        reachable: isServerReachable(spoolSender.state().lastSendOutcome),
+        baseUrl: resolveMonitorBaseUrl(),
+        backlogBytes: listSpoolSegments(paths).reduce((total, segment) => total + segment.size, 0),
+    };
+}
+
 async function shutdown(reason: string): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
@@ -190,6 +201,7 @@ const servers = createDaemonServers({
         guardrail: hooks.guardrail,
         hint: hooks.hint,
         readRules: () => cachedRules,
+        readDelivery: currentDelivery,
         refreshHistory: () => spoolSender.feedHistory(),
         onHookVersion: (hookVersion) => {
             lastHookVersion = hookVersion;

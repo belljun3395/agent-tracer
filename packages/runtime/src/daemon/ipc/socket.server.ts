@@ -3,6 +3,7 @@ import type {InterventionLog} from "~runtime/daemon/observation/intervention.log
 import {
     parseDaemonRequest,
     type DaemonAckResponse,
+    type DaemonDeliveryResponse,
     type DaemonGuardrailResponse,
     type DaemonHintsResponse,
     type DaemonResponse,
@@ -23,6 +24,7 @@ export interface DaemonSocketContext {
     readonly guardrail: GuardrailHook;
     readonly hint: HintHook;
     readonly readRules: () => readonly GuardrailRule[];
+    readonly readDelivery: () => DaemonDeliveryResponse;
     readonly refreshHistory: () => void;
     readonly onHookVersion: (version: string) => void;
     readonly onActivity: () => void;
@@ -96,6 +98,9 @@ function handleMessage(socket: net.Socket, line: string, context: DaemonSocketCo
                 send(socket, {
                     rules: context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId)),
                 } satisfies DaemonRulesResponse);
+                return;
+            case "delivery":
+                send(socket, context.readDelivery() satisfies DaemonDeliveryResponse);
                 return;
             case "guardrail": {
                 context.refreshHistory();

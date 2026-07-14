@@ -48,6 +48,37 @@ export function blockTurn(verdicts: readonly GuardrailVerdict[]): void {
     process.exitCode = 2;
 }
 
+/** 데몬이 답한 배출 상태이며 데몬이 없으면 null이다. */
+export interface DeliveryStatus {
+    readonly reachable: boolean;
+    readonly baseUrl: string;
+    readonly backlogBytes: number;
+}
+
+/** 서버에 닿지 못해도 훅은 조용히 성공하므로 사용자가 눈치채려면 이 문장뿐이다. */
+export function formatDeliveryWarning(delivery: DeliveryStatus | null): string {
+    if (delivery === null || delivery.reachable) return "";
+    return [
+        `agent-tracer: ${delivery.baseUrl}에 닿지 못한다.`,
+        `이벤트가 로컬 스풀에만 쌓인다(${formatBytes(delivery.backlogBytes)}).`,
+        "서버를 띄우거나 MONITOR_BASE_URL로 서버를 가리켜라.",
+    ].join(" ");
+}
+
+/** systemMessage는 모델이 아니라 사용자에게 보이는 줄이다. */
+export function emitDeliveryWarning(delivery: DeliveryStatus | null): boolean {
+    const systemMessage = formatDeliveryWarning(delivery);
+    if (systemMessage === "") return false;
+    writeStdout({systemMessage});
+    return true;
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 function writeStdout(value: unknown): void {
     process.stdout.write(`${JSON.stringify(value)}\n`);
 }

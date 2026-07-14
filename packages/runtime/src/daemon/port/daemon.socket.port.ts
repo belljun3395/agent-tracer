@@ -40,13 +40,18 @@ export interface DaemonGuardrailRequest {
     readonly candidateAssistantText?: string;
 }
 
+export interface DaemonDeliveryRequest {
+    readonly type: "delivery";
+}
+
 export type DaemonRequest =
     | DaemonVersionRequest
     | DaemonShutdownRequest
     | DaemonHintsRequest
     | DaemonRulesRequest
     | DaemonRecipeInjectedRequest
-    | DaemonGuardrailRequest;
+    | DaemonGuardrailRequest
+    | DaemonDeliveryRequest;
 
 export interface DaemonVersionResponse {
     readonly version: string;
@@ -69,12 +74,20 @@ export interface DaemonGuardrailResponse {
     readonly verdicts: readonly GuardrailVerdict[];
 }
 
+/** 스풀이 서버로 빠져나가고 있는지와 지금 쌓여 있는 양이다. */
+export interface DaemonDeliveryResponse {
+    readonly reachable: boolean;
+    readonly baseUrl: string;
+    readonly backlogBytes: number;
+}
+
 export type DaemonResponse =
     | DaemonVersionResponse
     | DaemonAckResponse
     | DaemonHintsResponse
     | DaemonRulesResponse
-    | DaemonGuardrailResponse;
+    | DaemonGuardrailResponse
+    | DaemonDeliveryResponse;
 
 export function parseDaemonRequest(value: unknown): DaemonRequest | null {
     if (!isRecord(value) || typeof value["type"] !== "string") return null;
@@ -97,6 +110,8 @@ export function parseDaemonRequest(value: unknown): DaemonRequest | null {
                     request: value["request"] as unknown as PreprocessingHintsRequest,
                 }
                 : null;
+        case "delivery":
+            return {type: "delivery"};
         case "rules":
             return typeof value["taskId"] === "string" ? {type: "rules", taskId: value["taskId"]} : null;
         case "recipe-injected":
@@ -154,4 +169,13 @@ export function parseDaemonGuardrailResponse(value: unknown): DaemonGuardrailRes
     return isRecord(value) && Array.isArray(value["verdicts"])
         ? {verdicts: value["verdicts"] as GuardrailVerdict[]}
         : null;
+}
+
+export function parseDaemonDeliveryResponse(value: unknown): DaemonDeliveryResponse | null {
+    if (!isRecord(value) || typeof value["reachable"] !== "boolean") return null;
+    return {
+        reachable: value["reachable"],
+        baseUrl: typeof value["baseUrl"] === "string" ? value["baseUrl"] : "",
+        backlogBytes: typeof value["backlogBytes"] === "number" ? value["backlogBytes"] : 0,
+    };
 }
