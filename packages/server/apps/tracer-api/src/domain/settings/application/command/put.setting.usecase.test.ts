@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { BadRequestException } from "@nestjs/common";
 import { APP_SETTING_KEYS } from "@monitor/tracer-domain";
 import { InMemoryAppSettingRepository } from "~tracer-api/domain/settings/port/__fakes__/in-memory.app.setting.repository.js";
+import { FixedClock } from "~tracer-api/domain/settings/port/__fakes__/fixed.clock.js";
 import { PutSettingUseCase } from "./put.setting.usecase.js";
 
 function makeUseCase(): PutSettingUseCase {
-    return new PutSettingUseCase(new InMemoryAppSettingRepository());
+    return new PutSettingUseCase(new InMemoryAppSettingRepository(), new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
 }
 
 describe("PutSettingUseCase", () => {
