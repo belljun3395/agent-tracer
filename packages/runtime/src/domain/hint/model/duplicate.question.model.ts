@@ -10,12 +10,12 @@ const DUPLICATE_AGE_MS = 24 * 60 * 60 * 1000;
 export function detectDuplicateQuestion(
     recent: readonly RecentEvent[],
     questions: readonly string[],
+    now: number,
 ): PreprocessingHint[] {
     const incoming = questions.map(normalizeQuestion).filter((question) => question.length > 0);
     if (incoming.length === 0) return [];
 
     const prior = recent.filter((event) => event.kind === KIND.questionLogged).slice(-QUESTION_LOOKBACK);
-    const now = Date.now();
     const hints: PreprocessingHint[] = [];
 
     for (const question of incoming) {

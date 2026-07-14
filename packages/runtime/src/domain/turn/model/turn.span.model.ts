@@ -34,10 +34,14 @@ export interface TurnSpan {
 }
 
 /** 열린 턴을 감싸는 invoke_agent span 이벤트를 만든다. */
-export function buildTurnSpan(turn: TurnState | undefined, input: TurnSpanInput): TurnSpan {
+export function buildTurnSpan(
+    turn: TurnState | undefined,
+    input: TurnSpanInput,
+    now: number,
+): TurnSpan {
     const turnId = turn?.turnId ?? input.fallbackTurnId;
-    const startedAt = turn?.startedAt ?? input.sessionStartedAt ?? new Date().toISOString();
-    const durationMs = Math.max(0, Date.now() - Date.parse(startedAt));
+    const startedAt = turn?.startedAt ?? input.sessionStartedAt ?? new Date(now).toISOString();
+    const durationMs = Math.max(0, now - Date.parse(startedAt));
 
     const event: RuntimeIngestEvent = {
         id: turnId,

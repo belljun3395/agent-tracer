@@ -14,12 +14,12 @@ const SHORT_PATH_MAX = 50;
 export function detectCommandRepetition(
     recent: readonly RecentEvent[],
     command: string,
+    now: number,
 ): PreprocessingHint[] {
     const normalized = command.trim();
     if (!normalized) return [];
 
     const prior = recent.filter((event) => isTerminalCommand(event)).slice(-COMMAND_LOOKBACK);
-    const now = Date.now();
     const hints: PreprocessingHint[] = [];
     const targetCounts = new Map<string, number>();
     let sameCommand = 0;

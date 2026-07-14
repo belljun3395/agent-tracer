@@ -1,5 +1,8 @@
 import {describe, expect, it, vi, afterEach} from "vitest";
 import {RunRuleJobUsecase} from "~runtime/domain/rulegen/application/run.rule.job.usecase.js";
+import {FixedClock} from "~runtime/domain/rulegen/port/__fakes__/fixed.clock.js";
+
+const NOW = Date.parse("2026-07-14T04:00:00.000Z");
 import type {RuleGenerationOutcome} from "~runtime/domain/rulegen/model/rule.job.model.js";
 import {
     RULEGEN_EVENT_LIMIT,
@@ -48,7 +51,7 @@ describe("RunRuleJobUsecase", () => {
         const generator = new InMemoryRuleGenerator(
             outcome({candidates: [VALID_RULE, {name: "검증 불가", expect: {}}, VALID_RULE, VALID_RULE]}),
         );
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
 
         await usecase.execute({...REQUEST, maxRules: 2});
 
@@ -60,7 +63,7 @@ describe("RunRuleJobUsecase", () => {
 
     it("usage가 없으면 결과 보고에서 뺀다", async () => {
         const jobs = new InMemoryRuleJob();
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), new InMemoryRuleGenerator(outcome()), jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), new InMemoryRuleGenerator(outcome()), jobs, new FixedClock(NOW));
 
         await usecase.execute(REQUEST);
 
@@ -70,7 +73,7 @@ describe("RunRuleJobUsecase", () => {
     it("실행기에 근거를 더 가져오는 도구를 넘긴다", async () => {
         const jobs = new InMemoryRuleJob();
         const generator = new InMemoryRuleGenerator(outcome());
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
 
         await usecase.execute(REQUEST);
 
@@ -80,7 +83,7 @@ describe("RunRuleJobUsecase", () => {
     it("턴 도구를 부르면 그 태스크의 턴을 텍스트로 돌려준다", async () => {
         const evidence = new InMemoryRuleEvidence([{turnIndex: 1, askedText: "테스트 돌려", assistantSummary: "돌렸다"}]);
         const generator = new InMemoryRuleGenerator(outcome());
-        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob());
+        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob(), new FixedClock(NOW));
         await usecase.execute(REQUEST);
 
         const text = await toolsetOf(generator)[RULEGEN_TOOL.turns]({taskId: "task-7"});
@@ -92,7 +95,7 @@ describe("RunRuleJobUsecase", () => {
     it("이벤트 도구는 상한이 없으면 기본 상한으로 최근 이벤트만 돌려준다", async () => {
         const evidence = new InMemoryRuleEvidence([], events(60));
         const generator = new InMemoryRuleGenerator(outcome());
-        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob());
+        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob(), new FixedClock(NOW));
         await usecase.execute(REQUEST);
 
         const text = await toolsetOf(generator)[RULEGEN_TOOL.events]({taskId: "task-1"});
@@ -105,7 +108,7 @@ describe("RunRuleJobUsecase", () => {
     it("이벤트 도구의 상한은 허용 범위 안으로 자른다", async () => {
         const evidence = new InMemoryRuleEvidence([], events(3));
         const generator = new InMemoryRuleGenerator(outcome());
-        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob());
+        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob(), new FixedClock(NOW));
         await usecase.execute(REQUEST);
 
         await toolsetOf(generator)[RULEGEN_TOOL.events]({taskId: "task-1", limit: 5_000});
@@ -116,7 +119,7 @@ describe("RunRuleJobUsecase", () => {
     it("규칙 도구를 부르면 기존 규칙을 텍스트로 돌려준다", async () => {
         const evidence = new InMemoryRuleEvidence([], [], [{name: "기존 규칙", expect: null}]);
         const generator = new InMemoryRuleGenerator(outcome());
-        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob());
+        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob(), new FixedClock(NOW));
         await usecase.execute(REQUEST);
 
         const text = await toolsetOf(generator)[RULEGEN_TOOL.rules]({taskId: "task-1"});
@@ -129,7 +132,7 @@ describe("RunRuleJobUsecase", () => {
         const evidence = new InMemoryRuleEvidence();
         vi.spyOn(evidence, "fetchTurns").mockRejectedValue(new RuleEvidenceHttpError("turn context", 503));
         const generator = new InMemoryRuleGenerator(outcome());
-        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob());
+        const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob(), new FixedClock(NOW));
         await usecase.execute(REQUEST);
 
         const text = await toolsetOf(generator)[RULEGEN_TOOL.turns]({taskId: "task-1"});
@@ -140,7 +143,7 @@ describe("RunRuleJobUsecase", () => {
     it("실행기가 오류를 내면 잡을 실패로 종결시킨다", async () => {
         const jobs = new InMemoryRuleJob();
         const generator = new InMemoryRuleGenerator(outcome({error: "error_max_budget_usd"}));
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
 
         await usecase.execute({...REQUEST, jobId: "job-9"});
 
@@ -151,7 +154,7 @@ describe("RunRuleJobUsecase", () => {
     it("결과 보고가 실패하면 같은 잡을 실패로 종결시킨다", async () => {
         const jobs = new InMemoryRuleJob();
         jobs.reportOk = false;
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), new InMemoryRuleGenerator(outcome()), jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), new InMemoryRuleGenerator(outcome()), jobs, new FixedClock(NOW));
 
         await usecase.execute({...REQUEST, jobId: "job-2"});
 
@@ -162,7 +165,7 @@ describe("RunRuleJobUsecase", () => {
         const jobs = new InMemoryRuleJob();
         const generator = new InMemoryRuleGenerator(outcome());
         vi.spyOn(generator, "generate").mockRejectedValue(new Error("SDK 없음"));
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
 
         await usecase.execute({...REQUEST, jobId: "job-3"});
 
@@ -173,7 +176,7 @@ describe("RunRuleJobUsecase", () => {
         const jobs = new InMemoryRuleJob();
         const generator = new InMemoryRuleGenerator(outcome());
         vi.spyOn(generator, "generate").mockRejectedValue(new Error("aborted"));
-        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs);
+        const usecase = new RunRuleJobUsecase(new InMemoryRuleEvidence(), generator, jobs, new FixedClock(NOW));
 
         await usecase.execute({...REQUEST, jobId: "job-4"}, AbortSignal.abort());
 

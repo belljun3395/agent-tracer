@@ -1,24 +1,16 @@
 import {KIND} from "@monitor/kernel";
 import {AGENT_TRACER_ATTR} from "@monitor/kernel/observability/semconv.const.js";
-import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {describe, expect, it} from "vitest";
 import {ComputeHintsUsecase} from "~runtime/domain/hint/application/compute.hints.usecase.js";
+import {FixedClock} from "~runtime/domain/hint/port/__fakes__/fixed.clock.js";
 import type {RecentEvent} from "~runtime/domain/ingest/model/recent.event.model.js";
 
 const NOW = new Date("2026-07-14T04:00:00.000Z");
-const usecase = new ComputeHintsUsecase();
+const usecase = new ComputeHintsUsecase(new FixedClock(NOW.getTime()));
 
 function at(ageMs: number): string {
     return new Date(NOW.getTime() - ageMs).toISOString();
 }
-
-beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
-});
-
-afterEach(() => {
-    vi.useRealTimers();
-});
 
 describe("ComputeHintsUsecase", () => {
     it("컨텍스트 압력은 계기와 무관하게 항상 판정한다", () => {

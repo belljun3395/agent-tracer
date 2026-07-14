@@ -16,7 +16,7 @@ export function toIngestEvents(
     events: readonly RuntimeIngestEvent[],
     runtimeSource: string,
     nextId: () => string,
-    occurredAt: string = new Date().toISOString(),
+    occurredAt: string,
 ): IngestEvent[] {
     const attributes = runtimeAttributes(runtimeSource);
     return events.map((event) => toIngestEvent(

@@ -1,6 +1,7 @@
 import {toIngestEvents} from "~runtime/domain/ingest/model/event.envelope.model.js";
 import type {RuntimeIngestEvent} from "~runtime/domain/ingest/model/event.model.js";
 import {toRunIngestEvent, type RunEventInput} from "~runtime/domain/ingest/model/ingest.event.model.js";
+import type {ClockPort} from "~runtime/domain/ingest/port/clock.port.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 
@@ -9,12 +10,13 @@ export class AppendEventsUsecase {
     constructor(
         private readonly sink: EventSinkPort,
         private readonly ids: IdGeneratorPort,
+        private readonly clock: ClockPort,
         private readonly runtimeSource: string,
     ) {}
 
     async execute(events: readonly (RuntimeIngestEvent | RunEventInput)[]): Promise<void> {
         if (events.length === 0) return;
-        const occurredAt = new Date().toISOString();
+        const occurredAt = new Date(this.clock.now()).toISOString();
         const nextId = (): string => this.ids.next();
         const runtime = events.filter(isRuntimeEvent);
         const raw = events.filter((event): event is RunEventInput => !isRuntimeEvent(event));

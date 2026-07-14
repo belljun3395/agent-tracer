@@ -7,6 +7,7 @@ import type {
     ToolShapeContext,
 } from "~runtime/domain/ingest/model/tool.call.model.js";
 import {shapeToolEvent} from "~runtime/domain/ingest/model/tool.shape.model.js";
+import type {ClockPort} from "~runtime/domain/ingest/port/clock.port.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 
@@ -15,6 +16,7 @@ export class RecordToolUseUsecase {
     constructor(
         private readonly sink: EventSinkPort,
         private readonly ids: IdGeneratorPort,
+        private readonly clock: ClockPort,
         private readonly runtimeSource: string,
         private readonly context: ToolShapeContext,
     ) {}
@@ -26,6 +28,7 @@ export class RecordToolUseUsecase {
             [toRuntimeEvent(shaped, target)],
             this.runtimeSource,
             () => this.ids.next(),
+            new Date(this.clock.now()).toISOString(),
         ));
         return shaped;
     }

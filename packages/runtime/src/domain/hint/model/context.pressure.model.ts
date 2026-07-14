@@ -9,10 +9,13 @@ const RATE_LIMIT_CRITICAL = 95;
 const SNAPSHOT_FRESHNESS_MS = 10 * 60 * 1000;
 
 /** 컨텍스트 창과 사용량 한도가 임계에 가까우면 알린다. */
-export function detectContextPressure(recent: readonly RecentEvent[]): PreprocessingHint[] {
+export function detectContextPressure(
+    recent: readonly RecentEvent[],
+    now: number,
+): PreprocessingHint[] {
     const snapshot = recent.filter((event) => event.kind === KIND.contextSnapshot).at(-1);
     if (!snapshot) return [];
-    const ageMs = Date.now() - Date.parse(snapshot.occurredAt);
+    const ageMs = now - Date.parse(snapshot.occurredAt);
     if (Number.isFinite(ageMs) && ageMs > SNAPSHOT_FRESHNESS_MS) return [];
 
     const hints: PreprocessingHint[] = [];

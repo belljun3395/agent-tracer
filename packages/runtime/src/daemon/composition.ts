@@ -38,13 +38,15 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const baseUrl = identity.baseUrl;
     const headers = monitorUserHeaders(identity);
 
+    const clock = {now: (): number => Date.now()};
+
     const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
     const guardrail: GuardrailHook = {
         evaluateTurn: new EvaluateTurnUsecase(ruleSource),
         refreshRules: new RefreshRulesUsecase(ruleSource),
     };
 
-    const hint: HintHook = {computeHints: new ComputeHintsUsecase()};
+    const hint: HintHook = {computeHints: new ComputeHintsUsecase(clock)};
 
     const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
     const recipe: RecipeHook = {
@@ -58,6 +60,7 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         new HttpRuleEvidenceAdapter(baseUrl, headers),
         new AgentRuleGeneratorAdapter(),
         jobs,
+        clock,
     );
     const ruleSettingCache = new RuleGenerationSettingCache();
     const rulegen: RulegenHook = {

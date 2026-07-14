@@ -9,6 +9,7 @@ import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import {toRunIngestEvent} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
+import type {ClockPort} from "~runtime/domain/session/port/clock.port.js";
 import {
     sessionStartedEvent,
     taskLinkedEvent,
@@ -26,6 +27,7 @@ export class EnsureSessionUsecase {
         private readonly bindings: BindingStorePort,
         private readonly sink: EventSinkPort,
         private readonly ids: IdGeneratorPort,
+        private readonly clock: ClockPort,
     ) {}
 
     async execute(input: SessionBindingInput): Promise<EnsuredSession> {
@@ -50,7 +52,7 @@ export class EnsureSessionUsecase {
                     sessionId: this.ids.next(),
                     runtimeSource: input.runtimeSource,
                     runtimeSessionId: input.runtimeSessionId,
-                    createdAt: new Date().toISOString(),
+                    createdAt: new Date(this.clock.now()).toISOString(),
                     titled,
                 };
                 store[key] = created;
@@ -78,7 +80,7 @@ export class EnsureSessionUsecase {
     private async append(event: Parameters<typeof toRunIngestEvent>[0]): Promise<void> {
         await this.sink.append([toRunIngestEvent(
             event,
-            new Date().toISOString(),
+            new Date(this.clock.now()).toISOString(),
             () => this.ids.next(),
         )]);
     }

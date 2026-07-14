@@ -54,22 +54,23 @@ const recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 const recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 const shapeContext = {projectDir};
 const ids: IdGeneratorPort = {next: generateUlid};
+const clock = {now: (): number => Date.now()};
 
 const ingest: IngestHook = {
-    appendEvents: new AppendEventsUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE),
-    recordToolUse: new RecordToolUseUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
-    recordToolFailure: new RecordToolFailureUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
-    recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, CLAUDE_RUNTIME_SOURCE),
+    appendEvents: new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE),
+    recordToolUse: new RecordToolUseUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+    recordToolFailure: new RecordToolFailureUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+    recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, clock, CLAUDE_RUNTIME_SOURCE),
 };
 
 const session: SessionHook = {
-    ensureSession: new EnsureSessionUsecase(bindings, sink, ids),
-    endSession: new EndSessionUsecase(sink, ids),
+    ensureSession: new EnsureSessionUsecase(bindings, sink, ids, clock),
+    endSession: new EndSessionUsecase(sink, ids, clock),
 };
 
 const turn: TurnHook = {
-    openTurn: new OpenTurnUsecase(bindings),
-    closeTurn: new CloseTurnUsecase(bindings, sink, ids, CLAUDE_RUNTIME_SOURCE),
+    openTurn: new OpenTurnUsecase(bindings, clock),
+    closeTurn: new CloseTurnUsecase(bindings, sink, ids, clock, CLAUDE_RUNTIME_SOURCE),
 };
 
 const binding: BindingHook = {

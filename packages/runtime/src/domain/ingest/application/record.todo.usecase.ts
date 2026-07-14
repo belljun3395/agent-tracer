@@ -2,6 +2,7 @@ import {toIngestEvents} from "~runtime/domain/ingest/model/event.envelope.model.
 import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import type {ToolCall} from "~runtime/domain/ingest/model/tool.call.model.js";
 import {shapeTodoEvents} from "~runtime/domain/ingest/model/todo.tool.model.js";
+import type {ClockPort} from "~runtime/domain/ingest/port/clock.port.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import type {TodoSnapshotPort} from "~runtime/domain/ingest/port/todo.snapshot.port.js";
@@ -13,6 +14,7 @@ export class RecordTodoUsecase {
         private readonly sink: EventSinkPort,
         private readonly snapshots: TodoSnapshotPort,
         private readonly ids: IdGeneratorPort,
+        private readonly clock: ClockPort,
         private readonly runtimeSource: string,
     ) {}
 
@@ -23,6 +25,7 @@ export class RecordTodoUsecase {
                 events.map((shaped) => toRuntimeEvent(shaped, target)),
                 this.runtimeSource,
                 () => this.ids.next(),
+                new Date(this.clock.now()).toISOString(),
             ));
         }
         if (snapshot !== null) this.snapshots.save(runtimeSessionId, snapshot);

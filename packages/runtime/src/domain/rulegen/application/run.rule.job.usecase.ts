@@ -13,6 +13,7 @@ import {
     type RulegenToolName,
     type RulegenToolset,
 } from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
+import type {ClockPort} from "~runtime/domain/rulegen/port/clock.port.js";
 import {RuleEvidenceHttpError, type RuleEvidencePort} from "~runtime/domain/rulegen/port/rule.evidence.port.js";
 import type {RuleGeneratorPort} from "~runtime/domain/rulegen/port/rule.generator.port.js";
 import type {RuleJobPort} from "~runtime/domain/rulegen/port/rule.job.port.js";
@@ -25,12 +26,13 @@ export class RunRuleJobUsecase {
         private readonly evidence: RuleEvidencePort,
         private readonly generator: RuleGeneratorPort,
         private readonly jobs: RuleJobPort,
+        private readonly clock: ClockPort,
     ) {}
 
     async execute(request: RuleGenerationRequest, cancelSignal?: AbortSignal): Promise<void> {
         const deadline = createDeadline(DEFAULT_RULEGEN_DEADLINE_MS, cancelSignal);
         const signal = deadline.controller.signal;
-        const startedAt = Date.now();
+        const startedAt = this.clock.now();
         try {
             const spec = buildRuleGenerationSpec(request);
             const outcome = await this.generator.generate(spec, this.toolset(signal), signal);
@@ -45,7 +47,7 @@ export class RunRuleJobUsecase {
             const report: RuleGenerationReport = {
                 proposals: accepted.slice(0, spec.maxRules),
                 modelUsed: spec.model,
-                durationMs: Date.now() - startedAt,
+                durationMs: this.clock.now() - startedAt,
                 costUsd: outcome.costUsd,
                 numTurns: outcome.numTurns,
                 ...(outcome.usage !== null ? {usage: outcome.usage} : {}),

@@ -5,6 +5,9 @@ import {bindingKey} from "~runtime/domain/binding/model/binding.model.js";
 import {InMemoryBindingStore} from "~runtime/domain/binding/port/__fakes__/in-memory.binding.store.js";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
 import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
+import {FixedClock} from "~runtime/domain/turn/port/__fakes__/fixed.clock.js";
+
+const NOW = Date.parse("2026-07-14T04:00:00.000Z");
 import {CloseTurnUsecase} from "~runtime/domain/turn/application/close.turn.usecase.js";
 
 const KEY = bindingKey("claude-plugin", "cc-1");
@@ -39,7 +42,7 @@ describe("CloseTurnUsecase", () => {
     it("열린 턴을 감싸는 invoke_agent span을 남긴다", async () => {
         const sink = new InMemoryEventSink();
 
-        const turnId = await new CloseTurnUsecase(bindingsWithTurn(), sink, new SequentialIdGenerator(), "claude-plugin")
+        const turnId = await new CloseTurnUsecase(bindingsWithTurn(), sink, new SequentialIdGenerator(), new FixedClock(NOW), "claude-plugin")
             .execute({...INPUT, response: "끝났습니다"});
 
         expect(turnId).toBe("turn-2");
@@ -54,7 +57,7 @@ describe("CloseTurnUsecase", () => {
     it("턴이 열려 있지 않으면 대체 턴 ID로 세션 전체를 한 턴으로 본다", async () => {
         const sink = new InMemoryEventSink();
 
-        const turnId = await new CloseTurnUsecase(new InMemoryBindingStore(), sink, new SequentialIdGenerator(), "claude-plugin").execute(INPUT);
+        const turnId = await new CloseTurnUsecase(new InMemoryBindingStore(), sink, new SequentialIdGenerator(), new FixedClock(NOW), "claude-plugin").execute(INPUT);
 
         expect(turnId).toBe("fallback-turn");
         const metadata = sink.events[0]?.payload["metadata"] as Record<string, unknown>;

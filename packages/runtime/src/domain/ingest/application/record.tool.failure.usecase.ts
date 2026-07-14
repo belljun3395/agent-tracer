@@ -2,6 +2,7 @@ import {toIngestEvents} from "~runtime/domain/ingest/model/event.envelope.model.
 import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import type {ToolFailure, ToolShapeContext} from "~runtime/domain/ingest/model/tool.call.model.js";
 import {shapeToolFailure} from "~runtime/domain/ingest/model/tool.failure.model.js";
+import type {ClockPort} from "~runtime/domain/ingest/port/clock.port.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {toRuntimeEvent} from "~runtime/domain/ingest/model/shaped.event.model.js";
@@ -11,6 +12,7 @@ export class RecordToolFailureUsecase {
     constructor(
         private readonly sink: EventSinkPort,
         private readonly ids: IdGeneratorPort,
+        private readonly clock: ClockPort,
         private readonly runtimeSource: string,
         private readonly context: ToolShapeContext,
     ) {}
@@ -22,6 +24,7 @@ export class RecordToolFailureUsecase {
             [toRuntimeEvent(shaped, target)],
             this.runtimeSource,
             () => this.ids.next(),
+            new Date(this.clock.now()).toISOString(),
         ));
     }
 }
