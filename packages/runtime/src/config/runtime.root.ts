@@ -4,8 +4,8 @@ import * as path from "node:path";
 import {fileURLToPath} from "node:url";
 import {isRecord} from "~runtime/support/json.js";
 
-// 플러그인 클론은 패키지 매니페스트 대신 플러그인 매니페스트만 가질 수 있다.
-const ROOT_MANIFESTS = ["package.json", ".claude-plugin/plugin.json"] as const;
+// 플러그인 매니페스트가 배포 버전을 소유하므로 먼저 읽는다.
+const ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"] as const;
 
 function manifestDir(dir: string): boolean {
     return ROOT_MANIFESTS.some((manifest) => fs.existsSync(path.join(dir, manifest)));
