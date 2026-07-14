@@ -1,0 +1,59 @@
+# 실행 프로파일은 local 또는 prd이며 환경변수 MONITOR_PROFILE로 덮어쓴다.
+profile: local
+
+# 기본은 loopback이며 컨테이너나 노출 배포는 MONITOR_LISTEN_HOST=0.0.0.0으로 바꾼다.
+listenHost: 127.0.0.1
+
+runtimeApi:
+  port: 3901
+
+tracerApi:
+  port: 3902
+
+# HTTP API가 없는 프로세스라 /health와 /health/ready만 노출한다.
+projector:
+  port: 3903
+
+# 쓰기 원장 저장소(PG#1)이다.
+runtimeDb:
+  host: 127.0.0.1
+  port: 5432
+  username: monitor
+  password: monitor
+  database: runtime
+
+# 읽기 모델 저장소(PG#2)이다.
+tracerDb:
+  host: 127.0.0.1
+  port: 5433
+  username: monitor
+  password: monitor
+  database: tracer
+
+kafka:
+  brokers:
+    - localhost:19092
+
+opensearch:
+  node: http://localhost:9200
+
+temporal:
+  address: localhost:7233
+  namespace: default
+
+# Python 에이전트 실행 백엔드이며 ai-agent-worker의 generate 활동이 HTTP로 호출한다.
+agentGraph:
+  url: http://127.0.0.1:8800
+
+# 콜드 티어는 오래된 원장 파티션을 Parquet로 내보내는 S3 호환 저장소이며 로컬은 MinIO를 쓴다.
+coldStore:
+  endpoint: localhost:9000
+  region: us-east-1
+  bucket: agent-tracer-cold
+  prefix: events
+  accessKey: monitor
+  secretKey: monitor-secret
+  useSsl: false
+
+tiering:
+  duckdbBin: duckdb

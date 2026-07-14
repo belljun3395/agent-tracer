@@ -1,0 +1,18 @@
+# 화이트리스트 방식이며 이미지 빌드에 필요한 파일만 컨텍스트에 넣는다.
+*
+!Dockerfile
+!package.json
+!package-lock.json
+!tsconfig.base.json
+!application*.yaml
+!nginx.conf
+!scripts
+!infra
+!packages
+
+# 되살린 경로 안에서도 산출물·의존성·로컬 상태·문서는 제외한다
+**/node_modules
+**/dist
+**/.monitor
+**/.DS_Store
+**/*.md
