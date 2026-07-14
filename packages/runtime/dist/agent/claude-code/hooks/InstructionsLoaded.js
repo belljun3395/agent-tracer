@@ -1069,7 +1069,6 @@ var KIND = {
   taskError: "agent_tracer.task.error",
   fileChanged: "agent_tracer.file.changed",
   userPromptExpansion: "agent_tracer.user.prompt.expansion",
-  worktreeCreate: "agent_tracer.worktree.create",
   worktreeRemove: "agent_tracer.worktree.remove",
   permissionRequest: "agent_tracer.permission.request",
   setupTriggered: "agent_tracer.setup.triggered",
@@ -1089,7 +1088,6 @@ var WORKFLOW_EVENT_KINDS = [
   KIND.contextSnapshot,
   KIND.userPromptExpansion,
   KIND.permissionRequest,
-  KIND.worktreeCreate,
   KIND.worktreeRemove,
   KIND.setupTriggered,
   KIND.fileChanged

@@ -1051,7 +1051,6 @@ var KIND = {
   taskError: "agent_tracer.task.error",
   fileChanged: "agent_tracer.file.changed",
   userPromptExpansion: "agent_tracer.user.prompt.expansion",
-  worktreeCreate: "agent_tracer.worktree.create",
   worktreeRemove: "agent_tracer.worktree.remove",
   permissionRequest: "agent_tracer.permission.request",
   setupTriggered: "agent_tracer.setup.triggered",
@@ -1071,7 +1070,6 @@ var WORKFLOW_EVENT_KINDS = [
   KIND.contextSnapshot,
   KIND.userPromptExpansion,
   KIND.permissionRequest,
-  KIND.worktreeCreate,
   KIND.worktreeRemove,
   KIND.setupTriggered,
   KIND.fileChanged
@@ -3348,25 +3346,20 @@ function onLifecycleEvent(hook, events) {
 
 // src/domain/ingest/model/workspace.event.model.ts
 import * as path11 from "node:path";
-function worktreeEvent(target, projectDir2, worktreePath, action) {
+function worktreeRemovedEvent(target, projectDir2, worktreePath) {
   const relPath = relativeProjectPath(projectDir2, worktreePath);
-  const isCreate = action === "create";
   const metadata = {
-    ...provenEvidence(
-      isCreate ? "Observed directly by the WorktreeCreate hook." : "Observed directly by the WorktreeRemove hook."
-    ),
+    ...provenEvidence("Observed directly by the WorktreeRemove hook."),
     worktreePath,
-    ...relPath ? { relPath } : {},
-    worktreeAction: action
+    ...relPath ? { relPath } : {}
   };
-  const name = path11.basename(relPath || worktreePath);
   return {
-    kind: isCreate ? KIND.worktreeCreate : KIND.worktreeRemove,
+    kind: KIND.worktreeRemove,
     taskId: target.taskId,
     sessionId: target.sessionId,
     ...turnOf(target),
     lane: LANE.background,
-    title: isCreate ? `Worktree created: ${name}` : `Worktree removed: ${name}`,
+    title: `Worktree removed: ${path11.basename(relPath || worktreePath)}`,
     body: relPath || worktreePath,
     metadata
   };
@@ -3378,7 +3371,7 @@ await runHook("WorktreeRemove", {
   handler: async (payload) => {
     const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
     await onLifecycleEvent(claudeRuntime.ingest, [
-      worktreeEvent(target, claudeRuntime.projectDir, payload.worktreePath, "remove")
+      worktreeRemovedEvent(target, claudeRuntime.projectDir, payload.worktreePath)
     ]);
   }
 });

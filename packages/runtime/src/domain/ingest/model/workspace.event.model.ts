@@ -81,35 +81,25 @@ export function fileChangedEvent(
     };
 }
 
-export type WorktreeAction = "create" | "remove";
-
-/** worktree 생성과 제거를 같은 어휘의 이벤트로 만든다. */
-export function worktreeEvent(
+/** worktree 생성은 Claude Code가 직접 하므로 관찰할 수 있는 것은 제거뿐이다. */
+export function worktreeRemovedEvent(
     target: IngestTarget,
     projectDir: string,
     worktreePath: string,
-    action: WorktreeAction,
 ): RuntimeIngestEvent {
     const relPath = relativeProjectPath(projectDir, worktreePath);
-    const isCreate = action === "create";
     const metadata: WorktreeMetadata = {
-        ...provenEvidence(
-            isCreate
-                ? "Observed directly by the WorktreeCreate hook."
-                : "Observed directly by the WorktreeRemove hook.",
-        ),
+        ...provenEvidence("Observed directly by the WorktreeRemove hook."),
         worktreePath,
         ...(relPath ? {relPath} : {}),
-        worktreeAction: action,
     };
-    const name = path.basename(relPath || worktreePath);
     return {
-        kind: isCreate ? KIND.worktreeCreate : KIND.worktreeRemove,
+        kind: KIND.worktreeRemove,
         taskId: target.taskId,
         sessionId: target.sessionId,
         ...turnOf(target),
         lane: LANE.background,
-        title: isCreate ? `Worktree created: ${name}` : `Worktree removed: ${name}`,
+        title: `Worktree removed: ${path.basename(relPath || worktreePath)}`,
         body: relPath || worktreePath,
         metadata,
     };

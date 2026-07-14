@@ -7,7 +7,7 @@ import {
     permissionRequestEvent,
     subagentFinishedEvent,
     subagentStartedEvent,
-    worktreeEvent,
+    worktreeRemovedEvent,
 } from "~runtime/domain/ingest/model/workspace.event.model.js";
 
 const TARGET = {taskId: "task-1", sessionId: "session-1"};
@@ -46,9 +46,10 @@ describe("워크스페이스 이벤트", () => {
         expect(event.body).toBe("src/a.ts");
     });
 
-    it("worktree 생성과 제거를 다른 kind로 나눈다", () => {
-        expect(worktreeEvent(TARGET, PROJECT_DIR, "/repo/wt", "create").kind).toBe(KIND.worktreeCreate);
-        expect(worktreeEvent(TARGET, PROJECT_DIR, "/repo/wt", "remove").kind).toBe(KIND.worktreeRemove);
+    it("worktree 제거를 배경 레인의 이벤트로 남긴다", () => {
+        const event = worktreeRemovedEvent(TARGET, PROJECT_DIR, "/repo/wt");
+        expect(event.kind).toBe(KIND.worktreeRemove);
+        expect(event.title).toBe("Worktree removed: wt");
     });
 });
 

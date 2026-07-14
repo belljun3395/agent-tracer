@@ -2,14 +2,14 @@
 import {readWorktree} from "~runtime/agent/claude-code/payload/workspace.payload.js";
 import {claudeRuntime, resolveEventSession, runHook} from "~runtime/agent/claude-code/runtime.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
-import {worktreeEvent} from "~runtime/domain/ingest/model/workspace.event.model.js";
+import {worktreeRemovedEvent} from "~runtime/domain/ingest/model/workspace.event.model.js";
 
 await runHook("WorktreeRemove", {
     parse: readWorktree,
     handler: async (payload) => {
         const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
         await onLifecycleEvent(claudeRuntime.ingest, [
-            worktreeEvent(target, claudeRuntime.projectDir, payload.worktreePath, "remove"),
+            worktreeRemovedEvent(target, claudeRuntime.projectDir, payload.worktreePath),
         ]);
     },
 });

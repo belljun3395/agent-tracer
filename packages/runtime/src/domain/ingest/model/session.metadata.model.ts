@@ -62,7 +62,6 @@ export type FileChangedMetadata = RequiredEventMetadata & {
 export type WorktreeMetadata = RequiredEventMetadata & {
     readonly worktreePath: string;
     readonly relPath?: string;
-    readonly worktreeAction: "create" | "remove";
 };
 
 export type PermissionRequestMetadata = RequiredEventMetadata & {
