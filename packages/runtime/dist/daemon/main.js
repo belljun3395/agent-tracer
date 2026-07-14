@@ -28933,11 +28933,10 @@ var REPETITION_THRESHOLD = 3;
 var RECENT_WINDOW_MS = 10 * 60 * 1e3;
 var PATH_BEARING_TARGETS = /* @__PURE__ */ new Set(["file", "directory", "path"]);
 var SHORT_PATH_MAX = 50;
-function detectCommandRepetition(recent, command) {
+function detectCommandRepetition(recent, command, now) {
   const normalized = command.trim();
   if (!normalized) return [];
   const prior = recent.filter((event) => isTerminalCommand(event)).slice(-COMMAND_LOOKBACK);
-  const now = Date.now();
   const hints = [];
   const targetCounts = /* @__PURE__ */ new Map();
   let sameCommand = 0;
@@ -29027,10 +29026,10 @@ var USED_PCT_CRITICAL = 95;
 var RATE_LIMIT_WARNING = 85;
 var RATE_LIMIT_CRITICAL = 95;
 var SNAPSHOT_FRESHNESS_MS = 10 * 60 * 1e3;
-function detectContextPressure(recent) {
+function detectContextPressure(recent, now) {
   const snapshot = recent.filter((event) => event.kind === KIND.contextSnapshot).at(-1);
   if (!snapshot) return [];
-  const ageMs = Date.now() - Date.parse(snapshot.occurredAt);
+  const ageMs = now - Date.parse(snapshot.occurredAt);
   if (Number.isFinite(ageMs) && ageMs > SNAPSHOT_FRESHNESS_MS) return [];
   const hints = [];
   const usedPct = readNumber(snapshot.metadata, "contextWindowUsedPct");
@@ -29074,11 +29073,10 @@ function isHighSurrogate(code) {
 // src/domain/hint/model/duplicate.question.model.ts
 var QUESTION_LOOKBACK = 30;
 var DUPLICATE_AGE_MS = 24 * 60 * 60 * 1e3;
-function detectDuplicateQuestion(recent, questions) {
+function detectDuplicateQuestion(recent, questions, now) {
   const incoming = questions.map(normalizeQuestion).filter((question) => question.length > 0);
   if (incoming.length === 0) return [];
   const prior = recent.filter((event) => event.kind === KIND.questionLogged).slice(-QUESTION_LOOKBACK);
-  const now = Date.now();
   const hints = [];
   for (const question of incoming) {
     for (const event of prior) {
@@ -29115,15 +29113,20 @@ function formatRelativeTime(ms2) {
 // src/domain/hint/application/compute.hints.usecase.ts
 var COMMAND_TOOLS = /* @__PURE__ */ new Set(["Bash", "PowerShell"]);
 var ComputeHintsUsecase = class {
+  constructor(clock) {
+    this.clock = clock;
+  }
+  clock;
   execute(recent, request) {
-    const hints = [...detectContextPressure(recent)];
+    const now = this.clock.now();
+    const hints = [...detectContextPressure(recent, now)];
     if (request.trigger !== "pre_tool") return hints;
     const toolName = request.toolName ?? "";
     if (toolName === "AskUserQuestion" && request.questions && request.questions.length > 0) {
-      hints.push(...detectDuplicateQuestion(recent, request.questions));
+      hints.push(...detectDuplicateQuestion(recent, request.questions, now));
     }
     if (COMMAND_TOOLS.has(toolName) && request.command) {
-      hints.push(...detectCommandRepetition(recent, request.command));
+      hints.push(...detectCommandRepetition(recent, request.command, now));
     }
     return hints;
   }
@@ -30394,18 +30397,20 @@ function buildRuleGenerationSpec(request) {
 init_rulegen_tool_model();
 var RESULT_REPORT_FAILED = "result report failed";
 var RunRuleJobUsecase = class {
-  constructor(evidence, generator, jobs) {
+  constructor(evidence, generator, jobs, clock) {
     this.evidence = evidence;
     this.generator = generator;
     this.jobs = jobs;
+    this.clock = clock;
   }
   evidence;
   generator;
   jobs;
+  clock;
   async execute(request, cancelSignal) {
     const deadline = createDeadline(DEFAULT_RULEGEN_DEADLINE_MS, cancelSignal);
     const signal = deadline.controller.signal;
-    const startedAt2 = Date.now();
+    const startedAt2 = this.clock.now();
     try {
       const spec = buildRuleGenerationSpec(request);
       const outcome2 = await this.generator.generate(spec, this.toolset(signal), signal);
@@ -30421,7 +30426,7 @@ var RunRuleJobUsecase = class {
       const report = {
         proposals: accepted.slice(0, spec.maxRules),
         modelUsed: spec.model,
-        durationMs: Date.now() - startedAt2,
+        durationMs: this.clock.now() - startedAt2,
         costUsd: outcome2.costUsd,
         numTurns: outcome2.numTurns,
         ...outcome2.usage !== null ? { usage: outcome2.usage } : {}
@@ -30460,12 +30465,13 @@ function composeDaemonHooks(leaseOwner) {
   const identity = resolveMonitorIdentity();
   const baseUrl = identity.baseUrl;
   const headers = monitorUserHeaders(identity);
+  const clock = { now: () => Date.now() };
   const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
   const guardrail = {
     evaluateTurn: new EvaluateTurnUsecase(ruleSource),
     refreshRules: new RefreshRulesUsecase(ruleSource)
   };
-  const hint = { computeHints: new ComputeHintsUsecase() };
+  const hint = { computeHints: new ComputeHintsUsecase(clock) };
   const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
   const recipe = {
     refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
@@ -30476,7 +30482,8 @@ function composeDaemonHooks(leaseOwner) {
   const runRuleJob = new RunRuleJobUsecase(
     new HttpRuleEvidenceAdapter(baseUrl, headers),
     new AgentRuleGeneratorAdapter(),
-    jobs
+    jobs,
+    clock
   );
   const ruleSettingCache = new RuleGenerationSettingCache();
   const rulegen = {

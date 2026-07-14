@@ -1119,7 +1119,7 @@ function runtimeAttributes(runtimeSource) {
     [SEMCONV_ATTR.providerName]: GEN_AI_PROVIDER.anthropic
   };
 }
-function toIngestEvents(events, runtimeSource, nextId, occurredAt = (/* @__PURE__ */ new Date()).toISOString()) {
+function toIngestEvents(events, runtimeSource, nextId, occurredAt) {
   const attributes = runtimeAttributes(runtimeSource);
   return events.map((event) => toIngestEvent(
     { ...event, metadata: { ...withTags(event.metadata), ...attributes } },
@@ -1130,17 +1130,19 @@ function toIngestEvents(events, runtimeSource, nextId, occurredAt = (/* @__PURE_
 
 // src/domain/ingest/application/append.events.usecase.ts
 var AppendEventsUsecase = class {
-  constructor(sink2, ids2, runtimeSource) {
+  constructor(sink2, ids2, clock2, runtimeSource) {
     this.sink = sink2;
     this.ids = ids2;
+    this.clock = clock2;
     this.runtimeSource = runtimeSource;
   }
   sink;
   ids;
+  clock;
   runtimeSource;
   async execute(events) {
     if (events.length === 0) return;
-    const occurredAt = (/* @__PURE__ */ new Date()).toISOString();
+    const occurredAt = new Date(this.clock.now()).toISOString();
     const nextId = () => this.ids.next();
     const runtime = events.filter(isRuntimeEvent);
     const raw = events.filter((event) => !isRuntimeEvent(event));
@@ -1387,15 +1389,17 @@ function toRuntimeEvent(shaped, target) {
 
 // src/domain/ingest/application/record.todo.usecase.ts
 var RecordTodoUsecase = class {
-  constructor(sink2, snapshots, ids2, runtimeSource) {
+  constructor(sink2, snapshots, ids2, clock2, runtimeSource) {
     this.sink = sink2;
     this.snapshots = snapshots;
     this.ids = ids2;
+    this.clock = clock2;
     this.runtimeSource = runtimeSource;
   }
   sink;
   snapshots;
   ids;
+  clock;
   runtimeSource;
   async execute(call, target, runtimeSessionId) {
     const { events, snapshot } = shapeTodoEvents(call, this.snapshots.load(runtimeSessionId));
@@ -1403,7 +1407,8 @@ var RecordTodoUsecase = class {
       await this.sink.append(toIngestEvents(
         events.map((shaped) => toRuntimeEvent(shaped, target)),
         this.runtimeSource,
-        () => this.ids.next()
+        () => this.ids.next(),
+        new Date(this.clock.now()).toISOString()
       ));
     }
     if (snapshot !== null) this.snapshots.save(runtimeSessionId, snapshot);
@@ -2215,14 +2220,16 @@ function classify(failure, context, command) {
 
 // src/domain/ingest/application/record.tool.failure.usecase.ts
 var RecordToolFailureUsecase = class {
-  constructor(sink2, ids2, runtimeSource, context) {
+  constructor(sink2, ids2, clock2, runtimeSource, context) {
     this.sink = sink2;
     this.ids = ids2;
+    this.clock = clock2;
     this.runtimeSource = runtimeSource;
     this.context = context;
   }
   sink;
   ids;
+  clock;
   runtimeSource;
   context;
   async execute(failure, target) {
@@ -2231,7 +2238,8 @@ var RecordToolFailureUsecase = class {
     await this.sink.append(toIngestEvents(
       [toRuntimeEvent(shaped, target)],
       this.runtimeSource,
-      () => this.ids.next()
+      () => this.ids.next(),
+      new Date(this.clock.now()).toISOString()
     ));
   }
 };
@@ -2845,14 +2853,16 @@ function shapeToolEvent(call, context) {
 
 // src/domain/ingest/application/record.tool.use.usecase.ts
 var RecordToolUseUsecase = class {
-  constructor(sink2, ids2, runtimeSource, context) {
+  constructor(sink2, ids2, clock2, runtimeSource, context) {
     this.sink = sink2;
     this.ids = ids2;
+    this.clock = clock2;
     this.runtimeSource = runtimeSource;
     this.context = context;
   }
   sink;
   ids;
+  clock;
   runtimeSource;
   context;
   async execute(call, target) {
@@ -2861,7 +2871,8 @@ var RecordToolUseUsecase = class {
     await this.sink.append(toIngestEvents(
       [toRuntimeEvent(shaped, target)],
       this.runtimeSource,
-      () => this.ids.next()
+      () => this.ids.next(),
+      new Date(this.clock.now()).toISOString()
     ));
     return shaped;
   }
@@ -3213,16 +3224,18 @@ function sessionEndedEvent(input) {
 
 // src/domain/session/application/end.session.usecase.ts
 var EndSessionUsecase = class {
-  constructor(sink2, ids2) {
+  constructor(sink2, ids2, clock2) {
     this.sink = sink2;
     this.ids = ids2;
+    this.clock = clock2;
   }
   sink;
   ids;
+  clock;
   async execute(input) {
     await this.sink.append([toRunIngestEvent(
       sessionEndedEvent(input),
-      (/* @__PURE__ */ new Date()).toISOString(),
+      new Date(this.clock.now()).toISOString(),
       () => this.ids.next()
     )]);
   }
@@ -3230,14 +3243,16 @@ var EndSessionUsecase = class {
 
 // src/domain/session/application/ensure.session.usecase.ts
 var EnsureSessionUsecase = class {
-  constructor(bindings2, sink2, ids2) {
+  constructor(bindings2, sink2, ids2, clock2) {
     this.bindings = bindings2;
     this.sink = sink2;
     this.ids = ids2;
+    this.clock = clock2;
   }
   bindings;
   sink;
   ids;
+  clock;
   async execute(input) {
     const key = bindingKey(input.runtimeSource, input.runtimeSessionId);
     const titled = input.titled ?? true;
@@ -3258,7 +3273,7 @@ var EnsureSessionUsecase = class {
           sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
-          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          createdAt: new Date(this.clock.now()).toISOString(),
           titled
         };
         store[key] = created;
@@ -3283,7 +3298,7 @@ var EnsureSessionUsecase = class {
   async append(event) {
     await this.sink.append([toRunIngestEvent(
       event,
-      (/* @__PURE__ */ new Date()).toISOString(),
+      new Date(this.clock.now()).toISOString(),
       () => this.ids.next()
     )]);
   }
@@ -3312,10 +3327,10 @@ var MESSAGE_TAIL_CHARS = 32768;
 function capTurnMessage(text) {
   return truncateOutput(text, MESSAGE_HEAD_CHARS, MESSAGE_TAIL_CHARS).body;
 }
-function buildTurnSpan(turn2, input) {
+function buildTurnSpan(turn2, input, now) {
   const turnId = turn2?.turnId ?? input.fallbackTurnId;
-  const startedAt = turn2?.startedAt ?? input.sessionStartedAt ?? (/* @__PURE__ */ new Date()).toISOString();
-  const durationMs = Math.max(0, Date.now() - Date.parse(startedAt));
+  const startedAt = turn2?.startedAt ?? input.sessionStartedAt ?? new Date(now).toISOString();
+  const durationMs = Math.max(0, now - Date.parse(startedAt));
   const event = {
     id: turnId,
     turnId,
@@ -3340,26 +3355,30 @@ function buildTurnSpan(turn2, input) {
 
 // src/domain/turn/application/close.turn.usecase.ts
 var CloseTurnUsecase = class {
-  constructor(bindings2, sink2, ids2, runtimeSource) {
+  constructor(bindings2, sink2, ids2, clock2, runtimeSource) {
     this.bindings = bindings2;
     this.sink = sink2;
     this.ids = ids2;
+    this.clock = clock2;
     this.runtimeSource = runtimeSource;
   }
   bindings;
   sink;
   ids;
+  clock;
   runtimeSource;
   async execute(input) {
     const binding2 = this.bindings.read()[bindingKey(input.runtimeSource, input.runtimeSessionId)];
+    const now = this.clock.now();
     const span = buildTurnSpan(turnStateOf(binding2), {
       ...input,
       ...binding2 ? { sessionStartedAt: binding2.createdAt } : {}
-    });
+    }, now);
     await this.sink.append(toIngestEvents(
       [span.event],
       this.runtimeSource,
-      () => this.ids.next()
+      () => this.ids.next(),
+      new Date(now).toISOString()
     ));
     return span.turnId;
   }
@@ -3367,10 +3386,12 @@ var CloseTurnUsecase = class {
 
 // src/domain/turn/application/open.turn.usecase.ts
 var OpenTurnUsecase = class {
-  constructor(bindings2) {
+  constructor(bindings2, clock2) {
     this.bindings = bindings2;
+    this.clock = clock2;
   }
   bindings;
+  clock;
   async execute(input) {
     if (!await this.bindings.acquireLock()) return;
     try {
@@ -3382,7 +3403,7 @@ var OpenTurnUsecase = class {
       store[key] = {
         ...existing,
         currentTurnId: input.turnId,
-        turnStartedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        turnStartedAt: new Date(this.clock.now()).toISOString(),
         turnPrompt: capTurnMessage(input.prompt),
         ...previous ? { previousTurnId: previous.turnId } : {}
       };
@@ -3404,19 +3425,20 @@ var recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 var recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 var shapeContext = { projectDir };
 var ids = { next: generateUlid };
+var clock = { now: () => Date.now() };
 var ingest = {
-  appendEvents: new AppendEventsUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE),
-  recordToolUse: new RecordToolUseUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
-  recordToolFailure: new RecordToolFailureUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
-  recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, CLAUDE_RUNTIME_SOURCE)
+  appendEvents: new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE),
+  recordToolUse: new RecordToolUseUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+  recordToolFailure: new RecordToolFailureUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+  recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, clock, CLAUDE_RUNTIME_SOURCE)
 };
 var session = {
-  ensureSession: new EnsureSessionUsecase(bindings, sink, ids),
-  endSession: new EndSessionUsecase(sink, ids)
+  ensureSession: new EnsureSessionUsecase(bindings, sink, ids, clock),
+  endSession: new EndSessionUsecase(sink, ids, clock)
 };
 var turn = {
-  openTurn: new OpenTurnUsecase(bindings),
-  closeTurn: new CloseTurnUsecase(bindings, sink, ids, CLAUDE_RUNTIME_SOURCE)
+  openTurn: new OpenTurnUsecase(bindings, clock),
+  closeTurn: new CloseTurnUsecase(bindings, sink, ids, clock, CLAUDE_RUNTIME_SOURCE)
 };
 var binding = {
   readBinding: new ReadBindingUsecase(bindings),
