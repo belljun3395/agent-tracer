@@ -27,7 +27,12 @@ function state(): DaemonRuntimeState {
         pid: 1234,
         startedAt: Date.now() - 1000,
         entryPath: "/plugins/cache/0.5.6/dist/entry.js",
-        baseUrl: "http://localhost:3000",
+        identity: {
+            userId: "local",
+            baseUrl: "http://localhost:3000",
+            userIdOrigin: "default",
+            baseUrlOrigin: "default",
+        },
         backoffMs: 0,
         retryStatusSince: null,
         lastSendAt: null,

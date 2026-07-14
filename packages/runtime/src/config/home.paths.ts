@@ -12,6 +12,7 @@ export interface AgentTracerPaths {
     readonly deadPath: string;
     readonly cacheDir: string;
     readonly recipesCachePath: string;
+    readonly configPath: string;
     readonly bindingsPath: string;
     readonly bindingsLockPath: string;
     readonly socketPath: string;
@@ -32,6 +33,7 @@ export function resolveAgentTracerPaths(env: NodeJS.ProcessEnv = process.env): A
         deadPath: path.join(spoolDir, "dead.jsonl"),
         cacheDir,
         recipesCachePath: path.join(cacheDir, "recipes.json"),
+        configPath: path.join(homeDir, "config.json"),
         bindingsPath: path.join(homeDir, "bindings.json"),
         bindingsLockPath: path.join(homeDir, "bindings.lock"),
         socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),

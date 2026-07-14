@@ -2,10 +2,10 @@ import * as path from "node:path";
 import {
     CLAUDE_RUNTIME_SOURCE,
     isVerboseLogging,
-    monitorUserHeader,
     resolveMonitorTransportConfig,
     resolveProjectDir,
 } from "~runtime/config/env.js";
+import {monitorUserHeaders, resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {createHookLogger, type HookLogger} from "~runtime/config/hook.log.js";
 import {readStdinJson} from "~runtime/config/stdin.js";
 import {ensureDaemonRunning} from "~runtime/daemon/ipc/hook.client.js";
@@ -42,7 +42,7 @@ import type {JsonObject} from "~runtime/support/json.js";
 import type {ReaderResult} from "~runtime/agent/claude-code/payload/field.payload.js";
 
 const transport = resolveMonitorTransportConfig();
-const headers = monitorUserHeader();
+const headers = monitorUserHeaders(resolveMonitorIdentity());
 const projectDir = resolveProjectDir();
 
 const sink = new SpoolEventSinkAdapter();

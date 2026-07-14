@@ -1,5 +1,5 @@
 import type {DaemonHealthReportPayload} from "@monitor/kernel/daemon/daemon.health.const.js";
-import {monitorUserHeader, resolveMonitorBaseUrl} from "~runtime/config/env.js";
+import {monitorUserHeaders, resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {
     classifyIngestStatus,
     MAX_INGEST_BACKOFF_MS,
@@ -24,10 +24,11 @@ export async function sendIngestBatch(
     daemonVersion: string,
 ): Promise<IngestSendResult> {
     const body = `{"contractVersion":${JSON.stringify(daemonVersion)},"events":[${lines.join(",")}]}`;
+    const identity = resolveMonitorIdentity();
     try {
-        const response = await fetch(`${resolveMonitorBaseUrl()}${INGEST_EVENTS_ENDPOINT}`, {
+        const response = await fetch(`${identity.baseUrl}${INGEST_EVENTS_ENDPOINT}`, {
             method: "POST",
-            headers: {"Content-Type": "application/json", ...monitorUserHeader()},
+            headers: {"Content-Type": "application/json", ...monitorUserHeaders(identity)},
             body,
             signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
         });
@@ -54,10 +55,11 @@ export async function sendIngestBatch(
 
 /** 데몬의 현재 전송 건강 상태를 서버에 보고한다. */
 export async function sendDaemonHealth(payload: DaemonHealthReportPayload): Promise<void> {
+    const identity = resolveMonitorIdentity();
     try {
-        await fetch(`${resolveMonitorBaseUrl()}${DAEMON_HEALTH_ENDPOINT}`, {
+        await fetch(`${identity.baseUrl}${DAEMON_HEALTH_ENDPOINT}`, {
             method: "POST",
-            headers: {"Content-Type": "application/json", ...monitorUserHeader()},
+            headers: {"Content-Type": "application/json", ...monitorUserHeaders(identity)},
             body: JSON.stringify(payload),
             signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
         });

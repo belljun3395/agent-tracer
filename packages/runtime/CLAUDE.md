@@ -22,6 +22,10 @@
 - `daemon/`: 조립 근원과 제어 화면. `daemon/port/`가 훅과 데몬 사이 소켓 계약을
   단독 소유하고 클라이언트와 서버가 같은 타입을 쓴다.
 
+훅과 데몬은 별개 프로세스이므로 서버를 부를 신원과 주소를 각자 해석하면 갈라진다.
+`config/monitor.identity.ts`가 그 해석을 단독 소유하고 두 프로세스가 그것만 부른다.
+값은 `~/.agent-tracer/config.json`의 `userId`와 `baseUrl`이며 환경변수가 파일을 이긴다.
+
 ## 플러그인 패키징
 
 이 디렉터리가 곧 플러그인 루트다. `.claude-plugin/plugin.json`이 배포 버전을 소유하고,

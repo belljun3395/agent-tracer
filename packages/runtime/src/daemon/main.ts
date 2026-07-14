@@ -1,4 +1,4 @@
-import {resolveMonitorBaseUrl} from "~runtime/config/env.js";
+import {resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {ensureAgentTracerHome, resolveAgentTracerPaths} from "~runtime/config/home.paths.js";
 import {listSpoolSegments} from "~runtime/config/spool.js";
 import {composeDaemonHooks} from "~runtime/daemon/composition.js";
@@ -125,7 +125,7 @@ function currentState(): DaemonRuntimeState {
         pid: process.pid,
         startedAt,
         entryPath: process.argv[1] ?? "unknown",
-        baseUrl: resolveMonitorBaseUrl(),
+        identity: resolveMonitorIdentity(),
         activeConnections,
         lastActivityAt,
         idleShutdownMs: IDLE_SHUTDOWN_MS,
@@ -153,7 +153,7 @@ function currentState(): DaemonRuntimeState {
 function currentDelivery(): DaemonDeliveryResponse {
     return {
         reachable: isServerReachable(spoolSender.state().lastSendOutcome),
-        baseUrl: resolveMonitorBaseUrl(),
+        baseUrl: resolveMonitorIdentity().baseUrl,
         backlogBytes: listSpoolSegments(paths).reduce((total, segment) => total + segment.size, 0),
     };
 }

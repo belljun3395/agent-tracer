@@ -1,4 +1,4 @@
-import {monitorUserHeader, resolveMonitorBaseUrl} from "~runtime/config/env.js";
+import {monitorUserHeaders, resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {EvaluateTurnUsecase} from "~runtime/domain/guardrail/application/evaluate.turn.usecase.js";
 import {RefreshRulesUsecase} from "~runtime/domain/guardrail/application/refresh.rules.usecase.js";
 import {HttpRuleSourceAdapter} from "~runtime/domain/guardrail/adapter/http.rule.source.adapter.js";
@@ -34,8 +34,9 @@ export interface DaemonHooks {
 
 /** 데몬 프로세스가 쓰는 어댑터와 유스케이스를 한 곳에서 조립한다. */
 export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
-    const baseUrl = resolveMonitorBaseUrl();
-    const headers = monitorUserHeader();
+    const identity = resolveMonitorIdentity();
+    const baseUrl = identity.baseUrl;
+    const headers = monitorUserHeaders(identity);
 
     const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
     const guardrail: GuardrailHook = {

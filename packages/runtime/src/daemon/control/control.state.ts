@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import {resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
+import type {IdentityOrigin, MonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {listSpoolSegments, SPOOL_MAX_BYTES} from "~runtime/config/spool.js";
 import {readDeadLetter, type DeadLetterReport} from "~runtime/config/dead.letter.js";
 import type {SendOutcome} from "~runtime/daemon/delivery/ingest.retry.js";
@@ -31,7 +32,7 @@ export interface DaemonRuntimeState extends SpoolSenderState {
     readonly pid: number;
     readonly startedAt: number;
     readonly entryPath: string;
-    readonly baseUrl: string;
+    readonly identity: MonitorIdentity;
     readonly activeConnections: number;
     readonly lastActivityAt: number;
     readonly idleShutdownMs: number;
@@ -78,7 +79,11 @@ export interface ControlSnapshot {
         readonly uptimeMs: number;
         readonly entryPath: string;
         readonly socketPath: string;
+        readonly configPath: string;
         readonly baseUrl: string;
+        readonly baseUrlOrigin: IdentityOrigin;
+        readonly userId: string;
+        readonly userIdOrigin: IdentityOrigin;
         readonly activeConnections: number;
         readonly idleInMs: number;
         readonly swallowedErrors: number;
@@ -182,7 +187,11 @@ export function buildControlSnapshot(
             uptimeMs: now - state.startedAt,
             entryPath: state.entryPath,
             socketPath: paths.socketPath,
-            baseUrl: state.baseUrl,
+            configPath: paths.configPath,
+            baseUrl: state.identity.baseUrl,
+            baseUrlOrigin: state.identity.baseUrlOrigin,
+            userId: state.identity.userId,
+            userIdOrigin: state.identity.userIdOrigin,
             activeConnections: state.activeConnections,
             idleInMs: Math.max(0, state.idleShutdownMs - (now - state.lastActivityAt)),
             swallowedErrors: state.swallowedErrors,
