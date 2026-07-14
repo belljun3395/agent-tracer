@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RuleRecord, VerdictStatus } from "~web/entities/rule/model/rule.js";
+import type { RuleRecord } from "~web/entities/rule/model/rule.js";
 import { RuleId, TaskId } from "~web/shared/identity.js";
 import { createUiStore, UiStoreProvider } from "~web/shared/store/index.js";
 import { TooltipProvider } from "~web/shared/ui/index.js";
@@ -8,8 +8,8 @@ import { RuleRow } from "~web/widgets/rules/inspector/RuleRow.js";
 
 const testState = vi.hoisted(() => ({
   evidence: {
-    status: "unmet" as VerdictStatus | null,
-    anchorEventId: "event-1" as string | null,
+    status: "unmet",
+    anchorEventId: "event-1",
     triggers: [
       {
         eventId: "event-1",
