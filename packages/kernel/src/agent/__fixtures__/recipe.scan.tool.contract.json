@@ -1,5 +1,10 @@
 {
   "maxTurns": 15,
+  "limits": {
+    "candidateLimit": 4,
+    "maxOutputTokens": 16000,
+    "maxBudgetUsd": 2
+  },
   "searchEvents": {
     "required": ["q"],
     "optional": ["taskId", "kind", "toolName", "limit", "offset"],

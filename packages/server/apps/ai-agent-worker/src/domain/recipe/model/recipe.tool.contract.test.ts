@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { TIMELINE_EVENT_KINDS } from "@monitor/kernel";
+import { RECIPE_CANDIDATE_LIMIT } from "@monitor/kernel";
 import { RECIPE_SCAN_MAX_TURNS } from "./recipe.prompt.js";
+import { RECIPE_SCAN_SPEC } from "./recipe.spec.js";
 import { RECIPE_SCAN_TOOL, RECIPE_SCAN_TOOLS } from "./recipe.tool.schema.js";
 
 // 두 언어가 같은 파일을 읽어야 한쪽만 바뀌는 드리프트가 남지 않는다.
@@ -13,6 +15,7 @@ const CONTRACT = JSON.parse(
     ),
 ) as {
     readonly maxTurns: number;
+    readonly limits: { readonly candidateLimit: number; readonly maxOutputTokens: number; readonly maxBudgetUsd: number };
     readonly searchEvents: { readonly required: string[]; readonly optional: string[]; readonly kinds: string[] };
 };
 
@@ -30,6 +33,12 @@ function partitionSearchEventsFields(): { readonly required: string[]; readonly 
 describe("recipe-scan 도구 계약", () => {
     it("턴 예산이 골든 계약과 같다", () => {
         expect(RECIPE_SCAN_MAX_TURNS).toBe(CONTRACT.maxTurns);
+    });
+
+    it("후보 상한과 토큰과 비용 예산이 골든 계약과 같다", () => {
+        expect(RECIPE_CANDIDATE_LIMIT).toBe(CONTRACT.limits.candidateLimit);
+        expect(RECIPE_SCAN_SPEC.limits.maxOutputTokens).toBe(CONTRACT.limits.maxOutputTokens);
+        expect(RECIPE_SCAN_SPEC.limits.maxBudgetUsd).toBe(CONTRACT.limits.maxBudgetUsd);
     });
 
     it("search_events의 필수와 선택 인자가 골든 계약과 같다", () => {
