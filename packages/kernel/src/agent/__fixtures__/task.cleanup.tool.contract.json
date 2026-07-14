@@ -1,0 +1,17 @@
+{
+  "maxTurns": 16,
+  "outputKinds": ["archive"],
+  "tools": {
+    "list_candidate_tasks": {
+      "required": [],
+      "optional": ["limit", "cursor"],
+      "limit": { "default": 30, "min": 1, "max": 100 }
+    },
+    "get_task_events": {
+      "required": ["taskId"],
+      "optional": ["limit", "cursor", "order"],
+      "limit": { "default": 100, "min": 1, "max": 300 },
+      "order": { "default": "asc", "values": ["asc", "desc"] }
+    }
+  }
+}

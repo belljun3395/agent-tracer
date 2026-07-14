@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+
+# 저장 계약의 판별자와 같은 값이어야 하는 정리 제안의 종류다.
+CleanupSuggestionKind = Literal["archive"]
 
 
 class TaskCleanupRequest(AgentExecutionRequest):
@@ -69,6 +72,7 @@ class EventPage(BaseModel):
 class CleanupDraftSuggestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    kind: CleanupSuggestionKind = Field(description='The suggestion kind, always "archive"')
     taskId: TrimmedStr = Field(min_length=1)
     rationale: TrimmedStr = Field(min_length=1, max_length=500)
     evidenceEventIds: list[TrimmedStr] = Field(default_factory=list, max_length=100)

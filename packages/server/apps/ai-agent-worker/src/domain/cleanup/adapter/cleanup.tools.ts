@@ -11,6 +11,7 @@ import { toCleanupEventPage, type CleanupSlimEvent } from "~ai-agent-worker/doma
 import {
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
+    DEFAULT_EVENT_ORDER,
     EVENT_ORDER,
     MAX_CANDIDATE_LIMIT,
     MAX_EVENT_LIMIT,
@@ -65,7 +66,7 @@ export function buildCleanupToolHandlers(
                     const task = await deps.tasks.findById(taskId);
                     if (task === null || task.userId !== userId) return `Task ${taskId} not found.`;
                     const size = clampInt(limit, DEFAULT_EVENT_LIMIT, 1, MAX_EVENT_LIMIT);
-                    const reading = order ?? EVENT_ORDER.asc;
+                    const reading = order ?? DEFAULT_EVENT_ORDER;
                     const [rows, total] = await Promise.all([
                         reading === EVENT_ORDER.desc
                             ? deps.events.findTimelineWindow(taskId, cursor, size + 1)

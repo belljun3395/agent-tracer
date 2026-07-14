@@ -16,37 +16,88 @@ from .models import CandidatePage, CleanupCandidate, EventPage
 
 LIST_CANDIDATE_TASKS = "list_candidate_tasks"
 GET_TASK_EVENTS = "get_task_events"
-CANDIDATE_PAGE_LIMIT = 100
-EVENT_PAGE_LIMIT = 100
+DEFAULT_CANDIDATE_LIMIT = 30
+MAX_CANDIDATE_LIMIT = 100
+DEFAULT_EVENT_LIMIT = 100
+MAX_EVENT_LIMIT = 300
+
+EventOrder = Literal["asc", "desc"]
+DEFAULT_EVENT_ORDER: EventOrder = "asc"
 
 
 class ListCandidateTasksArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    limit: int = Field(default=CANDIDATE_PAGE_LIMIT, ge=1, le=CANDIDATE_PAGE_LIMIT)
-    cursor: TrimmedStr | None = Field(default=None, min_length=1)
+    # 인자를 생략하면 워커 콜백이 자기 기본값을 적용하므로 여기서 기본값을 채우지 않는다.
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_CANDIDATE_LIMIT,
+        description=(
+            f"Max candidates in this page (default {DEFAULT_CANDIDATE_LIMIT}, "
+            f"hard cap {MAX_CANDIDATE_LIMIT})"
+        ),
+    )
+    cursor: TrimmedStr | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Opaque cursor from a previous call's nextCursor. Omit to start from the first candidate."
+        ),
+    )
 
 
 class GetTaskEventsArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    taskId: TrimmedStr = Field(min_length=1)
-    limit: int = Field(default=EVENT_PAGE_LIMIT, ge=1, le=EVENT_PAGE_LIMIT)
-    cursor: TrimmedStr | None = Field(default=None, min_length=1)
-    order: Literal["desc", "asc"] = "desc"
+    taskId: TrimmedStr = Field(min_length=1, description="The task ID")
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_EVENT_LIMIT,
+        description=(
+            f"Max events to return in this page (default {DEFAULT_EVENT_LIMIT}, "
+            f"hard cap {MAX_EVENT_LIMIT})"
+        ),
+    )
+    cursor: TrimmedStr | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Opaque cursor from a previous call's nextCursor. Omit to start from the first page."
+        ),
+    )
+    order: EventOrder | None = Field(
+        default=None,
+        description=(
+            'Reading direction: "asc" (default) pages from the earliest event forward; '
+            '"desc" pages from the latest event backward.'
+        ),
+    )
 
+
+LIST_CANDIDATE_TASKS_DESCRIPTION = (
+    "List the cleanup candidates the server already qualified for this scan (hidden, active, and "
+    "recently touched tasks are excluded before you see them). Each entry carries visibleTitle, "
+    "status, lastEventAt, hasEvents, activeChildCount and the server-detected candidateReasons. "
+    "Call this first, and page with cursor until truncated is false if you want the whole batch. "
+    "Only task ids returned here may be proposed. moreCandidatesOutsideBatch=true means the server "
+    "itself capped this batch; the leftover tasks are outside your reach and a future scan will "
+    "pick them up."
+)
+
+GET_TASK_EVENTS_DESCRIPTION = (
+    "Get a page of a task's chronological event sequence (user messages, assistant messages, tool "
+    f"runs), up to {MAX_EVENT_LIMIT} events per page. You choose how much to read: pick limit, pass "
+    'the response\'s nextCursor back as cursor to keep paging, and set order="desc" to start from '
+    "the latest events (e.g. to see how a long task ended). truncated/total tell you whether more "
+    "events exist. Call this whenever you need to see what actually happened in a task before "
+    "judging it."
+)
 
 CLEANUP_TOOL_SPECS: tuple[ToolSpec, ...] = (
-    ToolSpec(
-        LIST_CANDIDATE_TASKS,
-        "List tasks that look abandoned or mislabeled. Page with cursor while truncated is true.",
-        ListCandidateTasksArgs,
-    ),
-    ToolSpec(
-        GET_TASK_EVENTS,
-        "Read one page of a candidate task's events to judge whether it is really abandoned.",
-        GetTaskEventsArgs,
-    ),
+    ToolSpec(LIST_CANDIDATE_TASKS, LIST_CANDIDATE_TASKS_DESCRIPTION, ListCandidateTasksArgs),
+    ToolSpec(GET_TASK_EVENTS, GET_TASK_EVENTS_DESCRIPTION, GetTaskEventsArgs),
 )
 
 _ARGS_BY_TOOL: dict[str, type[BaseModel]] = {

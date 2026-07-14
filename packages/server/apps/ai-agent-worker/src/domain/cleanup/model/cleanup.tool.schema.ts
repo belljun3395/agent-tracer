@@ -17,6 +17,7 @@ export type TaskCleanupToolName = (typeof TASK_CLEANUP_TOOL)[keyof typeof TASK_C
 export const EVENT_ORDER = { asc: "asc", desc: "desc" } as const;
 export type EventOrder = (typeof EVENT_ORDER)[keyof typeof EVENT_ORDER];
 
+export const DEFAULT_EVENT_ORDER: EventOrder = EVENT_ORDER.asc;
 export const DEFAULT_EVENT_LIMIT = 100;
 export const MAX_EVENT_LIMIT = 300;
 export const DEFAULT_CANDIDATE_LIMIT = 30;
