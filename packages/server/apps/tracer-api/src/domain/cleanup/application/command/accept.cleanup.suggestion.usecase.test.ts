@@ -8,8 +8,11 @@ import {
     TaskEntity,
     TaskUserStateEntity,
 } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/cleanup/port/__fakes__/fixed.clock.js";
 import { InMemoryCleanupTransaction } from "~tracer-api/domain/cleanup/port/__fakes__/in-memory.cleanup.transaction.js";
 import { AcceptCleanupSuggestionUseCase } from "./accept.cleanup.suggestion.usecase.js";
+
+const clock = new FixedClock(new Date("2026-01-01T00:00:00.000Z"));
 
 function suggestion(overrides: Partial<TaskCleanupSuggestionEntity> = {}): TaskCleanupSuggestionEntity {
     const entity = new TaskCleanupSuggestionEntity();
@@ -61,7 +64,7 @@ function makeUseCase(seed: {
     tx.cleanupSuggestions.seed(...(seed.suggestions ?? []));
     tx.tasks.seed(...(seed.tasks ?? []));
     tx.taskUserStates.seed(...(seed.states ?? []));
-    return { useCase: new AcceptCleanupSuggestionUseCase(tx), tx };
+    return { useCase: new AcceptCleanupSuggestionUseCase(tx, clock), tx };
 }
 
 describe("AcceptCleanupSuggestionUseCase", () => {

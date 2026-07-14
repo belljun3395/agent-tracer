@@ -7,6 +7,7 @@ import {
     type TaskCleanupSuggestionEntity,
 } from "@monitor/tracer-domain";
 import { generateUlid } from "@monitor/platform";
+import { CLOCK, type ClockPort } from "~tracer-api/domain/cleanup/port/clock.port.js";
 import {
     CLEANUP_TRANSACTION,
     type CleanupTransactionPort,
@@ -19,10 +20,12 @@ export class AcceptCleanupSuggestionUseCase {
     constructor(
         @Inject(CLEANUP_TRANSACTION)
         private readonly tx: CleanupTransactionPort,
+        @Inject(CLOCK)
+        private readonly clock: ClockPort,
     ) {}
 
     async execute(userId: string, id: string): Promise<{ readonly suggestion: CleanupSuggestionDto }> {
-        const now = new Date();
+        const now = this.clock.now();
         const suggestion = await this.tx.run((tx) => this.applyInTransaction(tx, userId, id, now));
         return { suggestion: mapCleanupSuggestion(suggestion) };
     }

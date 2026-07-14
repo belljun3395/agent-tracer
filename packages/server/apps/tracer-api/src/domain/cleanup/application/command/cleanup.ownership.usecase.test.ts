@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { CLEANUP_SUGGESTION_STATUS, TASK_CLEANUP_SUGGESTION_KIND } from "@monitor/kernel";
 import { TaskCleanupSuggestionEntity, TaskEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/cleanup/port/__fakes__/fixed.clock.js";
 import { InMemoryCleanupSuggestionRepository } from "~tracer-api/domain/cleanup/port/__fakes__/in-memory.cleanup.suggestion.repository.js";
 import { InMemoryCleanupTransaction } from "~tracer-api/domain/cleanup/port/__fakes__/in-memory.cleanup.transaction.js";
 import { AcceptCleanupSuggestionUseCase } from "./accept.cleanup.suggestion.usecase.js";
 import { DismissCleanupSuggestionUseCase } from "./dismiss.cleanup.suggestion.usecase.js";
+
+const clock = new FixedClock(new Date("2026-01-01T00:00:00.000Z"));
 
 describe("AcceptCleanupSuggestionUseCase", () => {
     it("남의 제안은 찾을 수 없다고 응답한다", async () => {
@@ -46,13 +49,13 @@ function buildAccept(entity: TaskCleanupSuggestionEntity) {
     const tx = new InMemoryCleanupTransaction();
     tx.cleanupSuggestions.seed(entity);
     tx.tasks.seed(taskOf(entity.taskId));
-    return { useCase: new AcceptCleanupSuggestionUseCase(tx), tx };
+    return { useCase: new AcceptCleanupSuggestionUseCase(tx, clock), tx };
 }
 
 function buildDismiss(entity: TaskCleanupSuggestionEntity) {
     const suggestions = new InMemoryCleanupSuggestionRepository();
     suggestions.seed(entity);
-    return { useCase: new DismissCleanupSuggestionUseCase(suggestions), suggestions };
+    return { useCase: new DismissCleanupSuggestionUseCase(suggestions, clock), suggestions };
 }
 
 function suggestionOf(userId: string): TaskCleanupSuggestionEntity {

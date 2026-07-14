@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { CLEANUP_SUGGESTION_STATUS, TASK_CLEANUP_SUGGESTION_KIND } from "@monitor/kernel";
 import { InvariantViolationError, TaskCleanupSuggestionEntity } from "@monitor/tracer-domain";
+import { FixedClock } from "~tracer-api/domain/cleanup/port/__fakes__/fixed.clock.js";
 import { InMemoryCleanupSuggestionRepository } from "~tracer-api/domain/cleanup/port/__fakes__/in-memory.cleanup.suggestion.repository.js";
 import { DismissCleanupSuggestionUseCase } from "./dismiss.cleanup.suggestion.usecase.js";
+
+const clock = new FixedClock(new Date("2026-01-01T00:00:00.000Z"));
 
 function suggestion(status: (typeof CLEANUP_SUGGESTION_STATUS)[keyof typeof CLEANUP_SUGGESTION_STATUS]): TaskCleanupSuggestionEntity {
     const entity = new TaskCleanupSuggestionEntity();
@@ -25,7 +28,7 @@ function suggestion(status: (typeof CLEANUP_SUGGESTION_STATUS)[keyof typeof CLEA
 function makeUseCase(suggestions: TaskCleanupSuggestionEntity[]): DismissCleanupSuggestionUseCase {
     const repo = new InMemoryCleanupSuggestionRepository();
     repo.seed(...suggestions);
-    return new DismissCleanupSuggestionUseCase(repo);
+    return new DismissCleanupSuggestionUseCase(repo, clock);
 }
 
 describe("DismissCleanupSuggestionUseCase", () => {
