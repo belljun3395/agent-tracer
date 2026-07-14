@@ -4,13 +4,10 @@ import {
   evidenceToneClasses,
   type EvidenceTone,
 } from "~web/widgets/rules/evidence/evidence-tone.js";
-
-const VERDICT_LABEL: Record<VerdictStatus, string> = {
-  satisfied: "FULFILLED",
-  unmet: "NOT FULFILLED",
-  open: "NOT YET",
-  unknown: "CANNOT VERIFY",
-};
+import {
+  RuleVerdictChip,
+  verdictTone,
+} from "~web/widgets/rules/presentation/RuleVerdictChip.js";
 
 interface EvidenceFlowProps {
   readonly status: VerdictStatus | null;
@@ -26,9 +23,6 @@ export function EvidenceFlow({
   triggerCount,
   actionCount,
 }: EvidenceFlowProps) {
-  const tone = verdictTone(status);
-  const toneClasses = evidenceToneClasses(tone);
-
   return (
     <div
       role="group"
@@ -43,17 +37,8 @@ export function EvidenceFlow({
       <span aria-hidden className="text-[11px] text-ink-tertiary">
         →
       </span>
-      <FlowStep label="ACTION" count={actionCount} tone={tone} />
-      <span
-        className={cn(
-          "text-[9.5px] uppercase tracking-[0.05em] py-px px-1.5 rounded-xs",
-          status === null ? "text-ink-tertiary bg-s2" : toneClasses.strong,
-          status === "satisfied" && "bg-s2",
-          tone === "warn" && status !== null && "bg-warn/12",
-        )}
-      >
-        {status === null ? "NOT EVALUATED" : VERDICT_LABEL[status]}
-      </span>
+      <FlowStep label="ACTION" count={actionCount} tone={verdictTone(status)} />
+      <RuleVerdictChip status={status} />
     </div>
   );
 }
@@ -78,8 +63,3 @@ function FlowStep({
   );
 }
 
-function verdictTone(status: VerdictStatus | null): EvidenceTone {
-  if (status === "satisfied") return "action";
-  if (status === null) return "trigger";
-  return "warn";
-}

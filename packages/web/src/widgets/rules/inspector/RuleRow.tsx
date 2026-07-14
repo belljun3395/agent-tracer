@@ -10,7 +10,7 @@ import { useRuleEvidenceQuery } from "~web/entities/rule/api/queries.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
 import { useConfirmAction } from "~web/shared/lib/hooks/use-confirm-action.js";
 import { RuleSeverityChip } from "~web/widgets/rules/presentation/RuleSeverityChip.js";
-import { RuleMatchBadge } from "~web/widgets/rules/presentation/RuleMatchBadge.js";
+import { RuleVerdictChip } from "~web/widgets/rules/presentation/RuleVerdictChip.js";
 import { RuleEvidencePanel } from "~web/widgets/rules/evidence/RuleEvidencePanel.js";
 import { RuleRowActions } from "~web/widgets/rules/inspector/RuleRowActions.js";
 import { RuleFeedbackButtons } from "~web/widgets/rules/generation/RuleFeedbackButtons.js";
@@ -32,7 +32,9 @@ export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
     enabled: expanded && contextTaskId !== null,
   });
   const matchCount = rule.matchCount ?? 0;
-  const canExpand = contextTaskId !== null && matchCount > 0;
+  // 미이행 규칙은 증거가 없어서 미이행이므로 개수로 막으면 이유를 볼 길이 사라진다.
+  const canExpand =
+    contextTaskId !== null && (matchCount > 0 || rule.verdictStatus !== null);
 
   const isPending = reEvalMutation.isPending || deleteMutation.isPending;
 
@@ -82,7 +84,7 @@ export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
         <span className="flex-1 min-w-0 truncate text-[12.5px] font-medium text-ink tracking-[-0.05px]">
           {rule.name}
         </span>
-        <RuleMatchBadge count={matchCount} />
+        <RuleVerdictChip status={rule.verdictStatus} />
       </button>
 
       <div className="flex items-center gap-2 flex-wrap mt-1.5 font-mono text-[10.5px] text-ink-tertiary">
