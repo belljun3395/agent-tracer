@@ -9,11 +9,15 @@ export const LAYERS = Object.freeze({
   model: [],
 });
 
-/** 기술의 차이를 디렉터리 대신 말하는 파일 접미사. */
+/** 기술의 차이를 디렉터리 대신 말하는 파일 접미사이며 의존 그래프 검사기가 이것으로 규칙을 만든다. */
 export const ROLES = Object.freeze({
   entrypoint: [".controller.ts", ".consumer.ts", ".workflow.ts", ".activity.ts", ".hook.ts"],
+  queryEntrypoint: [".query.controller.ts"],
   usecase: [".usecase.ts"],
+  commandUsecase: [".command.usecase.ts"],
   step: [".projection.ts"],
+  workflow: [".workflow.ts"],
+  activity: [".activity.ts"],
   port: [".port.ts"],
   adapter: [".adapter.ts"],
 });

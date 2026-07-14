@@ -1,6 +1,9 @@
-import { FSD, LAYERS, SEALS, SLICED, UMBRELLAS } from "./architecture.manifest.mjs";
+import { FSD, LAYERS, ROLES, SEALS, SLICED, UMBRELLAS } from "./architecture.manifest.mjs";
 
 // 규칙의 피연산자는 디렉터리 역할과 파일 접미사뿐이며 슬라이스 이름은 정규식 역참조가 센다.
+
+// 접미사는 매니페스트가 소유하므로 여기서는 정규식으로 옮기기만 한다.
+const suffixOf = (role) => ROLES[role].map((suffix) => `${suffix.replaceAll(".", "\\.")}$`).join("|");
 
 const SLICE = `^packages/server/apps/(?:${SLICED.join("|")})/src/domain`;
 const WEB = "^packages/web/src";
@@ -104,29 +107,29 @@ export default {
       name: "usecase-not-to-usecase",
       comment: "유스케이스는 다른 유스케이스를 부르지 않는다",
       severity: "error",
-      from: { path: "\\.usecase\\.ts$" },
-      to: { path: "\\.usecase\\.ts$" },
+      from: { path: suffixOf("usecase") },
+      to: { path: suffixOf("usecase") },
     },
     {
       name: "query-not-to-command",
       comment: "조회 진입점은 명령 유스케이스를 부르지 않는다",
       severity: "error",
-      from: { path: "\\.query\\.controller\\.ts$" },
-      to: { path: "\\.command\\.usecase\\.ts$" },
+      from: { path: suffixOf("queryEntrypoint") },
+      to: { path: suffixOf("commandUsecase") },
     },
     {
       name: "workflow-is-deterministic",
       comment: "워크플로는 활동 구현과 어댑터와 배선과 Node API를 모른다",
       severity: "error",
-      from: { path: "\\.workflow\\.ts$" },
-      to: { path: "\\.activity\\.ts$|/(?:adapter|config)/|^node:" },
+      from: { path: suffixOf("workflow") },
+      to: { path: `${suffixOf("activity")}|/(?:adapter|config)/|^node:` },
     },
     {
       name: "inbound-not-to-projection",
       comment: "투영 단계는 진입점이 아니라 유스케이스가 밟는 단계다",
       severity: "error",
       from: { path: `${SLICE}/[^/]+/inbound/` },
-      to: { path: "\\.projection\\.ts$" },
+      to: { path: suffixOf("step") },
     },
 
     ...sealRules,
