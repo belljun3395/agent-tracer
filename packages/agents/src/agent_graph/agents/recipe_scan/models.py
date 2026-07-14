@@ -12,6 +12,9 @@ from ..shared.models import AgentExecutionRequest, Language, ToolCallback, Trimm
 # 한 태스크가 서로 다른 작업 turn을 담을 수 있어 스캔 한 번이 낼 수 있는 후보 수다.
 MAX_RECIPE_CANDIDATES = 4
 
+# 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이며 커널의 골든 계약이 값을 소유한다.
+MAX_TOOL_ROUNDS = 15
+
 RecipeToolName = Literal[
     "get_task_summary",
     "get_task_events",

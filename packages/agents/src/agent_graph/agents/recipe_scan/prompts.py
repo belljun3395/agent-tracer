@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from ..shared.models import Language
-from .models import MAX_RECIPE_CANDIDATES
+from .models import MAX_RECIPE_CANDIDATES, MAX_TOOL_ROUNDS
 
 PROMPT_VERSION = "recipe-scan-native-v3"
 
@@ -28,8 +28,12 @@ shows was carried out and verified.
 You have data tools. Nothing is pre-loaded for you: read what you need, and keep reading while the
 evidence is thin. Every listing tool reports truncated/total/nextCursor, so pull more when they say more
 exists. A sensible route is to understand the anchor first (summary, applicable rules, its events), then
-chase friction (search_events for user corrections), then look wider (find_similar_tasks, search_recipes)
-before claiming a revision target. Deviate whenever the evidence points elsewhere.
+chase friction (search_events with kind="agent_tracer.user.message" finds user corrections and
+intermediate instructions), then look wider (find_similar_tasks, search_recipes) before claiming a
+revision target. Deviate whenever the evidence points elsewhere.
+
+Budget: you have up to {MAX_TOOL_ROUNDS} tool-calling rounds for this run. If the budget runs short,
+finish from what you already verified.
 
 A turnId marks one user request and everything the agent did to serve it. Split the task by turnId when
 its turns pursue unrelated goals, and write one candidate per goal, up to {MAX_RECIPE_CANDIDATES}. Merge

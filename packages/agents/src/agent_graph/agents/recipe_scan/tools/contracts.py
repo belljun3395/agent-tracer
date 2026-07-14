@@ -10,6 +10,30 @@ from pydantic import BaseModel, ConfigDict, Field
 from ...shared.models import TrimmedStr
 from ..models import RecipeToolName
 
+# 검색 필터로 노출하는 이벤트 종류이며 커널의 골든 계약이 목록을 소유한다.
+TimelineEventKind = Literal[
+    "execute_tool",
+    "plan",
+    "agent_tracer.action.logged",
+    "agent_tracer.verification.logged",
+    "agent_tracer.rule.logged",
+    "agent_tracer.thought.logged",
+    "agent_tracer.context.saved",
+    "agent_tracer.context.snapshot",
+    "agent_tracer.user.prompt.expansion",
+    "agent_tracer.permission.request",
+    "agent_tracer.worktree.remove",
+    "agent_tracer.setup.triggered",
+    "agent_tracer.file.changed",
+    "agent_tracer.user.message",
+    "agent_tracer.assistant.commentary",
+    "agent_tracer.assistant.response",
+    "agent_tracer.question.logged",
+    "agent_tracer.todo.logged",
+    "invoke_agent",
+    "agent_tracer.instructions.loaded",
+]
+
 DEFAULT_SUMMARY_WINDOW = 400
 MAX_SUMMARY_WINDOW = 2_000
 DEFAULT_EVENT_LIMIT = 100
@@ -50,10 +74,11 @@ class ListRulesArgs(RecipeToolArgs):
 
 
 class SearchEventsArgs(RecipeToolArgs):
-    """태스크 이벤트 검색 인자를 검증한다."""
+    """이벤트 검색 인자를 검증하며 taskId를 생략하면 태스크를 가로질러 찾는다."""
 
     q: TrimmedStr = Field(min_length=1)
-    taskId: TrimmedStr = Field(min_length=1)
+    taskId: TrimmedStr | None = Field(default=None, min_length=1)
+    kind: TimelineEventKind | None = None
     toolName: TrimmedStr | None = None
     limit: int = Field(default=DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT)
     offset: int = Field(default=0, ge=0, le=MAX_SEARCH_OFFSET)
@@ -99,7 +124,9 @@ RECIPE_TOOLS: tuple[RecipeToolDefinition, ...] = (
     ),
     RecipeToolDefinition(
         "search_events",
-        "Search indexed event titles and bodies for corrections, instructions, and friction evidence.",
+        "Search indexed events by title/body, ranked by recency. Use q with optional taskId, kind, or "
+        "toolName filters to find user corrections, instructions, and friction evidence. Pick limit and "
+        "offset to page through as many results as you need.",
         SearchEventsArgs,
     ),
     RecipeToolDefinition(

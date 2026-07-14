@@ -9,8 +9,8 @@ import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
-from ..models import RecipeDraft, RecipeScanRequest, RecipeScanState
-from ..policy import MAX_RECIPE_MODEL_COST_USD, MAX_TOOL_ROUNDS, validate_recipe_candidates
+from ..models import MAX_TOOL_ROUNDS, RecipeDraft, RecipeScanRequest, RecipeScanState
+from ..policy import MAX_RECIPE_MODEL_COST_USD, validate_recipe_candidates
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..tools.client import RECIPE_TOOL_SPECS, invoke_tool, record_evidence
 

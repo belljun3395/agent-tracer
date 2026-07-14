@@ -29,12 +29,35 @@ def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> Non
     assert all(tool["description"] and tool["input_schema"] for tool in catalog)
     search_schema = next(tool["input_schema"] for tool in catalog if tool["name"] == "search_events")
     assert isinstance(search_schema, dict)
-    assert "kind" not in search_schema["properties"]
+    assert "kind" in search_schema["properties"]
+    assert search_schema["required"] == ["q"]
+
+
+def test_taskId_없이도_태스크를_가로질러_검색한다() -> None:
+    assert validate_tool_args("search_events", {"q": "failure"}) == {
+        "q": "failure",
+        "limit": 20,
+        "offset": 0,
+    }
 
 
 def test_도구_스키마에_없는_인자는_콜백_전에_거부한다() -> None:
     with pytest.raises(ValidationError):
+        validate_tool_args("search_events", {"q": "failure", "drifted": "arg"})
+
+
+def test_알_수_없는_이벤트_종류는_콜백_전에_거부한다() -> None:
+    with pytest.raises(ValidationError):
         validate_tool_args("search_events", {"q": "failure", "kind": "drifted.kind"})
+
+
+def test_아는_이벤트_종류로_거를_수_있다() -> None:
+    validated = validate_tool_args(
+        "search_events",
+        {"q": "failure", "kind": "agent_tracer.user.message"},
+    )
+
+    assert validated["kind"] == "agent_tracer.user.message"
 
 
 def test_모델이_없는_도구를_부르면_거부한다() -> None:

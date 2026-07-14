@@ -8,8 +8,6 @@ from typing import Literal
 from ..runtime.execution.trace import ExecutionTrace
 from .models import MAX_RECIPE_CANDIDATES, ProvenanceCatalog, RecipeCandidate, RecipeScanState
 
-# 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
-MAX_TOOL_ROUNDS = 12
 MAX_RECIPE_MODEL_COST_USD = 2.0
 RECIPE_MAX_OUTPUT_TOKENS = 16_000
 

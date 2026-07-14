@@ -1,0 +1,29 @@
+{
+  "maxTurns": 15,
+  "searchEvents": {
+    "required": ["q"],
+    "optional": ["taskId", "kind", "toolName", "limit", "offset"],
+    "kinds": [
+      "execute_tool",
+      "plan",
+      "agent_tracer.action.logged",
+      "agent_tracer.verification.logged",
+      "agent_tracer.rule.logged",
+      "agent_tracer.thought.logged",
+      "agent_tracer.context.saved",
+      "agent_tracer.context.snapshot",
+      "agent_tracer.user.prompt.expansion",
+      "agent_tracer.permission.request",
+      "agent_tracer.worktree.remove",
+      "agent_tracer.setup.triggered",
+      "agent_tracer.file.changed",
+      "agent_tracer.user.message",
+      "agent_tracer.assistant.commentary",
+      "agent_tracer.assistant.response",
+      "agent_tracer.question.logged",
+      "agent_tracer.todo.logged",
+      "invoke_agent",
+      "agent_tracer.instructions.loaded"
+    ]
+  }
+}
