@@ -33,6 +33,20 @@ jobs:
       - name: 의존 그래프
         run: npm run lint:deps
 
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 이미지 빌드와 내용 검사
+        run: npm run check:images
+
   history:
     runs-on: ubuntu-latest
     steps:

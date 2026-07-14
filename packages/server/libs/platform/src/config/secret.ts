@@ -3,7 +3,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 const ENCRYPTED_PREFIX = "enc:v1:";
-const INSECURE_LOCAL_DEV_KEY = "monitor-local-dev-insecure-default-key";
+// 소스 실행과 컨테이너 실행이 같은 로컬 DB를 공유하므로 두 경로의 기본 키가 같아야 한다.
+const INSECURE_LOCAL_DEV_KEY = "monitor-dev-key";
 
 function resolveKey(): Buffer {
     const secret = process.env["MONITOR_SETTINGS_ENCRYPTION_KEY"];
@@ -37,11 +38,26 @@ export function decryptSecret(stored: string): string {
     const key = resolveKey();
     const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivB64, "base64"));
     decipher.setAuthTag(Buffer.from(authTagB64, "base64"));
-    const plaintext = Buffer.concat([
-        decipher.update(Buffer.from(ciphertextB64, "base64")),
-        decipher.final(),
-    ]);
-    return plaintext.toString("utf8");
+    try {
+        const plaintext = Buffer.concat([
+            decipher.update(Buffer.from(ciphertextB64, "base64")),
+            decipher.final(),
+        ]);
+        return plaintext.toString("utf8");
+    } catch {
+        throw new SecretKeyMismatchError();
+    }
+}
+
+/** 저장할 때 쓴 키와 지금 키가 달라 복호화가 성립하지 않는다. */
+export class SecretKeyMismatchError extends Error {
+    constructor() {
+        super(
+            "저장된 설정을 지금 키로 풀 수 없다. MONITOR_SETTINGS_ENCRYPTION_KEY가 저장 당시와 다르다. "
+            + "키를 되돌리거나 그 설정을 지우고 다시 넣어야 한다.",
+        );
+        this.name = "SecretKeyMismatchError";
+    }
 }
 
 export function isEncryptedSecret(value: string): boolean {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { decryptSecret, encryptSecret, isEncryptedSecret } from "./secret.js";
+import { SecretKeyMismatchError, decryptSecret, encryptSecret, isEncryptedSecret } from "./secret.js";
 
 const ENV_KEY = "MONITOR_SETTINGS_ENCRYPTION_KEY";
 let prevKey: string | undefined;
@@ -36,6 +36,26 @@ describe("encryptSecret / decryptSecret", () => {
         const encrypted = encryptSecret("sk-ant-1234567890");
         const tampered = encrypted.slice(0, -4) + "abcd";
         expect(() => decryptSecret(tampered)).toThrow();
+    });
+
+    it("저장 당시와 다른 키로 풀면 무엇이 어긋났는지 말하는 예외를 던진다", () => {
+        process.env[ENV_KEY] = "key-at-write-time";
+        const encrypted = encryptSecret("sk-ant-1234567890");
+
+        process.env[ENV_KEY] = "key-at-read-time";
+
+        expect(() => decryptSecret(encrypted)).toThrow(SecretKeyMismatchError);
+        expect(() => decryptSecret(encrypted)).toThrow(/MONITOR_SETTINGS_ENCRYPTION_KEY/);
+    });
+
+    it("소스 실행과 컨테이너 실행이 같은 기본 키를 쓴다", () => {
+        delete process.env[ENV_KEY];
+        const encrypted = encryptSecret("sk-ant-1234567890");
+
+        // 컨테이너는 compose가 이 값을 넣는다.
+        process.env[ENV_KEY] = "monitor-dev-key";
+
+        expect(decryptSecret(encrypted)).toBe("sk-ant-1234567890");
     });
 });
 

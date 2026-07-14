@@ -55,6 +55,8 @@
 | 인프라 기동 (PG×2·Redpanda·OpenSearch·Temporal) | `npm run infra:up` |
 | 인프라 종료 | `npm run infra:down` |
 | 전체 dev 서버 (인프라 선행 필수, agents 포함) | `npm run dev` |
+| 배포되는 이미지 그대로 전체 기동 (진입점 `127.0.0.1:3847`) | `npm run stack:up` / `stack:down` / `stack:logs` |
+| 앱 이미지 다섯 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
 | `packages/agents`(Python)만 기동 | `npm run dev:agents` |
 | 검증 (작업 완료 전 필수) | `npm run lint && npm run test && npm run lint:deps` |
 | 의존 그래프 규칙 검사 | `npm run lint:deps` |
