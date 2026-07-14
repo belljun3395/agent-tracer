@@ -15,6 +15,7 @@ import { MetricRail } from "~web/widgets/feed/header/MetricRail.js";
 import { SessionIdPill } from "~web/widgets/feed/header/SessionIdPill.js";
 import { EditableTitle } from "~web/widgets/feed/header/title/EditableTitle.js";
 import { StatusPill } from "~web/widgets/feed/header/StatusPill.js";
+import { LaneFilter } from "~web/widgets/feed/LaneFilter.js";
 
 interface TaskHeaderProps {
   readonly task: MonitoringTask;
@@ -88,6 +89,12 @@ export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
       </div>
 
       <MetricRail task={task} timeline={timeline} nowMs={nowMs} />
+
+      {timeline.length > 0 && (
+        <div className="mt-2.5">
+          <LaneFilter />
+        </div>
+      )}
     </div>
   );
 }

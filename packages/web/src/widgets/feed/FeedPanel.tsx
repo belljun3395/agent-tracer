@@ -11,7 +11,6 @@ import { isNotFoundError } from "~web/shared/api/client/response.js";
 import { EmptyView } from "~web/shared/ui/index.js";
 import { TaskHeader } from "~web/widgets/feed/header/TaskHeader.js";
 import { ActList } from "~web/widgets/feed/timeline/ActList.js";
-import { LaneFilter } from "~web/widgets/feed/LaneFilter.js";
 import { buildFeed } from "~web/widgets/feed/lib/timeline/group-acts.js";
 import { selectResumeTarget } from "~web/widgets/feed/lib/resume/resume-target.js";
 
@@ -85,11 +84,6 @@ export function FeedPanel({ taskId }: FeedPanelProps) {
         timeline={data.timeline}
         {...(resumeTarget ? { resumeTarget } : {})}
       />
-      {data.timeline.length > 0 && (
-        <div className="px-9 pb-2">
-          <LaneFilter />
-        </div>
-      )}
       {data.olderCursor && (
         <div className="px-9 pb-2">
           <button
