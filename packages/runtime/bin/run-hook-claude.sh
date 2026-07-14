@@ -28,6 +28,10 @@ if [ ! -f "$SOURCE_HOOK" ]; then
 fi
 
 # 소스 실행은 개발 체크아웃 전용이며 swc-node 로더를 node_modules에서 찾는다.
+if [ ! -d "${PLUGIN_ROOT}/node_modules/@swc-node/register" ]; then
+  echo "agent-tracer: 설치본에 훅 번들이 없다. 플러그인을 다시 설치하라." >&2
+  exit 0
+fi
 cd "$PLUGIN_ROOT"
 SWC_NODE_PROJECT="${PLUGIN_ROOT}/tsconfig.plugin.json" NODE_ENV="${NODE_ENV:-development}" \
   exec node --import @swc-node/register/esm-register "$SOURCE_HOOK"
