@@ -9,7 +9,6 @@ import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
-from ...runtime.serialization import json_value
 from ..models import TitleSuggestionDraft, TitleSuggestionRequest, TitleSuggestionState
 from ..policy import MAX_TITLE_MODEL_COST_USD, MAX_TOOL_ROUNDS, validate_title_candidate
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
@@ -38,11 +37,7 @@ def create_candidate_nodes(
         draft, messages, cost = await run_tool_loop(
             chat,
             system=INVESTIGATOR_SYSTEM_PROMPT,
-            user=build_user_prompt(
-                state["task_id"],
-                json_value(state["context"].model_dump(mode="json", exclude_none=True)),
-                state["language"],
-            ),
+            user=build_user_prompt(state["task_id"], state["context"], state["language"]),
             tools=TITLE_TOOL_SPECS,
             schema=TitleSuggestionDraft,
             trace=usage,

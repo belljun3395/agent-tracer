@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { buildTitleContext, RECENT_TURN_LIMIT, type TitleTurn } from "./title.context.model.js";
 import { TITLE_SUGGESTION_MAX_TURNS } from "./title.prompt.js";
+import { TITLE_SUGGESTION_SPEC } from "./title.spec.js";
 import {
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
@@ -22,6 +24,12 @@ const CONTRACT = JSON.parse(
     ),
 ) as {
     readonly maxTurns: number;
+    readonly limits: {
+        readonly recentTurnLimit: number;
+        readonly maxContextTurns: number;
+        readonly maxOutputTokens: number;
+        readonly maxBudgetUsd: number;
+    };
     readonly getTaskEvents: {
         readonly required: string[];
         readonly optional: string[];
@@ -45,9 +53,33 @@ function limitAccepts(value: number): boolean {
     return spec!.shape["limit"]!.safeParse(value).success;
 }
 
+function buildContextFrom(turnCount: number): { readonly turns: readonly TitleTurn[] } {
+    const turns: TitleTurn[] = Array.from({ length: turnCount }, (_value, index) => ({
+        turnIndex: index,
+        askedText: `ask ${index}`,
+        assistantText: null,
+    }));
+    return buildTitleContext({ title: "Untitled", status: "completed" }, turns, turnCount * 3);
+}
+
 describe("title-suggestion 도구 계약", () => {
     it("턴 예산이 골든 계약과 같다", () => {
         expect(TITLE_SUGGESTION_MAX_TURNS).toBe(CONTRACT.maxTurns);
+    });
+
+    it("토큰과 비용 예산이 골든 계약과 같다", () => {
+        expect(TITLE_SUGGESTION_SPEC.limits.maxOutputTokens).toBe(CONTRACT.limits.maxOutputTokens);
+        expect(TITLE_SUGGESTION_SPEC.limits.maxBudgetUsd).toBe(CONTRACT.limits.maxBudgetUsd);
+    });
+
+    it("최근 턴 창과 컨텍스트가 싣는 턴 수의 상한이 골든 계약과 같다", () => {
+        expect(RECENT_TURN_LIMIT).toBe(CONTRACT.limits.recentTurnLimit);
+        expect(buildContextFrom(CONTRACT.limits.maxContextTurns).turns).toHaveLength(
+            CONTRACT.limits.maxContextTurns,
+        );
+        expect(buildContextFrom(CONTRACT.limits.maxContextTurns + 50).turns).toHaveLength(
+            CONTRACT.limits.maxContextTurns,
+        );
     });
 
     it("get_task_events의 필수와 선택 인자가 골든 계약과 같다", () => {

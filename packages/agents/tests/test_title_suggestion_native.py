@@ -10,7 +10,8 @@ from pydantic import ValidationError
 from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.shared.models import AgentResponse
 from agent_graph.agents.title_suggestion import agent as title_mod
-from agent_graph.agents.title_suggestion.models import TitleSuggestionRequest
+from agent_graph.agents.title_suggestion.models import TitleSuggestionContext, TitleSuggestionRequest
+from agent_graph.agents.title_suggestion.prompts import build_user_prompt
 from tests.fakes import FakeToolClient, FakeToolLoopChat
 
 _CALLBACK = {"url": "http://worker:8810/tools/invoke", "token": "tok-title"}
@@ -86,6 +87,22 @@ def test_실행_envelope만_받고_주입된_정의를_거부한다() -> None:
     assert req.taskId == "task-1"
     with pytest.raises(ValidationError):
         _request(systemPrompt="런타임이 정의를 밀어 넣는다")
+
+
+def test_사용자_프롬프트가_JSON_대신_산문으로_대화_발췌를_싣는다() -> None:
+    prompt = build_user_prompt("task-1", TitleSuggestionContext.model_validate(_CONTEXT), "ko")
+
+    assert prompt.splitlines()[:4] == [
+        "Task ID: task-1",
+        "Current title: Untitled",
+        "Status: completed",
+        "Workspace: /workspace/project",
+    ]
+    assert "Activity: 300 events across 25 conversation turns." in prompt
+    assert "(older turns omitted)." in prompt
+    assert "User: 인증 미들웨어의 토큰 누수를 고쳐줘" in prompt
+    assert "Assistant: 회귀 테스트를 추가하고 누수를 수정했습니다." in prompt
+    assert "turnIndex" not in prompt and "{" not in prompt
 
 
 async def test_대화_발췌로_충분하면_도구를_부르지_않고_제목을_낸다(

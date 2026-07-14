@@ -9,6 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
 
+RECENT_TURN_LIMIT = 20
+# 워커는 최근 창에 최초 턴 하나를 더 얹어 보내므로 컨텍스트가 실을 수 있는 턴은 하나 더 많다.
+MAX_CONTEXT_TURNS = RECENT_TURN_LIMIT + 1
+
 
 class TitleSuggestionTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -28,7 +32,7 @@ class TitleSuggestionContext(BaseModel):
     totalEventCount: int = Field(ge=0)
     totalTurnCount: int = Field(ge=0)
     truncated: bool
-    turns: list[TitleSuggestionTurn] = Field(max_length=21)
+    turns: list[TitleSuggestionTurn] = Field(max_length=MAX_CONTEXT_TURNS)
 
 
 class TitleSuggestionRequest(AgentExecutionRequest):

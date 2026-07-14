@@ -1,5 +1,11 @@
 {
   "maxTurns": 4,
+  "limits": {
+    "recentTurnLimit": 20,
+    "maxContextTurns": 21,
+    "maxOutputTokens": 4000,
+    "maxBudgetUsd": 0.2
+  },
   "getTaskEvents": {
     "required": ["taskId"],
     "optional": ["limit", "cursor", "order"],

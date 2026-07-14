@@ -9,7 +9,16 @@ from typing import Any, get_args
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.title_suggestion.policy import MAX_TOOL_ROUNDS
+from agent_graph.agents.title_suggestion.models import (
+    MAX_CONTEXT_TURNS,
+    RECENT_TURN_LIMIT,
+    TitleSuggestionContext,
+)
+from agent_graph.agents.title_suggestion.policy import (
+    MAX_TITLE_MODEL_COST_USD,
+    MAX_TOOL_ROUNDS,
+    TITLE_MAX_OUTPUT_TOKENS,
+)
 from agent_graph.agents.title_suggestion.tools import (
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
@@ -26,8 +35,41 @@ def _contract() -> Any:
     return json.loads((GOLDEN / "title.suggestion.tool.contract.json").read_text(encoding="utf-8"))
 
 
+def _turns(count: int) -> list[dict[str, Any]]:
+    return [{"turnIndex": index, "askedText": f"ask {index}"} for index in range(count)]
+
+
+def _context(turn_count: int) -> dict[str, Any]:
+    return {
+        "title": "Untitled",
+        "status": "completed",
+        "totalEventCount": 3 * turn_count,
+        "totalTurnCount": turn_count,
+        "truncated": True,
+        "turns": _turns(turn_count),
+    }
+
+
 def test_턴_예산이_골든_계약과_같다() -> None:
     assert MAX_TOOL_ROUNDS == _contract()["maxTurns"]
+
+
+def test_토큰과_비용_예산이_골든_계약과_같다() -> None:
+    limits = _contract()["limits"]
+
+    assert TITLE_MAX_OUTPUT_TOKENS == limits["maxOutputTokens"]
+    assert MAX_TITLE_MODEL_COST_USD == limits["maxBudgetUsd"]
+
+
+def test_최근_턴_창과_컨텍스트가_싣는_턴_수의_상한이_골든_계약과_같다() -> None:
+    limits = _contract()["limits"]
+
+    assert RECENT_TURN_LIMIT == limits["recentTurnLimit"]
+    assert MAX_CONTEXT_TURNS == limits["maxContextTurns"]
+    accepted = TitleSuggestionContext.model_validate(_context(limits["maxContextTurns"]))
+    assert len(accepted.turns) == limits["maxContextTurns"]
+    with pytest.raises(ValidationError):
+        TitleSuggestionContext.model_validate(_context(limits["maxContextTurns"] + 1))
 
 
 def test_get_task_events의_필수와_선택_인자가_골든_계약과_같다() -> None:
