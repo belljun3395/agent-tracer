@@ -8,9 +8,13 @@
 import { execFileSync } from "node:child_process";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 const INGEST_URL = "http://127.0.0.1:3901/ingest/v1/events";
-const CONTRACT_VERSION = "0.5.7";
+// 데몬이 자기 매니페스트 버전을 계약 버전으로 실어 보내므로 여기서도 같은 값을 읽는다.
+const CONTRACT_VERSION = JSON.parse(
+    readFileSync(new URL("../../packages/runtime/package.json", import.meta.url), "utf8"),
+).version;
 const USER = "e2e-failure";
 
 function compose(args) {

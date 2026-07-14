@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agent Tracer monitoring plugin for Claude Code (single-plugin marketplace).",
-    "version": "0.1.0"
+    "version": "0.6.0"
   },
   "plugins": [
     {
@@ -19,7 +19,12 @@
       "description": "Agent Tracer hooks for Claude Code. Requires the Agent Tracer server (set MONITOR_BASE_URL or MONITOR_PORT; defaults to http://127.0.0.1:3847).",
       "homepage": "https://github.com/belljun3395/agent-tracer",
       "category": "observability",
-      "tags": ["monitoring", "observability", "hooks", "tracing"]
+      "tags": [
+        "monitoring",
+        "observability",
+        "hooks",
+        "tracing"
+      ]
     }
   ]
 }
