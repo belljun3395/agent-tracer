@@ -32,6 +32,9 @@
 | `0017-agent-spec-owned-by-domain` | 프롬프트·출력 스키마·에이전트 도구를 만질 때 |
 | `0018-temporal-orchestration` | AI 잡의 재시도·취소·시간 초과를 만질 때 |
 | `0019-web-feature-sliced-design` | 웹에 화면이나 상태를 추가할 때 |
+| `0020-agents-fetch-evidence-with-tools` | 에이전트가 볼 근거를 정할 때. 프롬프트에 정보를 붙이고 싶을 때 |
+| `0021-model-citations-verified-against-a-ledger` | 모델이 낸 출력을 저장할 때. 검증을 느슨하게 풀고 싶을 때 |
+| `0022-execution-outlives-the-connection` | 오래 걸리는 유료 실행을 부를 때 |
 
 ## 놓치기 쉬운 규칙
 
