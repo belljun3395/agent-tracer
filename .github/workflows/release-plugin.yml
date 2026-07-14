@@ -1,7 +1,8 @@
 name: 플러그인 릴리스
 
-# 수집기 소스가 main에 들어오면 훅 번들을 다시 만들어 태그에 실어 보낸다.
+# 수집기 소스가 main에 들어오면 훅 번들을 다시 만들어 버전과 함께 태그에 실어 보낸다.
 # 설치본은 저장소를 그대로 클론하므로 빌드 단계가 없다. 번들이 태그에 없으면 훅이 죽는다.
+# 설치본은 버전 문자열로만 갱신을 알아채므로, 번들만 바꾸고 버전을 두면 옛 훅이 그대로 돈다.
 
 on:
   push:
@@ -43,13 +44,7 @@ jobs:
             exit 1
           fi
 
-      - name: 버전 조회
-        id: version
-        run: echo "value=$(node -p "require('./packages/runtime/.claude-plugin/plugin.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: 번들을 main과 릴리스 태그에 싣는다
-        env:
-          VERSION: ${{ steps.version.outputs.value }}
+      - name: 번들과 버전을 main과 릴리스 태그에 싣는다
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -57,11 +52,15 @@ jobs:
           git add -f packages/runtime/dist
           if git diff --cached --quiet; then
             echo "번들이 그대로다. 태그만 옮긴다."
+            VERSION=$(node -p "require('./packages/runtime/.claude-plugin/plugin.json').version")
             git tag -f "plugin-v${VERSION}"
             git push -f origin "plugin-v${VERSION}"
             exit 0
           fi
-          git commit -m "chore(runtime): 훅 번들을 릴리스에 싣는다" -m "[skip ci]"
+          # 설치본은 버전 문자열이 올라갈 때만 갱신되므로 번들이 바뀌면 버전도 올린다.
+          VERSION=$(node scripts/bump-plugin-version.mjs)
+          git add packages/runtime/.claude-plugin/plugin.json .claude-plugin/marketplace.json
+          git commit -m "chore(runtime): 훅 번들과 플러그인 버전을 릴리스에 싣는다" -m "[skip ci]"
           git tag -f "plugin-v${VERSION}"
           # 설치본은 마켓플레이스가 기본 브랜치를 클론해 만들어지므로 번들이 main에 있어야 한다.
           git fetch origin main
