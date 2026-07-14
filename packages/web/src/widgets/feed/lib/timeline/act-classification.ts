@@ -11,9 +11,9 @@ import {
 export interface ActVm {
   readonly event: TimelineEventRecord;
   readonly lane: LaneTheme;
-  readonly clockLabel: string; // "14:03:18"
-  readonly offsetLabel: string; // "+6s"
-  readonly toolName: string; // event.title. 예: "Read · EventInspector.tsx"
+  readonly clockLabel: string;
+  readonly offsetLabel: string;
+  readonly toolName: string;
   /**
    * 백엔드가 제공하는 세분화 라벨(read_file / run_test / apply_patch...).
    * 의미 분류기가 돌지 않았거나 라벨이 toolName과 중복되면 null이다

@@ -79,6 +79,20 @@ export const commentLanguage = {
           }
         }
 
+        // 줄 주석과 JSDoc을 나란히 달면 어느 쪽이 계약인지 흐려지므로 한 선언에 주석은 한 벌만 둔다.
+        for (let index = 1; index < comments.length; index += 1) {
+          const previous = comments[index - 1];
+          const current = comments[index];
+          if (current.type !== "Block" || !current.value.startsWith("*")) continue;
+          if (previous.type !== "Line") continue;
+          if (current.loc.start.line !== previous.loc.end.line + 1) continue;
+          if (skippable(bodyOf(previous))) continue;
+          context.report({
+            node: previous,
+            message: "한 선언에 주석을 두 벌 달지 않는다. 줄 주석을 지우거나 JSDoc 한 문장에 합친다",
+          });
+        }
+
         for (const block of blocksOf(comments)) {
           const text = block.map(bodyOf).join(" ").trim();
           if (skippable(text) || !KOREAN.test(text)) continue;

@@ -11,8 +11,7 @@ interface JobTrajectoryProps {
   readonly status: JobStatus;
 }
 
-// 궤적은 잡 완료 시점에 일괄 저장된다.
-/** 실행 중인 잡의 모델·도구 호출 궤적을 표시한다. */
+/** 잡 완료 시점에 일괄 저장된 모델과 도구 호출 궤적을 표시한다. */
 export function JobTrajectory({ jobId, status }: JobTrajectoryProps) {
   const guidance = useGuidance();
   const active = isActiveJobStatus(status);
