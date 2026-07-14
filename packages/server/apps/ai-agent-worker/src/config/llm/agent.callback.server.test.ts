@@ -5,8 +5,7 @@ const PORT = 18_812;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 describe("AgentCallbackServer", () => {
-    // fetch는 응답을 받은 소켓을 keep-alive 풀에 남긴다. 테스트마다 서버를 닫고 다시 열면
-    // 그 소켓이 닫힌 서버를 가리킨 채 재사용되어 요청이 소켓 오류로 끊긴다.
+    // fetch가 keep-alive 풀에 남긴 소켓이 닫힌 서버를 가리킨 채 재사용되므로 서버를 한 번만 열고 닫는다.
     const server = new AgentCallbackServer(PORT, BASE, "worker-1");
 
     beforeAll(async () => {
