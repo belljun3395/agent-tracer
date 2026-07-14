@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { UserEntity } from "@monitor/tracer-domain";
 import { InMemoryUserRepository } from "~tracer-api/domain/user/port/__fakes__/in-memory.user.repository.js";
+import { FixedClock } from "~tracer-api/domain/user/port/__fakes__/fixed.clock.js";
 import { OnboardUserUseCase } from "./onboard.user.usecase.js";
 
 function makeUseCase(): { useCase: OnboardUserUseCase; stored: () => readonly UserEntity[] } {
     const repo = new InMemoryUserRepository();
     return {
-        useCase: new OnboardUserUseCase(repo),
+        useCase: new OnboardUserUseCase(repo, new FixedClock(new Date("2026-01-01T00:00:00.000Z"))),
         stored: () => repo.all(),
     };
 }
