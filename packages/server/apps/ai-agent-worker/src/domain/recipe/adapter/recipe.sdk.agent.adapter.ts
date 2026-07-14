@@ -1,4 +1,4 @@
-import { AGENT, JOB_KIND } from "@monitor/kernel";
+import { AGENT, JOB_KIND, type RecipeCandidatePayload } from "@monitor/kernel";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
 import { buildMcpToolServer } from "~ai-agent-worker/config/llm/claude.tool.schema.js";
@@ -6,10 +6,12 @@ import { zodToClaudeOutputSchema } from "~ai-agent-worker/config/llm/claude.outp
 import type { ClaudeQueryOptions } from "~ai-agent-worker/config/llm/claude.query.options.js";
 import type { IQueryRunner } from "~ai-agent-worker/config/llm/llm.runner.js";
 import { mcpToolNames, withMcpToolPrefix } from "~ai-agent-worker/config/llm/mcp.tool.prefix.js";
-import { runStructuredQuery } from "~ai-agent-worker/config/llm/structured.query.js";
+import { runStructuredQuery, type StructuredQueryResult } from "~ai-agent-worker/config/llm/structured.query.js";
+import { buildRecipeRepairPrompt } from "~ai-agent-worker/domain/recipe/model/recipe.prompt.js";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";
 import { RECIPE_SCAN_TOOL_NAMES } from "~ai-agent-worker/domain/recipe/model/recipe.tool.schema.js";
 import { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
+import { validateRecipeCandidates } from "~ai-agent-worker/domain/recipe/model/recipe.validation.model.js";
 import type {
     GenerateRecipeCandidatesInput,
     GenerateRecipeCandidatesOutput,
@@ -46,18 +48,41 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
     private async runAgent(input: GenerateRecipeCandidatesInput): Promise<GenerateRecipeCandidatesOutput> {
         const ledger = new ProvenanceLedger();
         const handlers = buildRecipeToolHandlers(input.userId, this.deps, ledger);
+        const basePrompt = RECIPE_SCAN_SPEC.userPrompt({
+            taskId: input.taskId,
+            language: input.language,
+            ...(input.userPrompt !== undefined ? { userPrompt: input.userPrompt } : {}),
+        });
+
+        const first = await this.runOnce(input, ledger, handlers, basePrompt);
+        const errors = validateRecipeCandidates(first.data.recipes, input.taskId, ledger.snapshot());
+        if (errors.length === 0) return toOutput(first, first.data.recipes, ledger);
+
+        // 근거가 서지 않으면 오류를 모델에게 돌려주고 한 번만 다시 받는다.
+        const repaired = await this.runOnce(
+            input,
+            ledger,
+            handlers,
+            buildRecipeRepairPrompt(basePrompt, first.data, errors),
+        );
+        const remaining = validateRecipeCandidates(repaired.data.recipes, input.taskId, ledger.snapshot());
+        return toOutput(repaired, remaining.length === 0 ? repaired.data.recipes : [], ledger);
+    }
+
+    private async runOnce(
+        input: GenerateRecipeCandidatesInput,
+        ledger: ProvenanceLedger,
+        handlers: ReturnType<typeof buildRecipeToolHandlers>,
+        prompt: string,
+    ): Promise<StructuredRun> {
         const { limits } = RECIPE_SCAN_SPEC;
         const model = input.model?.trim() || limits.defaultModel;
 
-        const run = await runStructuredQuery(
+        return runStructuredQuery(
             this.runner,
             {
                 label: RECIPE_SCAN_SPEC.name,
-                prompt: RECIPE_SCAN_SPEC.userPrompt({
-                    taskId: input.taskId,
-                    language: input.language,
-                    ...(input.userPrompt !== undefined ? { userPrompt: input.userPrompt } : {}),
-                }),
+                prompt,
                 systemPrompt: withMcpToolPrefix(
                     RECIPE_SCAN_SPEC.systemPrompt(),
                     RECIPE_SCAN_TOOL_NAMES,
@@ -89,16 +114,24 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
             },
             RECIPE_SCAN_SPEC.outputSchema,
         );
-
-        return {
-            recipes: run.data.recipes,
-            modelUsed: run.modelUsed,
-            durationMs: run.durationMs,
-            costUsd: run.costUsd,
-            numTurns: run.numTurns,
-            usage: run.usage,
-            steps: run.steps,
-            provenance: ledger.snapshot(),
-        };
     }
+}
+
+type StructuredRun = StructuredQueryResult<{ readonly recipes: RecipeCandidatePayload[] }>;
+
+function toOutput(
+    run: StructuredRun,
+    recipes: GenerateRecipeCandidatesOutput["recipes"],
+    ledger: ProvenanceLedger,
+): GenerateRecipeCandidatesOutput {
+    return {
+        recipes,
+        modelUsed: run.modelUsed,
+        durationMs: run.durationMs,
+        costUsd: run.costUsd,
+        numTurns: run.numTurns,
+        usage: run.usage,
+        steps: run.steps,
+        provenance: ledger.snapshot(),
+    };
 }

@@ -20,8 +20,9 @@ def validate_recipe_candidates(
     provenance: ProvenanceCatalog,
 ) -> list[str]:
     """후보 목록이 수집한 출처만 인용하고 같은 turn을 두 번 쓰지 않는지 검증한다."""
+    # 근거가 없으면 후보를 내지 않는 것이 옳은 답이므로 빈 출력은 오류가 아니다.
     if not candidates:
-        return ["No recipe candidate was produced."]
+        return []
     if len(candidates) > MAX_RECIPE_CANDIDATES:
         return [f"At most {MAX_RECIPE_CANDIDATES} recipe candidates may be returned."]
     errors: list[str] = []

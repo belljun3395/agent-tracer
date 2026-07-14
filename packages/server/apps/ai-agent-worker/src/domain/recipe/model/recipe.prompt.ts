@@ -54,6 +54,27 @@ Rules:
 Return the recipes as structured output conforming to the provided schema.`;
 }
 
+/** 근거 검증에 걸린 출력을 모델에게 돌려줘 한 번 고쳐 받는 지시문이며, 실행기가 대화를 잇지 않으므로 직전 출력을 함께 싣는다. */
+export function buildRecipeRepairPrompt(
+    basePrompt: string,
+    previousOutput: unknown,
+    errors: readonly string[],
+): string {
+    return [
+        basePrompt,
+        "",
+        "Your previous output:",
+        JSON.stringify(previousOutput),
+        "",
+        "Deterministic provenance validation rejected your output:",
+        ...errors.map((error) => `  - ${error}`),
+        "",
+        "Change only what is necessary to satisfy these errors, using only identifiers your tools returned.",
+        "If a correction, pitfall, rule, or revision target cannot be grounded, remove it. You may call tools",
+        "again to ground a citation. Then return the complete repaired candidate list.",
+    ].join("\n");
+}
+
 export function buildRecipeUserPrompt(
     taskId: string,
     userPrompt: string | undefined,
