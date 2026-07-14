@@ -17,11 +17,13 @@ export const EVENT_ORDER = { asc: "asc", desc: "desc" } as const;
 export type EventOrder = (typeof EVENT_ORDER)[keyof typeof EVENT_ORDER];
 
 export const DEFAULT_EVENT_LIMIT = 100;
+export const MIN_EVENT_LIMIT = 1;
 export const MAX_EVENT_LIMIT = 300;
+export const DEFAULT_EVENT_ORDER: EventOrder = EVENT_ORDER.asc;
 
 const getTaskEventsShape = {
     taskId: z.string().trim().min(1).describe("The task ID"),
-    limit: z.number().int().min(1).max(MAX_EVENT_LIMIT).optional()
+    limit: z.number().int().min(MIN_EVENT_LIMIT).max(MAX_EVENT_LIMIT).optional()
         .describe(`Max events to return in this page (default ${DEFAULT_EVENT_LIMIT}, hard cap ${MAX_EVENT_LIMIT})`),
     cursor: z.string().trim().min(1).optional()
         .describe("Opaque cursor from a previous call's nextCursor. Omit to start from the first page."),

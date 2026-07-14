@@ -35,6 +35,27 @@ Rules:
 Return the suggestions as structured output conforming to the provided schema.`;
 }
 
+/** 검증에 걸린 출력을 모델에게 돌려줘 한 번 고쳐 받는 지시문이며, 실행기가 대화를 잇지 않으므로 직전 출력을 함께 싣는다. */
+export function buildTitleRepairPrompt(
+    basePrompt: string,
+    previousOutput: unknown,
+    errors: readonly string[],
+): string {
+    return [
+        basePrompt,
+        "",
+        "Your previous output:",
+        JSON.stringify(previousOutput),
+        "",
+        "Deterministic validation rejected your output:",
+        ...errors.map((error) => `  - ${error}`),
+        "",
+        "Change only what is necessary to satisfy these errors. Return either an empty suggestions list or",
+        "2-3 distinct alternatives. Do not repeat the current title, use placeholder titles, or invent work",
+        "the evidence does not show. Then return the complete repaired suggestion list.",
+    ].join("\n");
+}
+
 export function buildTitleUserPrompt(taskId: string, context: TitleContext): string {
     const lines: string[] = [
         `Task ID: ${taskId}`,

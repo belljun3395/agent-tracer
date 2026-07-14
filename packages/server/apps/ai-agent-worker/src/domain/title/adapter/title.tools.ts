@@ -6,8 +6,10 @@ import { clampInt } from "~ai-agent-worker/support/clamp.js";
 import { toTitleEventPage, type TitleSlimEvent } from "~ai-agent-worker/domain/title/model/title.event.model.js";
 import {
     DEFAULT_EVENT_LIMIT,
+    DEFAULT_EVENT_ORDER,
     EVENT_ORDER,
     MAX_EVENT_LIMIT,
+    MIN_EVENT_LIMIT,
     parseGetTaskEventsArgs,
     TITLE_SUGGESTION_TOOL,
 } from "~ai-agent-worker/domain/title/model/title.tool.schema.js";
@@ -34,8 +36,8 @@ export function buildTitleToolHandlers(userId: string, deps: TitleToolDeps): Too
                 async () => {
                     const task = await deps.tasks.findById(taskId);
                     if (task === null || task.userId !== userId) return `Task ${taskId} not found.`;
-                    const size = clampInt(limit, DEFAULT_EVENT_LIMIT, 1, MAX_EVENT_LIMIT);
-                    const reading = order ?? EVENT_ORDER.asc;
+                    const size = clampInt(limit, DEFAULT_EVENT_LIMIT, MIN_EVENT_LIMIT, MAX_EVENT_LIMIT);
+                    const reading = order ?? DEFAULT_EVENT_ORDER;
                     const [rows, total] = await Promise.all([
                         reading === EVENT_ORDER.desc
                             ? deps.events.findTimelineWindow(taskId, cursor, size + 1)

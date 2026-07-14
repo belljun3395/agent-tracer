@@ -13,22 +13,29 @@ from ..runtime.telemetry.spans import tool_span
 from ..shared.models import ToolCallback, TrimmedStr
 
 GET_TASK_EVENTS_TOOL_NAME = "get_task_events"
-EVENT_PAGE_LIMIT = 100
+DEFAULT_EVENT_LIMIT = 100
+MIN_EVENT_LIMIT = 1
+MAX_EVENT_LIMIT = 300
+DEFAULT_EVENT_ORDER: Literal["asc", "desc"] = "asc"
 
 
 class GetTaskEventsArgs(BaseModel):
+    """태스크 이벤트 페이지 조회 인자를 커널의 골든 계약대로 검증한다."""
+
     model_config = ConfigDict(extra="forbid")
 
     taskId: TrimmedStr = Field(min_length=1)
-    limit: int = Field(default=EVENT_PAGE_LIMIT, ge=1, le=EVENT_PAGE_LIMIT)
+    limit: int = Field(default=DEFAULT_EVENT_LIMIT, ge=MIN_EVENT_LIMIT, le=MAX_EVENT_LIMIT)
     cursor: TrimmedStr | None = Field(default=None, min_length=1)
-    order: Literal["desc", "asc"] = "desc"
+    order: Literal["asc", "desc"] = DEFAULT_EVENT_ORDER
 
 
 TITLE_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         GET_TASK_EVENTS_TOOL_NAME,
-        "Read one page of the task's raw events when the recorded conversation cannot name the work.",
+        "Read one page of the task's raw events when the recorded conversation cannot name the work: "
+        f"pick limit (default {DEFAULT_EVENT_LIMIT}, hard cap {MAX_EVENT_LIMIT}), pass the response's "
+        'nextCursor back as cursor to keep paging, and set order="desc" to read the latest events first.',
         GetTaskEventsArgs,
     ),
 )

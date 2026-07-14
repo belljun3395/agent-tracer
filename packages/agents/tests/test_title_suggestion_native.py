@@ -120,7 +120,7 @@ async def test_발췌가_부족하면_모델이_스스로_이벤트를_읽는다
 
     assert res.error is None
     assert tool_client.calls == ["get_task_events"]
-    assert tool_client.args == [{"taskId": "task-1", "limit": 100, "order": "desc"}]
+    assert tool_client.args == [{"taskId": "task-1", "limit": 100, "order": "asc"}]
     assert [step.toolName for step in res.steps if step.role == "tool"] == ["get_task_events"]
 
 
