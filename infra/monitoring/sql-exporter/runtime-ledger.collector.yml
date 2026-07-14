@@ -1,0 +1,50 @@
+collector_name: runtime_ledger
+
+metrics:
+  # projector의 pipeline_applied_seq(consumer별 마지막 반영 seq)와 대조해 유실 갭을 계산한다.
+  - metric_name: runtime_ledger_max_seq
+    type: gauge
+    help: "runtime-db events 원장에 커밋된 가장 높은 seq."
+    values: [max_seq]
+    query: |
+      SELECT COALESCE(MAX(seq), 0) AS max_seq FROM events
+
+  - metric_name: runtime_ledger_row_count
+    type: gauge
+    help: "runtime-db events 원장의 총 행 수."
+    values: [row_count]
+    query: |
+      SELECT COUNT(*) AS row_count FROM events
+
+  - metric_name: runtime_ledger_replication_slot_retained_bytes
+    type: gauge
+    help: "Debezium 슬롯(runtime_ledger)이 아직 소비하지 않은 WAL 바이트다."
+    key_labels: [slot_name]
+    values: [retained_bytes]
+    query: |
+      SELECT slot_name, pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) AS retained_bytes
+      FROM pg_replication_slots
+      WHERE slot_name = 'runtime_ledger'
+
+  - metric_name: runtime_ledger_partition_count
+    type: gauge
+    help: "events 원장에 현재 붙어 있는(부모에 연결된) 파티션 수."
+    values: [partition_count]
+    query: |
+      SELECT COUNT(*) AS partition_count
+      FROM pg_inherits
+      WHERE inhparent = 'public.events'::regclass
+
+  # cold:tier가 보존기간 지난 파티션을 분리만 하고 아직 내보내지 않았으면 duckdb.partition.archive.adapter.ts의 DETACHED_PARTITIONS_SQL과 같은 조건으로 여기 걸린다.
+  - metric_name: runtime_ledger_detached_partitions_pending_export
+    type: gauge
+    help: "부모에서 분리됐지만 아직 콜드 티어로 내보내지지 않은 events_p* 파티션 수."
+    values: [pending_count]
+    query: |
+      SELECT COUNT(*) AS pending_count
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relkind = 'r'
+        AND c.relname LIKE 'events\_p%'
+        AND NOT EXISTS (SELECT 1 FROM pg_inherits i WHERE i.inhrelid = c.oid)

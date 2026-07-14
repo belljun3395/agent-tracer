@@ -1,0 +1,235 @@
+# 관측 스택 오버레이이며 기존 파이프라인은 건드리지 않는다.
+# docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+# 끄고 싶으면 -f 옵션 없이 docker-compose.yml 하나로만 up 하면 앱은 OTEL_EXPORTER_OTLP_ENDPOINT 미설정으로 계측이 no-op이라 무해하다.
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_PROMETHEUS_PORT: "9464"
+
+services:
+  # ---- 기존 서비스 확장 ----
+  runtime-api:
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: runtime-api
+    depends_on:
+      otel-collector: { condition: service_started }
+
+  tracer-api:
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: tracer-api
+    depends_on:
+      otel-collector: { condition: service_started }
+
+  projector:
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: projector
+      # 수집한 이벤트를 OTLP로 tee하며 미설정 시 tee consumer 자체가 뜨지 않는다.
+      EVENTS_OTLP_ENDPOINT: http://otel-collector:4318
+    depends_on:
+      otel-collector: { condition: service_started }
+
+  ai-agent-worker:
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: ai-agent-worker
+    depends_on:
+      otel-collector: { condition: service_started }
+
+  agents:
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: agents
+    depends_on:
+      otel-collector: { condition: service_started }
+
+  temporal:
+    environment:
+      PROMETHEUS_ENDPOINT: 0.0.0.0:9090
+
+  # MinIO Prometheus 엔드포인트는 로컬 관측 전용이라 OpenSearch와 같은 방침으로 공개 스크레이프를 켠다.
+  minio:
+    environment:
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+
+  # jmx_prometheus_javaagent를 Connect JVM에 얹어 별도 프로세스 없이 컨테이너 안에서 직접 노출한다.
+  connect:
+    image: agent-tracer/connect-jmx:2.7.3.Final
+    build:
+      context: ./infra/monitoring/jmx
+      args:
+        DEBEZIUM_VERSION: 2.7.3.Final
+        JMX_AGENT_VERSION: 0.20.0
+    environment:
+      KAFKA_OPTS: "-javaagent:/kafka/etc/jmx_prometheus_javaagent.jar=5556:/kafka/etc/config.yml"
+
+  # ---- 계측 파이프라인 ----
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.155.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infra/monitoring/otel-collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      tempo: { condition: service_started }
+
+  tempo:
+    image: grafana/tempo:2.10.7
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./infra/monitoring/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+
+  loki:
+    image: grafana/loki:3.7.3
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./infra/monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.17.1
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./infra/monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on:
+      loki: { condition: service_started }
+
+  # ---- 메트릭 저장/알림 ----
+  prometheus:
+    image: prom/prometheus:v3.13.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+      start_interval: 1s
+
+  alertmanager:
+    image: prom/alertmanager:v0.33.0
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./infra/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+      start_interval: 1s
+
+  # ---- 자원 익스포터 ----
+  postgres-exporter-runtime:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor}@runtime-db:5432/runtime?sslmode=disable"
+    depends_on:
+      runtime-db: { condition: service_healthy }
+
+  postgres-exporter-tracer:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor}@tracer-db:5432/tracer?sslmode=disable"
+    depends_on:
+      tracer-db: { condition: service_healthy }
+
+  postgres-exporter-temporal:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://temporal:temporal@temporal-postgres:5432/temporal?sslmode=disable"
+    depends_on:
+      temporal-postgres: { condition: service_healthy }
+
+  opensearch-exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:v1.10.0
+    command:
+      - --es.uri=http://opensearch:9200
+      - --es.all
+      - --es.indices
+      - --collector.clustersettings
+    depends_on:
+      opensearch: { condition: service_healthy }
+
+  # runtime-db의 원장 seq·row·replication slot을 재서 파이프라인 유실 갭을 계산한다.
+  sql-exporter:
+    image: burningalchemist/sql_exporter:0.24.2
+    command:
+      - "-config.file=/etc/sql_exporter/sql_exporter.yml"
+      - "-config.data-source-name=postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor}@runtime-db:5432/runtime?sslmode=disable"
+    volumes:
+      - ./infra/monitoring/sql-exporter:/etc/sql_exporter:ro
+    depends_on:
+      runtime-db: { condition: service_healthy }
+
+  # AI 잡 backlog·고착·시도 횟수는 tracer-db의 현재 상태가 진실 원천이다.
+  sql-exporter-tracer:
+    image: burningalchemist/sql_exporter:0.24.2
+    command:
+      - "-config.file=/etc/sql_exporter/tracer-ai-jobs.yml"
+      - "-config.data-source-name=postgresql://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD:-monitor}@tracer-db:5432/tracer?sslmode=disable"
+    volumes:
+      - ./infra/monitoring/sql-exporter:/etc/sql_exporter:ro
+    depends_on:
+      tracer-db: { condition: service_healthy }
+
+  # 컨슈머 그룹 lag과 produce-consume 왕복 카나리를 재며 단일 브로커라 파티션 리밸런스는 끈다.
+  kminion:
+    image: redpandadata/kminion:v2.3.2
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+      MINION_ENDTOEND_ENABLED: "true"
+      MINION_ENDTOEND_TOPICMANAGEMENT_REBALANCEPARTITIONS: "false"
+    depends_on:
+      redpanda: { condition: service_healthy }
+
+  # ---- 시각화 ----
+  grafana:
+    image: grafana/grafana:13.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    # 런타임 이벤트 본문에는 사용자 발화와 파일 경로가 들어갈 수 있어 loopback에만 연다.
+    ports: ["127.0.0.1:3000:3000"]
+    volumes:
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus: { condition: service_healthy }
+      loki: { condition: service_started }
+      tempo: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+      start_interval: 1s
+
+volumes:
+  alloy-data:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:
+  loki-data:
+  tempo-data:
