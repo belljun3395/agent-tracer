@@ -2,6 +2,7 @@ import {buildRuleProposalPolicy} from "~runtime/domain/rulegen/model/proposal.po
 import {RULEGEN_MODE, type RulegenMode} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
 import {
     RULEGEN_EVENT_LIMIT,
+    RULEGEN_WORKSPACE_TOOLS,
     rulegenToolFullName,
     type RulegenToolSpec,
 } from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
@@ -12,7 +13,7 @@ Rules exist to verify that the agent did what the USER asked. The user's words a
 
 const RECENT_SCOPE = "This is an AUTO rule-generation job. Focus ONLY on the most recent turn, not the full task history.";
 
-const NO_FILESYSTEM = "You have no filesystem access; every rule must come from the tool evidence above.";
+const WORKSPACE_ACCESS = `Read, Glob, and Grep let you inspect the workspace read-only. Use them to ground a rule in what the repository actually contains: the real test command, the real path, the real config key. Never turn a file you merely read into an obligation the user never asked for.`;
 
 const CLOSING = "Rules are not blockers. They describe what to EXPECT a future agent doing similar work to do.";
 
@@ -22,7 +23,11 @@ function toolLine(spec: RulegenToolSpec): string {
 }
 
 function toolCatalog(tools: readonly RulegenToolSpec[]): string {
-    return ["Tools available:", ...tools.map(toolLine)].join("\n");
+    return [
+        "Tools available:",
+        ...tools.map(toolLine),
+        ...RULEGEN_WORKSPACE_TOOLS.map((name) => `  - ${name} : Inspect the workspace read-only.`),
+    ].join("\n");
 }
 
 function manualRoute(maxTurns: number): string {
@@ -58,7 +63,7 @@ export function buildRulegenSystemPrompt(options: RulegenPromptOptions): string 
         ...(recent ? [RECENT_SCOPE] : []),
         toolCatalog(options.tools),
         recent ? recentRoute(options.maxTurns) : manualRoute(options.maxTurns),
-        NO_FILESYSTEM,
+        WORKSPACE_ACCESS,
         CLOSING,
         buildRuleProposalPolicy(options),
         "Return JSON conforming to the provided schema immediately after your tool calls.",

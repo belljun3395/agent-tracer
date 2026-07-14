@@ -8,6 +8,7 @@ import type {RuleGenerationSpec} from "~runtime/domain/rulegen/model/rulegen.spe
 import {
     rulegenAllowedTools,
     RULEGEN_MCP_SERVER,
+    RULEGEN_WORKSPACE_TOOLS,
     type RulegenToolset,
 } from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 import type {RuleGeneratorPort} from "~runtime/domain/rulegen/port/rule.generator.port.js";
@@ -111,7 +112,7 @@ export class AgentRuleGeneratorAdapter implements RuleGeneratorPort {
                     cwd: spec.workspacePath,
                     model: spec.model,
                     allowedTools: rulegenAllowedTools(spec.tools),
-                    tools: [],
+                    tools: [...RULEGEN_WORKSPACE_TOOLS],
                     mcpServers: {[RULEGEN_MCP_SERVER]: createRulegenMcpServer(spec.tools, toolset)},
                     maxTurns: spec.maxTurns,
                     maxBudgetUsd: spec.maxBudgetUsd,

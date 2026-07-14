@@ -2,7 +2,12 @@ import {RULE_GENERATION_FOCUS} from "@monitor/kernel/job/job.const.js";
 import {describe, expect, it} from "vitest";
 import {SEVERITY_CLAUSE, SEVERITY_HEADING} from "~runtime/domain/rulegen/model/severity.clause.model.js";
 import {buildRuleGenerationSpec} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
-import {RULEGEN_TOOL_SPECS, rulegenToolFullName} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
+import {
+    RULEGEN_TOOL_SPECS,
+    RULEGEN_WORKSPACE_TOOLS,
+    rulegenAllowedTools,
+    rulegenToolFullName,
+} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 
 function specFor(overrides: Record<string, unknown> = {}) {
     return buildRuleGenerationSpec({jobId: "job-1", taskId: "task-1", workspacePath: "/tmp/ws", ...overrides});
@@ -76,6 +81,17 @@ describe("buildRuleGenerationSpec", () => {
         }
         expect(spec.systemPrompt).toContain("Tools available:");
         expect(spec.userPrompt).not.toContain("task-turns");
+    });
+
+    it("규칙을 실제 코드에 붙들 수 있도록 워크스페이스 읽기 도구를 함께 연다", () => {
+        const spec = specFor();
+
+        expect(rulegenAllowedTools(spec.tools)).toEqual(
+            expect.arrayContaining([...RULEGEN_WORKSPACE_TOOLS]),
+        );
+        for (const tool of RULEGEN_WORKSPACE_TOOLS) {
+            expect(spec.systemPrompt).toContain(tool);
+        }
     });
 
     it("출력 스키마는 이름과 기대 조건과 근거만 필수로 요구한다", () => {

@@ -71,6 +71,9 @@ export const RULEGEN_TOOL_SPECS: readonly RulegenToolSpec[] = [
     },
 ];
 
+/** 규칙이 워크스페이스의 실제 코드를 근거로 삼을 수 있도록 열어 주는 읽기 전용 내장 도구다. */
+export const RULEGEN_WORKSPACE_TOOLS = ["Read", "Glob", "Grep"] as const;
+
 /** 모델이 부르는 도구의 정식 명칭은 mcp__<server>__<tool> 형식이다. */
 export function rulegenToolFullName(name: RulegenToolName): string {
     return `mcp__${RULEGEN_MCP_SERVER}__${name}`;
@@ -83,7 +86,7 @@ export function rulegenToolSpec(name: RulegenToolName): RulegenToolSpec {
 }
 
 export function rulegenAllowedTools(specs: readonly RulegenToolSpec[]): string[] {
-    return specs.map((spec) => rulegenToolFullName(spec.name));
+    return [...specs.map((spec) => rulegenToolFullName(spec.name)), ...RULEGEN_WORKSPACE_TOOLS];
 }
 
 /** 근거 조회가 HTTP로 실패해도 도구는 텍스트로 답해 모델이 다음 수를 두게 한다. */
