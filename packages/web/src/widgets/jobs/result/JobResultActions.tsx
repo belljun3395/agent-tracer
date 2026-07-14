@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { JOB_FEEDBACK_KIND, type JobDto } from "@monitor/kernel";
+import type { JobDto } from "@monitor/kernel";
 import { JOB_KIND, JOB_STATUS } from "~web/entities/job/model/job.js";
 import { TaskId } from "~web/shared/identity.js";
 import type { CleanupSuggestion } from "~web/entities/task-cleanup/model/task-cleanup.js";
@@ -7,7 +7,6 @@ import {
   useAcceptCleanupSuggestionMutation,
   useDismissCleanupSuggestionMutation,
 } from "~web/entities/task-cleanup/api/mutations.js";
-import { useSubmitJobFeedbackMutation } from "~web/entities/job/api/mutations.js";
 import { useUpdateTaskMutation } from "~web/entities/task/api/edit-mutations.js";
 import { useTaskCleanupSuggestionsQuery } from "~web/entities/task-cleanup/api/queries.js";
 import { useGuidance } from "~web/shared/store/index.js";
@@ -46,7 +45,6 @@ export function JobResultActions({ job }: JobResultActionsProps) {
 function TitleSuggestionActions({ job }: JobResultActionsProps) {
   const guidance = useGuidance();
   const updateTask = useUpdateTaskMutation();
-  const feedback = useSubmitJobFeedbackMutation();
   const suggestions = readTitleSuggestions(job);
 
   if (job.taskId === null) {
@@ -72,7 +70,6 @@ function TitleSuggestionActions({ job }: JobResultActionsProps) {
 
   const taskId = TaskId(job.taskId);
   const apply = (title: string) => {
-    feedback.mutate({ jobId: job.id, kind: JOB_FEEDBACK_KIND.accept });
     updateTask.mutate({ taskId, body: { title } });
   };
 

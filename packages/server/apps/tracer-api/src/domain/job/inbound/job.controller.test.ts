@@ -18,7 +18,6 @@ import { ListPendingJobsUseCase } from "~tracer-api/domain/job/application/query
 import { StartJobUseCase } from "~tracer-api/domain/job/application/command/start.job.usecase.js";
 import { SubmitJobResultsUseCase } from "~tracer-api/domain/job/application/command/submit.job.results.usecase.js";
 import { FailJobUseCase } from "~tracer-api/domain/job/application/command/fail.job.usecase.js";
-import { SubmitJobFeedbackUseCase } from "~tracer-api/domain/job/application/command/submit.job.feedback.usecase.js";
 import { GetJobStepsUseCase } from "~tracer-api/domain/job/application/query/get.job.steps.usecase.js";
 
 vi.mock("@monitor/platform", () => ({
@@ -29,7 +28,7 @@ vi.mock("@monitor/platform", () => ({
 
 Reflect.defineMetadata(
     "design:paramtypes",
-    [EnqueueJobUseCase, CancelJobUseCase, SubmitJobFeedbackUseCase],
+    [EnqueueJobUseCase, CancelJobUseCase],
     JobCommandController,
 );
 Reflect.defineMetadata(
@@ -105,7 +104,6 @@ const getLatestJob = {
         { provide: StartJobUseCase, useValue: { execute: vi.fn() } },
         { provide: SubmitJobResultsUseCase, useValue: submitResults },
         { provide: FailJobUseCase, useValue: { execute: vi.fn() } },
-        { provide: SubmitJobFeedbackUseCase, useValue: { execute: vi.fn() } },
         { provide: GetJobStepsUseCase, useValue: jobSteps },
     ],
 })

@@ -2,7 +2,6 @@ import { TaskCleanupSuggestionEntity } from "../cleanup/task.cleanup.suggestion.
 import { DaemonHealthEntity } from "../daemon/daemon.health.entity.js";
 import { AiJobEntity } from "../job/ai.job.entity.js";
 import { AiJobStepEntity } from "../job/ai.job.step.entity.js";
-import { JobFeedbackEntity } from "../job/feedback/job.feedback.entity.js";
 import { RecipeApplicationEntity } from "../recipe/application/recipe.application.entity.js";
 import { RecipeEntity } from "../recipe/recipe.entity.js";
 import { RuleEntity } from "../rule/rule.entity.js";
@@ -31,7 +30,6 @@ export const TRACER_ENTITIES = [
     RecipeApplicationEntity,
     TaskCleanupSuggestionEntity,
     AiJobEntity,
-    JobFeedbackEntity,
     AiJobStepEntity,
     UserEntity,
     AppSettingEntity,

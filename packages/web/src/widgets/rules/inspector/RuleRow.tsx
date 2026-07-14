@@ -13,7 +13,6 @@ import { RuleSeverityChip } from "~web/widgets/rules/presentation/RuleSeverityCh
 import { RuleVerdictChip } from "~web/widgets/rules/presentation/RuleVerdictChip.js";
 import { RuleEvidencePanel } from "~web/widgets/rules/evidence/RuleEvidencePanel.js";
 import { RuleRowActions } from "~web/widgets/rules/inspector/RuleRowActions.js";
-import { RuleFeedbackButtons } from "~web/widgets/rules/generation/RuleFeedbackButtons.js";
 
 interface RuleRowProps {
   readonly rule: RuleRecord;
@@ -114,10 +113,6 @@ export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
         onEdit={stopAnd(() => onEdit(rule))}
         onDelete={stopAnd(confirmDelete.trigger)}
       />
-
-      {rule.sourceJobId !== undefined && (
-        <RuleFeedbackButtons jobId={rule.sourceJobId} ruleId={rule.id} />
-      )}
 
       {expanded && contextTaskId && (
         <RuleEvidencePanel

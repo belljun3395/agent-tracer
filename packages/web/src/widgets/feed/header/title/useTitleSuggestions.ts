@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { JOB_FEEDBACK_KIND } from "@monitor/kernel";
 import { JOB_KIND, isActiveJobStatus } from "~web/entities/job/model/job.js";
 import type {
   TitleSuggestion,
@@ -9,7 +8,6 @@ import type {
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
 import {
   useEnqueueJob,
-  useSubmitJobFeedbackMutation,
 } from "~web/entities/job/api/mutations.js";
 import { useJobStatus } from "~web/entities/job/api/queries.js";
 import { useUpdateTaskMutation } from "~web/entities/task/api/edit-mutations.js";
@@ -20,7 +18,6 @@ import {
 
 /** 제목 제안 잡의 요청과 결과 적용 및 피드백 생명주기를 소유한다. */
 export function useTitleSuggestions(task: MonitoringTask) {
-  const feedback = useSubmitJobFeedbackMutation();
   const update = useUpdateTaskMutation();
   const enqueue = useEnqueueJob<TitleSuggestionJobInput>(
     JOB_KIND.titleSuggestion,
@@ -69,9 +66,6 @@ export function useTitleSuggestions(task: MonitoringTask) {
   };
 
   const apply = (title: string) => {
-    if (job?.status === "completed") {
-      feedback.mutate({ jobId: job.id, kind: JOB_FEEDBACK_KIND.accept });
-    }
     update.mutate(
       { taskId: task.id, body: { title } },
       { onSettled: close },
@@ -83,7 +77,6 @@ export function useTitleSuggestions(task: MonitoringTask) {
     loading,
     error,
     suggestions,
-    jobId: job?.status === "completed" ? job.id : null,
     currentTitle,
     agentBackend,
     setAgentBackend,

@@ -11,7 +11,6 @@ interface RecipeCardProps {
   /** 푸터에 표시할 타임스탬프. */
   readonly footMetaAt: string;
   readonly actions?: ReactNode;
-  readonly feedback?: ReactNode;
   readonly metaPills?: ReactNode;
   readonly showParentBadge?: boolean;
   readonly showRationale?: boolean;
@@ -25,7 +24,6 @@ export function RecipeCard({
   muted,
   footMetaAt,
   actions,
-  feedback,
   metaPills,
   showParentBadge,
   showRationale,
@@ -64,7 +62,6 @@ export function RecipeCard({
       {recipe.touchedFiles.length > 0 && <TouchedFiles files={recipe.touchedFiles} />}
       <Slices slices={recipe.contributingSlices} taskTitleById={taskTitleById} />
       {showRationale && recipe.rationale && <Rationale text={recipe.rationale} />}
-      {feedback && <div className="mt-2.5">{feedback}</div>}
       <FootMeta language={recipe.language} createdAt={footMetaAt} />
     </div>
   );

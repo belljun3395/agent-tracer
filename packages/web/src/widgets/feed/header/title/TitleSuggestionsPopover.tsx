@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import type { TitleSuggestion } from "~web/entities/job/model/title-suggestion.js";
 import { useGuidance } from "~web/shared/store/index.js";
 import { AnchoredPopover, GuidanceText } from "~web/shared/ui/index.js";
-import { JobFeedbackBar } from "~web/features/job-feedback/JobFeedbackBar.js";
 import {
   AgentBackendSelect,
   type AgentBackendChoice,
@@ -14,7 +13,6 @@ interface TitleSuggestionsPopoverProps {
   readonly loading: boolean;
   readonly error: string | null;
   readonly suggestions: readonly TitleSuggestion[];
-  readonly jobId: string | null;
   readonly currentTitle: string;
   readonly agentBackend: AgentBackendChoice;
   readonly onAgentBackendChange: (backend: AgentBackendChoice) => void;
@@ -29,7 +27,6 @@ export function TitleSuggestionsPopover({
   loading,
   error,
   suggestions,
-  jobId,
   currentTitle,
   agentBackend,
   onAgentBackendChange,
@@ -133,9 +130,6 @@ export function TitleSuggestionsPopover({
           </li>
         ))}
       </ul>
-      {jobId && !loading && !error && (
-        <JobFeedbackBar jobId={jobId} subject="title" className="mt-2" />
-      )}
     </AnchoredPopover>
   );
 }

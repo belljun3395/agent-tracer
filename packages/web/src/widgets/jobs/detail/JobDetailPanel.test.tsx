@@ -39,10 +39,6 @@ vi.mock("~web/widgets/jobs/trajectory/JobTrajectory.js", () => ({
   JobTrajectory: () => <div>Execution steps</div>,
 }));
 
-vi.mock("~web/features/job-feedback/JobFeedbackBar.js", () => ({
-  JobFeedbackBar: () => <div>Result feedback</div>,
-}));
-
 afterEach(() => cleanup());
 
 describe("잡 상세 패널", () => {

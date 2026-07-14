@@ -12,7 +12,6 @@ const enqueueMutation = {
   isPending: false,
   mutate: vi.fn(),
 };
-const feedbackMutation = { mutate: vi.fn() };
 const updateMutation = { isPending: false, mutate: vi.fn() };
 const jobStatusState: {
   data: { readonly job: TitleSuggestionJobStatus | null } | undefined;
@@ -20,7 +19,6 @@ const jobStatusState: {
 
 vi.mock("~web/entities/job/api/mutations.js", () => ({
   useEnqueueJob: () => enqueueMutation,
-  useSubmitJobFeedbackMutation: () => feedbackMutation,
 }));
 
 vi.mock("~web/entities/task/api/edit-mutations.js", () => ({
@@ -35,7 +33,6 @@ describe("EditableTitle", () => {
   afterEach(() => {
     cleanup();
     enqueueMutation.mutate.mockClear();
-    feedbackMutation.mutate.mockClear();
     updateMutation.mutate.mockClear();
     jobStatusState.data = undefined;
   });
@@ -152,10 +149,6 @@ describe("EditableTitle", () => {
     fireEvent.click(screen.getByRole("button", { name: "Suggest title" }));
     fireEvent.click(screen.getByRole("button", { name: /\uAC1C\uC120\uB41C \uC81C\uBAA9/u }));
 
-    expect(feedbackMutation.mutate).toHaveBeenCalledWith({
-      jobId: "job-1",
-      kind: "accept",
-    });
     expect(updateMutation.mutate).toHaveBeenCalledWith(
       {
         taskId: TaskId("task-1"),

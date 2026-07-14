@@ -1,12 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import type { AiAgentBackend, JobKind } from "~web/entities/job/model/job.js";
-import {
-  cancelJob,
-  enqueueJob,
-  submitJobFeedback,
-  type SubmitJobFeedbackBody,
-} from "~web/entities/job/api/api-jobs.js";
+import { cancelJob, enqueueJob } from "~web/entities/job/api/api-jobs.js";
 import { monitorQueryKeys } from "~web/shared/api/query-keys.js";
 
 export function useEnqueueJob<TInput>(kind: JobKind) {
@@ -31,13 +26,6 @@ export function useEnqueueJob<TInput>(kind: JobKind) {
         queryKey: monitorQueryKeys.latestJobPrefix(kind),
       });
     },
-  });
-}
-
-export function useSubmitJobFeedbackMutation() {
-  return useMutation({
-    mutationFn: ({ jobId, ...body }: { readonly jobId: string } & SubmitJobFeedbackBody) =>
-      submitJobFeedback(jobId, body),
   });
 }
 

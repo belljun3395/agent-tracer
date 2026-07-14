@@ -41,33 +41,4 @@ export const EN_JOBS = {
   noTrajectory: createGuidanceMessage(
     "No trajectory was recorded for this job.",
   ),
-  feedback: {
-    result: {
-      prompt: createGuidanceMessage("How was this result?"),
-      detail: createGuidanceMessage(
-        "Your rating improves generation quality and does not change the result itself.",
-      ),
-    },
-    title: {
-      prompt: createGuidanceMessage("How was this title suggestion?"),
-      detail: createGuidanceMessage(
-        "Your rating improves title generation and does not change the title itself.",
-      ),
-    },
-    rule: {
-      prompt: createGuidanceMessage("How was this rule suggestion?"),
-      detail: createGuidanceMessage(
-        "Your rating improves rule generation and does not change the rule itself.",
-      ),
-    },
-    recipe: {
-      prompt: createGuidanceMessage("How was this recipe suggestion?"),
-      detail: createGuidanceMessage(
-        "Your rating improves recipe generation and does not change the recipe itself.",
-      ),
-    },
-    saveHint: createGuidanceMessage("Select usefulness or quality, then save."),
-    saved: createGuidanceMessage("Your rating was saved. Thank you."),
-    readyToSave: createGuidanceMessage("Select Save to record this rating."),
-  },
 } as const;

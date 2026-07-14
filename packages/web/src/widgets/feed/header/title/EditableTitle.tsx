@@ -93,7 +93,6 @@ export function EditableTitle({ task }: EditableTitleProps) {
           loading={suggestions.loading}
           error={suggestions.error}
           suggestions={suggestions.suggestions}
-          jobId={suggestions.jobId}
           currentTitle={suggestions.currentTitle}
           agentBackend={suggestions.agentBackend}
           onAgentBackendChange={suggestions.setAgentBackend}

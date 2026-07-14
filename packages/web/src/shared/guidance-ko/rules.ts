@@ -74,11 +74,6 @@ export const KO_RULES = {
       "규칙이 검증할 내용을 선택적으로 설명하세요. 비워 두면 태스크 전체를 스캔합니다.",
     ),
   },
-  feedback: {
-    prompt: createGuidanceMessage("이 규칙은 얼마나 유용했나요?"),
-    saveFailed: createGuidanceMessage("평가를 저장하지 못했습니다."),
-    saved: createGuidanceMessage("평가를 저장했습니다."),
-  },
   evidence: {
     loading: createGuidanceMessage("규칙 근거를 불러오는 중입니다…"),
     unavailable: createGuidanceMessage(

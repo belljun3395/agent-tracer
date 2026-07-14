@@ -20,7 +20,6 @@ export const OWNED_TABLES = [
     "app_settings",
     "users",
     "task_user_state",
-    "job_feedback",
     "task_cleanup_suggestions",
     "search_outbox",
     "daemon_health",

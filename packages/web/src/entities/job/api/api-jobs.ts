@@ -1,12 +1,6 @@
 import type { AiAgentBackend, JobKind, JobStatus } from "~web/entities/job/model/job.js";
 import type { TaskId } from "~web/shared/identity.js";
-import type {
-  AiJobStepList,
-  JobDto,
-  JobFeedback,
-  JobFeedbackKind,
-  JobListDto,
-} from "@monitor/kernel";
+import type { AiJobStepList, JobDto, JobListDto } from "@monitor/kernel";
 import { getJson, postJson } from "~web/shared/api/client/json-methods.js";
 import { toJobStatus } from "~web/entities/job/api/job.mapper.js";
 
@@ -23,16 +17,6 @@ export interface EnqueueJobOptions {
   readonly agentBackend?: AiAgentBackend;
 }
 
-export type SubmitJobFeedbackBody = { readonly targetId?: string } & (
-  | { readonly kind: JobFeedbackKind }
-  | { readonly kind: JobFeedbackKind; readonly editedContent: Record<string, unknown> }
-  | { readonly kind: JobFeedbackKind; readonly ratingValue: number }
-);
-
-export interface SubmitJobFeedbackResponse {
-  readonly feedback: JobFeedback;
-}
-
 // 잡을 큐에 넣는다.
 export function enqueueJob<TInput>(
   kind: JobKind,
@@ -45,16 +29,6 @@ export function enqueueJob<TInput>(
     ...(options.idempotencyKey !== undefined ? { idempotencyKey: options.idempotencyKey } : {}),
     ...(options.agentBackend !== undefined ? { agentBackend: options.agentBackend } : {}),
   });
-}
-
-export function submitJobFeedback(
-  jobId: string,
-  body: SubmitJobFeedbackBody,
-): Promise<SubmitJobFeedbackResponse> {
-  return postJson<SubmitJobFeedbackResponse>(
-    `/api/v1/jobs/${encodeURIComponent(jobId)}/feedback`,
-    body,
-  );
 }
 
 export function fetchJob(jobId: string): Promise<{ readonly job: JobDto }> {

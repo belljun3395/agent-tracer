@@ -1,4 +1,3 @@
-import { JOB_FEEDBACK_KIND } from "@monitor/kernel";
 import type { Recipe } from "~web/entities/recipe/model/recipe.js";
 import { useGuidance } from "~web/shared/store/index.js";
 import { Button, EmptyHint, GuidanceText } from "~web/shared/ui/index.js";
@@ -6,8 +5,6 @@ import {
   useAcceptRecipeMutation,
   useDismissRecipeMutation,
 } from "~web/entities/recipe/api/mutations.js";
-import { useSubmitJobFeedbackMutation } from "~web/entities/job/api/mutations.js";
-import { JobFeedbackBar } from "~web/features/job-feedback/JobFeedbackBar.js";
 import { RecipeCard } from "~web/widgets/recipes/presentation/RecipeCard.js";
 
 interface CandidatesListProps {
@@ -48,16 +45,13 @@ function CandidateCard({
 }) {
   const accept = useAcceptRecipeMutation();
   const dismiss = useDismissRecipeMutation();
-  const feedback = useSubmitJobFeedbackMutation();
   const pending = accept.isPending || dismiss.isPending;
-  const sourceJobId = candidate.sourceJobId;
 
   return (
     <RecipeCard
       recipe={candidate}
       taskTitleById={taskTitleById}
       footMetaAt={candidate.createdAt}
-      {...(sourceJobId ? { feedback: <JobFeedbackBar jobId={sourceJobId} subject="recipe" /> } : {})}
       showParentBadge
       showRationale
       actions={
@@ -65,20 +59,14 @@ function CandidateCard({
           <Button
             variant="primary"
             disabled={pending}
-            onClick={() => {
-              if (sourceJobId) feedback.mutate({ jobId: sourceJobId, kind: JOB_FEEDBACK_KIND.accept });
-              accept.mutate(candidate.id);
-            }}
+            onClick={() => accept.mutate(candidate.id)}
           >
             Accept
           </Button>
           <Button
             variant="ghost"
             disabled={pending}
-            onClick={() => {
-              if (sourceJobId) feedback.mutate({ jobId: sourceJobId, kind: JOB_FEEDBACK_KIND.reject });
-              dismiss.mutate(candidate.id);
-            }}
+            onClick={() => dismiss.mutate(candidate.id)}
           >
             Dismiss
           </Button>

@@ -76,11 +76,6 @@ export const EN_RULES = {
       "Optionally describe what the rules should verify. Leave this empty to scan the entire task.",
     ),
   },
-  feedback: {
-    prompt: createGuidanceMessage("How useful was this rule?"),
-    saveFailed: createGuidanceMessage("The rating could not be saved."),
-    saved: createGuidanceMessage("Rating saved."),
-  },
   evidence: {
     loading: createGuidanceMessage("Loading rule evidence…"),
     unavailable: createGuidanceMessage(

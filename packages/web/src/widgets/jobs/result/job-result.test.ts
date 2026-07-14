@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { JobDto } from "@monitor/kernel";
 import { JOB_KIND, JOB_STATUS } from "~web/entities/job/model/job.js";
-import { feedbackSubject, readTitleSuggestions } from "~web/widgets/jobs/result/job-result.js";
+import { readTitleSuggestions } from "~web/widgets/jobs/result/job-result.js";
 
 const JOB: JobDto = {
   id: "job-1",
@@ -22,13 +22,6 @@ const JOB: JobDto = {
 };
 
 describe("잡 결과 표시 정책", () => {
-  it("잡 종류를 피드백 대상에 대응시킨다", () => {
-    expect(feedbackSubject(JOB_KIND.titleSuggestion)).toBe("title");
-    expect(feedbackSubject(JOB_KIND.recipeScan)).toBe("recipe");
-    expect(feedbackSubject(JOB_KIND.ruleGeneration)).toBe("rule");
-    expect(feedbackSubject(JOB_KIND.taskCleanup)).toBe("result");
-  });
-
   it("완전한 제목 제안만 결과에서 읽는다", () => {
     expect(readTitleSuggestions({
       ...JOB,

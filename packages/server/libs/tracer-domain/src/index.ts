@@ -49,8 +49,6 @@ export * from "./cleanup/task.cleanup.suggestion.repository.js";
 // job
 export * from "./job/ai.job.entity.js";
 export * from "./job/ai.job.repository.js";
-export * from "./job/feedback/job.feedback.entity.js";
-export * from "./job/feedback/job.feedback.repository.js";
 export * from "./job/ai.job.step.entity.js";
 export * from "./job/ai.job.step.repository.js";
 

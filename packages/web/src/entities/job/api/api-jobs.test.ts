@@ -3,13 +3,11 @@ import { AI_AGENT_BACKEND, JOB_KIND } from "~web/entities/job/model/job.js";
 import { TaskId } from "~web/shared/identity.js";
 import type { GenerateRulesJobStatus } from "~web/entities/job/model/rule-generation.js";
 import { getJson, postJson } from "~web/shared/api/client/json-methods.js";
-import { JOB_FEEDBACK_KIND } from "@monitor/kernel";
 import {
   enqueueJob,
   fetchJob,
   fetchJobSteps,
   fetchLatestJob,
-  submitJobFeedback,
 } from "~web/entities/job/api/api-jobs.js";
 
 vi.mock("~web/shared/api/client/json-methods.js", () => ({
@@ -60,29 +58,6 @@ describe("enqueueJob", () => {
       input: { taskId: "task-1" },
       agentBackend: AI_AGENT_BACKEND.claudeSdk,
     });
-  });
-});
-
-describe("submitJobFeedback", () => {
-  test("잡 피드백을 잡별 엔드포인트로 전송한다", async () => {
-    mockPostJson.mockResolvedValue({
-      feedback: {
-        jobId: "job-1",
-        kind: JOB_FEEDBACK_KIND.rating,
-        ratingValue: 4,
-        ts: "2026-07-07T00:00:00.000Z",
-      },
-    });
-
-    await submitJobFeedback("job-1", {
-      kind: JOB_FEEDBACK_KIND.rating,
-      ratingValue: 4,
-    });
-
-    expect(mockPostJson).toHaveBeenCalledWith(
-      "/api/v1/jobs/job-1/feedback",
-      { kind: JOB_FEEDBACK_KIND.rating, ratingValue: 4 },
-    );
   });
 });
 

@@ -15,9 +15,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "~web/shared/ui/index.js";
-import { JobFeedbackBar } from "~web/features/job-feedback/JobFeedbackBar.js";
 import { JobResultActions } from "~web/widgets/jobs/result/JobResultActions.js";
-import { feedbackSubject } from "~web/widgets/jobs/result/job-result.js";
 import { JobTrajectory } from "~web/widgets/jobs/trajectory/JobTrajectory.js";
 import {
   JOB_KIND_LABEL,
@@ -89,10 +87,6 @@ export function JobDetailPanel({ jobId, now }: JobDetailPanelProps) {
             ) : null}
 
             <JobResultActions job={job} />
-
-            {job.status === JOB_STATUS.completed ? (
-              <JobFeedbackBar jobId={job.id} subject={feedbackSubject(job.kind)} />
-            ) : null}
           </div>
         </ScrollArea>
       </TabsContent>

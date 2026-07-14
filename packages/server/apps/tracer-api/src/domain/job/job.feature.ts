@@ -3,7 +3,6 @@ import {
     AiJobStepRepository,
     AppSettingRepository,
     EventRepository,
-    JobFeedbackRepository,
     RuleRepository,
     TransactionRunner,
     TurnRepository,
@@ -15,7 +14,6 @@ import { FailJobUseCase } from "~tracer-api/domain/job/application/command/fail.
 import { ReleaseJobUseCase } from "~tracer-api/domain/job/application/command/release.job.usecase.js";
 import { RenewJobLeaseUseCase } from "~tracer-api/domain/job/application/command/renew.job.lease.usecase.js";
 import { StartJobUseCase } from "~tracer-api/domain/job/application/command/start.job.usecase.js";
-import { SubmitJobFeedbackUseCase } from "~tracer-api/domain/job/application/command/submit.job.feedback.usecase.js";
 import { SubmitJobResultsUseCase } from "~tracer-api/domain/job/application/command/submit.job.results.usecase.js";
 import { GetJobStepsUseCase } from "~tracer-api/domain/job/application/query/get.job.steps.usecase.js";
 import { GetJobUseCase } from "~tracer-api/domain/job/application/query/get.job.usecase.js";
@@ -31,7 +29,6 @@ import { JobExecutionController } from "~tracer-api/domain/job/inbound/job.execu
 import { JobQueryController } from "~tracer-api/domain/job/inbound/job.query.controller.js";
 import { AI_JOB_REPOSITORY } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
 import { AI_JOB_STEP_REPOSITORY } from "~tracer-api/domain/job/port/ai.job.step.repository.port.js";
-import { JOB_FEEDBACK_REPOSITORY } from "~tracer-api/domain/job/port/job.feedback.repository.port.js";
 import { JOB_STATUS_NOTIFIER } from "~tracer-api/domain/job/port/job.status.notifier.port.js";
 import { RULE_EVENT_READER } from "~tracer-api/domain/job/port/rule-verification/event.reader.port.js";
 import { RULE_REPOSITORY } from "~tracer-api/domain/job/port/rule-verification/rule.repository.port.js";
@@ -51,7 +48,6 @@ export const jobFeature = {
         ReleaseJobUseCase,
         RenewJobLeaseUseCase,
         StartJobUseCase,
-        SubmitJobFeedbackUseCase,
         SubmitJobResultsUseCase,
         GetJobStepsUseCase,
         GetJobUseCase,
@@ -64,7 +60,6 @@ export const jobFeature = {
         WsJobStatusNotifier,
         { provide: AI_JOB_REPOSITORY, useExisting: AiJobRepository },
         { provide: AI_JOB_STEP_REPOSITORY, useExisting: AiJobStepRepository },
-        { provide: JOB_FEEDBACK_REPOSITORY, useExisting: JobFeedbackRepository },
         { provide: SETTING_READER, useExisting: AppSettingRepository },
         { provide: JOB_TRANSACTION, useExisting: TransactionRunner },
         { provide: JOB_STATUS_NOTIFIER, useExisting: WsJobStatusNotifier },
