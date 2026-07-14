@@ -902,10 +902,10 @@ function toSemconvAttributes(metadata) {
 }
 
 // src/domain/ingest/model/ingest.event.model.ts
-function toIngestEvent(event, occurredAt) {
+function toIngestEvent(event, occurredAt, nextId) {
   const { id, kind, taskId, sessionId, parentId, turnId, metadata, ...rest } = event;
   return {
-    id: id ?? generateUlid(),
+    id: id ?? nextId(),
     kind,
     taskId,
     ...sessionId ? { sessionId } : {},
@@ -915,9 +915,9 @@ function toIngestEvent(event, occurredAt) {
     payload: { ...rest, metadata: toSemconvAttributes(metadata) }
   };
 }
-function toRunIngestEvent(input, occurredAt) {
+function toRunIngestEvent(input, occurredAt, nextId) {
   return {
-    id: generateUlid(),
+    id: nextId(),
     kind: input.kind,
     taskId: input.taskId,
     ...input.sessionId ? { sessionId: input.sessionId } : {},
@@ -994,30 +994,34 @@ function runtimeAttributes(runtimeSource) {
     [SEMCONV_ATTR.providerName]: GEN_AI_PROVIDER.anthropic
   };
 }
-function toIngestEvents(events, runtimeSource, occurredAt = (/* @__PURE__ */ new Date()).toISOString()) {
+function toIngestEvents(events, runtimeSource, nextId, occurredAt = (/* @__PURE__ */ new Date()).toISOString()) {
   const attributes = runtimeAttributes(runtimeSource);
   return events.map((event) => toIngestEvent(
     { ...event, metadata: { ...withTags(event.metadata), ...attributes } },
-    occurredAt
+    occurredAt,
+    nextId
   ));
 }
 
 // src/domain/ingest/application/append.events.usecase.ts
 var AppendEventsUsecase = class {
-  constructor(sink2, runtimeSource) {
+  constructor(sink2, ids2, runtimeSource) {
     this.sink = sink2;
+    this.ids = ids2;
     this.runtimeSource = runtimeSource;
   }
   sink;
+  ids;
   runtimeSource;
   async execute(events) {
     if (events.length === 0) return;
     const occurredAt = (/* @__PURE__ */ new Date()).toISOString();
+    const nextId = () => this.ids.next();
     const runtime = events.filter(isRuntimeEvent);
     const raw = events.filter((event) => !isRuntimeEvent(event));
     await this.sink.append([
-      ...toIngestEvents(runtime, this.runtimeSource, occurredAt),
-      ...raw.map((event) => toRunIngestEvent(event, occurredAt))
+      ...toIngestEvents(runtime, this.runtimeSource, nextId, occurredAt),
+      ...raw.map((event) => toRunIngestEvent(event, occurredAt, nextId))
     ]);
   }
 };
@@ -1258,20 +1262,23 @@ function toRuntimeEvent(shaped, target) {
 
 // src/domain/ingest/application/record.todo.usecase.ts
 var RecordTodoUsecase = class {
-  constructor(sink2, snapshots, runtimeSource) {
+  constructor(sink2, snapshots, ids2, runtimeSource) {
     this.sink = sink2;
     this.snapshots = snapshots;
+    this.ids = ids2;
     this.runtimeSource = runtimeSource;
   }
   sink;
   snapshots;
+  ids;
   runtimeSource;
   async execute(call, target, runtimeSessionId) {
     const { events, snapshot } = shapeTodoEvents(call, this.snapshots.load(runtimeSessionId));
     if (events.length > 0) {
       await this.sink.append(toIngestEvents(
         events.map((shaped) => toRuntimeEvent(shaped, target)),
-        this.runtimeSource
+        this.runtimeSource,
+        () => this.ids.next()
       ));
     }
     if (snapshot !== null) this.snapshots.save(runtimeSessionId, snapshot);
@@ -2083,18 +2090,24 @@ function classify(failure, context, command) {
 
 // src/domain/ingest/application/record.tool.failure.usecase.ts
 var RecordToolFailureUsecase = class {
-  constructor(sink2, runtimeSource, context) {
+  constructor(sink2, ids2, runtimeSource, context) {
     this.sink = sink2;
+    this.ids = ids2;
     this.runtimeSource = runtimeSource;
     this.context = context;
   }
   sink;
+  ids;
   runtimeSource;
   context;
   async execute(failure, target) {
     const shaped = shapeToolFailure(failure, this.context);
     if (shaped === null) return;
-    await this.sink.append(toIngestEvents([toRuntimeEvent(shaped, target)], this.runtimeSource));
+    await this.sink.append(toIngestEvents(
+      [toRuntimeEvent(shaped, target)],
+      this.runtimeSource,
+      () => this.ids.next()
+    ));
   }
 };
 
@@ -2707,18 +2720,24 @@ function shapeToolEvent(call, context) {
 
 // src/domain/ingest/application/record.tool.use.usecase.ts
 var RecordToolUseUsecase = class {
-  constructor(sink2, runtimeSource, context) {
+  constructor(sink2, ids2, runtimeSource, context) {
     this.sink = sink2;
+    this.ids = ids2;
     this.runtimeSource = runtimeSource;
     this.context = context;
   }
   sink;
+  ids;
   runtimeSource;
   context;
   async execute(call, target) {
     const shaped = shapeToolEvent(call, this.context);
     if (shaped === null) return null;
-    await this.sink.append(toIngestEvents([toRuntimeEvent(shaped, target)], this.runtimeSource));
+    await this.sink.append(toIngestEvents(
+      [toRuntimeEvent(shaped, target)],
+      this.runtimeSource,
+      () => this.ids.next()
+    ));
     return shaped;
   }
 };
@@ -3069,23 +3088,31 @@ function sessionEndedEvent(input) {
 
 // src/domain/session/application/end.session.usecase.ts
 var EndSessionUsecase = class {
-  constructor(sink2) {
+  constructor(sink2, ids2) {
     this.sink = sink2;
+    this.ids = ids2;
   }
   sink;
+  ids;
   async execute(input) {
-    await this.sink.append([toRunIngestEvent(sessionEndedEvent(input), (/* @__PURE__ */ new Date()).toISOString())]);
+    await this.sink.append([toRunIngestEvent(
+      sessionEndedEvent(input),
+      (/* @__PURE__ */ new Date()).toISOString(),
+      () => this.ids.next()
+    )]);
   }
 };
 
 // src/domain/session/application/ensure.session.usecase.ts
 var EnsureSessionUsecase = class {
-  constructor(bindings2, sink2) {
+  constructor(bindings2, sink2, ids2) {
     this.bindings = bindings2;
     this.sink = sink2;
+    this.ids = ids2;
   }
   bindings;
   sink;
+  ids;
   async execute(input) {
     const key = bindingKey(input.runtimeSource, input.runtimeSessionId);
     const titled = input.titled ?? true;
@@ -3102,8 +3129,8 @@ var EnsureSessionUsecase = class {
       existing = store[key];
       if (!existing) {
         created = {
-          taskId: input.taskId?.trim() || generateUlid(),
-          sessionId: generateUlid(),
+          taskId: input.taskId?.trim() || this.ids.next(),
+          sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
           createdAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -3129,7 +3156,11 @@ var EnsureSessionUsecase = class {
     return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: true };
   }
   async append(event) {
-    await this.sink.append([toRunIngestEvent(event, (/* @__PURE__ */ new Date()).toISOString())]);
+    await this.sink.append([toRunIngestEvent(
+      event,
+      (/* @__PURE__ */ new Date()).toISOString(),
+      () => this.ids.next()
+    )]);
   }
 };
 function restored(binding2) {
@@ -3181,13 +3212,15 @@ function buildTurnSpan(turn2, input) {
 
 // src/domain/turn/application/close.turn.usecase.ts
 var CloseTurnUsecase = class {
-  constructor(bindings2, sink2, runtimeSource) {
+  constructor(bindings2, sink2, ids2, runtimeSource) {
     this.bindings = bindings2;
     this.sink = sink2;
+    this.ids = ids2;
     this.runtimeSource = runtimeSource;
   }
   bindings;
   sink;
+  ids;
   runtimeSource;
   async execute(input) {
     const binding2 = this.bindings.read()[bindingKey(input.runtimeSource, input.runtimeSessionId)];
@@ -3195,7 +3228,11 @@ var CloseTurnUsecase = class {
       ...input,
       ...binding2 ? { sessionStartedAt: binding2.createdAt } : {}
     });
-    await this.sink.append(toIngestEvents([span.event], this.runtimeSource));
+    await this.sink.append(toIngestEvents(
+      [span.event],
+      this.runtimeSource,
+      () => this.ids.next()
+    ));
     return span.turnId;
   }
 };
@@ -3238,19 +3275,20 @@ var todoSnapshots = new FileTodoSnapshotAdapter(projectDir);
 var recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 var recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 var shapeContext = { projectDir };
+var ids = { next: generateUlid };
 var ingest = {
-  appendEvents: new AppendEventsUsecase(sink, CLAUDE_RUNTIME_SOURCE),
-  recordToolUse: new RecordToolUseUsecase(sink, CLAUDE_RUNTIME_SOURCE, shapeContext),
-  recordToolFailure: new RecordToolFailureUsecase(sink, CLAUDE_RUNTIME_SOURCE, shapeContext),
-  recordTodo: new RecordTodoUsecase(sink, todoSnapshots, CLAUDE_RUNTIME_SOURCE)
+  appendEvents: new AppendEventsUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE),
+  recordToolUse: new RecordToolUseUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
+  recordToolFailure: new RecordToolFailureUsecase(sink, ids, CLAUDE_RUNTIME_SOURCE, shapeContext),
+  recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, CLAUDE_RUNTIME_SOURCE)
 };
 var session = {
-  ensureSession: new EnsureSessionUsecase(bindings, sink),
-  endSession: new EndSessionUsecase(sink)
+  ensureSession: new EnsureSessionUsecase(bindings, sink, ids),
+  endSession: new EndSessionUsecase(sink, ids)
 };
 var turn = {
   openTurn: new OpenTurnUsecase(bindings),
-  closeTurn: new CloseTurnUsecase(bindings, sink, CLAUDE_RUNTIME_SOURCE)
+  closeTurn: new CloseTurnUsecase(bindings, sink, ids, CLAUDE_RUNTIME_SOURCE)
 };
 var binding = {
   readBinding: new ReadBindingUsecase(bindings),
