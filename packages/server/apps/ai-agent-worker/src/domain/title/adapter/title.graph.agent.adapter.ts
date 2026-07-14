@@ -2,7 +2,7 @@ import { AGENT, JOB_KIND } from "@monitor/kernel";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import type { AgentRunnerPort } from "~ai-agent-worker/config/llm/llm.runner.js";
 import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
-import type { ToolCallbackGranter } from "~ai-agent-worker/config/llm/tool.callback.server.js";
+import type { ToolCallbackGranter } from "~ai-agent-worker/config/llm/agent.callback.server.js";
 import { TITLE_SUGGESTION_SPEC } from "~ai-agent-worker/domain/title/model/title.spec.js";
 import type {
     GenerateTitleSuggestionsInput,
@@ -40,7 +40,7 @@ export class TitleGraphAgentAdapter implements TitleAgentPort {
         if (input.apiKey === undefined) throw new Error("title graph backend requires apiKey");
         const { limits } = TITLE_SUGGESTION_SPEC;
         const model = input.model?.trim() || limits.defaultModel;
-        const grant = this.callbacks.grant(buildTitleToolHandlers(input.userId, this.deps));
+        const grant = this.callbacks.grantTools(buildTitleToolHandlers(input.userId, this.deps));
 
         try {
             const result = await this.client.runStructured(

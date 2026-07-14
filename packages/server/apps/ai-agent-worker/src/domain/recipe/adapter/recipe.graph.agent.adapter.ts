@@ -2,7 +2,7 @@ import { AGENT, JOB_KIND } from "@monitor/kernel";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
 import type { AgentRunnerPort } from "~ai-agent-worker/config/llm/llm.runner.js";
-import type { ToolCallbackGranter } from "~ai-agent-worker/config/llm/tool.callback.server.js";
+import type { ToolCallbackGranter } from "~ai-agent-worker/config/llm/agent.callback.server.js";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";
 import { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
 import type {
@@ -42,7 +42,7 @@ export class RecipeGraphAgentAdapter implements RecipeAgentPort {
         const { limits } = RECIPE_SCAN_SPEC;
         const model = input.model?.trim() || limits.defaultModel;
         const ledger = new ProvenanceLedger();
-        const grant = this.callbacks.grant(buildRecipeToolHandlers(input.userId, this.deps, ledger));
+        const grant = this.callbacks.grantTools(buildRecipeToolHandlers(input.userId, this.deps, ledger));
 
         try {
             const result = await this.client.runStructured(

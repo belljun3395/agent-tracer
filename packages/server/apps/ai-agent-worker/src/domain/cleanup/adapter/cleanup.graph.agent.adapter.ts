@@ -2,7 +2,7 @@ import { AGENT, JOB_KIND } from "@monitor/kernel";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import type { AgentRunnerPort } from "~ai-agent-worker/config/llm/llm.runner.js";
 import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
-import type { ToolCallbackGranter } from "~ai-agent-worker/config/llm/tool.callback.server.js";
+import type { ToolCallbackGranter } from "~ai-agent-worker/config/llm/agent.callback.server.js";
 import { TASK_CLEANUP_SPEC } from "~ai-agent-worker/domain/cleanup/model/cleanup.spec.js";
 import type {
     CleanupAgentPort,
@@ -40,7 +40,7 @@ export class CleanupGraphAgentAdapter implements CleanupAgentPort {
         if (input.apiKey === undefined) throw new Error("cleanup graph backend requires apiKey");
         const { limits } = TASK_CLEANUP_SPEC;
         const model = input.model?.trim() || limits.defaultModel;
-        const grant = this.callbacks.grant(
+        const grant = this.callbacks.grantTools(
             buildCleanupToolHandlers(input.userId, this.deps, {
                 candidates: input.candidates,
                 batchTruncated: input.truncated,

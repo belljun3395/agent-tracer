@@ -28,6 +28,7 @@ _TOOLS: dict[str, object] = {
         },
     ],
     "toolCallback": {"url": "http://worker:8810/tools/invoke", "token": "tok-1"},
+    "completionCallback": {"url": "http://worker:8810/runs/complete", "token": "done-1"},
 }
 
 def _recipe() -> dict[str, object]:
@@ -69,6 +70,7 @@ class TestRecipeScanGraph:
             taskId="t1",
             language="ko",
             toolCallback=_TOOLS["toolCallback"],  # type: ignore[arg-type]
+            completionCallback=_TOOLS["completionCallback"],  # type: ignore[arg-type]
         )
 
     async def test_명시적_그래프가_근거를_모아_후보를_검증한다(

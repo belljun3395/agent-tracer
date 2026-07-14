@@ -7,16 +7,22 @@ import {
 import { estimateCostUsd } from "~ai-agent-worker/support/llm/pricing.js";
 import type { AgentRunnerPort, OutputSchema, StructuredAgentResult } from "./llm.runner.js";
 import type { AgentGraphResponse } from "./graph.protocol.js";
+import type { CompletionCallbackGranter } from "./agent.callback.server.js";
 
 const OUTER_TIMEOUT_BUFFER_MS = 30_000;
+const START_TIMEOUT_MS = 30_000;
+const CANCEL_TIMEOUT_MS = 5_000;
 
 const ROUTE_BY_AGENT_ID: Readonly<Record<string, string>> = Object.fromEntries(
     Object.values(AGENT).map((agent) => [agent.id, agent.route]),
 );
 
-/** LangGraph 실행 백엔드를 HTTP로 부르는 에이전트 실행기다. */
+/** 시작 요청은 접수만 받고 끊기고 결과는 완료 창구로 돌아오므로, 실행이 HTTP 연결 수명에 매이지 않는다. */
 export class AgentGraphClient implements AgentRunnerPort {
-    constructor(private readonly baseUrl: string) {}
+    constructor(
+        private readonly baseUrl: string,
+        private readonly callbacks: CompletionCallbackGranter,
+    ) {}
 
     requiresLocalApiKey(): boolean {
         return true;
@@ -28,20 +34,44 @@ export class AgentGraphClient implements AgentRunnerPort {
         schema: OutputSchema<T>,
         opts: { deadlineMs: number; abortSignal?: AbortSignal },
     ): Promise<StructuredAgentResult<T>> {
-        const path = ROUTE_BY_AGENT_ID[agentId];
-        if (path === undefined) throw new Error(`unknown agent route: ${agentId}`);
-
-        const controller = new AbortController();
         const runId = cancellationRunId(input);
+        let settle: (outcome: Settlement) => void = () => undefined;
+        const settled = new Promise<Settlement>((resolve) => {
+            settle = resolve;
+        });
+
+        const grant = this.callbacks.grantCompletion((response) => {
+            settle({ response: response as unknown as AgentGraphResponse });
+        });
         const timer = setTimeout(
-            () => controller.abort(new Error("agent-graph request timeout")),
+            () => settle({ failure: "agent-graph completion timeout" }),
             opts.deadlineMs + OUTER_TIMEOUT_BUFFER_MS,
         );
-        const onParentAbort = (): void => controller.abort();
-        if (opts.abortSignal) {
-            if (opts.abortSignal.aborted) controller.abort();
-            else opts.abortSignal.addEventListener("abort", onParentAbort, { once: true });
+        const onAbort = (): void => settle({ failure: "agent-graph run cancelled" });
+        if (opts.abortSignal?.aborted === true) onAbort();
+        else opts.abortSignal?.addEventListener("abort", onAbort, { once: true });
+
+        try {
+            await this.start(agentId, { ...input, completionCallback: { url: grant.url, token: grant.token } });
+            const outcome = await settled;
+            if (outcome.response === undefined) {
+                throw new AgentExecutionFailure(agentId, "AGENT_FAILED", outcome.failure ?? "agent-graph run lost");
+            }
+            return parseStructured(agentId, outcome.response, schema);
+        } catch (error) {
+            // 기다림을 멈춘 뒤에도 백엔드는 계속 돌고 있으므로 고아가 된 실행을 끊는다.
+            if (runId !== null) await this.cancelRun(runId);
+            throw error;
+        } finally {
+            clearTimeout(timer);
+            grant.revoke();
+            opts.abortSignal?.removeEventListener("abort", onAbort);
         }
+    }
+
+    private async start(agentId: string, input: Record<string, unknown>): Promise<void> {
+        const path = ROUTE_BY_AGENT_ID[agentId];
+        if (path === undefined) throw new Error(`unknown agent route: ${agentId}`);
 
         const headers: Record<string, string> = { "content-type": "application/json" };
         propagation.inject(context.active(), headers);
@@ -52,18 +82,14 @@ export class AgentGraphClient implements AgentRunnerPort {
                 method: "POST",
                 headers,
                 body: JSON.stringify(input),
-                signal: controller.signal,
+                signal: AbortSignal.timeout(START_TIMEOUT_MS),
             });
         } catch (error) {
-            if (controller.signal.aborted && runId !== null) await this.cancelRun(runId);
             throw new AgentExecutionFailure(
                 agentId,
                 "AGENT_FAILED",
-                `agent-graph request failed: ${messageOf(error)}`,
+                `agent-graph start failed: ${messageOf(error)}`,
             );
-        } finally {
-            clearTimeout(timer);
-            if (opts.abortSignal) opts.abortSignal.removeEventListener("abort", onParentAbort);
         }
 
         if (!response.ok) {
@@ -74,63 +100,73 @@ export class AgentGraphClient implements AgentRunnerPort {
             throw new AgentExecutionFailure(
                 agentId,
                 "AGENT_FAILED",
-                `agent-graph HTTP ${response.status}: ${text.slice(0, 500)}`,
+                `agent-graph start HTTP ${response.status}: ${text.slice(0, 500)}`,
                 { errorSubtype: subtype },
             );
         }
-
-        const payload = (await response.json()) as AgentGraphResponse;
-        const actualModel = payload.actualModel ?? payload.modelUsed;
-        const detail = {
-            usage: payload.usage,
-            steps: payload.steps,
-            actualModel,
-            providerRequestId: payload.providerRequestId,
-            durationMs: payload.durationMs,
-        };
-
-        if (payload.error !== null) {
-            throw new AgentExecutionFailure(agentId, "AGENT_FAILED", `agent-graph error: ${payload.error.summary}`, {
-                ...detail,
-                errorSubtype: payload.error.subtype,
-            });
-        }
-        if (payload.data === null) {
-            throw new AgentExecutionFailure(agentId, "OUTPUT_NOT_JSON", "agent-graph returned no data", detail);
-        }
-
-        const parsed = schema.safeParse(payload.data);
-        if (!parsed.success) {
-            throw new AgentExecutionFailure(
-                agentId,
-                "OUTPUT_SCHEMA_INVALID",
-                `agent output failed schema validation: ${parsed.error.message}`,
-                detail,
-            );
-        }
-
-        return {
-            data: parsed.data,
-            modelUsed: actualModel,
-            durationMs: payload.durationMs,
-            costUsd: estimateCostUsd(actualModel, payload.usage),
-            numTurns: payload.numTurns,
-            usage: payload.usage,
-            steps: payload.steps,
-            providerRequestId: payload.providerRequestId,
-        };
     }
 
     private async cancelRun(runId: string): Promise<void> {
         try {
             await fetch(new URL(`/agents/runs/${encodeURIComponent(runId)}/cancel`, this.baseUrl), {
                 method: "POST",
-                signal: AbortSignal.timeout(5_000),
+                signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
             });
         } catch {
             return;
         }
     }
+}
+
+interface Settlement {
+    readonly response?: AgentGraphResponse;
+    readonly failure?: string;
+}
+
+function parseStructured<T>(
+    agentId: string,
+    payload: AgentGraphResponse,
+    schema: OutputSchema<T>,
+): StructuredAgentResult<T> {
+    const actualModel = payload.actualModel ?? payload.modelUsed;
+    const detail = {
+        usage: payload.usage,
+        steps: payload.steps,
+        actualModel,
+        providerRequestId: payload.providerRequestId,
+        durationMs: payload.durationMs,
+    };
+
+    if (payload.error !== null) {
+        throw new AgentExecutionFailure(agentId, "AGENT_FAILED", `agent-graph error: ${payload.error.summary}`, {
+            ...detail,
+            errorSubtype: payload.error.subtype,
+        });
+    }
+    if (payload.data === null) {
+        throw new AgentExecutionFailure(agentId, "OUTPUT_NOT_JSON", "agent-graph returned no data", detail);
+    }
+
+    const parsed = schema.safeParse(payload.data);
+    if (!parsed.success) {
+        throw new AgentExecutionFailure(
+            agentId,
+            "OUTPUT_SCHEMA_INVALID",
+            `agent output failed schema validation: ${parsed.error.message}`,
+            detail,
+        );
+    }
+
+    return {
+        data: parsed.data,
+        modelUsed: actualModel,
+        durationMs: payload.durationMs,
+        costUsd: estimateCostUsd(actualModel, payload.usage),
+        numTurns: payload.numTurns,
+        usage: payload.usage,
+        steps: payload.steps,
+        providerRequestId: payload.providerRequestId,
+    };
 }
 
 function cancellationRunId(body: Record<string, unknown>): string | null {

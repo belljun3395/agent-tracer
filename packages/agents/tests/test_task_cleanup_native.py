@@ -64,6 +64,7 @@ def request() -> TaskCleanupRequest:
         language="ko",
         maxSuggestions=20,
         toolCallback={"url": "http://worker:8810/tools/invoke", "token": "tok-1"},
+        completionCallback={"url": "http://worker:8810/runs/complete", "token": "done-1"},
     )
 
 
@@ -122,6 +123,7 @@ def test_요청은_실행_봉투_밖의_정의를_거부한다() -> None:
             systemPrompt="worker-owned",
             tools=[],
             toolCallback={"url": "http://worker/tools", "token": "tok"},
+            completionCallback={"url": "http://worker/runs/complete", "token": "done"},
         )
 
 

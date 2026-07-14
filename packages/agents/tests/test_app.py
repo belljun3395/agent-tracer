@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -25,6 +28,7 @@ _TOOLS: dict[str, object] = {
         },
     ],
     "toolCallback": {"url": "http://worker:8810/tools/invoke", "token": "tok-1"},
+    "completionCallback": {"url": "http://worker:8810/runs/complete", "token": "done-1"},
 }
 
 _TITLE_CONTEXT: dict[str, object] = {
@@ -43,6 +47,24 @@ _TITLE_CONTEXT: dict[str, object] = {
 }
 
 
+class CapturingCompletionClient:
+    """워커의 완료 창구를 대신해 전달된 결과를 붙잡아 둔다."""
+
+    def __init__(self) -> None:
+        self.deliveries: list[dict[str, Any]] = []
+
+    async def post(self, url: str, json: dict[str, Any]) -> httpx.Response:
+        self.deliveries.append({"url": url, **json})
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    async def aclose(self) -> None:
+        return None
+
+    def response(self) -> dict[str, Any]:
+        assert len(self.deliveries) == 1
+        return self.deliveries[0]["response"]
+
+
 def _title_body(*, api_key: bool = True) -> dict[str, object]:
     body: dict[str, object] = {
         "model": "claude-haiku-4-5",
@@ -50,6 +72,7 @@ def _title_body(*, api_key: bool = True) -> dict[str, object]:
         "language": "ko",
         "context": _TITLE_CONTEXT,
         "toolCallback": _TOOLS["toolCallback"],
+        "completionCallback": _TOOLS["completionCallback"],
     }
     if api_key:
         body["apiKey"] = "sk-test"
@@ -61,13 +84,40 @@ def client() -> TestClient:
     return TestClient(app_module.app)
 
 
+@pytest.fixture
+def completions() -> CapturingCompletionClient:
+    return CapturingCompletionClient()
+
+
+def _post(
+    client: TestClient,
+    completions: CapturingCompletionClient,
+    path: str,
+    body: dict[str, object],
+    *,
+    tools: object | None = None,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
+    with client:
+        original_tools = app_module.app.state.tool_client
+        app_module.app.state.completion_client = completions
+        if tools is not None:
+            app_module.app.state.tool_client = tools
+        try:
+            return client.post(path, json=body, headers=headers or {})
+        finally:
+            app_module.app.state.tool_client = original_tools
+
+
 def test_health_ok(client: TestClient) -> None:
     res = client.get("/health")
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
 
 
-def test_title_suggestion_엔드포인트(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_실행을_접수하고_결과는_완료_창구로_돌려준다(
+    client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         title_mod,
         "make_chat",
@@ -84,18 +134,19 @@ def test_title_suggestion_엔드포인트(client: TestClient, monkeypatch: pytes
         ),
     )
 
-    with client:
-        res = client.post("/agents/title-suggestion", json=_title_body())
+    res = _post(client, completions, "/agents/title-suggestion", _title_body())
 
-    assert res.status_code == 200
-    payload = res.json()
+    assert res.status_code == 202
+    assert res.json()["status"] == "accepted"
+    assert completions.deliveries[0]["token"] == "done-1"
+    payload = completions.response()
     assert payload["error"] is None
     assert payload["data"]["suggestions"][0]["title"] == "인증 토큰 누수 수정"
     assert payload["modelUsed"] == "claude-haiku-4-5"
 
 
 def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         recipe_mod,
@@ -115,23 +166,20 @@ def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
         "taskId": "t1",
         "language": "ko",
         "toolCallback": _TOOLS["toolCallback"],
+        "completionCallback": _TOOLS["completionCallback"],
     }
-    with client:
-        original = app_module.app.state.tool_client
-        try:
-            app_module.app.state.tool_client = FakeToolClient(
-                {
-                    "get_task_summary": {"id": "t1", "title": "x"},
-                    "list_rules": [],
-                    "get_task_events": {"events": [], "truncated": False, "total": 0},
-                }
-            )
-            res = client.post("/agents/recipe-scan", json=body)
-        finally:
-            app_module.app.state.tool_client = original
+    tools = FakeToolClient(
+        {
+            "get_task_summary": {"id": "t1", "title": "x"},
+            "list_rules": [],
+            "get_task_events": {"events": [], "truncated": False, "total": 0},
+        }
+    )
 
-    assert res.status_code == 200
-    payload = res.json()
+    res = _post(client, completions, "/agents/recipe-scan", body, tools=tools)
+
+    assert res.status_code == 202
+    payload = completions.response()
     assert payload["error"] is None
     assert payload["data"] == {"recipes": []}
 
@@ -149,6 +197,13 @@ def test_apiKey가_없으면_422(client: TestClient) -> None:
     assert res.status_code == 422
 
 
+def test_완료_창구가_없으면_422(client: TestClient) -> None:
+    body = {key: value for key, value in _title_body().items() if key != "completionCallback"}
+    with client:
+        res = client.post("/agents/title-suggestion", json=body)
+    assert res.status_code == 422
+
+
 def test_등록되지_않은_runId_취소는_cancelled_false(client: TestClient) -> None:
     with client:
         res = client.post("/agents/runs/no-such-run/cancel")
@@ -157,26 +212,25 @@ def test_등록되지_않은_runId_취소는_cancelled_false(client: TestClient)
 
 
 def test_worker가_보낸_traceparent를_이어받아_같은_trace로_invoke_agent_스팬을_만든다(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         title_mod,
         "make_chat",
-        lambda *a, **k: FakeStructuredChat(
-            [{"action": "keep", "reason": "현재 제목을 유지한다."}]
-        ),
+        lambda *a, **k: FakeStructuredChat([{"action": "keep", "reason": "현재 제목을 유지한다."}]),
     )
     SHARED_SPAN_EXPORTER.clear()
 
     trace_id_hex = "4bf92f3577b34da6a3ce929d0e0e4736"
-    with client:
-        res = client.post(
-            "/agents/title-suggestion",
-            json={**_title_body(), "context": {**_TITLE_CONTEXT, "title": "인증 토큰 누수 수정"}},
-            headers={"traceparent": f"00-{trace_id_hex}-00f067aa0ba902b7-01"},
-        )
+    res = _post(
+        client,
+        completions,
+        "/agents/title-suggestion",
+        {**_title_body(), "context": {**_TITLE_CONTEXT, "title": "인증 토큰 누수 수정"}},
+        headers={"traceparent": f"00-{trace_id_hex}-00f067aa0ba902b7-01"},
+    )
 
-    assert res.status_code == 200
+    assert res.status_code == 202
     invoke_spans = [s for s in SHARED_SPAN_EXPORTER.get_finished_spans() if s.name.startswith("invoke_agent")]
     assert invoke_spans
     assert format(invoke_spans[-1].context.trace_id, "032x") == trace_id_hex

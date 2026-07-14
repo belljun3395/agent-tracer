@@ -30,7 +30,7 @@ import { TRACER_ENTITIES } from "@monitor/tracer-domain/persistence/tracer.entit
 import { resolveDefaultAgentBackend } from "~ai-agent-worker/config/agent.backend.js";
 import { ClaudeQueryRunner } from "~ai-agent-worker/config/llm/claude.query.runner.js";
 import { AgentGraphClient } from "~ai-agent-worker/config/llm/graph.client.js";
-import { ToolCallbackServer } from "~ai-agent-worker/config/llm/tool.callback.server.js";
+import { AgentCallbackServer } from "~ai-agent-worker/config/llm/agent.callback.server.js";
 import { errorMessage, logError, logInfo } from "~ai-agent-worker/config/log.js";
 import { createNotificationPublisher } from "~ai-agent-worker/config/notification.js";
 import { createTemporalWorkers } from "~ai-agent-worker/config/temporal.worker.js";
@@ -92,13 +92,13 @@ async function bootstrap(): Promise<void> {
     const search = createOpenSearchClient();
 
     const defaultBackend = resolveDefaultAgentBackend();
-    const graphClient = new AgentGraphClient(config.agentGraph.url);
-    const toolCallbacks = new ToolCallbackServer(
+    const callbacks = new AgentCallbackServer(
         config.agentGraph.toolCallbackPort,
         config.agentGraph.toolCallbackUrl,
         config.agentGraph.instanceId,
     );
-    await toolCallbacks.start();
+    await callbacks.start();
+    const graphClient = new AgentGraphClient(config.agentGraph.url, callbacks);
     // 세 에이전트 모두 도구를 쓰므로 Claude 쪽은 Agent SDK 러너 하나로 충분하다.
     const claudeRunner = new ClaudeQueryRunner();
 
@@ -106,7 +106,7 @@ async function bootstrap(): Promise<void> {
     const recipeRepository = new RecipeRepositoryAdapter(jobs, tasks, taskStates, settings, tx);
     const recipeNotification = new RecipeNotificationAdapter(publish);
     const recipeAgents = {
-        [AGENT_BACKEND.python]: new RecipeGraphAgentAdapter(graphClient, toolCallbacks, recipeTools),
+        [AGENT_BACKEND.python]: new RecipeGraphAgentAdapter(graphClient, callbacks, recipeTools),
         [AGENT_BACKEND.claudeSdk]: new RecipeSdkAgentAdapter(claudeRunner, recipeTools),
     };
     const recipe = new RecipeActivity(
@@ -120,7 +120,7 @@ async function bootstrap(): Promise<void> {
     const titleRepository = new TitleRepositoryAdapter(jobs, tasks, events, turns, settings, tx);
     const titleNotification = new TitleNotificationAdapter(publish);
     const titleAgents = {
-        [AGENT_BACKEND.python]: new TitleGraphAgentAdapter(graphClient, toolCallbacks, titleTools),
+        [AGENT_BACKEND.python]: new TitleGraphAgentAdapter(graphClient, callbacks, titleTools),
         [AGENT_BACKEND.claudeSdk]: new TitleSdkAgentAdapter(claudeRunner, titleTools),
     };
     const title = new TitleActivity(
@@ -134,7 +134,7 @@ async function bootstrap(): Promise<void> {
     const cleanupRepository = new CleanupRepositoryAdapter(jobs, tasks, taskStates, settings, tx);
     const cleanupNotification = new CleanupNotificationAdapter(publish);
     const cleanupAgents = {
-        [AGENT_BACKEND.python]: new CleanupGraphAgentAdapter(graphClient, toolCallbacks, cleanupTools),
+        [AGENT_BACKEND.python]: new CleanupGraphAgentAdapter(graphClient, callbacks, cleanupTools),
         [AGENT_BACKEND.claudeSdk]: new CleanupSdkAgentAdapter(claudeRunner, cleanupTools),
     };
     const cleanup = new CleanupActivity(
@@ -168,7 +168,7 @@ async function bootstrap(): Promise<void> {
 
     const shutdown = (signal: NodeJS.Signals): void => {
         logInfo({ msg: "ai-agent-worker.shutdown", signal });
-        void toolCallbacks.close();
+        void callbacks.close();
         workers.shutdown();
     };
     process.once("SIGTERM", () => shutdown("SIGTERM"));

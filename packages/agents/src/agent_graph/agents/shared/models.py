@@ -14,6 +14,20 @@ def _strip(value: object) -> object:
 TrimmedStr = Annotated[str, BeforeValidator(_strip)]
 Language = Literal["auto", "ko", "en", "ja", "zh"]
 
+class ToolCallback(BaseModel):
+    """도구 실행 창구. 토큰이 곧 소유 스코프라 실행 백엔드는 userId를 알 필요가 없다."""
+
+    url: TrimmedStr = Field(min_length=1)
+    token: TrimmedStr = Field(min_length=1)
+
+
+class CompletionCallback(BaseModel):
+    """실행 결과를 돌려줄 창구. 요청한 HTTP 연결이 아니라 이 창구가 결과를 받는다."""
+
+    url: TrimmedStr = Field(min_length=1)
+    token: TrimmedStr = Field(min_length=1)
+
+
 class AgentExecutionRequest(BaseModel):
     """모든 에이전트 요청의 실행 봉투."""
 
@@ -25,13 +39,14 @@ class AgentExecutionRequest(BaseModel):
         default=None,
         description="같은 키의 성공한 실행 결과를 단일 프로세스의 제한된 시간 동안 재사용한다.",
     )
+    completionCallback: CompletionCallback
 
 
-class ToolCallback(BaseModel):
-    """도구 실행 창구. 토큰이 곧 소유 스코프라 실행 백엔드는 userId를 알 필요가 없다."""
+class AgentAccepted(BaseModel):
+    """실행 접수 응답. 결과 본문은 완료 창구로 따로 전달된다."""
 
-    url: TrimmedStr = Field(min_length=1)
-    token: TrimmedStr = Field(min_length=1)
+    status: Literal["accepted"] = "accepted"
+    runId: str
 
 
 class UsageDTO(BaseModel):

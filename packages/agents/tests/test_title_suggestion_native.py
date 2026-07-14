@@ -14,6 +14,7 @@ from agent_graph.agents.title_suggestion.models import TitleSuggestionRequest
 from tests.fakes import FakeStructuredChat, FakeToolClient
 
 _CALLBACK = {"url": "http://worker:8810/tools/invoke", "token": "tok-title"}
+_COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-title"}
 _CONTEXT = {
     "title": "Untitled",
     "status": "completed",
@@ -39,6 +40,7 @@ def _request(**overrides: Any) -> TitleSuggestionRequest:
         "language": "ko",
         "context": _CONTEXT,
         "toolCallback": _CALLBACK,
+        "completionCallback": _COMPLETION,
     }
     values.update(overrides)
     return TitleSuggestionRequest.model_validate(values)

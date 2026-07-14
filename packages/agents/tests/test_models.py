@@ -10,6 +10,7 @@ from agent_graph.agents.task_cleanup.models import TaskCleanupRequest
 from agent_graph.agents.title_suggestion.models import TitleSuggestionRequest
 
 _CALLBACK: dict[str, str] = {"url": "http://worker:8810/tools/invoke", "token": "tok-1"}
+_COMPLETION: dict[str, str] = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
 _TITLE_CONTEXT: dict[str, object] = {
     "title": "Untitled",
     "status": "completed",
@@ -31,6 +32,7 @@ class TestTitleSuggestionRequest:
                 "language": "ko",
                 "context": _TITLE_CONTEXT,
                 "toolCallback": _CALLBACK,
+                "completionCallback": _COMPLETION,
             }
         )
 
@@ -47,6 +49,7 @@ class TestTitleSuggestionRequest:
                     "taskId": "task-1",
                     "context": _TITLE_CONTEXT,
                     "toolCallback": _CALLBACK,
+                    "completionCallback": _COMPLETION,
                     "systemPrompt": "injected",
                     "tools": [],
                 }
@@ -63,6 +66,7 @@ class TestTaskCleanupRequest:
                 "language": "ko",
                 "maxSuggestions": 20,
                 "toolCallback": _CALLBACK,
+                "completionCallback": _COMPLETION,
             }
         )
 
@@ -79,6 +83,7 @@ class TestTaskCleanupRequest:
                     "scannedAt": "2026-07-13T00:00:00.000Z",
                     "maxSuggestions": 20,
                     "toolCallback": _CALLBACK,
+                    "completionCallback": _COMPLETION,
                     "outputSchema": {"type": "object"},
                 }
             )
@@ -100,6 +105,7 @@ class TestRecipeScanRequest:
                     "outputSchema": {"type": "object"},
                     "tools": [],
                     "toolCallback": _CALLBACK,
+                    "completionCallback": _COMPLETION,
                 }
             )
 
@@ -112,6 +118,7 @@ class TestRecipeScanRequest:
                 "language": "ko",
                 "userPrompt": " 작업에서 레시피를 찾아줘 ",
                 "toolCallback": _CALLBACK,
+                "completionCallback": _COMPLETION,
             }
         )
 
