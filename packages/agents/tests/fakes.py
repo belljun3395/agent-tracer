@@ -50,6 +50,54 @@ class FakeStructuredChat:
         return RunnableLambda(invoke)
 
 
+class FakeToolLoopChat:
+    """도구 루프 대역. 턴마다 도구 호출이나 구조화 출력을 순서대로 재생한다.
+
+    turns의 각 항목은 도구 호출 목록(list)이거나 최종 구조화 출력(dict)이다.
+    """
+
+    def __init__(self, turns: list[Any]) -> None:
+        self.turns = list(turns)
+        self.bound_tools: list[dict[str, Any]] = []
+        self.output_config: dict[str, Any] | None = None
+        self.requests: list[list[Any]] = []
+
+    def bind_tools(self, tools: list[dict[str, Any]]) -> FakeToolLoopChat:
+        self.bound_tools = tools
+        return self
+
+    def bind(self, **kwargs: Any) -> FakeToolLoopChat:
+        self.output_config = kwargs.get("output_config")
+        return self
+
+    async def ainvoke(self, messages: list[Any]) -> AIMessage:
+        self.requests.append(list(messages))
+        if not self.turns:
+            raise AssertionError("no fake turn remains")
+        turn = self.turns.pop(0)
+        if isinstance(turn, list):
+            calls = [
+                {"name": call["name"], "args": call.get("args", {}), "id": f"call-{index}", "type": "tool_call"}
+                for index, call in enumerate(turn)
+            ]
+            return mk_ai(tool_calls=calls)
+        return mk_ai(content=_json.dumps(turn, ensure_ascii=False))
+
+    def cached_blocks(self) -> int:
+        """마지막 요청에서 캐시 경계가 붙은 블록 수다."""
+        last = self.requests[-1] if self.requests else []
+        found = 0
+        for message in last:
+            content = getattr(message, "content", None)
+            if isinstance(content, list):
+                found += sum(
+                    1
+                    for block in content
+                    if isinstance(block, dict) and "cache_control" in block
+                )
+        return found
+
+
 class FakeToolResponse:
     def __init__(self, payload: dict[str, Any]) -> None:
         self._payload = payload

@@ -28,11 +28,7 @@ def test_현재_recipe_그래프의_노드와_간선을_그린다() -> None:
     drawable = build_graph().get_graph()
     assert set(drawable.nodes) == {
         "__start__",
-        "bootstrap",
-        "plan_evidence",
-        "gather_evidence",
-        "assess_evidence",
-        "synthesize",
+        "investigate",
         "validate_candidate",
         "repair",
         "finalize",
@@ -40,10 +36,8 @@ def test_현재_recipe_그래프의_노드와_간선을_그린다() -> None:
         "__end__",
     }
     edges = {(edge.source, edge.target) for edge in drawable.edges}
-    assert ("__start__", "bootstrap") in edges
-    assert ("gather_evidence", "assess_evidence") in edges
-    assert ("assess_evidence", "plan_evidence") in edges
-    assert ("assess_evidence", "synthesize") in edges
+    assert ("__start__", "investigate") in edges
+    assert ("investigate", "validate_candidate") in edges
     assert ("validate_candidate", "repair") in edges
     assert ("repair", "validate_candidate") in edges
     assert ("finalize", "__end__") in edges

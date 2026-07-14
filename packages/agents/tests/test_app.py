@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from agent_graph import app as app_module
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.title_suggestion import agent as title_mod
-from tests.fakes import FakeStructuredChat, FakeToolClient
+from tests.fakes import FakeStructuredChat, FakeToolClient, FakeToolLoopChat
 from tests.test_observability import SHARED_SPAN_EXPORTER
 
 _TOOLS: dict[str, object] = {
@@ -149,18 +149,7 @@ def test_실행을_접수하고_결과는_완료_창구로_돌려준다(
 def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
     client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        recipe_mod,
-        "make_chat",
-        lambda *a, **k: FakeStructuredChat(
-            [
-                {"rationale": "더 읽을 필요가 없다", "queries": []},
-                {"sufficient": False, "reason": "완료 근거가 없다", "missingEvidence": []},
-                {"rationale": "추가 근거도 없다", "queries": []},
-                {"sufficient": False, "reason": "여전히 근거가 없다", "missingEvidence": []},
-            ]
-        ),
-    )
+    monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: FakeToolLoopChat([{"recipes": []}]))
     body = {
         "model": "claude-sonnet-4-6",
         "apiKey": "sk-test",

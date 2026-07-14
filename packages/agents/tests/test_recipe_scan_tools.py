@@ -7,16 +7,16 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.recipe_scan.models import EvidenceQuery, EvidenceRecord, ProvenanceCatalog
-from agent_graph.agents.recipe_scan.tools.client import invoke_query
-from agent_graph.agents.recipe_scan.tools.contracts import tool_catalog, validate_query
+from agent_graph.agents.recipe_scan.models import EvidenceRecord, ProvenanceCatalog
+from agent_graph.agents.recipe_scan.tools.client import RECIPE_TOOL_SPECS, invoke_tool, record_evidence
+from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
 from agent_graph.agents.recipe_scan.tools.provenance import add_provenance
 from agent_graph.agents.shared.models import ToolCallback
 from tests.fakes import FakeToolClient
 
 
 def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> None:
-    catalog = tool_catalog()
+    catalog = [tool.to_anthropic() for tool in RECIPE_TOOL_SPECS]
 
     assert [tool["name"] for tool in catalog] == [
         "get_task_summary",
@@ -26,47 +26,40 @@ def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> Non
         "find_similar_tasks",
         "search_recipes",
     ]
-    assert all(tool["description"] and tool["parameters"] for tool in catalog)
-    search_schema = next(tool["parameters"] for tool in catalog if tool["name"] == "search_events")
+    assert all(tool["description"] and tool["input_schema"] for tool in catalog)
+    search_schema = next(tool["input_schema"] for tool in catalog if tool["name"] == "search_events")
     assert isinstance(search_schema, dict)
     assert "kind" not in search_schema["properties"]
 
 
 def test_도구_스키마에_없는_인자는_콜백_전에_거부한다() -> None:
-    query = EvidenceQuery(
-        tool="search_events",
-        args={"q": "failure", "kind": "drifted.kind"},
-        purpose="실패 근거를 찾는다",
-    )
-
     with pytest.raises(ValidationError):
-        validate_query(query)
+        validate_tool_args("search_events", {"q": "failure", "kind": "drifted.kind"})
+
+
+def test_모델이_없는_도구를_부르면_거부한다() -> None:
+    with pytest.raises(ValueError, match="unknown recipe-scan tool"):
+        validate_tool_args("delete_everything", {})
 
 
 async def test_유효하지_않은_도구_인자는_실제_콜백을_호출하지_않는다() -> None:
     client = FakeToolClient({"search_events": {"events": []}})
     callback = ToolCallback(url="http://worker:8810/tools/invoke", token="token-1")
-    query = EvidenceQuery(
-        tool="search_events",
-        args={"q": "failure", "taskId": "task-1", "kind": "drifted.kind"},
-        purpose="실패 근거를 찾는다",
-    )
 
     with pytest.raises(ValidationError):
-        await invoke_query(client, callback, query)  # type: ignore[arg-type]
+        await invoke_tool(
+            client,  # type: ignore[arg-type]
+            callback,
+            "search_events",
+            {"q": "failure", "taskId": "task-1", "kind": "drifted.kind"},
+        )
 
     assert client.calls == []
 
 
 def test_빈_이벤트_커서는_콜백_전에_거부한다() -> None:
-    query = EvidenceQuery(
-        tool="get_task_events",
-        args={"taskId": "task-1", "cursor": ""},
-        purpose="다음 이벤트 페이지를 읽는다",
-    )
-
     with pytest.raises(ValidationError):
-        validate_query(query)
+        validate_tool_args("get_task_events", {"taskId": "task-1", "cursor": ""})
 
 
 def test_revision이_있는_recipe만_수정_근거로_인정한다() -> None:
@@ -88,24 +81,35 @@ def test_revision이_있는_recipe만_수정_근거로_인정한다() -> None:
     assert catalog.recipeIds == {"versioned"}
 
 
-async def test_검증한_도구_인자와_콜백_응답을_근거_레코드로_보존한다() -> None:
+async def test_모델이_생략한_인자는_도구_기본값으로_채워_부른다() -> None:
     client = FakeToolClient(
         {"get_task_events": {"events": [{"id": "event-1", "taskId": "task-1"}]}}
     )
     callback = ToolCallback(url="http://worker:8810/tools/invoke", token="token-1")
-    query = EvidenceQuery(
-        tool="get_task_events",
-        args={"taskId": "task-1"},
-        purpose="완료 이벤트를 확인한다",
+
+    content = await invoke_tool(
+        client,  # type: ignore[arg-type]
+        callback,
+        "get_task_events",
+        {"taskId": "task-1"},
     )
 
-    record = await invoke_query(client, callback, query)  # type: ignore[arg-type]
-
     assert client.args == [{"taskId": "task-1", "limit": 100, "order": "asc"}]
-    assert record.tool == "get_task_events"
-    assert record.args == client.args[0]
-    assert record.parsed == {"events": [{"id": "event-1", "taskId": "task-1"}]}
-    assert record.purpose == "완료 이벤트를 확인한다"
+    assert "event-1" in content
+
+
+def test_도구가_돌려준_이벤트만_인용_가능한_근거로_올린다() -> None:
+    catalog = ProvenanceCatalog()
+
+    record_evidence(
+        catalog,
+        "get_task_events",
+        {"taskId": "task-1"},
+        '{"events": [{"id": "event-1", "turnId": "turn-1"}]}',
+    )
+
+    assert catalog.eventIdsByTask == {"task-1": {"event-1"}}
+    assert catalog.turnIdsByTask == {"task-1": {"turn-1"}}
 
 
 def test_이벤트_근거는_태스크별_원장으로_모으고_불완전한_행은_버린다() -> None:

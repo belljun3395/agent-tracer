@@ -17,49 +17,22 @@ async def _node(_state: RecipeScanState) -> dict[str, Any]:
     return {}
 
 
-def _assess(_state: RecipeScanState) -> Literal["plan_evidence", "synthesize", "empty"]:
-    return "synthesize"
-
-
 def _validate(_state: RecipeScanState) -> Literal["repair", "finalize", "empty"]:
     return "finalize"
 
 
 def test_recipe_전용_그래프_위상을_명시한다() -> None:
-    graph = build_recipe_scan_graph(
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _assess,
-        _validate,
-    ).get_graph()
+    graph = build_recipe_scan_graph(_node, _node, _node, _node, _node, _validate).get_graph()
 
     assert set(graph.nodes) == {
         "__start__",
-        "bootstrap",
-        "plan_evidence",
-        "gather_evidence",
-        "assess_evidence",
-        "synthesize",
+        "investigate",
         "validate_candidate",
         "repair",
         "finalize",
         "empty",
         "__end__",
     }
-    edges = {(edge.source, edge.target) for edge in graph.edges}
-    assert ("__start__", "bootstrap") in edges
-    assert ("assess_evidence", "plan_evidence") in edges
-    assert ("validate_candidate", "repair") in edges
-    assert ("repair", "validate_candidate") in edges
-    assert ("finalize", "__end__") in edges
-    assert ("empty", "__end__") in edges
 
 
 def test_anchor_slice는_실제_anchor_event를_인용해야_한다() -> None:

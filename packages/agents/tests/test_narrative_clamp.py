@@ -5,22 +5,20 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.recipe_scan.models import EvidenceAssessment, EvidencePlan, RecipeCandidate
+from agent_graph.agents.recipe_scan.models import RecipeCandidate
+from agent_graph.agents.task_cleanup.models import CleanupAssessment, InspectionPlan
 
 
-def test_계획_서술이_상한을_넘으면_잘라서_받는다() -> None:
-    plan = EvidencePlan.model_validate({"rationale": "가" * 900, "queries": []})
+def test_점검_계획_서술이_상한을_넘으면_잘라서_받는다() -> None:
+    plan = InspectionPlan.model_validate({"rationale": "가" * 900, "targets": []})
 
     assert len(plan.rationale) == 500
 
 
-def test_평가_서술과_부족_근거도_잘라서_받는다() -> None:
-    assessment = EvidenceAssessment.model_validate(
-        {"sufficient": False, "reason": "나" * 900, "missingEvidence": ["다" * 500]},
-    )
+def test_평가_서술도_잘라서_받는다() -> None:
+    assessment = CleanupAssessment.model_validate({"rationale": "나" * 900, "suggestions": []})
 
-    assert len(assessment.reason) == 500
-    assert len(assessment.missingEvidence[0]) == 300
+    assert len(assessment.rationale) == 500
 
 
 def test_저장되는_후보의_서술은_잘라내지_않고_거부한다() -> None:

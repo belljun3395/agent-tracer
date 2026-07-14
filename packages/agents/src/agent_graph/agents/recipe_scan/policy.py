@@ -8,11 +8,11 @@ from typing import Literal
 from ..runtime.execution.trace import ExecutionTrace
 from .models import MAX_RECIPE_CANDIDATES, ProvenanceCatalog, RecipeCandidate, RecipeScanState
 
-MAX_GATHER_ROUNDS = 2
+# 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
+MAX_TOOL_ROUNDS = 12
 MAX_RECIPE_MODEL_COST_USD = 2.0
 RECIPE_MAX_OUTPUT_TOKENS = 16_000
 
-AssessRoute = Callable[[RecipeScanState], Literal["plan_evidence", "synthesize", "empty"]]
 ValidationRoute = Callable[[RecipeScanState], Literal["repair", "finalize", "empty"]]
 
 
@@ -91,26 +91,8 @@ def validate_recipe_candidate(
     return errors
 
 
-def build_routes(trace: ExecutionTrace) -> tuple[AssessRoute, ValidationRoute]:
-    """증거 충분성·후보 검증 결과에 따른 분기 함수를 만든다."""
-
-    def route_assessment(state: RecipeScanState) -> Literal["plan_evidence", "synthesize", "empty"]:
-        assessment = state["assessment"]
-        if assessment is not None and assessment.sufficient:
-            route: Literal["plan_evidence", "synthesize", "empty"] = "synthesize"
-            reason = assessment.reason
-        elif state["gather_rounds"] < MAX_GATHER_ROUNDS:
-            route = "plan_evidence"
-            reason = assessment.reason if assessment else "No assessment was produced."
-        else:
-            route = "empty"
-            reason = assessment.reason if assessment else "Evidence budget was exhausted."
-        trace.record_graph_event(
-            "route.selected",
-            f"assess_evidence -> {route}: {reason}",
-            node_name="assess_evidence",
-        )
-        return route
+def build_routes(trace: ExecutionTrace) -> ValidationRoute:
+    """검증 결과에 따른 분기 함수를 만든다."""
 
     def route_validation(state: RecipeScanState) -> Literal["repair", "finalize", "empty"]:
         if not state["validation_errors"]:
@@ -129,4 +111,4 @@ def build_routes(trace: ExecutionTrace) -> tuple[AssessRoute, ValidationRoute]:
         )
         return route
 
-    return route_assessment, route_validation
+    return route_validation

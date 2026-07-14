@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,14 +19,6 @@ MAX_SEARCH_LIMIT = 100
 MAX_SEARCH_OFFSET = 9_900
 DEFAULT_SIMILAR_LIMIT = 5
 MAX_SIMILAR_LIMIT = 20
-
-
-class _EvidenceQueryLike(Protocol):
-    @property
-    def tool(self) -> RecipeToolName: ...
-
-    @property
-    def args(self) -> dict[str, Any]: ...
 
 
 class RecipeToolArgs(BaseModel):
@@ -89,15 +81,6 @@ class RecipeToolDefinition:
     description: str
     args_model: type[BaseModel]
 
-    def catalog_entry(self) -> dict[str, object]:
-        """모델 프롬프트에 넣을 도구 카탈로그 항목을 만든다."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.args_model.model_json_schema(),
-        }
-
-
 RECIPE_TOOLS: tuple[RecipeToolDefinition, ...] = (
     RecipeToolDefinition(
         "get_task_summary",
@@ -134,12 +117,10 @@ RECIPE_TOOLS: tuple[RecipeToolDefinition, ...] = (
 _TOOL_BY_NAME = {tool.name: tool for tool in RECIPE_TOOLS}
 
 
-def tool_catalog() -> list[dict[str, object]]:
-    """모델에 노출할 recipe-scan 도구 카탈로그를 반환한다."""
-    return [tool.catalog_entry() for tool in RECIPE_TOOLS]
-
-
-def validate_query(query: _EvidenceQueryLike) -> dict[str, Any]:
-    """도구 질의를 소유 스키마로 검증하고 콜백 인자를 만든다."""
-    definition = _TOOL_BY_NAME[query.tool]
-    return definition.args_model.model_validate(query.args).model_dump(exclude_none=True)
+def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """모델이 고른 도구 인자를 소유 스키마로 검증해 콜백 인자를 만든다."""
+    definition = next((tool for tool in RECIPE_TOOLS if tool.name == name), None)
+    if definition is None:
+        raise ValueError(f"unknown recipe-scan tool: {name}")
+    validated: dict[str, Any] = definition.args_model.model_validate(args).model_dump(exclude_none=True)
+    return validated

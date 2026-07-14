@@ -17,12 +17,6 @@ async def _node(_state: RecipeScanState) -> dict[str, Any]:
     return {}
 
 
-def _assess(
-    _state: RecipeScanState,
-) -> Literal["plan_evidence", "synthesize", "empty"]:
-    return "empty"
-
-
 def _validate(_state: RecipeScanState) -> Literal["repair", "finalize", "empty"]:
     return "empty"
 
@@ -30,19 +24,7 @@ def _validate(_state: RecipeScanState) -> Literal["repair", "finalize", "empty"]
 def build_graph() -> CompiledStateGraph[
     RecipeScanState, None, RecipeScanState, RecipeScanState
 ]:
-    return build_recipe_scan_graph(
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _node,
-        _assess,
-        _validate,
-    )
+    return build_recipe_scan_graph(_node, _node, _node, _node, _node, _validate)
 
 
 if __name__ == "__main__":

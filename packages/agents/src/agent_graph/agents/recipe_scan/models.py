@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..shared.models import AgentExecutionRequest, Language, Purpose, Rationale, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
 
 # 한 태스크가 서로 다른 작업 turn을 담을 수 있어 스캔 한 번이 낼 수 있는 후보 수다.
 MAX_RECIPE_CANDIDATES = 4
@@ -31,23 +32,6 @@ class RecipeScanRequest(AgentExecutionRequest):
     language: Language = "auto"
     userPrompt: TrimmedStr | None = None
     toolCallback: ToolCallback
-
-
-class EvidenceQuery(BaseModel):
-    tool: RecipeToolName
-    args: dict[str, Any]
-    purpose: Purpose = Field(min_length=1)
-
-
-class EvidencePlan(BaseModel):
-    rationale: Rationale = Field(min_length=1)
-    queries: list[EvidenceQuery] = Field(default_factory=list, max_length=4)
-
-
-class EvidenceAssessment(BaseModel):
-    sufficient: bool
-    reason: Rationale = Field(min_length=1)
-    missingEvidence: list[Purpose] = Field(default_factory=list, max_length=4)
 
 
 class RecipeStep(BaseModel):
@@ -107,11 +91,12 @@ class RecipeDraft(BaseModel):
 
 
 class EvidenceRecord(BaseModel):
+    """도구가 실제로 돌려준 결과이며 근거 장부는 이것만 인용을 허가한다."""
+
     tool: RecipeToolName
     args: dict[str, Any]
     content: str
     parsed: Any = None
-    purpose: str
 
 
 class ProvenanceCatalog(BaseModel):
@@ -126,11 +111,9 @@ class RecipeScanState(TypedDict):
     task_id: str
     language: Language
     user_prompt: str | None
-    evidence: list[EvidenceRecord]
+    # 근거는 프롬프트에 다시 붙이지 않고 대화 이력에 그대로 남아 캐시된다.
+    messages: list[BaseMessage]
     provenance: ProvenanceCatalog
-    plan: EvidencePlan | None
-    assessment: EvidenceAssessment | None
-    gather_rounds: int
     model_cost_usd: float
     candidates: list[RecipeCandidate]
     validation_errors: list[str]

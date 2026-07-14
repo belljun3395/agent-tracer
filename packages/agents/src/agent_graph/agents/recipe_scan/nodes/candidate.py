@@ -1,101 +1,89 @@
-"""recipe-scan 후보의 합성과 검증과 복구 그래프 노드를 만든다."""
+"""recipe-scan의 조사와 검증과 복구 그래프 노드를 만든다."""
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+import httpx
+
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.structured import invoke_structured, prompt
-from ...runtime.serialization import json_value
-from ..evidence import evidence_context
+from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
 from ..models import RecipeDraft, RecipeScanRequest, RecipeScanState
-from ..policy import MAX_RECIPE_MODEL_COST_USD, validate_recipe_candidates
-from ..prompts import LANGUAGE_DIRECTIVES, REPAIR_SYSTEM_PROMPT, SYNTHESIS_SYSTEM_PROMPT
+from ..policy import MAX_RECIPE_MODEL_COST_USD, MAX_TOOL_ROUNDS, validate_recipe_candidates
+from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
+from ..tools.client import RECIPE_TOOL_SPECS, invoke_tool, record_evidence
 
 type RecipeNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
 
 
 def create_candidate_nodes(
     req: RecipeScanRequest,
+    client: httpx.AsyncClient,
     usage: ExecutionTrace,
     chat: Any,
     *,
     agent_name: str,
 ) -> tuple[RecipeNode, RecipeNode, RecipeNode]:
-    """후보 합성과 결정적 검증 노드를 모델 실행 의존성에 결합한다."""
+    """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    async def synthesize(state: RecipeScanState) -> dict[str, Any]:
-        chain_prompt = prompt(
-            SYNTHESIS_SYSTEM_PROMPT,
-            "Anchor task: {task_id}\n"
-            "User direction: {user_prompt}\n"
-            "Output language: {language}\n"
-            "Evidence: {evidence}\n"
-            "Provenance catalog: {provenance}\n"
-            "Write one candidate per distinct reusable workflow.",
-        )
-        draft, cost = await invoke_structured(
+    async def investigate(state: RecipeScanState) -> dict[str, Any]:
+        catalog = state["provenance"]
+
+        async def run_tool(name: str, args: dict[str, Any]) -> str:
+            return await invoke_tool(client, req.toolCallback, name, args)
+
+        def observe(name: str, args: dict[str, Any], content: str) -> None:
+            record_evidence(catalog, name, args, content)
+
+        draft, messages, cost = await run_tool_loop(
             chat,
-            chain_prompt,
-            {
-                "task_id": state["task_id"],
-                "user_prompt": state["user_prompt"] or "(none)",
-                "language": LANGUAGE_DIRECTIVES[state["language"]],
-                "evidence": evidence_context(state),
-                "provenance": json_value(state["provenance"]),
-            },
-            RecipeDraft,
-            usage,
-            state["model_cost_usd"],
-            req.model,
+            system=INVESTIGATOR_SYSTEM_PROMPT,
+            user=build_user_prompt(state["task_id"], state["user_prompt"], state["language"]),
+            tools=RECIPE_TOOL_SPECS,
+            schema=RecipeDraft,
+            trace=usage,
+            run_tool=run_tool,
+            observe=observe,
             agent_name=agent_name,
+            model_name=req.model,
+            max_rounds=MAX_TOOL_ROUNDS,
             max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
+            spent=state["model_cost_usd"],
         )
-        return {"candidates": draft.recipes, "model_cost_usd": cost}
+        return {
+            "candidates": draft.recipes,
+            "messages": messages,
+            "provenance": catalog,
+            "model_cost_usd": cost,
+        }
 
     async def validate_candidate(state: RecipeScanState) -> dict[str, Any]:
         errors = validate_recipe_candidates(state["candidates"], state["task_id"], state["provenance"])
         if errors:
-            usage.record_graph_event(
-                "validation.failed",
-                "; ".join(errors),
-                node_name="validate_candidate",
-            )
+            usage.record_graph_event("validation.failed", "; ".join(errors), node_name="validate_candidate")
         return {"validation_errors": errors}
 
     async def repair(state: RecipeScanState) -> dict[str, Any]:
-        candidates = state["candidates"]
-        if not candidates:
+        if not state["candidates"]:
             return {"repair_attempted": True}
-        chain_prompt = prompt(
-            REPAIR_SYSTEM_PROMPT,
-            "Invalid candidates: {candidates}\n"
-            "Validation errors: {errors}\n"
-            "Provenance catalog: {provenance}\n"
-            "Evidence: {evidence}\n"
-            "Return the complete repaired candidate list.",
-        )
-        repaired, cost = await invoke_structured(
+        draft, cost = await continue_tool_loop(
             chat,
-            chain_prompt,
-            {
-                "candidates": json_value(candidates),
-                "errors": json_value(state["validation_errors"]),
-                "provenance": json_value(state["provenance"]),
-                "evidence": evidence_context(state),
-            },
-            RecipeDraft,
-            usage,
-            state["model_cost_usd"],
-            req.model,
+            messages=state["messages"],
+            directive=REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
+            tools=RECIPE_TOOL_SPECS,
+            schema=RecipeDraft,
+            trace=usage,
             agent_name=agent_name,
+            model_name=req.model,
             max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
+            spent=state["model_cost_usd"],
         )
         return {
-            "candidates": repaired.recipes,
+            "candidates": draft.recipes,
+            "messages": state["messages"],
             "repair_attempted": True,
             "model_cost_usd": cost,
         }
 
-    return synthesize, validate_candidate, repair
+    return investigate, validate_candidate, repair
