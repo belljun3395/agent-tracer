@@ -1,8 +1,10 @@
 import {KIND} from "@monitor/kernel";
+import {parseIngestBatch} from "@monitor/kernel/ingest/ingest.schema.js";
 import {describe, expect, it} from "vitest";
 import {InMemoryBindingStore} from "~runtime/domain/binding/port/__fakes__/in-memory.binding.store.js";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
 import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
+import {toRunIngestEvent} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import {FixedClock} from "~runtime/domain/session/port/__fakes__/fixed.clock.js";
 
 const NOW = Date.parse("2026-07-14T04:00:00.000Z");
@@ -32,6 +34,32 @@ describe("EnsureSessionUsecase", () => {
         expect(second.taskCreated).toBe(false);
         expect(second.taskId).toBe(first.taskId);
         expect(sink.events).toHaveLength(1);
+    });
+
+    it("백그라운드 세션 이벤트는 서버 인제스트 계약을 통과한다", async () => {
+        const sink = new InMemoryEventSink();
+        const usecase = new EnsureSessionUsecase(new InMemoryBindingStore(), sink, new SequentialIdGenerator(), new FixedClock(NOW));
+
+        await usecase.execute({
+            ...INPUT,
+            taskKind: "background",
+            parentTaskId: "parent-task-1",
+            parentSessionId: "parent-session-1",
+        });
+
+        const event = toRunIngestEvent(
+            sink.events[0]!,
+            new Date(NOW).toISOString(),
+            () => "event-1",
+        );
+        const {accepted, rejected} = parseIngestBatch({events: [event]});
+
+        expect(rejected).toEqual([]);
+        expect(accepted[0]?.payload).toMatchObject({
+            taskKind: "background",
+            parentTaskId: "parent-task-1",
+            parentSessionId: "parent-session-1",
+        });
     });
 
     it("임시 제목으로 만든 태스크는 진짜 제목이 오면 task.linked로 한 번만 갱신한다", async () => {

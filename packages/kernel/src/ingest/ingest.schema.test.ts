@@ -54,11 +54,25 @@ describe("parseIngestBatch", () => {
         expect(rejected).toHaveLength(1);
     });
 
-    it("session.started는 필수 필드가 모두 있으면 통과한다", () => {
-        const {accepted} = parseIngestBatch(
-            batchOf(KIND.sessionStarted, {runtimeSource: "claude-code", runtimeSessionId: "s1", title: "제목"}),
+    it("session.started는 백그라운드 태스크 계층을 보존한다", () => {
+        const {accepted, rejected} = parseIngestBatch(
+            batchOf(KIND.sessionStarted, {
+                runtimeSource: "claude-code",
+                runtimeSessionId: "s1",
+                title: "제목",
+                taskKind: "background",
+                parentTaskId: "parent-task-1",
+                parentSessionId: "parent-session-1",
+            }),
         );
+
+        expect(rejected).toEqual([]);
         expect(accepted).toHaveLength(1);
+        expect(accepted[0]?.payload).toMatchObject({
+            taskKind: "background",
+            parentTaskId: "parent-task-1",
+            parentSessionId: "parent-session-1",
+        });
     });
 
     it("task.error는 errorMessage가 없으면 그 레코드만 거부한다", () => {

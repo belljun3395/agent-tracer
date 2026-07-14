@@ -80,6 +80,7 @@ const sessionStartedPayloadSchema = z.object({
     workspacePath: z.string().optional(),
     parentTaskId: z.string().optional(),
     parentSessionId: z.string().optional(),
+    taskKind: z.enum(MONITORING_TASK_KINDS).optional(),
     origin: z.enum(TASK_ORIGINS).optional(),
     resume: z.boolean().optional(),
 }).strict();
