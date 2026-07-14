@@ -5,21 +5,11 @@ var RULE_SEVERITY = {
   block: "block"
 };
 var RULE_SEVERITIES = [RULE_SEVERITY.info, RULE_SEVERITY.warn, RULE_SEVERITY.block];
-var RULE_SCOPE = {
-  global: "global",
-  task: "task"
-};
-var RULE_SCOPES = [RULE_SCOPE.global, RULE_SCOPE.task];
 var RULE_SOURCE = {
   human: "human",
   agent: "agent"
 };
 var RULE_SOURCES = [RULE_SOURCE.human, RULE_SOURCE.agent];
-var RULE_TRIGGER_SOURCE = {
-  user: "user",
-  assistant: "assistant"
-};
-var RULE_TRIGGER_SOURCES = [RULE_TRIGGER_SOURCE.user, RULE_TRIGGER_SOURCE.assistant];
 var RULE_EXPECTED_ACTION = {
   command: "command",
   fileRead: "file-read",
@@ -45,28 +35,32 @@ var RULE_EXPECTATION_KINDS = [
 
 // ../kernel/src/rule/evaluation/rule.verdict.ts
 var VERDICT_STATUS = {
-  verified: "verified",
-  contradicted: "contradicted",
-  unverifiable: "unverifiable"
+  open: "open",
+  satisfied: "satisfied",
+  unmet: "unmet",
+  unknown: "unknown"
 };
 var VERDICT_STATUSES = [
-  VERDICT_STATUS.verified,
-  VERDICT_STATUS.contradicted,
-  VERDICT_STATUS.unverifiable
+  VERDICT_STATUS.open,
+  VERDICT_STATUS.satisfied,
+  VERDICT_STATUS.unmet,
+  VERDICT_STATUS.unknown
 ];
 
 // src/domain/guardrail/model/enforce.model.ts
 function formatBlockReason(verdicts) {
   const lines = verdicts.map((verdict, index) => {
-    const phrase = verdict.matchedPhrase !== void 0 ? ` (\uD2B8\uB9AC\uAC70: "${verdict.matchedPhrase}")` : "";
-    const expected = verdict.expectedPattern !== void 0 ? ` \u2014 \uAE30\uB300 \uD589\uB3D9: ${verdict.expectedPattern}` : "";
-    const detail = `${expected} \u2014 \uC774\uBC88 \uD134 \uB3C4\uAD6C \uD638\uCD9C ${verdict.actualToolCallCount}\uAC74\uC5D0\uC11C \uC774\uD589 \uD655\uC778 \uC548 \uB428`;
-    return `${index + 1}. '${verdict.ruleName}'${phrase}${detail}`;
+    const expected = verdict.expectedPattern !== void 0 ? ` \u2014 expected: ${verdict.expectedPattern}` : "";
+    const seen = `no matching call among the ${verdict.actualToolCallCount} recorded since the request`;
+    return `${index + 1}. '${verdict.ruleName}'${expected} \u2014 ${seen}`;
   });
+  const plural = verdicts.length === 1 ? "rule" : "rules";
   return [
-    `\uC0AC\uC6A9\uC790\uC758 \uC694\uAD6C\uC5D0\uC11C \uB098\uC628 \uADDC\uCE59 ${verdicts.length}\uAC74\uC774 \uC544\uC9C1 \uC774\uD589\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4:`,
+    `You cannot end the turn yet: ${verdicts.length} ${plural} derived from the user's request are still unfulfilled.`,
     ...lines,
-    "\uBBF8\uC774\uD589 \uAE30\uB300 \uD589\uB3D9\uC744 \uC9C0\uAE08 \uC218\uD589\uD55C \uB4A4 \uD134\uC744 \uB9C8\uCE58\uC138\uC694."
+    "",
+    "Perform the missing actions now, then finish. Claiming you already did them is not evidence \u2014 only the recorded tool call is.",
+    "If a rule cannot be fulfilled, do the closest thing the user actually asked for and say why in your reply, written in the user's language."
   ].join("\n");
 }
 

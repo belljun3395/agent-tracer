@@ -5,21 +5,11 @@ var RULE_SEVERITY = {
   block: "block"
 };
 var RULE_SEVERITIES = [RULE_SEVERITY.info, RULE_SEVERITY.warn, RULE_SEVERITY.block];
-var RULE_SCOPE = {
-  global: "global",
-  task: "task"
-};
-var RULE_SCOPES = [RULE_SCOPE.global, RULE_SCOPE.task];
 var RULE_SOURCE = {
   human: "human",
   agent: "agent"
 };
 var RULE_SOURCES = [RULE_SOURCE.human, RULE_SOURCE.agent];
-var RULE_TRIGGER_SOURCE = {
-  user: "user",
-  assistant: "assistant"
-};
-var RULE_TRIGGER_SOURCES = [RULE_TRIGGER_SOURCE.user, RULE_TRIGGER_SOURCE.assistant];
 var RULE_EXPECTED_ACTION = {
   command: "command",
   fileRead: "file-read",
@@ -45,14 +35,16 @@ var RULE_EXPECTATION_KINDS = [
 
 // ../kernel/src/rule/evaluation/rule.verdict.ts
 var VERDICT_STATUS = {
-  verified: "verified",
-  contradicted: "contradicted",
-  unverifiable: "unverifiable"
+  open: "open",
+  satisfied: "satisfied",
+  unmet: "unmet",
+  unknown: "unknown"
 };
 var VERDICT_STATUSES = [
-  VERDICT_STATUS.verified,
-  VERDICT_STATUS.contradicted,
-  VERDICT_STATUS.unverifiable
+  VERDICT_STATUS.open,
+  VERDICT_STATUS.satisfied,
+  VERDICT_STATUS.unmet,
+  VERDICT_STATUS.unknown
 ];
 
 // src/domain/guardrail/model/rules.context.model.ts

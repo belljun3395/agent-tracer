@@ -5,21 +5,11 @@ var RULE_SEVERITY = {
   block: "block"
 };
 var RULE_SEVERITIES = [RULE_SEVERITY.info, RULE_SEVERITY.warn, RULE_SEVERITY.block];
-var RULE_SCOPE = {
-  global: "global",
-  task: "task"
-};
-var RULE_SCOPES = [RULE_SCOPE.global, RULE_SCOPE.task];
 var RULE_SOURCE = {
   human: "human",
   agent: "agent"
 };
 var RULE_SOURCES = [RULE_SOURCE.human, RULE_SOURCE.agent];
-var RULE_TRIGGER_SOURCE = {
-  user: "user",
-  assistant: "assistant"
-};
-var RULE_TRIGGER_SOURCES = [RULE_TRIGGER_SOURCE.user, RULE_TRIGGER_SOURCE.assistant];
 var RULE_EXPECTED_ACTION = {
   command: "command",
   fileRead: "file-read",
@@ -45,14 +35,16 @@ var RULE_EXPECTATION_KINDS = [
 
 // ../kernel/src/rule/evaluation/rule.verdict.ts
 var VERDICT_STATUS = {
-  verified: "verified",
-  contradicted: "contradicted",
-  unverifiable: "unverifiable"
+  open: "open",
+  satisfied: "satisfied",
+  unmet: "unmet",
+  unknown: "unknown"
 };
 var VERDICT_STATUSES = [
-  VERDICT_STATUS.verified,
-  VERDICT_STATUS.contradicted,
-  VERDICT_STATUS.unverifiable
+  VERDICT_STATUS.open,
+  VERDICT_STATUS.satisfied,
+  VERDICT_STATUS.unmet,
+  VERDICT_STATUS.unknown
 ];
 
 // src/domain/guardrail/model/rules.context.model.ts
@@ -65,37 +57,40 @@ var SEVERITY_RANK = {
 function selectAnnouncedRules(rules) {
   return [...rules].sort((left, right) => (SEVERITY_RANK[right.severity] ?? 0) - (SEVERITY_RANK[left.severity] ?? 0)).slice(0, MAX_ANNOUNCED_RULES);
 }
+var PREAMBLE = [
+  "These rules were derived from what the user asked you in this task. Each one names an action you are expected to actually perform.",
+  "Fulfilment is judged from the tool calls recorded after the user's request. Stating that you did something is not evidence; the tool call is.",
+  "A warn or block rule left unfulfilled will stop you from ending the turn."
+];
+var CLOSING = "Fulfil these before you finish. Answer the user in the language they wrote in; these rules are internal notes to you, not something to relay.";
+function describeJudgment(rule) {
+  if (rule.verdictStatus === VERDICT_STATUS.satisfied) return "already fulfilled";
+  if (rule.escalated) return "STILL UNFULFILLED after repeated reminders \u2014 decide and tell the user why";
+  if (rule.verdictStatus === VERDICT_STATUS.unknown) {
+    return "could NOT be verified \u2014 if you already did it, ignore this; if not, do it now";
+  }
+  if (rule.verdictStatus === VERDICT_STATUS.open) return "carried over from an earlier request, still unfulfilled";
+  return "not yet fulfilled";
+}
 function formatRulesContext(rules) {
   if (rules.length === 0) return "";
-  const lines = [
-    "<agent-tracer-rules>",
-    "\uC774 \uC791\uC5C5\uC5D0 \uBC1C\uD6A8 \uC911\uC778 \uADDC\uCE59\uC774\uB2E4. block \uADDC\uCE59\uC744 \uC5B4\uAE30\uBA74 \uB3C4\uAD6C \uD638\uCD9C\uC774 \uAC70\uBD80\uB418\uAC70\uB098 \uD134\uC774 \uCC28\uB2E8\uB41C\uB2E4."
-  ];
+  const lines = ["<agent-tracer-rules>", ...PREAMBLE, ""];
   for (const rule of selectAnnouncedRules(rules)) {
     const detail = describeExpectation(rule.expectation);
-    lines.push(`\u2022 [${rule.severity}] ${rule.name} (${describeTrigger(rule)})${detail ? `: ${detail}` : ""}`);
+    lines.push(`- [${rule.severity}] ${rule.name} \u2014 ${detail} (${describeJudgment(rule)})`);
   }
-  lines.push("</agent-tracer-rules>");
+  lines.push("", CLOSING, "</agent-tracer-rules>");
   return lines.join("\n");
 }
 function describeExpectation(expectation) {
-  const clauses = [];
   switch (expectation.kind) {
     case RULE_EXPECTATION_KIND.command:
-      clauses.push(`\uD544\uC218 \uBA85\uB839: ${expectation.commandMatches.join(", ")}`);
-      break;
+      return `must run: ${expectation.commandMatches.join(" or ")}`;
     case RULE_EXPECTATION_KIND.pattern:
-      clauses.push(`\uD544\uC218 \uD328\uD134: ${expectation.pattern}`);
-      break;
+      return `must match: ${expectation.pattern}`;
     case RULE_EXPECTATION_KIND.action:
-      clauses.push(`\uD544\uC218 \uB3C4\uAD6C: ${expectation.tool}`);
-      break;
+      return `must use: ${expectation.tool}`;
   }
-  return clauses.join(" / ");
-}
-function describeTrigger(rule) {
-  const phrases = rule.trigger.phrases.filter((phrase) => phrase.trim().length > 0);
-  return phrases.length === 0 ? "\uD56D\uC0C1 \uC801\uC6A9" : `\uBC1C\uD654 \uC2DC: ${phrases.join(", ")}`;
 }
 
 // src/domain/hint/model/hint.model.ts
