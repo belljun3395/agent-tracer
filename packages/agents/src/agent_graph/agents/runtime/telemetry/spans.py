@@ -16,7 +16,7 @@ from .attributes import (
 )
 from .metrics import record_tool_duration
 
-_TRACER_NAME = "langgraph-agents.ai-jobs"
+_TRACER_NAME = "agents.ai-jobs"
 
 
 class NoopSpan:

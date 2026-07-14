@@ -8,7 +8,7 @@ from typing import Any
 from ...shared.models import UsageDTO
 from .attributes import build_client_attributes, token_measurements
 
-_METER_NAME = "langgraph-agents.ai-jobs"
+_METER_NAME = "agents.ai-jobs"
 _METRIC_INSTRUMENTS: dict[str, Any] | None = None
 
 

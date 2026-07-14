@@ -1,7 +1,7 @@
 """Python-native 그래프의 지출 서킷브레이커용 근사 단가표.
 
 이 계산값은 그래프 내부 예산 상한에만 쓴다. 사용자에게 보고·저장하는 costUsd는
-temporal-worker가 사이드카의 토큰 사용량을 별도 단가표로 환산한다.
+ai-agent-worker가 실행 백엔드의 토큰 사용량을 별도 단가표로 환산한다.
 """
 
 from __future__ import annotations

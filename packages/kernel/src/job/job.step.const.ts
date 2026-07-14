@@ -32,7 +32,7 @@ export interface AiJobStepToolCall {
     readonly args: Record<string, unknown>;
 }
 
-// langgraph-agents의 AgentStepDTO(agents/shared/models.py)와 필드가 1:1 대응한다.
+// agents의 AgentStepDTO(agents/shared/models.py)와 필드가 1:1 대응한다.
 export interface AiJobStepPayload {
     readonly seq: number;
     readonly role: AiJobStepRole;

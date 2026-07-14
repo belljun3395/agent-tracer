@@ -31,7 +31,7 @@ def configure_observability() -> Callable[[], None]:
     except ModuleNotFoundError:
         return _noop
 
-    service_name = os.getenv("OTEL_SERVICE_NAME", "langgraph-agents")
+    service_name = os.getenv("OTEL_SERVICE_NAME", "agents")
     resource = resource_mod.Resource.create({"service.name": service_name})
     tracer_provider = trace_sdk.TracerProvider(resource=resource)
     tracer_provider.add_span_processor(

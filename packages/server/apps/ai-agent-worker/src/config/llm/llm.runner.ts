@@ -71,7 +71,7 @@ export interface StructuredAgentResult<T> {
     readonly providerRequestId: string | null;
 }
 
-/** 도메인 어휘를 모른 채 구조화 출력을 내는 사이드카 실행기다. */
+/** 도메인 어휘를 모른 채 구조화 출력을 내는 실행 백엔드 실행기다. */
 export interface AgentRunnerPort {
     requiresLocalApiKey(): boolean;
     runStructured<T>(

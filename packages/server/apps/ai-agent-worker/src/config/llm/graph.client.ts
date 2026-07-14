@@ -14,7 +14,7 @@ const ROUTE_BY_AGENT_ID: Readonly<Record<string, string>> = Object.fromEntries(
     Object.values(AGENT).map((agent) => [agent.id, agent.route]),
 );
 
-/** Python LangGraph 사이드카를 HTTP로 부르는 에이전트 실행기다. */
+/** LangGraph 실행 백엔드를 HTTP로 부르는 에이전트 실행기다. */
 export class AgentGraphClient implements AgentRunnerPort {
     constructor(private readonly baseUrl: string) {}
 

@@ -11,7 +11,7 @@ import type {
 } from "~ai-agent-worker/domain/title/port/title.agent.port.js";
 import { buildTitleToolHandlers, type TitleToolDeps } from "./title.tools.js";
 
-/** Python LangGraph 방언으로 title 명세를 렌더링해 사이드카에서 실행한다. */
+/** Python LangGraph 방언으로 title 명세를 렌더링해 실행 백엔드에서 실행한다. */
 export class TitleGraphAgentAdapter implements TitleAgentPort {
     constructor(
         private readonly client: AgentRunnerPort,

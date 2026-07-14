@@ -1,6 +1,6 @@
-"""에이전트 실행 오류를 temporal-worker가 재시도 분류에 쓰는 errorSubtype으로 정규화한다.
+"""에이전트 실행 오류를 ai-agent-worker가 재시도 분류에 쓰는 errorSubtype으로 정규화한다.
 
-비재시도 서브타입은 temporal-worker의 오류 상수와 같은 어휘를 쓴다. 그 외 오류는
+비재시도 서브타입은 ai-agent-worker의 오류 상수와 같은 어휘를 쓴다. 그 외 오류는
 Temporal 기본 재시도에 맡긴다.
 """
 

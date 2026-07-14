@@ -12,7 +12,7 @@ import type {
 } from "~ai-agent-worker/domain/recipe/port/recipe.agent.port.js";
 import { buildRecipeToolHandlers, type RecipeToolDeps } from "./recipe.tools.js";
 
-/** Python LangGraph 방언으로 recipe 명세를 렌더링해 사이드카에서 실행한다. */
+/** Python LangGraph 방언으로 recipe 명세를 렌더링해 실행 백엔드에서 실행한다. */
 export class RecipeGraphAgentAdapter implements RecipeAgentPort {
     constructor(
         private readonly client: AgentRunnerPort,

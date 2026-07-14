@@ -23,7 +23,7 @@ export interface ToolCallbackGranter {
     grant(handlers: ToolHandlers): ToolCallbackGrant;
 }
 
-/** 사이드카의 도구 호출을 워커 내부 핸들러로 전달한다. */
+/** 실행 백엔드의 도구 호출을 워커 내부 핸들러로 전달한다. */
 export class ToolCallbackServer implements ToolCallbackGranter {
     private readonly sessions = new Map<string, ToolHandlers>();
     private server: Server | null = null;

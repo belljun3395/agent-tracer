@@ -28,7 +28,7 @@ class AgentExecutionRequest(BaseModel):
 
 
 class ToolCallback(BaseModel):
-    """도구 실행 창구. 토큰이 곧 소유 스코프라 사이드카는 userId를 알 필요가 없다."""
+    """도구 실행 창구. 토큰이 곧 소유 스코프라 실행 백엔드는 userId를 알 필요가 없다."""
 
     url: TrimmedStr = Field(min_length=1)
     token: TrimmedStr = Field(min_length=1)

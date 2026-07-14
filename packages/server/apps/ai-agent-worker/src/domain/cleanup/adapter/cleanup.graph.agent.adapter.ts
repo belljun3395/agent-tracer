@@ -11,7 +11,7 @@ import type {
 } from "~ai-agent-worker/domain/cleanup/port/cleanup.agent.port.js";
 import { buildCleanupToolHandlers, type CleanupToolDeps } from "./cleanup.tools.js";
 
-/** Python LangGraph 방언으로 cleanup 명세를 렌더링해 사이드카에서 실행한다. */
+/** Python LangGraph 방언으로 cleanup 명세를 렌더링해 실행 백엔드에서 실행한다. */
 export class CleanupGraphAgentAdapter implements CleanupAgentPort {
     constructor(
         private readonly client: AgentRunnerPort,

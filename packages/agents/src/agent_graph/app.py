@@ -1,7 +1,7 @@
 """FastAPI 앱. 세 에이전트와 취소 엔드포인트를 노출한다.
 
 오류는 HTTP 실패가 아니라 응답 본문 error 필드로 돌려준다. TS 러너 계약과 동일하게
-호출부(temporal-worker)가 errorSubtype으로 재시도 여부를 판단하게 하기 위함이다.
+호출부(ai-agent-worker)가 errorSubtype으로 재시도 여부를 판단하게 하기 위함이다.
 취소(asyncio.CancelledError)는 이 정규화 대상이 아니다. runtime/execution/runner.py가 그대로
 재전파하므로 이 경우 에이전트 엔드포인트는 정상 응답을 돌려주지 않고 연결이 끊긴다.
 """

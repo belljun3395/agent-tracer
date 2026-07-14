@@ -22,7 +22,7 @@ export function resolveToolCallbackInstanceId(explicitId: string | undefined, ho
     return explicitId?.trim() || host;
 }
 
-/** 에이전트 사이드카와 워커 콜백 연결 설정을 환경별 우선순위로 조립한다. */
+/** 에이전트 실행 백엔드와 워커 콜백 연결 설정을 환경별 우선순위로 조립한다. */
 export function buildAgentGraphConfig(
     source: Record<string, unknown>,
     env: NodeJS.ProcessEnv,
