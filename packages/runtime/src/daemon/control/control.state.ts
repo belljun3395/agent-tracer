@@ -64,7 +64,6 @@ export interface RuleView {
     readonly evaluated: number;
     readonly verified: number;
     readonly contradicted: number;
-    readonly denied: number;
     readonly blocked: number;
     readonly lastFiredAt?: number;
 }
@@ -148,7 +147,6 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
             evaluated: sum(stats, (stat) => stat.evaluated),
             verified: sum(stats, (stat) => stat.verified),
             contradicted: sum(stats, (stat) => stat.contradicted),
-            denied: sum(stats, (stat) => stat.denied),
             blocked: sum(stats, (stat) => stat.blocked),
             ...(lastFiredAt !== undefined ? {lastFiredAt} : {}),
         };
@@ -164,7 +162,7 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
             cached: false,
         });
     }
-    views.sort((a, b) => (b.denied + b.blocked) - (a.denied + a.blocked) || b.evaluated - a.evaluated);
+    views.sort((a, b) => b.blocked - a.blocked || b.evaluated - a.evaluated);
     return views;
 }
 

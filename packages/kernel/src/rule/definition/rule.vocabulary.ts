@@ -11,10 +11,6 @@ export function isTurnHaltingSeverity(severity: string): boolean {
     return severity === RULE_SEVERITY.warn || severity === RULE_SEVERITY.block;
 }
 
-export function isPreToolDenyingSeverity(severity: string): boolean {
-    return severity === RULE_SEVERITY.block;
-}
-
 export const RULE_SCOPE = {
     global: "global",
     task: "task",
@@ -69,45 +65,34 @@ export const RULE_EXPECTATION_KIND = {
     command: "command",
     pattern: "pattern",
     action: "action",
-    forbidden: "forbidden",
 } as const;
 export const RULE_EXPECTATION_KINDS = [
     RULE_EXPECTATION_KIND.command,
     RULE_EXPECTATION_KIND.pattern,
     RULE_EXPECTATION_KIND.action,
-    RULE_EXPECTATION_KIND.forbidden,
 ] as const;
 export type RuleExpectationKind = (typeof RULE_EXPECTATION_KINDS)[number];
 
 export interface CommandRuleExpectation {
     readonly kind: typeof RULE_EXPECTATION_KIND.command;
     readonly commandMatches: readonly string[];
-    readonly forbiddenMatches?: readonly string[] | undefined;
 }
 
 export interface PatternRuleExpectation {
     readonly kind: typeof RULE_EXPECTATION_KIND.pattern;
     readonly pattern: string;
     readonly tool?: RuleExpectedAction | undefined;
-    readonly forbiddenMatches?: readonly string[] | undefined;
 }
 
 export interface ActionRuleExpectation {
     readonly kind: typeof RULE_EXPECTATION_KIND.action;
     readonly tool: RuleExpectedAction;
-    readonly forbiddenMatches?: readonly string[] | undefined;
-}
-
-export interface ForbiddenRuleExpectation {
-    readonly kind: typeof RULE_EXPECTATION_KIND.forbidden;
-    readonly forbiddenMatches: readonly string[];
 }
 
 export type RuleExpectation =
     | CommandRuleExpectation
     | PatternRuleExpectation
-    | ActionRuleExpectation
-    | ForbiddenRuleExpectation;
+    | ActionRuleExpectation;
 
 export interface ToolCall {
     readonly tool: string;
@@ -125,7 +110,6 @@ export interface EnforcementRecord {
 export interface VerdictEvidence {
     matchedPhrase?: string;
     expectedPattern?: string;
-    forbiddenPattern?: string;
     actualToolCalls: string[];
     matchedToolCalls: string[];
     enforcements: EnforcementRecord[];

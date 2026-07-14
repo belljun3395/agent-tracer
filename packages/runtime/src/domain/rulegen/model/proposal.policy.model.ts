@@ -7,8 +7,7 @@ export const RULE_EXPECTATION_FIELD_GUIDE = `  - expect   : { kind, ... } -- kin
                kind="command"  : commandMatches (required, literal commands the agent must run)
                kind="pattern"  : pattern (required regex), tool (optional, narrows which call kind to check)
                kind="action"   : tool (required, one of exactly: ${RULE_EXPECTED_ACTIONS.join(", ")})
-               kind="forbidden": forbiddenMatches (required, substrings the agent must NOT run/write/touch)
-               forbiddenMatches is additionally optional on command/pattern/action to pair a prohibition with an obligation.
+               Every rule states what the agent MUST do. A rule cannot state a prohibition.
                Prefer kind="command" (literal commands) over kind="pattern" (regex).`;
 
 const FIELD_GUIDE = `Each rule has:

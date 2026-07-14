@@ -36,22 +36,16 @@ export function toSlimRule(rule: RuleEntity): SlimRule {
 }
 
 function toExpectView(expectation: RuleExpectation): Record<string, unknown> {
-    const forbidden = expectation.forbiddenMatches !== undefined
-        ? { forbiddenMatches: expectation.forbiddenMatches }
-        : {};
     switch (expectation.kind) {
         case RULE_EXPECTATION_KIND.command:
-            return { kind: expectation.kind, commandMatches: expectation.commandMatches, ...forbidden };
+            return { kind: expectation.kind, commandMatches: expectation.commandMatches };
         case RULE_EXPECTATION_KIND.pattern:
             return {
                 kind: expectation.kind,
                 pattern: expectation.pattern,
                 ...(expectation.tool !== undefined ? { action: expectation.tool } : {}),
-                ...forbidden,
             };
         case RULE_EXPECTATION_KIND.action:
-            return { kind: expectation.kind, action: expectation.tool, ...forbidden };
-        case RULE_EXPECTATION_KIND.forbidden:
-            return { kind: expectation.kind, forbiddenMatches: expectation.forbiddenMatches };
+            return { kind: expectation.kind, action: expectation.tool };
     }
 }

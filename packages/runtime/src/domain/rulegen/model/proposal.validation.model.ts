@@ -19,10 +19,9 @@ type RuleExpectPayload = RuleProposalPayload["expect"];
 
 // 다른 변형의 필드가 조용히 섞이면 판별 유니온의 의미가 무너지므로 변형마다 허용 필드를 닫는다.
 const EXPECT_FIELDS: Readonly<Record<string, readonly string[]>> = {
-    [RULE_EXPECTATION_KIND.command]: ["kind", "commandMatches", "forbiddenMatches"],
-    [RULE_EXPECTATION_KIND.pattern]: ["kind", "pattern", "tool", "forbiddenMatches"],
-    [RULE_EXPECTATION_KIND.action]: ["kind", "tool", "forbiddenMatches"],
-    [RULE_EXPECTATION_KIND.forbidden]: ["kind", "forbiddenMatches"],
+    [RULE_EXPECTATION_KIND.command]: ["kind", "commandMatches"],
+    [RULE_EXPECTATION_KIND.pattern]: ["kind", "pattern", "tool"],
+    [RULE_EXPECTATION_KIND.action]: ["kind", "tool"],
 };
 
 /** 계약을 어겨 버려진 제안의 자리와 이유다. */
@@ -66,16 +65,11 @@ function parseExpect(value: unknown): RuleExpectPayload | null {
     if (allowed === undefined) return null;
     if (Object.keys(value).some((key) => !allowed.includes(key))) return null;
 
-    const rawForbidden = value["forbiddenMatches"];
-    const forbidden = rawForbidden === undefined ? null : textList(rawForbidden);
-    if (rawForbidden !== undefined && forbidden === null) return null;
-    const forbiddenPart = forbidden === null ? {} : {forbiddenMatches: forbidden};
-
     switch (kind) {
         case RULE_EXPECTATION_KIND.command: {
             const commandMatches = textList(value["commandMatches"]);
             if (commandMatches === null) return null;
-            return {kind, commandMatches, ...forbiddenPart};
+            return {kind, commandMatches};
         }
         case RULE_EXPECTATION_KIND.pattern: {
             const pattern = trimmedText(value["pattern"], PATTERN_MAX);
@@ -83,16 +77,12 @@ function parseExpect(value: unknown): RuleExpectPayload | null {
             const rawTool = value["tool"];
             const tool = rawTool === undefined ? null : toExpectedAction(rawTool);
             if (rawTool !== undefined && tool === null) return null;
-            return {kind, pattern, ...(tool === null ? {} : {tool}), ...forbiddenPart};
+            return {kind, pattern, ...(tool === null ? {} : {tool})};
         }
         case RULE_EXPECTATION_KIND.action: {
             const tool = toExpectedAction(value["tool"]);
             if (tool === null) return null;
-            return {kind, tool, ...forbiddenPart};
-        }
-        case RULE_EXPECTATION_KIND.forbidden: {
-            if (forbidden === null) return null;
-            return {kind, forbiddenMatches: forbidden};
+            return {kind, tool};
         }
         default:
             return null;

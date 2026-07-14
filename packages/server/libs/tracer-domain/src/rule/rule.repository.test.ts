@@ -8,9 +8,9 @@ function rule(id: string, reviewState: RuleEntity["reviewState"]): RuleEntity {
     const entity = new RuleEntity();
     entity.id = id;
     entity.userId = "u1";
-    entity.name = "위험 명령 차단";
+    entity.name = "배포 전 테스트 실행";
     entity.trigger = { phrases: ["배포"] };
-    entity.expectation = { kind: RULE_EXPECTATION_KIND.forbidden, forbiddenMatches: ["rm -rf"] };
+    entity.expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] };
     entity.scope = RULE_SCOPE.global;
     entity.taskId = null;
     entity.source = RULE_SOURCE.agent;

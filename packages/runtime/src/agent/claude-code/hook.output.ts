@@ -1,5 +1,4 @@
-import {formatBlockReason, formatDenyReason} from "~runtime/domain/guardrail/model/enforce.model.js";
-import type {PreToolDenial} from "~runtime/domain/guardrail/model/pre-tool.model.js";
+import {formatBlockReason} from "~runtime/domain/guardrail/model/enforce.model.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {formatRulesContext} from "~runtime/domain/guardrail/model/rules.context.model.js";
 import type {GuardrailVerdict} from "~runtime/domain/guardrail/model/verdict.model.js";
@@ -41,17 +40,6 @@ export function emitHints(hookEventName: ContextHookName, hints: readonly Prepro
     if (additionalContext === "") return false;
     writeStdout({hookSpecificOutput: {hookEventName, additionalContext}});
     return true;
-}
-
-/** 도구 호출을 사전 거부한다. */
-export function emitPreToolDenial(denial: PreToolDenial): void {
-    writeStdout({
-        hookSpecificOutput: {
-            hookEventName: "PreToolUse",
-            permissionDecision: "deny",
-            permissionDecisionReason: formatDenyReason(denial),
-        },
-    });
 }
 
 /** stdout JSON의 block 결정은 다중 플러그인 환경에서 무시되는 사례가 있어 exit code 계약을 쓴다. */

@@ -54,11 +54,7 @@ function describeExpectation(expectation: RuleExpectation): string {
         case RULE_EXPECTATION_KIND.action:
             clauses.push(`필수 도구: ${expectation.tool}`);
             break;
-        case RULE_EXPECTATION_KIND.forbidden:
-            break;
     }
-    const forbidden = expectation.forbiddenMatches ?? [];
-    if (forbidden.length > 0) clauses.push(`금지: ${forbidden.join(", ")}`);
     return clauses.join(" / ");
 }
 

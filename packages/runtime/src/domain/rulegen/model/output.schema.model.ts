@@ -31,7 +31,6 @@ export function buildRuleOutputSchema(): Record<string, unknown> {
                                     properties: {
                                         kind: {type: "string", enum: [RULE_EXPECTATION_KIND.command]},
                                         commandMatches: {type: "array", items: {type: "string"}},
-                                        forbiddenMatches: {type: "array", items: {type: "string"}},
                                     },
                                     required: ["kind", "commandMatches"],
                                 },
@@ -41,7 +40,6 @@ export function buildRuleOutputSchema(): Record<string, unknown> {
                                         kind: {type: "string", enum: [RULE_EXPECTATION_KIND.pattern]},
                                         pattern: {type: "string"},
                                         tool: {type: "string", enum: [...RULE_EXPECTED_ACTIONS]},
-                                        forbiddenMatches: {type: "array", items: {type: "string"}},
                                     },
                                     required: ["kind", "pattern"],
                                 },
@@ -50,17 +48,8 @@ export function buildRuleOutputSchema(): Record<string, unknown> {
                                     properties: {
                                         kind: {type: "string", enum: [RULE_EXPECTATION_KIND.action]},
                                         tool: {type: "string", enum: [...RULE_EXPECTED_ACTIONS]},
-                                        forbiddenMatches: {type: "array", items: {type: "string"}},
                                     },
                                     required: ["kind", "tool"],
-                                },
-                                {
-                                    type: "object",
-                                    properties: {
-                                        kind: {type: "string", enum: [RULE_EXPECTATION_KIND.forbidden]},
-                                        forbiddenMatches: {type: "array", items: {type: "string"}},
-                                    },
-                                    required: ["kind", "forbiddenMatches"],
                                 },
                             ],
                         },

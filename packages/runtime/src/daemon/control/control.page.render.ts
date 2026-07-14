@@ -8,9 +8,8 @@ const STATUS_TEXT = {
   rejecting: "Server rejecting events",
   unreachable: "Server unreachable",
 };
-const IV_TAG = {tool_denied: "deny", stop_blocked: "block", hints_injected: "hint", recipe_injected: "recipe"};
+const IV_TAG = {stop_blocked: "block", hints_injected: "hint", recipe_injected: "recipe"};
 const IV_LABEL = {
-  tool_denied: "tool denied",
   stop_blocked: "stop blocked",
   hints_injected: "hints injected",
   recipe_injected: "recipe injected",
@@ -68,7 +67,6 @@ function renderInterventions(s) {
   const iv = s.interventions;
   const hints = Object.entries(iv.hintTypeCounts).sort((a, b) => b[1] - a[1]);
   $("iv-cards").innerHTML = [
-    card("Tools denied", iv.totals.tool_denied, "agent was blocked from acting", iv.totals.tool_denied ? "warn" : ""),
     card("Stops blocked", iv.totals.stop_blocked, "agent was forced to keep working", iv.totals.stop_blocked ? "warn" : ""),
     card("Hints injected", iv.totals.hints_injected, ""),
     card("Recipes injected", iv.totals.recipe_injected, ""),
@@ -87,10 +85,10 @@ function renderInterventions(s) {
 
 function renderRules(s) {
   $("rule-rows").innerHTML = table(
-    ["Rule", "Scope / task", "Severity", "Trigger", "Evaluated", "Verified", "Contradicted", "Denied", "Blocked", "Last fired"],
+    ["Rule", "Scope / task", "Severity", "Trigger", "Evaluated", "Verified", "Contradicted", "Blocked", "Last fired"],
     s.rules.map((r) => {
       const pending = r.reviewState === "pendingReview";
-      const dead = r.cached && !pending && r.evaluated === 0 && r.denied === 0 && r.blocked === 0;
+      const dead = r.cached && !pending && r.evaluated === 0 && r.blocked === 0;
       return "<tr><td>" + esc(r.ruleName)
         + (pending ? ' <span class="tag warn">awaiting approval, not enforced</span>' : "")
         + (dead ? ' <span class="tag">never fired</span>' : "")
@@ -98,7 +96,7 @@ function renderRules(s) {
         + '<td class="mono muted">' + esc(r.taskId ? r.taskId : r.scope) + "</td>"
         + "<td>" + esc(r.severity) + '</td><td class="muted">' + esc(r.trigger) + "</td>"
         + '<td class="num">' + r.evaluated + '</td><td class="num">' + r.verified + "</td>"
-        + '<td class="num">' + r.contradicted + '</td><td class="num">' + r.denied + "</td>"
+        + '<td class="num">' + r.contradicted + "</td>"
         + '<td class="num">' + r.blocked + '</td><td class="muted">' + esc(ago(r.lastFiredAt)) + "</td></tr>";
     }), "No rules cached. The guardrail is enforcing nothing.");
 }

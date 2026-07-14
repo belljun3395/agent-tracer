@@ -58,9 +58,6 @@ export const KO_RULES = {
     pattern: createGuidanceMessage(
       "이벤트 페이로드에 적용할 정규식입니다.",
     ),
-    forbiddenMatches: createGuidanceMessage(
-      "에이전트가 실행하면 안 되는 부분 문자열을 한 줄에 하나씩 입력하세요. forbidden에서는 필수, 나머지 Kind에서는 의무 조항과 함께 쓰는 선택 항목입니다.",
-    ),
     rationale: createGuidanceMessage(
       "이 규칙이 필요한 이유를 설명하세요. 위반 카드에 표시됩니다.",
     ),

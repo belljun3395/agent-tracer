@@ -16,14 +16,6 @@ describe("ruleProposalSchema", () => {
         expect(parsed.success).toBe(false);
     });
 
-    it("금지 조항만 있어도 검증 가능한 규칙으로 본다", () => {
-        const parsed = ruleProposalSchema.safeParse({
-            name: "이름",
-            expect: { kind: RULE_EXPECTATION_KIND.forbidden, forbiddenMatches: ["--force"] },
-        });
-        expect(parsed.success).toBe(true);
-    });
-
     it("command kind는 commandMatches가 비어있으면 거부한다", () => {
         const parsed = ruleProposalSchema.safeParse({
             name: "이름",

@@ -18,7 +18,6 @@ export interface RuleFormState {
   expectTool: RuleExpectedAction | "";
   expectCommandMatches: string;
   expectPattern: string;
-  expectForbiddenMatches: string;
   scope: RuleScope;
   severity: RuleSeverity;
   rationale: string;
@@ -40,7 +39,6 @@ export function createRuleFormState(
       expectTool: "",
       expectCommandMatches: "",
       expectPattern: "",
-      expectForbiddenMatches: "",
       scope: fallbackScope,
       severity: "warn",
       rationale: "",
@@ -64,7 +62,6 @@ export function createRuleFormState(
         : "",
     expectPattern:
       expect.kind === RULE_EXPECTATION_KIND.pattern ? expect.pattern : "",
-    expectForbiddenMatches: (expect.forbiddenMatches ?? []).join("\n"),
     scope: rule.scope,
     severity: rule.severity,
     rationale: rule.rationale ?? "",
@@ -76,13 +73,11 @@ export function buildRuleExpectation(form: RuleFormState): RuleExpect | null {
   const commandMatches = splitRuleFormLines(form.expectCommandMatches);
   const pattern = form.expectPattern.trim();
   const tool = form.expectTool;
-  const forbiddenMatches = splitRuleFormLines(form.expectForbiddenMatches);
-  const forbidden = forbiddenMatches.length > 0 ? { forbiddenMatches } : {};
 
   switch (form.expectKind) {
     case RULE_EXPECTATION_KIND.command:
       return commandMatches.length > 0
-        ? { kind: RULE_EXPECTATION_KIND.command, commandMatches, ...forbidden }
+        ? { kind: RULE_EXPECTATION_KIND.command, commandMatches }
         : null;
     case RULE_EXPECTATION_KIND.pattern:
       return pattern
@@ -90,17 +85,10 @@ export function buildRuleExpectation(form: RuleFormState): RuleExpect | null {
             kind: RULE_EXPECTATION_KIND.pattern,
             pattern,
             ...(tool ? { tool } : {}),
-            ...forbidden,
           }
         : null;
     case RULE_EXPECTATION_KIND.action:
-      return tool
-        ? { kind: RULE_EXPECTATION_KIND.action, tool, ...forbidden }
-        : null;
-    case RULE_EXPECTATION_KIND.forbidden:
-      return forbiddenMatches.length > 0
-        ? { kind: RULE_EXPECTATION_KIND.forbidden, forbiddenMatches }
-        : null;
+      return tool ? { kind: RULE_EXPECTATION_KIND.action, tool } : null;
   }
 }
 

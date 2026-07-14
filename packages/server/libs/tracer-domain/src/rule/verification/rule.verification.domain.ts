@@ -77,7 +77,6 @@ export class RuleVerification {
         const evidence: VerdictEvidence = {
             ...(matchedPhrase !== null ? { matchedPhrase } : {}),
             ...(outcome.expectedPattern !== undefined ? { expectedPattern: outcome.expectedPattern } : {}),
-            ...(outcome.forbiddenPattern !== undefined ? { forbiddenPattern: outcome.forbiddenPattern } : {}),
             actualToolCalls: outcome.actualToolCalls,
             matchedToolCalls: outcome.matchedToolCalls,
             enforcements: this.enforcements(nowIso, matchedPhrase),

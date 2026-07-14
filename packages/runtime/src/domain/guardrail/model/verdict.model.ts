@@ -17,8 +17,6 @@ export interface GuardrailVerdict {
     readonly severity: string;
     readonly status: VerdictStatus;
     readonly expectedPattern?: string;
-    /** 위반한 금지 패턴이다. */
-    readonly forbiddenPattern?: string;
     readonly matchedPhrase?: string;
     readonly actualToolCallCount: number;
 }
@@ -57,7 +55,6 @@ export function evaluateTurnAgainstRules(
             severity: rule.severity,
             status: outcome.status,
             ...(outcome.expectedPattern !== undefined ? {expectedPattern: outcome.expectedPattern} : {}),
-            ...(outcome.forbiddenPattern !== undefined ? {forbiddenPattern: outcome.forbiddenPattern} : {}),
             ...(matchedPhrase !== null ? {matchedPhrase} : {}),
             actualToolCallCount: outcome.actualToolCalls.length,
         });

@@ -84,9 +84,6 @@ describe("RuleForm", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /^Pattern/ }), {
       target: { value: "  ^safe  " },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: /^Forbidden matches/ }), {
-      target: { value: "--force\n--force" },
-    });
     fireEvent.change(screen.getByRole("textbox", { name: /^Rationale/ }), {
       target: { value: "  Require a safe deploy.  " },
     });
@@ -102,7 +99,6 @@ describe("RuleForm", () => {
           kind: "pattern",
           pattern: "^safe",
           tool: "command",
-          forbiddenMatches: ["--force"],
         },
         scope: "task",
         taskId,

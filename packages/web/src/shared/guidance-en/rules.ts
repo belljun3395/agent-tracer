@@ -60,9 +60,6 @@ export const EN_RULES = {
     pattern: createGuidanceMessage(
       "Regular expression applied to the event payload.",
     ),
-    forbiddenMatches: createGuidanceMessage(
-      "Enter one substring the agent must not run per line. Required for forbidden, optional elsewhere to pair a prohibition with an obligation.",
-    ),
     rationale: createGuidanceMessage(
       "Explain why this rule exists. The rationale appears on violation cards.",
     ),

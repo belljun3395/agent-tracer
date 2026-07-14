@@ -5,7 +5,7 @@ import type {PreprocessingHint, PreprocessingHintTrigger} from "~runtime/domain/
 const RECENT_MAX = 200;
 
 /** 데몬이 에이전트에 가한 개입의 종류다. */
-export type InterventionKind = "tool_denied" | "stop_blocked" | "hints_injected" | "recipe_injected";
+export type InterventionKind = "stop_blocked" | "hints_injected" | "recipe_injected";
 
 export interface Intervention {
     readonly at: number;
@@ -26,7 +26,6 @@ export interface RuleActivity {
     readonly evaluated: number;
     readonly verified: number;
     readonly contradicted: number;
-    readonly denied: number;
     readonly blocked: number;
     readonly lastFiredAt?: number;
 }
@@ -45,7 +44,6 @@ interface MutableRuleActivity {
     evaluated: number;
     verified: number;
     contradicted: number;
-    denied: number;
     blocked: number;
     lastFiredAt?: number;
 }
@@ -54,7 +52,6 @@ interface MutableRuleActivity {
 export class InterventionLog {
     private readonly entries: Intervention[] = [];
     private readonly totals: Record<InterventionKind, number> = {
-        tool_denied: 0,
         stop_blocked: 0,
         hints_injected: 0,
         recipe_injected: 0,
@@ -73,13 +70,8 @@ export class InterventionLog {
         }
         if (intervention.ruleName === undefined) return;
         const activity = this.ruleFor(intervention.taskId, intervention.ruleName);
-        if (intervention.kind === "tool_denied") activity.denied += 1;
         if (intervention.kind === "stop_blocked") activity.blocked += 1;
         activity.lastFiredAt = intervention.at;
-    }
-
-    recordToolDenied(at: number, taskId: string, ruleName: string, tool: string, needle: string): void {
-        this.record({at, kind: "tool_denied", taskId, ruleName, tool, detail: needle});
     }
 
     recordHintsInjected(
@@ -125,10 +117,7 @@ export class InterventionLog {
                 taskId,
                 ruleName: verdict.ruleName,
                 severity: verdict.severity,
-                detail: verdict.matchedPhrase
-                    ?? verdict.forbiddenPattern
-                    ?? verdict.expectedPattern
-                    ?? verdict.status,
+                detail: verdict.matchedPhrase ?? verdict.expectedPattern ?? verdict.status,
             });
         }
     }
@@ -140,14 +129,11 @@ export class InterventionLog {
             evaluated: activity.evaluated,
             verified: activity.verified,
             contradicted: activity.contradicted,
-            denied: activity.denied,
             blocked: activity.blocked,
             ...(activity.lastFiredAt !== undefined ? {lastFiredAt: activity.lastFiredAt} : {}),
         }));
         ruleActivity.sort(
-            (left, right) =>
-                right.denied + right.blocked - (left.denied + left.blocked)
-                || right.evaluated - left.evaluated,
+            (left, right) => right.blocked - left.blocked || right.evaluated - left.evaluated,
         );
         return {
             recent: [...this.entries].reverse(),
@@ -168,7 +154,6 @@ export class InterventionLog {
             evaluated: 0,
             verified: 0,
             contradicted: 0,
-            denied: 0,
             blocked: 0,
         };
         this.rules.set(key, created);

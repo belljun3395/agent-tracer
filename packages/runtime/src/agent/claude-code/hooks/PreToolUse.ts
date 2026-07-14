@@ -1,9 +1,9 @@
-/** 모든 도구 호출 전에 Claude Code가 실행하는 훅으로 금지 조항에 걸리는 호출만 사전 거부하고 힌트를 낸다. */
-import {emitHints, emitPreToolDenial} from "~runtime/agent/claude-code/hook.output.js";
+/** 모든 도구 호출 전에 Claude Code가 실행하는 훅으로 전사본을 기록하고 다음 행동 힌트를 낸다. */
+import {emitHints} from "~runtime/agent/claude-code/hook.output.js";
 import {readPreToolUse} from "~runtime/agent/claude-code/payload/tool.payload.js";
 import {claudeRuntime, resolveEventSession, runHook} from "~runtime/agent/claude-code/runtime.js";
 import {captureTranscriptCommentary} from "~runtime/agent/claude-code/transcript/transcript.commentary.js";
-import {queryDaemonHints, queryDaemonPreToolGuard} from "~runtime/daemon/ipc/hook.client.js";
+import {queryDaemonHints} from "~runtime/daemon/ipc/hook.client.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {
     POWERSHELL_TOOL_NAME,
@@ -26,23 +26,7 @@ await runHook("PreToolUse", {
         const command = SHELL_TOOLS.has(toolName)
             ? toTrimmedString(payload.toolInput["command"]) || undefined
             : undefined;
-        const filePath = toTrimmedString(payload.toolInput["file_path"]) || undefined;
         const questions = toolName === "AskUserQuestion" ? readQuestions(payload.toolInput) : [];
-
-        if ((command !== undefined || filePath !== undefined) && guardrailEnabled()) {
-            const denial = await queryDaemonPreToolGuard(
-                target.taskId,
-                target.sessionId,
-                toolName,
-                command,
-                filePath,
-            );
-            if (denial !== null) {
-                emitPreToolDenial(denial);
-                return;
-            }
-        }
-
         if (command === undefined && questions.length === 0) return;
 
         const hints = await queryDaemonHints(target.taskId, {
@@ -54,10 +38,6 @@ await runHook("PreToolUse", {
         emitHints("PreToolUse", hints);
     },
 });
-
-function guardrailEnabled(): boolean {
-    return process.env.AGENT_TRACER_GUARDRAIL_BLOCK !== "0";
-}
 
 function readQuestions(toolInput: Record<string, unknown>): readonly string[] {
     const questions = toolInput["questions"];

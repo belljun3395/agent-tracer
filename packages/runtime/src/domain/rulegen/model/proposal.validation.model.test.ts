@@ -20,7 +20,7 @@ describe("validateRuleProposals", () => {
 
     it("선택 필드가 없어도 이름과 기대 조건만 맞으면 받는다", () => {
         const {accepted} = validateRuleProposals([
-            {name: "강제 푸시 금지", expect: {kind: "forbidden", forbiddenMatches: ["--force"]}},
+            {name: "배포 전 테스트", expect: {kind: "command", commandMatches: ["npm test"]}},
         ]);
 
         expect(accepted).toHaveLength(1);

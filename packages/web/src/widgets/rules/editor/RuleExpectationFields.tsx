@@ -33,10 +33,6 @@ const EXPECT_KIND_OPTIONS: readonly {
   { value: RULE_EXPECTATION_KIND.command, label: "command — literal commands" },
   { value: RULE_EXPECTATION_KIND.pattern, label: "pattern — regex match" },
   { value: RULE_EXPECTATION_KIND.action, label: "action — tool kind only" },
-  {
-    value: RULE_EXPECTATION_KIND.forbidden,
-    label: "forbidden — prohibition only",
-  },
 ];
 
 interface RuleExpectationFieldsProps {
@@ -47,7 +43,7 @@ interface RuleExpectationFieldsProps {
   readonly onChange: UpdateRuleForm;
 }
 
-/** 규칙이 요구하거나 금지할 동작의 형태와 조건을 편집한다. */
+/** 규칙이 요구하는 동작의 형태와 조건을 편집한다. */
 export function RuleExpectationFields({
   form,
   disabled,
@@ -148,23 +144,6 @@ export function RuleExpectationFields({
           />
         </RuleFormField>
       )}
-
-      <RuleFormField
-        label="Forbidden matches"
-        hint={messages.forbiddenMatches}
-        hintLocale={locale}
-      >
-        <textarea
-          value={form.expectForbiddenMatches}
-          onChange={(event) =>
-            onChange({ expectForbiddenMatches: event.target.value })
-          }
-          rows={2}
-          disabled={disabled}
-          placeholder={`--force\nrm -rf`}
-          className={ruleFormTextareaClassName}
-        />
-      </RuleFormField>
     </>
   );
 }

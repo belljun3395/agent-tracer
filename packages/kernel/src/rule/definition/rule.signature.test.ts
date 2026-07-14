@@ -13,12 +13,10 @@ describe("computeRuleSignature", () => {
         const firstExpectation: RuleExpectation = {
             kind: RULE_EXPECTATION_KIND.command,
             commandMatches: ["npm test", "npm run lint"],
-            forbiddenMatches: ["--force", "--skip"],
         };
         const secondExpectation: RuleExpectation = {
             kind: RULE_EXPECTATION_KIND.command,
             commandMatches: ["npm run lint", "npm test"],
-            forbiddenMatches: ["--skip", "--force"],
         };
 
         expect(computeRuleSignature(firstTrigger, firstExpectation))

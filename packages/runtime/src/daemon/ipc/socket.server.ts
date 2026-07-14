@@ -5,12 +5,11 @@ import {
     type DaemonAckResponse,
     type DaemonGuardrailResponse,
     type DaemonHintsResponse,
-    type DaemonPreToolGuardResponse,
     type DaemonResponse,
     type DaemonRulesResponse,
     type DaemonVersionResponse,
 } from "~runtime/daemon/port/daemon.socket.port.js";
-import {onPreToolCall, onTurnStop, type GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
+import {onTurnStop, type GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {formatGuardrailLog} from "~runtime/domain/guardrail/model/enforce.model.js";
 import {isEnforceableRule, type GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {onHintsRequested, type HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
@@ -117,32 +116,6 @@ function handleMessage(socket: net.Socket, line: string, context: DaemonSocketCo
                     process.stderr.write(`${formatGuardrailLog(request.taskId, verdicts)}\n`);
                 }
                 send(socket, {verdicts: blocking} satisfies DaemonGuardrailResponse);
-                return;
-            }
-            case "guardrail-pretool": {
-                context.refreshHistory();
-                const deny = onPreToolCall(
-                    context.guardrail,
-                    context.ring.recent(request.taskId),
-                    context.readRules(),
-                    request.taskId,
-                    {
-                        tool: request.tool,
-                        ...(request.command !== undefined ? {command: request.command} : {}),
-                        ...(request.filePath !== undefined ? {filePath: request.filePath} : {}),
-                    },
-                    request.sessionId !== undefined ? {sessionId: request.sessionId} : {},
-                );
-                if (deny !== null) {
-                    context.interventions.recordToolDenied(
-                        Date.now(),
-                        request.taskId,
-                        deny.ruleName,
-                        request.tool,
-                        deny.needle,
-                    );
-                }
-                send(socket, {deny} satisfies DaemonPreToolGuardResponse);
                 return;
             }
         }

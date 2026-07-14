@@ -1,4 +1,3 @@
-import type {PreToolDenial} from "~runtime/domain/guardrail/model/pre-tool.model.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {GuardrailVerdict} from "~runtime/domain/guardrail/model/verdict.model.js";
 import type {PreprocessingHint, PreprocessingHintsRequest} from "~runtime/domain/hint/model/hint.model.js";
@@ -41,23 +40,13 @@ export interface DaemonGuardrailRequest {
     readonly candidateAssistantText?: string;
 }
 
-export interface DaemonPreToolGuardRequest {
-    readonly type: "guardrail-pretool";
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly tool: string;
-    readonly command?: string;
-    readonly filePath?: string;
-}
-
 export type DaemonRequest =
     | DaemonVersionRequest
     | DaemonShutdownRequest
     | DaemonHintsRequest
     | DaemonRulesRequest
     | DaemonRecipeInjectedRequest
-    | DaemonGuardrailRequest
-    | DaemonPreToolGuardRequest;
+    | DaemonGuardrailRequest;
 
 export interface DaemonVersionResponse {
     readonly version: string;
@@ -80,17 +69,12 @@ export interface DaemonGuardrailResponse {
     readonly verdicts: readonly GuardrailVerdict[];
 }
 
-export interface DaemonPreToolGuardResponse {
-    readonly deny: PreToolDenial | null;
-}
-
 export type DaemonResponse =
     | DaemonVersionResponse
     | DaemonAckResponse
     | DaemonHintsResponse
     | DaemonRulesResponse
-    | DaemonGuardrailResponse
-    | DaemonPreToolGuardResponse;
+    | DaemonGuardrailResponse;
 
 export function parseDaemonRequest(value: unknown): DaemonRequest | null {
     if (!isRecord(value) || typeof value["type"] !== "string") return null;
@@ -137,17 +121,6 @@ export function parseDaemonRequest(value: unknown): DaemonRequest | null {
                         : {}),
                 }
                 : null;
-        case "guardrail-pretool":
-            return typeof value["taskId"] === "string" && typeof value["tool"] === "string"
-                ? {
-                    type: "guardrail-pretool",
-                    taskId: value["taskId"],
-                    tool: value["tool"],
-                    ...(typeof value["sessionId"] === "string" ? {sessionId: value["sessionId"]} : {}),
-                    ...(typeof value["command"] === "string" ? {command: value["command"]} : {}),
-                    ...(typeof value["filePath"] === "string" ? {filePath: value["filePath"]} : {}),
-                }
-                : null;
         default:
             return null;
     }
@@ -181,10 +154,4 @@ export function parseDaemonGuardrailResponse(value: unknown): DaemonGuardrailRes
     return isRecord(value) && Array.isArray(value["verdicts"])
         ? {verdicts: value["verdicts"] as GuardrailVerdict[]}
         : null;
-}
-
-export function parseDaemonPreToolGuardResponse(value: unknown): DaemonPreToolGuardResponse | null {
-    if (!isRecord(value)) return null;
-    if (value["deny"] === null) return {deny: null};
-    return isRecord(value["deny"]) ? {deny: value["deny"] as unknown as PreToolDenial} : null;
 }

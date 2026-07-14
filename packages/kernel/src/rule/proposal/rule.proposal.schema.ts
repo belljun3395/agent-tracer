@@ -6,29 +6,20 @@ import {
     RULE_TRIGGER_SOURCES,
 } from "../definition/rule.vocabulary.js";
 
-const forbiddenMatchesSchema = z.array(z.string().trim().min(1)).min(1).max(20);
-
 // 엄격 객체로 닫지 않으면 다른 변형의 필드가 조용히 잘려 판별 유니온의 의미가 무너진다.
 export const ruleExpectationSchema = z.discriminatedUnion("kind", [
     z.object({
         kind: z.literal(RULE_EXPECTATION_KIND.command),
         commandMatches: z.array(z.string().trim().min(1)).min(1).max(20),
-        forbiddenMatches: forbiddenMatchesSchema.optional(),
     }).strict(),
     z.object({
         kind: z.literal(RULE_EXPECTATION_KIND.pattern),
         pattern: z.string().trim().min(1).max(500),
         tool: z.enum(RULE_EXPECTED_ACTIONS).optional(),
-        forbiddenMatches: forbiddenMatchesSchema.optional(),
     }).strict(),
     z.object({
         kind: z.literal(RULE_EXPECTATION_KIND.action),
         tool: z.enum(RULE_EXPECTED_ACTIONS),
-        forbiddenMatches: forbiddenMatchesSchema.optional(),
-    }).strict(),
-    z.object({
-        kind: z.literal(RULE_EXPECTATION_KIND.forbidden),
-        forbiddenMatches: forbiddenMatchesSchema,
     }).strict(),
 ]);
 

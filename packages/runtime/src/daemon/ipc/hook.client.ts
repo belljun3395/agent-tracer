@@ -8,15 +8,12 @@ import {resolveDaemonAction} from "~runtime/daemon/lifecycle/daemon.version.js";
 import {
     parseDaemonGuardrailResponse,
     parseDaemonHintsResponse,
-    parseDaemonPreToolGuardResponse,
     parseDaemonRulesResponse,
     type DaemonGuardrailRequest,
     type DaemonHintsRequest,
-    type DaemonPreToolGuardRequest,
     type DaemonRecipeInjectedRequest,
     type DaemonRulesRequest,
 } from "~runtime/daemon/port/daemon.socket.port.js";
-import type {PreToolDenial} from "~runtime/domain/guardrail/model/pre-tool.model.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {GuardrailVerdict} from "~runtime/domain/guardrail/model/verdict.model.js";
 import type {PreprocessingHint, PreprocessingHintsRequest} from "~runtime/domain/hint/model/hint.model.js";
@@ -133,36 +130,6 @@ export async function queryDaemonRules(taskId: string): Promise<readonly Guardra
     }
 }
 
-/** 데몬에서 도구 호출 사전 거부 여부를 조회한다. */
-export async function queryDaemonPreToolGuard(
-    taskId: string,
-    sessionId: string | undefined,
-    tool: string,
-    command: string | undefined,
-    filePath: string | undefined,
-): Promise<PreToolDenial | null> {
-    if (!taskId || !tool) return null;
-    const paths = resolveAgentTracerPaths();
-    try {
-        return await requestDaemon(
-            paths.socketPath,
-            {
-                type: "guardrail-pretool",
-                taskId,
-                tool,
-                ...(sessionId !== undefined ? {sessionId} : {}),
-                ...(command !== undefined ? {command} : {}),
-                ...(filePath !== undefined ? {filePath} : {}),
-            } satisfies DaemonPreToolGuardRequest,
-            HINTS_TIMEOUT_MS,
-            (parsed) => parseDaemonPreToolGuardResponse(parsed)?.deny ?? null,
-            null,
-        );
-    } catch {
-        void ensureDaemonRunning();
-        return null;
-    }
-}
 
 /** 데몬에서 턴 종료 가드레일 판정을 조회한다. */
 export async function queryDaemonGuardrail(

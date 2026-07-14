@@ -144,7 +144,5 @@ function matchedByFor(record: EnforcementRecord, rule: RuleEntity): readonly Rul
             return ["commandMatch"];
         case RULE_EXPECTATION_KIND.pattern:
             return ["pattern"];
-        case RULE_EXPECTATION_KIND.forbidden:
-            return [];
     }
 }

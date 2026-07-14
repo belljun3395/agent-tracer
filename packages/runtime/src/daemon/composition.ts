@@ -1,5 +1,4 @@
 import {monitorUserHeader, resolveMonitorBaseUrl} from "~runtime/config/env.js";
-import {EvaluatePreToolUsecase} from "~runtime/domain/guardrail/application/evaluate.pre-tool.usecase.js";
 import {EvaluateTurnUsecase} from "~runtime/domain/guardrail/application/evaluate.turn.usecase.js";
 import {RefreshRulesUsecase} from "~runtime/domain/guardrail/application/refresh.rules.usecase.js";
 import {HttpRuleSourceAdapter} from "~runtime/domain/guardrail/adapter/http.rule.source.adapter.js";
@@ -40,7 +39,6 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
 
     const guardrail: GuardrailHook = {
         evaluateTurn: new EvaluateTurnUsecase(),
-        evaluatePreTool: new EvaluatePreToolUsecase(),
         refreshRules: new RefreshRulesUsecase(new HttpRuleSourceAdapter(baseUrl, headers)),
     };
 

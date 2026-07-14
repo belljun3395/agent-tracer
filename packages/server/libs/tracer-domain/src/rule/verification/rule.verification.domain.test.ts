@@ -133,11 +133,4 @@ describe("RuleVerification", () => {
         });
     });
 
-    it("forbidden 변형은 도구가 전혀 안 쓰여도 verified로 판정한다", () => {
-        const rule = makeRule({ phrases: [] }, { kind: RULE_EXPECTATION_KIND.forbidden, forbiddenMatches: ["--force"] });
-        const turn = makeTurn("run the tests");
-        const verification = new RuleVerification(rule, turn, []);
-        const verdict = verification.verdict(NOW);
-        expect(verdict?.status).toBe(VERDICT_STATUS.verified);
-    });
 });
