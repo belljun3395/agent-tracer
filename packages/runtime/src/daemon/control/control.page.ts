@@ -29,8 +29,8 @@ function renderSections(): string {
     return [
         section("status", `<div class="grid" id="status-cards"></div>`),
         section("interventions", `
-      <p class="note">What the daemon did to the agent. It denies tools, blocks stops, and injects context.
-        Nothing else records this.</p>
+      <p class="note">What the daemon did to the agent. It injects context and blocks turns that leave rules
+        unfulfilled. Nothing else records this.</p>
       <div class="grid" id="iv-cards"></div>
       <h2 style="margin-top:18px">Recent interventions</h2>
       <div id="iv-rows"></div>`),

@@ -18,7 +18,7 @@ PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd -P)}"
 COMPILED_HOOK="${PLUGIN_ROOT}/dist/agent/claude-code/hooks/${HOOK_NAME}.js"
 SOURCE_HOOK="${PLUGIN_ROOT}/src/agent/claude-code/hooks/${HOOK_NAME}.ts"
 
-# 번들은 node24를 겨냥해 만들어지므로 낮은 버전에서는 훅마다 알 수 없는 오류로 죽는다.
+# 번들은 node24를 겨냥해 만들어지므로 낮은 버전에서는 알 수 없는 오류로 죽는다. 그 전에 걸러낸다.
 if ! command -v node >/dev/null 2>&1; then
   echo "agent-tracer: PATH에서 node를 찾지 못했다. Node 24 이상이 필요하다." >&2
   exit 0
