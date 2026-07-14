@@ -1,7 +1,10 @@
-import { Column, Entity, PrimaryColumn } from "typeorm";
+import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
 /** 원장 이벤트의 PostgreSQL 저장 스키마다. */
 @Entity({ name: "events" })
+@Index("events_task_seq", ["taskId", "seq"])
+@Index("events_seq", ["seq"])
+@Index("events_trace", ["traceId"])
 export class LedgerEventEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
@@ -25,7 +28,7 @@ export class LedgerEventEntity {
     @PrimaryColumn({ name: "occurred_at", type: "timestamptz" })
     occurredAt!: Date;
 
-    @Column({ name: "received_at", type: "timestamptz", insert: false })
+    @Column({ name: "received_at", type: "timestamptz", insert: false, default: () => "now()" })
     receivedAt!: Date;
 
     // row 하나가 단독으로 OTLP 레코드가 되도록 인제스트 시점에 확정한다.

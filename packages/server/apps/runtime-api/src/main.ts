@@ -8,6 +8,7 @@ import {
     loadApplicationConfig,
     SchemaOutOfDateError,
 } from "@monitor/platform";
+import { EventIngestKeyEntity } from "~runtime-api/domain/ingest/adapter/event.ingest.key.entity.js";
 import { LedgerEventEntity } from "~runtime-api/domain/ingest/adapter/ledger.event.entity.js";
 import { RUNTIME_MIGRATIONS } from "~runtime-api/migrations/registry.js";
 import { errorMessage, logError, logInfo } from "~runtime-api/config/log.js";
@@ -21,7 +22,7 @@ async function bootstrap(): Promise<void> {
     // 마이그레이션은 배포 선행 스텝이 소유하고 부트는 스키마 버전만 검사한다.
     const dataSource = createDataSource({
         db: config.runtimeDb,
-        entities: [LedgerEventEntity],
+        entities: [LedgerEventEntity, EventIngestKeyEntity],
         migrations: [],
         migrationsRun: false,
     });
