@@ -64,7 +64,7 @@ export function RuleEvidencePanel({
     );
   }
 
-  const notFulfilled = status === "contradicted";
+  const notFulfilled = status === "unmet" || status === "open";
 
   return (
     <div className={cn(WRAP_CLASS, "flex flex-col gap-2.5")}>

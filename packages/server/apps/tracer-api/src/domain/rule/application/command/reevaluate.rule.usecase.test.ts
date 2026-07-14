@@ -34,7 +34,7 @@ function makeRule(overrides: {
     rule.taskId = overrides.taskId;
     rule.anchorEventId = overrides.anchorEventId;
     rule.source = "human";
-    rule.severity = "info";
+    rule.severity = "warn";
     rule.reviewState = RULE_REVIEW_STATE.active;
     rule.rationale = null;
     rule.signature = "sig";
@@ -111,10 +111,10 @@ describe("ReevaluateRuleUseCase", () => {
 
         expect(result).toEqual({ reevaluated: 1 });
         expect(verdictRepo.all()).toMatchObject([
-            { ruleId: "rule-1", turnId: turn.id, status: VERDICT_STATUS.verified },
+            { ruleId: "rule-1", turnId: turn.id, status: VERDICT_STATUS.satisfied },
         ]);
         expect(turnRepo.all()[0]).toMatchObject({
-            aggregateVerdict: VERDICT_STATUS.verified,
+            aggregateVerdict: VERDICT_STATUS.satisfied,
             rulesEvaluatedCount: 1,
         });
     });

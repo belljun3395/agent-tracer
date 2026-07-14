@@ -2,6 +2,7 @@ import { EventRepository, RuleRepository, TurnRepository, VerdictRepository } fr
 import { ApproveRuleUseCase } from "~tracer-api/domain/rule/application/command/approve.rule.usecase.js";
 import { CreateRuleUseCase } from "~tracer-api/domain/rule/application/command/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "~tracer-api/domain/rule/application/command/delete.rule.usecase.js";
+import { RecordNudgeUseCase } from "~tracer-api/domain/rule/application/command/record.nudge.usecase.js";
 import { ReevaluateRuleUseCase } from "~tracer-api/domain/rule/application/command/reevaluate.rule.usecase.js";
 import { UpdateRuleUseCase } from "~tracer-api/domain/rule/application/command/update.rule.usecase.js";
 import { GetRuleEvidenceUseCase } from "~tracer-api/domain/rule/application/query/get.rule.evidence.usecase.js";
@@ -22,6 +23,7 @@ export const ruleFeature = {
         CreateRuleUseCase,
         DeleteRuleUseCase,
         ReevaluateRuleUseCase,
+        RecordNudgeUseCase,
         UpdateRuleUseCase,
         GetRuleEvidenceUseCase,
         ListRulesUseCase,

@@ -1,17 +1,35 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
-import { VERDICT_STATUS, type VerdictEvidence, type VerdictStatus } from "@monitor/kernel";
+import {
+    VERDICT_STATUS,
+    concludeAtTaskEnd,
+    isEscalated,
+    isTerminalVerdict,
+    type RuleSeverity,
+    type VerdictEvidence,
+    type VerdictStatus,
+} from "@monitor/kernel";
 
 @Entity({ name: "verdicts" })
-@Index("verdicts_rule", ["ruleId"])
+@Index("verdicts_turn", ["turnId"])
 export class VerdictEntity {
-    @PrimaryColumn({ name: "turn_id", type: "text" })
-    turnId!: string;
-
+    /** 규칙 하나에 판정 하나이므로 규칙이 곧 판정의 식별자다. */
     @PrimaryColumn({ name: "rule_id", type: "text" })
     ruleId!: string;
 
+    /** 이 판정을 마지막으로 전진시킨 턴이다. */
+    @Column({ name: "turn_id", type: "text" })
+    turnId!: string;
+
     @Column({ type: "text" })
     status!: VerdictStatus;
+
+    /** 집계가 규칙 표를 다시 읽지 않도록 판정 시점의 심각도를 함께 남긴다. */
+    @Column({ type: "text" })
+    severity!: RuleSeverity;
+
+    /** 에이전트에게 미이행을 알린 횟수이며 상한을 넘기면 그만 막는다. */
+    @Column({ name: "nudge_count", type: "integer", default: 0 })
+    nudgeCount!: number;
 
     @Column({ type: "jsonb", default: {} })
     evidence!: VerdictEvidence;
@@ -19,21 +37,48 @@ export class VerdictEntity {
     @Column({ name: "evaluated_at", type: "timestamptz" })
     evaluatedAt!: Date;
 
-    isContradicted(): boolean {
-        return this.status === VERDICT_STATUS.contradicted;
+    isOpen(): boolean {
+        return !isTerminalVerdict(this.status);
     }
 
-    static record(
-        turnId: string,
+    isEscalated(): boolean {
+        return isEscalated(this.status, this.nudgeCount);
+    }
+
+    advance(turnId: string, status: VerdictStatus, evidence: VerdictEvidence, at: Date): void {
+        // 종결된 판정은 다시 열리지 않는다.
+        if (isTerminalVerdict(this.status)) return;
+        this.turnId = turnId;
+        this.status = status;
+        this.evidence = evidence;
+        this.evaluatedAt = at;
+    }
+
+    recordNudge(at: Date): void {
+        this.nudgeCount += 1;
+        this.evaluatedAt = at;
+    }
+
+    concludeTask(at: Date): void {
+        const next = concludeAtTaskEnd(this.status);
+        if (next === this.status) return;
+        this.status = next;
+        this.evaluatedAt = at;
+    }
+
+    static open(
         ruleId: string,
-        status: VerdictStatus,
+        turnId: string,
+        severity: RuleSeverity,
         evidence: VerdictEvidence,
         at: Date,
     ): VerdictEntity {
         const verdict = new VerdictEntity();
-        verdict.turnId = turnId;
         verdict.ruleId = ruleId;
-        verdict.status = status;
+        verdict.turnId = turnId;
+        verdict.status = VERDICT_STATUS.open;
+        verdict.severity = severity;
+        verdict.nudgeCount = 0;
         verdict.evidence = evidence;
         verdict.evaluatedAt = at;
         return verdict;

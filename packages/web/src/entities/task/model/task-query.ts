@@ -3,7 +3,7 @@ import type { TimelineEventRecord } from "~web/entities/task/model/timeline/even
 import type { MonitoringTask, MonitoringTaskOrigin, MonitoringTaskStatus } from "~web/entities/task/model/task.js";
 
 /** 엔티티 간 참조 없이 task 슬라이스가 소유하는 verdict 상태 표현이다. */
-export type TaskTurnVerdictStatus = "verified" | "contradicted" | "unverifiable";
+export type TaskTurnVerdictStatus = "open" | "satisfied" | "unmet" | "unknown";
 
 export type TasksArchivedScope = "active" | "archived" | "all";
 export type TasksOriginFilter = MonitoringTaskOrigin | "all";

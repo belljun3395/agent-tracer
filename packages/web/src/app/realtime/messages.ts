@@ -13,7 +13,7 @@ export interface VerdictUpdatedPayload {
     readonly turnId: string;
     readonly sessionId: string;
     readonly taskId: string;
-    readonly aggregateVerdict: "verified" | "contradicted" | "unverifiable" | null;
+    readonly aggregateVerdict: "open" | "satisfied" | "unmet" | "unknown" | null;
     readonly rulesEvaluatedCount: number;
 }
 

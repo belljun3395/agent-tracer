@@ -5,13 +5,17 @@ import { upsertByKeys } from "@monitor/tracer-domain/persistence/repository.upse
 export class VerdictRepository {
     constructor(private readonly repo: Repository<VerdictEntity>) {}
 
-    async findByTurn(turnId: string): Promise<VerdictEntity[]> {
-        return this.repo.find({ where: { turnId } });
+    async findByRule(ruleId: string): Promise<VerdictEntity | null> {
+        return this.repo.findOne({ where: { ruleId } });
     }
 
-    async findByRuleAndTurns(ruleId: string, turnIds: readonly string[]): Promise<VerdictEntity[]> {
-        if (turnIds.length === 0) return [];
-        return this.repo.find({ where: { ruleId, turnId: In(turnIds) } });
+    async findByRules(ruleIds: readonly string[]): Promise<VerdictEntity[]> {
+        if (ruleIds.length === 0) return [];
+        return this.repo.find({ where: { ruleId: In(ruleIds) } });
+    }
+
+    async findByTurn(turnId: string): Promise<VerdictEntity[]> {
+        return this.repo.find({ where: { turnId } });
     }
 
     async findByTurns(turnIds: readonly string[]): Promise<VerdictEntity[]> {
@@ -20,6 +24,6 @@ export class VerdictRepository {
     }
 
     async upsert(verdict: VerdictEntity): Promise<void> {
-        await upsertByKeys(this.repo, verdict, ["turnId", "ruleId"]);
+        await upsertByKeys(this.repo, verdict, ["ruleId"]);
     }
 }

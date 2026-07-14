@@ -1,6 +1,7 @@
 import {RULE_REVIEW_STATE} from "@monitor/kernel/rule/definition/rule.review.js";
 import type {RuleExpectation} from "@monitor/kernel/rule/definition/rule.vocabulary.js";
-import {getJson} from "~runtime/config/http.js";
+import {VERDICT_STATUSES, type VerdictStatus} from "@monitor/kernel/rule/evaluation/rule.verdict.js";
+import {getJson, postJson} from "~runtime/config/http.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {RuleSourcePort} from "~runtime/domain/guardrail/port/rule.source.port.js";
 import {isRecord} from "~runtime/support/json.js";
@@ -28,6 +29,14 @@ export class HttpRuleSourceAdapter implements RuleSourcePort {
         const items = Array.isArray(body?.data?.items) ? body.data.items : [];
         return items.map(parseRule).filter((rule): rule is GuardrailRule => rule !== null);
     }
+
+    async recordNudge(ruleId: string): Promise<void> {
+        await postJson(
+            `${this.baseUrl}/api/v1/rules/${encodeURIComponent(ruleId)}/nudge`,
+            this.headers,
+            {},
+        );
+    }
 }
 
 function parseRule(item: unknown): GuardrailRule | null {
@@ -38,12 +47,21 @@ function parseRule(item: unknown): GuardrailRule | null {
     if (typeof item["name"] !== "string" || !isRecord(expectation)) return null;
     // 서버가 주는 규칙에는 태스크와 근거 입력이 반드시 있다.
     if (typeof taskId !== "string" || typeof anchorEventId !== "string") return null;
+    const id = item["id"];
+    if (typeof id !== "string") return null;
     return {
+        id,
         name: item["name"],
         severity: typeof item["severity"] === "string" ? item["severity"] : "info",
         taskId,
         anchorEventId,
         reviewState: typeof item["reviewState"] === "string" ? item["reviewState"] : RULE_REVIEW_STATE.pendingReview,
         expectation: expectation as unknown as RuleExpectation,
+        verdictStatus: readVerdictStatus(item["verdictStatus"]),
+        escalated: item["escalated"] === true,
     };
+}
+
+function readVerdictStatus(value: unknown): VerdictStatus | null {
+    return VERDICT_STATUSES.find((status) => status === value) ?? null;
 }

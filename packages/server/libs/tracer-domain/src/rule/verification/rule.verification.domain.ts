@@ -1,55 +1,64 @@
 import {
-    evaluateExpectation,
     expectFulfilledBy,
-    inferToolCall,
+    judge,
+    observe,
     type EnforcementRecord,
-    type ToolCall,
+    type Observation,
     type VerdictEvidence,
 } from "@monitor/kernel";
 import type { EventEntity } from "@monitor/tracer-domain/timeline/event/event.entity.js";
-import type { TurnEntity } from "@monitor/tracer-domain/timeline/turn/turn.entity.js";
 import type { RuleEntity } from "../rule.entity.js";
 import { VerdictEntity } from "./verdict.entity.js";
 
-/** 규칙을 낳은 사용자 입력부터 지금까지를 창으로 삼아 규칙 하나를 평가한다. */
+/** 규칙을 낳은 사용자 입력부터 지금까지를 창으로 삼아 규칙 하나의 판정을 전진시킨다. */
 export class RuleVerification {
     constructor(
         private readonly rule: RuleEntity,
-        private readonly turn: TurnEntity,
         private readonly windowEvents: readonly EventEntity[],
     ) {}
 
     private enforcements(now: string): EnforcementRecord[] {
-        const exp = this.rule.expectation;
         const records: EnforcementRecord[] = [];
         for (const event of this.windowEvents) {
             // 규칙의 트리거 증거는 규칙을 낳은 사용자 입력 그 자체다.
             if (this.rule.anchorEventId === event.id) {
                 records.push({ eventId: event.id, matchKind: "trigger", decidedAt: now });
             }
-            if (expectFulfilledBy(exp, event)) {
+            if (expectFulfilledBy(this.rule.expectation, event)) {
                 records.push({ eventId: event.id, matchKind: "expect-fulfilled", decidedAt: now });
             }
         }
         return records;
     }
 
-    verdict(now: Date): VerdictEntity | null {
-        // 근거 입력이 창 안에 없으면 아직 이 턴의 일이 아니다(규칙보다 앞선 턴).
-        if (!this.windowEvents.some((event) => event.id === this.rule.anchorEventId)) return null;
+    /** 근거 입력이 창 안에 없으면 아직 이 규칙의 일이 아니다(규칙보다 앞선 턴). */
+    covers(): boolean {
+        return this.windowEvents.some((event) => event.id === this.rule.anchorEventId);
+    }
 
-        const toolCalls = this.windowEvents
-            .map((event) => inferToolCall(event))
-            .filter((tc): tc is ToolCall => tc !== null);
-        // 도구 종류 좁히기는 evaluateExpectation이 변형별로 직접 한다.
-        const outcome = evaluateExpectation(this.rule.expectation, toolCalls);
-        const nowIso = now.toISOString();
+    /** 원장은 창을 빠짐없이 담으므로 서버 판정은 관측을 놓치지 않는다. */
+    advance(current: VerdictEntity | null, turnId: string, now: Date): VerdictEntity | null {
+        if (current !== null && !current.isOpen()) return null;
+
+        const observations = this.windowEvents
+            .map((event) => observe(event))
+            .filter((observation): observation is Observation => observation !== null);
+        const judgment = judge(this.rule.expectation, { observations, covered: true });
+
         const evidence: VerdictEvidence = {
-            ...(outcome.expectedPattern !== undefined ? { expectedPattern: outcome.expectedPattern } : {}),
-            actualToolCalls: outcome.actualToolCalls,
-            matchedToolCalls: outcome.matchedToolCalls,
-            enforcements: this.enforcements(nowIso),
+            ...(judgment.expectedPattern !== undefined ? { expectedPattern: judgment.expectedPattern } : {}),
+            actualToolCalls: judgment.actualToolCalls,
+            matchedToolCalls: judgment.matchedToolCalls,
+            unclassifiedEventIds: judgment.unclassifiedEventIds,
+            enforcements: this.enforcements(now.toISOString()),
         };
-        return VerdictEntity.record(this.turn.id, this.rule.id, outcome.status, evidence, now);
+
+        if (current === null) {
+            const verdict = VerdictEntity.open(this.rule.id, turnId, this.rule.severity, evidence, now);
+            verdict.advance(turnId, judgment.status, evidence, now);
+            return verdict;
+        }
+        current.advance(turnId, judgment.status, evidence, now);
+        return current;
     }
 }

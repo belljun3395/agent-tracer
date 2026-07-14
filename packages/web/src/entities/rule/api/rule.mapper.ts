@@ -23,6 +23,8 @@ export function toRuleRecord(rule: RuleDto): RuleRecord {
     rev: rule.rev,
     ...(rule.sourceJobId !== null ? { sourceJobId: rule.sourceJobId } : {}),
     createdAt: rule.createdAt,
+    verdictStatus: rule.verdictStatus,
+    escalated: rule.escalated,
     ...(rule.matchCount !== undefined ? { matchCount: rule.matchCount } : {}),
   };
 }

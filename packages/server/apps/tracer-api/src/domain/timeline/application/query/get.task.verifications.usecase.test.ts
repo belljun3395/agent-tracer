@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { VERDICT_STATUS, type VerdictEvidence } from "@monitor/kernel";
+import { VERDICT_STATUS,
+    type VerdictStatus, type VerdictEvidence } from "@monitor/kernel";
 import { RuleEntity, TaskEntity, TurnEntity, VerdictEntity } from "@monitor/tracer-domain";
 import { InMemoryRuleRepository } from "~tracer-api/domain/timeline/port/__fakes__/in-memory.rule.repository.js";
 import { InMemoryTaskReader } from "~tracer-api/domain/timeline/port/__fakes__/in-memory.rule.task.reader.js";
@@ -55,6 +56,7 @@ function evidence(triggerEventId: string, fulfilledEventIds: readonly string[]):
     return {
         actualToolCalls: [],
         matchedToolCalls: [],
+        unclassifiedEventIds: [],
         enforcements: [
             { eventId: triggerEventId, matchKind: "trigger", decidedAt: NOW.toISOString() },
             ...fulfilledEventIds.map((eventId) => ({
@@ -87,17 +89,11 @@ describe("GetTaskVerificationsUseCase", () => {
     it("verified 판정만 골라 트리거와 이행 이벤트를 연결한다", async () => {
         const turn = TurnEntity.open("s1", "t1", 0, "배포해줘", NOW);
         turn.id = "turn-1";
-        const verified = VerdictEntity.record(
-            "turn-1",
-            "rule-1",
-            VERDICT_STATUS.verified,
+        const verified = makeVerdict("rule-1", "turn-1", VERDICT_STATUS.satisfied,
             evidence("ev-trigger", ["ev-ok"]),
             NOW,
         );
-        const contradicted = VerdictEntity.record(
-            "turn-1",
-            "rule-2",
-            VERDICT_STATUS.contradicted,
+        const contradicted = makeVerdict("rule-2", "turn-1", VERDICT_STATUS.unmet,
             evidence("ev-trigger", []),
             NOW,
         );
@@ -131,7 +127,7 @@ describe("GetTaskVerificationsUseCase", () => {
             tasks: [makeTask("t1", "u1")],
             turns: [turn],
             verdicts: [
-                VerdictEntity.record("turn-1", "rule-1", VERDICT_STATUS.contradicted, evidence("ev-1", []), NOW),
+                makeVerdict("rule-1", "turn-1", VERDICT_STATUS.unmet, evidence("ev-1", []), NOW),
             ],
             rules: [makeRule("rule-1", "u1", "t1", "배포 규칙")],
         });
@@ -154,3 +150,15 @@ describe("GetTaskVerificationsUseCase", () => {
         expect(result).toBeNull();
     });
 });
+
+function makeVerdict(
+    ruleId: string,
+    turnId: string,
+    status: VerdictStatus,
+    evidence: VerdictEvidence,
+    at: Date,
+): VerdictEntity {
+    const verdict = VerdictEntity.open(ruleId, turnId, "warn", evidence, at);
+    verdict.advance(turnId, status, evidence, at);
+    return verdict;
+}

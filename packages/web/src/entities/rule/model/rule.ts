@@ -10,7 +10,7 @@ export type RuleSeverity = "info" | "warn" | "block";
 export type RuleSource = "human" | "agent";
 export type { RuleExpectation, RuleExpectationKind, RuleExpectedAction };
 export { RULE_EXPECTATION_KIND, RULE_EXPECTATION_KINDS };
-export type VerdictStatus = "verified" | "contradicted" | "unverifiable";
+export type VerdictStatus = "open" | "satisfied" | "unmet" | "unknown";
 
 export type RuleExpect = RuleExpectation;
 
@@ -32,6 +32,10 @@ export interface RuleRecord {
   readonly sourceJobId?: string;
   readonly createdAt: string;
   readonly matchCount?: number;
+  /** 아직 판정이 열리지 않았으면 null이다. */
+  readonly verdictStatus: VerdictStatus | null;
+  /** 상한만큼 알렸는데도 이행되지 않아 사람에게 넘어온 판정이다. */
+  readonly escalated: boolean;
 }
 
 export interface RulesListResponse {

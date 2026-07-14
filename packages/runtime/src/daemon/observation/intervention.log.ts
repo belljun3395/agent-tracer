@@ -24,8 +24,9 @@ export interface RuleActivity {
     readonly ruleName: string;
     readonly taskId: string;
     readonly evaluated: number;
-    readonly verified: number;
-    readonly contradicted: number;
+    readonly satisfied: number;
+    readonly unfulfilled: number;
+    readonly unknown: number;
     readonly blocked: number;
     readonly lastFiredAt?: number;
 }
@@ -42,8 +43,9 @@ interface MutableRuleActivity {
     ruleName: string;
     taskId: string;
     evaluated: number;
-    verified: number;
-    contradicted: number;
+    satisfied: number;
+    unfulfilled: number;
+    unknown: number;
     blocked: number;
     lastFiredAt?: number;
 }
@@ -107,8 +109,9 @@ export class InterventionLog {
         for (const verdict of verdicts) {
             const activity = this.ruleFor(taskId, verdict.ruleName);
             activity.evaluated += 1;
-            if (verdict.status === VERDICT_STATUS.verified) activity.verified += 1;
-            if (verdict.status === VERDICT_STATUS.contradicted) activity.contradicted += 1;
+            if (verdict.status === VERDICT_STATUS.satisfied) activity.satisfied += 1;
+            if (verdict.status === VERDICT_STATUS.unknown) activity.unknown += 1;
+            if (verdict.status === VERDICT_STATUS.open) activity.unfulfilled += 1;
         }
         for (const verdict of blocking) {
             this.record({
@@ -127,8 +130,9 @@ export class InterventionLog {
             ruleName: activity.ruleName,
             taskId: activity.taskId,
             evaluated: activity.evaluated,
-            verified: activity.verified,
-            contradicted: activity.contradicted,
+            satisfied: activity.satisfied,
+            unfulfilled: activity.unfulfilled,
+            unknown: activity.unknown,
             blocked: activity.blocked,
             ...(activity.lastFiredAt !== undefined ? {lastFiredAt: activity.lastFiredAt} : {}),
         }));
@@ -152,8 +156,9 @@ export class InterventionLog {
             ruleName,
             taskId,
             evaluated: 0,
-            verified: 0,
-            contradicted: 0,
+            satisfied: 0,
+            unfulfilled: 0,
+            unknown: 0,
             blocked: 0,
         };
         this.rules.set(key, created);

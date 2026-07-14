@@ -5,7 +5,10 @@ import {InMemoryRuleSource} from "~runtime/domain/guardrail/port/__fakes__/in-me
 import type {RuleSourcePort} from "~runtime/domain/guardrail/port/rule.source.port.js";
 
 const RULE = {
+    id: "rule-1",
     name: "검증 실행",
+    verdictStatus: null,
+    escalated: false,
     severity: "info",
     taskId: "task-1",
     reviewState: RULE_REVIEW_STATE.active,
@@ -22,6 +25,7 @@ describe("RefreshRulesUsecase", () => {
 
     it("서버 조회가 실패하면 캐시를 갈아엎지 않도록 null을 낸다", async () => {
         const failing: RuleSourcePort = {
+            recordNudge: () => Promise.resolve(),
             fetchAll: () => Promise.reject(new Error("unreachable")),
         };
 

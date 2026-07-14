@@ -97,7 +97,7 @@ describe("RuleBackfillService", () => {
 
         expect(reevaluated).toBe(1);
         expect(verdictRepo.all()).toMatchObject([
-            { ruleId: "rule-1", turnId: turn.id, status: VERDICT_STATUS.verified },
+            { ruleId: "rule-1", turnId: turn.id, status: VERDICT_STATUS.satisfied },
         ]);
     });
 

@@ -1,5 +1,6 @@
 import type { RuleReviewState } from "./rule.review.js";
 import type { RuleExpectation } from "./rule.vocabulary.js";
+import type { VerdictStatus } from "../evaluation/rule.verdict.js";
 
 // 저장·판정과 동일한 타입을 와이어에도 써서 표현 불가능한 조합을 허용하지 않는다.
 export type RuleExpectationDto = RuleExpectation;
@@ -26,4 +27,10 @@ export interface RuleDto {
     readonly createdAt: string;
     /** 이 규칙에 대응한 이벤트 수다. */
     readonly matchCount?: number;
+    /** 아직 판정이 열리지 않았으면 null이다. */
+    readonly verdictStatus: VerdictStatus | null;
+    /** 에이전트에게 미이행을 알린 횟수다. */
+    readonly nudgeCount: number;
+    /** 상한만큼 알렸는데도 이행되지 않아 사람에게 넘어온 판정이다. */
+    readonly escalated: boolean;
 }

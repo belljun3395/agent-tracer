@@ -61,8 +61,9 @@ export interface RuleView {
     readonly expectation: string;
     readonly cached: boolean;
     readonly evaluated: number;
-    readonly verified: number;
-    readonly contradicted: number;
+    readonly satisfied: number;
+    readonly unfulfilled: number;
+    readonly unknown: number;
     readonly blocked: number;
     readonly lastFiredAt?: number;
 }
@@ -142,8 +143,9 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
             expectation: describeRuleExpectation(rule),
             cached: true,
             evaluated: sum(stats, (stat) => stat.evaluated),
-            verified: sum(stats, (stat) => stat.verified),
-            contradicted: sum(stats, (stat) => stat.contradicted),
+            satisfied: sum(stats, (stat) => stat.satisfied),
+            unfulfilled: sum(stats, (stat) => stat.unfulfilled),
+            unknown: sum(stats, (stat) => stat.unknown),
             blocked: sum(stats, (stat) => stat.blocked),
             ...(lastFiredAt !== undefined ? {lastFiredAt} : {}),
         };
@@ -153,7 +155,6 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
         views.push({
             ...orphan,
             severity: "unknown",
-
             reviewState: "unknown",
             expectation: "unknown",
             cached: false,

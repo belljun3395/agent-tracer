@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { RULE_EXPECTATION_KIND } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
-import { InMemoryTurnRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.turn.repository.js";
 import { InMemoryVerdictRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.verdict.repository.js";
 import { ListRulesUseCase } from "./list.rules.usecase.js";
 
@@ -26,7 +25,7 @@ function makeRule(id: string, userId: string, taskId: string, deleted = false): 
 function makeUseCase(rules: RuleEntity[]): ListRulesUseCase {
     const ruleRepo = new InMemoryRuleRepository();
     ruleRepo.seed(...rules);
-    return new ListRulesUseCase(ruleRepo, new InMemoryTurnRepository(), new InMemoryVerdictRepository());
+    return new ListRulesUseCase(ruleRepo, new InMemoryVerdictRepository());
 }
 
 describe("ListRulesUseCase all 모드", () => {

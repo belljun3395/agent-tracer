@@ -3,6 +3,7 @@ import {
     RULE_SEVERITY,
     type RuleExpectation,
 } from "@monitor/kernel/rule/definition/rule.vocabulary.js";
+import {VERDICT_STATUS} from "@monitor/kernel/rule/evaluation/rule.verdict.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 
 const MAX_ANNOUNCED_RULES = 12;
@@ -27,13 +28,24 @@ const PREAMBLE: readonly string[] = [
 
 const CLOSING = "Fulfil these before you finish. Answer the user in the language they wrote in; these rules are internal notes to you, not something to relay.";
 
+/** 지난 요구에서 이행되지 않은 판정은 죽지 않고 다음 요구로 이월되어 다시 알려진다. */
+function describeJudgment(rule: GuardrailRule): string {
+    if (rule.verdictStatus === VERDICT_STATUS.satisfied) return "already fulfilled";
+    if (rule.escalated) return "STILL UNFULFILLED after repeated reminders — decide and tell the user why";
+    if (rule.verdictStatus === VERDICT_STATUS.unknown) {
+        return "could NOT be verified — if you already did it, ignore this; if not, do it now";
+    }
+    if (rule.verdictStatus === VERDICT_STATUS.open) return "carried over from an earlier request, still unfulfilled";
+    return "not yet fulfilled";
+}
+
 /** 발효 중인 규칙을 턴이 시작되기 전에 에이전트에게 알리는 컨텍스트다. */
 export function formatRulesContext(rules: readonly GuardrailRule[]): string {
     if (rules.length === 0) return "";
     const lines = ["<agent-tracer-rules>", ...PREAMBLE, ""];
     for (const rule of selectAnnouncedRules(rules)) {
         const detail = describeExpectation(rule.expectation);
-        lines.push(`- [${rule.severity}] ${rule.name}${detail ? ` — ${detail}` : ""}`);
+        lines.push(`- [${rule.severity}] ${rule.name} — ${detail} (${describeJudgment(rule)})`);
     }
     lines.push("", CLOSING, "</agent-tracer-rules>");
     return lines.join("\n");

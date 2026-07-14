@@ -6,11 +6,19 @@ export class InMemoryVerdictRepository implements VerdictRepositoryPort {
     private readonly rows = new Map<string, VerdictEntity>();
 
     seed(...verdicts: readonly VerdictEntity[]): void {
-        for (const verdict of verdicts) this.rows.set(key(verdict.turnId, verdict.ruleId), verdict);
+        for (const verdict of verdicts) this.rows.set(verdict.ruleId, verdict);
     }
 
     all(): VerdictEntity[] {
         return [...this.rows.values()];
+    }
+
+    findByRule(ruleId: string): Promise<VerdictEntity | null> {
+        return Promise.resolve(this.rows.get(ruleId) ?? null);
+    }
+
+    findByRules(ruleIds: readonly string[]): Promise<VerdictEntity[]> {
+        return Promise.resolve(this.all().filter((verdict) => ruleIds.includes(verdict.ruleId)));
     }
 
     findByTurn(turnId: string): Promise<VerdictEntity[]> {
@@ -21,17 +29,8 @@ export class InMemoryVerdictRepository implements VerdictRepositoryPort {
         return Promise.resolve(this.all().filter((verdict) => turnIds.includes(verdict.turnId)));
     }
 
-    findByRuleAndTurns(ruleId: string, turnIds: readonly string[]): Promise<VerdictEntity[]> {
-        const rows = this.all().filter((verdict) => verdict.ruleId === ruleId && turnIds.includes(verdict.turnId));
-        return Promise.resolve(rows);
-    }
-
     upsert(verdict: VerdictEntity): Promise<void> {
-        this.rows.set(key(verdict.turnId, verdict.ruleId), verdict);
+        this.rows.set(verdict.ruleId, verdict);
         return Promise.resolve();
     }
-}
-
-function key(turnId: string, ruleId: string): string {
-    return `${turnId}:${ruleId}`;
 }

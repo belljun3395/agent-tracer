@@ -6,9 +6,10 @@ import {
 } from "~web/widgets/rules/evidence/evidence-tone.js";
 
 const VERDICT_LABEL: Record<VerdictStatus, string> = {
-  verified: "FULFILLED",
-  contradicted: "NOT FULFILLED",
-  unverifiable: "CANNOT VERIFY",
+  satisfied: "FULFILLED",
+  unmet: "NOT FULFILLED",
+  open: "NOT YET",
+  unknown: "CANNOT VERIFY",
 };
 
 interface EvidenceFlowProps {
@@ -47,7 +48,7 @@ export function EvidenceFlow({
         className={cn(
           "text-[9.5px] uppercase tracking-[0.05em] py-px px-1.5 rounded-xs",
           status === null ? "text-ink-tertiary bg-s2" : toneClasses.strong,
-          status === "verified" && "bg-s2",
+          status === "satisfied" && "bg-s2",
           tone === "warn" && status !== null && "bg-warn/12",
         )}
       >
@@ -78,7 +79,7 @@ function FlowStep({
 }
 
 function verdictTone(status: VerdictStatus | null): EvidenceTone {
-  if (status === "verified") return "action";
-  if (status === "contradicted" || status === "unverifiable") return "warn";
-  return "trigger";
+  if (status === "satisfied") return "action";
+  if (status === null) return "trigger";
+  return "warn";
 }

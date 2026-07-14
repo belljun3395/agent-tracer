@@ -10,20 +10,25 @@ const VERDICT_TONE: Record<
   VerdictStatus,
   { readonly label: string; readonly color: string; readonly bg: string }
 > = {
-  verified: {
-    label: "Verified",
+  satisfied: {
+    label: "Fulfilled",
     color: "var(--ok)",
     bg: "color-mix(in srgb, var(--ok) 14%, transparent)",
   },
-  contradicted: {
-    label: "Contradicted",
+  unmet: {
+    label: "Unmet",
     color: "var(--err)",
     bg: "color-mix(in srgb, var(--err) 14%, transparent)",
   },
-  unverifiable: {
-    label: "Unverifiable",
+  open: {
+    label: "Not yet",
     color: "var(--warn)",
     bg: "color-mix(in srgb, var(--warn) 14%, transparent)",
+  },
+  unknown: {
+    label: "Unverified",
+    color: "var(--ink-tertiary)",
+    bg: "color-mix(in srgb, var(--ink-tertiary) 14%, transparent)",
   },
 };
 

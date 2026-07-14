@@ -36,7 +36,7 @@ export class GetTaskVerificationsUseCase {
 
         const turns = await this.turns.findByTask(taskId);
         const verdicts = await this.verdicts.findByTurns(turns.map((turn) => turn.id));
-        const verified = verdicts.filter((verdict) => verdict.status === VERDICT_STATUS.verified);
+        const verified = verdicts.filter((verdict) => verdict.status === VERDICT_STATUS.satisfied);
         if (verified.length === 0) return [];
 
         const rules = await this.rules.findApplicable(userId, taskId);

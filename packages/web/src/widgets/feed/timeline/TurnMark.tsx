@@ -10,9 +10,10 @@ const VERDICT_TONE: Record<
   VerdictStatus,
   { readonly label: string; readonly color: string }
 > = {
-  verified: { label: "verified", color: "var(--ok)" },
-  contradicted: { label: "contradicted", color: "var(--err)" },
-  unverifiable: { label: "unverifiable", color: "var(--warn)" },
+  satisfied: { label: "fulfilled", color: "var(--ok)" },
+  unmet: { label: "unmet", color: "var(--err)" },
+  open: { label: "not yet", color: "var(--warn)" },
+  unknown: { label: "unverified", color: "var(--ink-tertiary)" },
 };
 
 /** 새 턴 밴드를 여는 구분선. */

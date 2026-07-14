@@ -73,7 +73,8 @@ export class TurnEntity {
         return this.status === TURN_STATUS.open;
     }
 
-    recordVerdictSummary(aggregate: string, evaluatedCount: number): void {
+    // 턴을 붙잡을 수 있는 규칙이 하나도 없으면 이 턴을 대표할 상태가 없다.
+    recordVerdictSummary(aggregate: string | null, evaluatedCount: number): void {
         this.aggregateVerdict = aggregate;
         this.rulesEvaluatedCount = evaluatedCount;
     }

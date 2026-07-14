@@ -37,9 +37,10 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const baseUrl = resolveMonitorBaseUrl();
     const headers = monitorUserHeader();
 
+    const ruleSource = new HttpRuleSourceAdapter(baseUrl, headers);
     const guardrail: GuardrailHook = {
-        evaluateTurn: new EvaluateTurnUsecase(),
-        refreshRules: new RefreshRulesUsecase(new HttpRuleSourceAdapter(baseUrl, headers)),
+        evaluateTurn: new EvaluateTurnUsecase(ruleSource),
+        refreshRules: new RefreshRulesUsecase(ruleSource),
     };
 
     const hint: HintHook = {computeHints: new ComputeHintsUsecase()};

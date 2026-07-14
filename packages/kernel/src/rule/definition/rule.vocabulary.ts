@@ -93,5 +93,7 @@ export interface VerdictEvidence {
     expectedPattern?: string;
     actualToolCalls: string[];
     matchedToolCalls: string[];
+    /** 도구 호출인데 분류하지 못한 이벤트이며, 비어 있지 않으면 판정을 확신할 수 없다. */
+    unclassifiedEventIds: string[];
     enforcements: EnforcementRecord[];
 }

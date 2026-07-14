@@ -14,7 +14,7 @@ describe("RuleEvidencePanel", () => {
       <RuleEvidencePanel
         isLoading={false}
         isError={false}
-        status="verified"
+        status="satisfied"
         anchored={false}
         triggers={[
           makeEvidence("trigger-1", "trigger", "사용자가 /rule을 언급했다"),
@@ -45,7 +45,7 @@ describe("RuleEvidencePanel", () => {
       <RuleEvidencePanel
         isLoading={false}
         isError={false}
-        status="contradicted"
+        status="unmet"
         anchored
         triggers={[makeEvidence("anchor-1", "trigger", "lint 돌려줘")]}
         expects={[]}
@@ -64,7 +64,7 @@ describe("RuleEvidencePanel", () => {
       <RuleEvidencePanel
         isLoading={false}
         isError={false}
-        status="verified"
+        status="satisfied"
         anchored={false}
         triggers={[]}
         expects={[

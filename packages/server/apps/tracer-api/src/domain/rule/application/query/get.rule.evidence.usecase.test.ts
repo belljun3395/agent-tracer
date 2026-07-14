@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
-import { KIND, VERDICT_STATUS, type VerdictEvidence } from "@monitor/kernel";
+import { KIND, VERDICT_STATUS,
+    type VerdictStatus, type VerdictEvidence } from "@monitor/kernel";
 import { EventEntity, RuleEntity, TurnEntity, VerdictEntity } from "@monitor/tracer-domain";
 import { InMemoryEventReader } from "~tracer-api/domain/rule/port/__fakes__/in-memory.event.reader.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
@@ -58,6 +59,7 @@ function evidence(): VerdictEvidence {
     return {
         actualToolCalls: [],
         matchedToolCalls: [],
+        unclassifiedEventIds: [],
         enforcements: [
             { eventId: "ev-trigger", matchKind: "trigger", decidedAt: NOW.toISOString() },
             { eventId: "ev-expect", matchKind: "expect-fulfilled", decidedAt: NOW.toISOString() },
@@ -89,7 +91,7 @@ describe("GetRuleEvidenceUseCase", () => {
         const useCase = makeUseCase({
             rules: [makeRule("rule-1", "u1", "t1")],
             turns: [turn],
-            verdicts: [VerdictEntity.record("turn-1", "rule-1", VERDICT_STATUS.verified, evidence(), NOW)],
+            verdicts: [makeVerdict("rule-1", "turn-1", VERDICT_STATUS.satisfied, evidence(), NOW)],
             events: [makeEvent("ev-trigger", "t1"), makeEvent("ev-expect", "t1")],
         });
 
@@ -110,7 +112,7 @@ describe("GetRuleEvidenceUseCase", () => {
         const useCase = makeUseCase({
             rules: [makeRule("rule-1", "u1", "t1")],
             turns: [turn],
-            verdicts: [VerdictEntity.record("turn-1", "rule-1", VERDICT_STATUS.contradicted, evidence(), NOW)],
+            verdicts: [makeVerdict("rule-1", "turn-1", VERDICT_STATUS.unmet, evidence(), NOW)],
             events: [makeEvent("ev-trigger", "t1"), makeEvent("ev-expect", "t1")],
         });
 
@@ -137,3 +139,15 @@ describe("GetRuleEvidenceUseCase", () => {
         await expect(useCase.execute("u1", "rule-1")).rejects.toThrow(NotFoundException);
     });
 });
+
+function makeVerdict(
+    ruleId: string,
+    turnId: string,
+    status: VerdictStatus,
+    evidence: VerdictEvidence,
+    at: Date,
+): VerdictEntity {
+    const verdict = VerdictEntity.open(ruleId, turnId, "warn", evidence, at);
+    verdict.advance(turnId, status, evidence, at);
+    return verdict;
+}

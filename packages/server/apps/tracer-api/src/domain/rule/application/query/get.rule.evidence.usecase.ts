@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
+    VERDICT_STATUS,
     RULE_EXPECTATION_KIND,
-    aggregateVerdictStatus,
     type EnforcementRecord,
     type RuleEventMatchKind,
     type VerdictStatus,
@@ -62,18 +62,10 @@ export class GetRuleEvidenceUseCase {
         if (rule === null || rule.userId !== userId) throw new NotFoundException("Rule not found");
 
         const scopeTaskId = taskId ?? rule.taskId;
-        const turns = await this.turns.findByTask(scopeTaskId);
-        const verdicts = await this.verdicts.findByRuleAndTurns(
-            ruleId,
-            turns.map((t) => t.id),
-        );
-
-        const records: { readonly record: EnforcementRecord; readonly verdict: VerdictEntity }[] = [];
-        for (const verdict of verdicts) {
-            for (const record of verdict.evidence.enforcements) {
-                records.push({ record, verdict });
-            }
-        }
+        const verdict = await this.verdicts.findByRule(ruleId);
+        const records = verdict === null
+            ? []
+            : verdict.evidence.enforcements.map((record) => ({ record, verdict }));
 
         const eventIds = [...new Set(records.map(({ record }) => record.eventId))];
         const events = await this.events.findByIds(eventIds);
@@ -93,7 +85,7 @@ export class GetRuleEvidenceUseCase {
             taskId: scopeTaskId,
             ruleId,
             anchorEventId: rule.anchorEventId,
-            status: aggregateVerdictStatus(verdicts.map((verdict) => verdict.status)),
+            status: verdict?.status ?? null,
             triggers,
             expects,
         };
@@ -120,7 +112,7 @@ function toEvidenceEventDto(
         createdAt: event.occurredAt.toISOString(),
         matchKind: record.matchKind,
         matchedBy: matchedByFor(record, rule),
-        ...(record.matchKind === "trigger" ? { unfulfilled: verdict.isContradicted() } : {}),
+        ...(record.matchKind === "trigger" ? { unfulfilled: verdict.status !== VERDICT_STATUS.satisfied } : {}),
     };
 }
 

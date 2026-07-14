@@ -9,7 +9,10 @@ import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js"
 
 function rule(overrides: Partial<GuardrailRule> = {}): GuardrailRule {
     return {
+        id: "rule-1",
         name: "테스트를 실행한다",
+        verdictStatus: null,
+        escalated: false,
         severity: RULE_SEVERITY.block,
         taskId: "task-1",
         reviewState: RULE_REVIEW_STATE.active,
@@ -28,7 +31,7 @@ describe("formatRulesContext", () => {
         const context = formatRulesContext([rule()]);
 
         expect(context).toContain("<agent-tracer-rules>");
-        expect(context).toContain("- [block] 테스트를 실행한다 — must run: npm test");
+        expect(context).toContain("- [block] 테스트를 실행한다 — must run: npm test (not yet fulfilled)");
         expect(context).toContain("Answer the user in the language they wrote in");
     });
 
