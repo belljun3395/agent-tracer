@@ -23,31 +23,22 @@ export const KO_RULES = {
   newWorkspaceDescription: createGuidanceMessage(
     "에이전트 이벤트를 검사하는 새 규칙을 정의합니다.",
   ),
-  demoteDescription: createGuidanceMessage(
-    "이 규칙을 적용할 태스크를 고르세요. 규칙은 태스크 범위로 바뀌며 기존 전역 범위의 판정 기록은 제거됩니다.",
-  ),
   form: {
     nameRequired: createGuidanceMessage("규칙 이름을 입력하세요."),
     expectationRequired: createGuidanceMessage(
       "선택한 Kind가 요구하는 필드를 채우세요.",
     ),
-    lockedScope: createGuidanceMessage(
-      "편집 중에는 범위를 바꿀 수 없습니다. 규칙 행의 Promote 또는 Demote를 사용하세요.",
+    anchor: createGuidanceMessage(
+      "이 규칙이 검증할 사용자 발화입니다. 이 발화 이후 에이전트가 한 일로 이행 여부를 판정합니다.",
     ),
-    trigger: createGuidanceMessage(
-      "이 규칙을 실행할 조건을 고르세요. 두 필드를 모두 비우면 모든 이벤트와 일치합니다.",
-    ),
-    phrases: createGuidanceMessage(
-      "한 줄에 하나씩 입력하세요. 비워 두면 모든 이벤트와 일치합니다.",
-    ),
-    source: createGuidanceMessage(
-      "대화의 한쪽에서 발생한 이벤트만 일치하도록 제한합니다.",
+    anchorRequired: createGuidanceMessage(
+      "규칙이 검증할 사용자 발화를 고르세요.",
     ),
     expectation: createGuidanceMessage(
-      "규칙이 트리거된 뒤 에이전트가 해야 할 일(또는 하면 안 되는 일)을 정의하세요. Kind가 아래 필드 조합을 정합니다.",
+      "사용자의 요구를 이행하려면 에이전트가 무엇을 해야 하는지 정의하세요. Kind가 아래 필드 조합을 정합니다.",
     ),
     kind: createGuidanceMessage(
-      "기대의 종류입니다. command는 명령 일치, pattern은 정규식, action은 도구 범주만, forbidden은 금지 조항만 씁니다.",
+      "기대의 종류입니다. command는 명령 일치, pattern은 정규식, action은 도구 범주를 씁니다.",
     ),
     toolName: createGuidanceMessage(
       "action에서는 필수, pattern에서는 검사 대상을 좁히는 선택 항목입니다.",
@@ -77,7 +68,7 @@ export const KO_RULES = {
         "이므로 타임라인이 완전하지 않을 수 있습니다.",
       ),
     anchorHelp: createGuidanceMessage(
-      "규칙은 이 입력을 근거로 만들어지고, 이 입력 이후 에이전트가 한 일로 이행 여부를 판정합니다. 앞으로의 턴에서 발동해야 하는 규칙만 \"Whole task\"를 고르세요.",
+      "규칙은 이 입력을 근거로 만들어지고, 이 입력 이후 에이전트가 한 일로 이행 여부를 판정합니다. 발화 하나에 규칙이 여럿 붙을 수 있습니다.",
     ),
     intentHelp: createGuidanceMessage(
       "규칙이 검증할 내용을 선택적으로 설명하세요. 비워 두면 태스크 전체를 스캔합니다.",
@@ -97,10 +88,10 @@ export const KO_RULES = {
       "아직 이 태스크에서 규칙과 일치한 이벤트가 없습니다.",
     ),
     unfulfilled: createGuidanceMessage(
-      "트리거가 발생했지만 이 태스크에서 예상 후속 작업이 실행되지 않았습니다.",
+      "사용자의 요구 이후 이 규칙이 기대한 행동이 실행되지 않았습니다.",
     ),
     matchedTrigger: createGuidanceMessage(
-      "설정된 트리거 문구와 일치했습니다.",
+      "이 규칙을 낳은 사용자 발화입니다.",
     ),
     matchedCondition: (condition: string) =>
       createGuidanceMessage(

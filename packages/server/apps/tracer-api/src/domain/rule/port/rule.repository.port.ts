@@ -10,6 +10,7 @@ export interface RuleRepositoryPort {
     /** 승인 대기 규칙까지 준다. */
     findAllForListing(userId: string, taskId: string): Promise<RuleEntity[]>;
     findAllByUser(userId: string): Promise<RuleEntity[]>;
-    findApplicableSignatures(userId: string, taskId: string): Promise<string[]>;
+    /** 같은 사용자 입력에서 나온 규칙들이며 발화 하나에 규칙 여럿이 붙는다. */
+    findByAnchor(userId: string, anchorEventId: string): Promise<RuleEntity[]>;
     upsert(rule: RuleEntity): Promise<void>;
 }

@@ -4,10 +4,9 @@ import type { RuleEntity } from "@monitor/tracer-domain";
 export interface SlimRule {
     readonly id: string;
     readonly name: string;
-    readonly trigger: { readonly phrases: readonly string[]; readonly on?: string };
     readonly expect: Record<string, unknown>;
-    readonly scope: string;
-    readonly taskId: string | null;
+    readonly taskId: string;
+    readonly anchorEventId: string;
     readonly source: string;
     readonly severity: string;
     readonly rationale: string | null;
@@ -20,13 +19,9 @@ export function toSlimRule(rule: RuleEntity): SlimRule {
     return {
         id: rule.id,
         name: rule.name,
-        trigger: {
-            phrases: rule.trigger.phrases,
-            ...(rule.trigger.on !== undefined ? { on: rule.trigger.on } : {}),
-        },
         expect: toExpectView(rule.expectation),
-        scope: rule.scope,
         taskId: rule.taskId,
+        anchorEventId: rule.anchorEventId,
         source: rule.source,
         severity: rule.severity,
         rationale: rule.rationale,

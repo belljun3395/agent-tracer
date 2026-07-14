@@ -12,20 +12,17 @@ export const RULE_EXPECTATION_FIELD_GUIDE = `  - expect   : { kind, ... } -- kin
 
 const FIELD_GUIDE = `Each rule has:
   - name     : short imperative (under 60 chars)
-  - trigger  : { phrases: string[] }  -- optional; user message that triggers this check
-  - triggerOn: "user" | "assistant"   -- optional
 ${RULE_EXPECTATION_FIELD_GUIDE}
   - severity : one of exactly: ${RULE_SEVERITIES.join(", ")} (optional, defaults to "info" if omitted)
   - rationale: 1 short sentence (under 200 chars)`;
 
 /** 모드마다 골라 조립하는 제안 지침 절이다. */
 export const GUIDELINE_CLAUSE = {
-    anchorToAnyUtterance: '  - Anchor every rule to a user utterance: set trigger.phrases to short verbatim quotes from the user\'s ACTUAL words (matching is case-insensitive substring, so exact wording makes the trigger re-fire when the user says it again), with triggerOn: "user".',
-    anchorToLatestUtterance: '  - Anchor every rule to the latest user utterance: set trigger.phrases to short verbatim quotes from the user\'s ACTUAL words, with triggerOn: "user".',
-    triggerlessIsUniversal: "  - A rule without trigger is evaluated on EVERY turn -- reserve that for universal invariants only.",
+    obligationsFromRequest: "  - Every rule states one obligation the user's request implies. Split distinct obligations into distinct rules.",
+    groundInWorkspace: "  - Ground each obligation in what the repository actually contains: the real test command, the real path. Never invent an obligation the user never asked for.",
     taskSpecific: "  - Lean into patterns specific to THIS task.",
-    noOverlapWithExisting: `  - DO NOT propose any rule whose intent, trigger, or expected action overlaps an existing rule from ${RULEGEN_TOOL.rules}().`,
-    zeroIsCorrect: "  - Returning zero rules is correct when there is no new verifiable obligation.",
+    noOverlapWithExisting: `  - DO NOT propose any rule whose intent or expected action overlaps an existing rule from ${RULEGEN_TOOL.rules}().`,
+    zeroIsCorrect: "  - Returning zero rules is correct when there is no verifiable obligation.",
 } as const;
 
 const LANGUAGE_DIRECTIVES: Readonly<Record<string, string>> = {
@@ -54,17 +51,19 @@ function recentCountClause(maxRules: number): string {
 function guidelineClauses(mode: RulegenMode, maxRules: number): readonly string[] {
     if (mode === RULEGEN_MODE.recent) {
         return [
-            GUIDELINE_CLAUSE.anchorToLatestUtterance,
+            GUIDELINE_CLAUSE.obligationsFromRequest,
+            GUIDELINE_CLAUSE.groundInWorkspace,
             GUIDELINE_CLAUSE.noOverlapWithExisting,
             recentCountClause(maxRules),
             GUIDELINE_CLAUSE.zeroIsCorrect,
         ];
     }
     return [
-        GUIDELINE_CLAUSE.anchorToAnyUtterance,
-        GUIDELINE_CLAUSE.triggerlessIsUniversal,
+        GUIDELINE_CLAUSE.obligationsFromRequest,
+        GUIDELINE_CLAUSE.groundInWorkspace,
         GUIDELINE_CLAUSE.taskSpecific,
         manualCountClause(maxRules),
+        GUIDELINE_CLAUSE.zeroIsCorrect,
     ];
 }
 

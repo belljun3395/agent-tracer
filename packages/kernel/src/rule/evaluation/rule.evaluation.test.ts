@@ -3,8 +3,7 @@ import {
     commandIncludesAny,
     compilePattern,
 } from "./rule.pattern.js";
-import { findTriggerPhrase } from "./rule.trigger.match.js";
-import { RULE_SOURCE, type RuleTrigger } from "../definition/rule.vocabulary.js";
+import { RULE_SOURCE } from "../definition/rule.vocabulary.js";
 import { aggregateVerdictStatus, VERDICT_STATUS } from "./rule.verdict.js";
 
 describe("RULE_SOURCE", () => {
@@ -33,40 +32,6 @@ describe("compilePattern", () => {
 
     it("잘못된 정규식은 null을 반환한다", () => {
         expect(compilePattern("(unterminated")).toBeNull();
-    });
-});
-
-describe("findTriggerPhrase", () => {
-    const trigger: RuleTrigger = { phrases: ["deploy to prod"], on: "user" };
-
-    it("트리거가 null이면 null을 반환한다", () => {
-        expect(findTriggerPhrase(null, [], false)).toBeNull();
-    });
-
-    it("허용된 화자의 텍스트에서 문구를 찾으면 그 문구를 반환한다", () => {
-        const result = findTriggerPhrase(trigger, [{ speaker: "user", text: "please deploy to prod now" }], false);
-        expect(result).toBe("deploy to prod");
-    });
-
-    it("on으로 허용되지 않은 화자의 텍스트는 무시한다", () => {
-        const result = findTriggerPhrase(trigger, [{ speaker: "assistant", text: "deploy to prod" }], false);
-        expect(result).toBeNull();
-    });
-
-    it("on이 없으면 사용자와 어시스턴트 발화만 대조한다", () => {
-        const anySpeakerTrigger: RuleTrigger = { phrases: ["deploy to prod"] };
-        expect(findTriggerPhrase(anySpeakerTrigger, [{ speaker: "other", text: "deploy to prod" }], false)).toBeNull();
-        expect(findTriggerPhrase(anySpeakerTrigger, [{ speaker: "assistant", text: "deploy to prod" }], false)).toBe("deploy to prod");
-    });
-
-    it("negationAware가 true이고 부정어가 바로 앞에 있으면 무시한다", () => {
-        const result = findTriggerPhrase(trigger, [{ speaker: "user", text: "did not deploy to prod" }], true);
-        expect(result).toBeNull();
-    });
-
-    it("negationAware가 false면 부정어가 있어도 문구를 찾는다", () => {
-        const result = findTriggerPhrase(trigger, [{ speaker: "user", text: "did not deploy to prod" }], false);
-        expect(result).toBe("deploy to prod");
     });
 });
 

@@ -4,8 +4,6 @@ import type { RuleRecord } from "~web/entities/rule/model/rule.js";
 import type { TaskId } from "~web/shared/identity.js";
 import {
   useDeleteRuleMutation,
-  useDemoteRuleMutation,
-  usePromoteRuleMutation,
   useReEvaluateRuleMutation,
 } from "~web/entities/rule/api/mutations.js";
 import { useRuleEvidenceQuery } from "~web/entities/rule/api/queries.js";
@@ -28,8 +26,6 @@ interface RuleRowProps {
 /** Rules 탭에 나열되는 규칙 한 행. */
 export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
   const reEvalMutation = useReEvaluateRuleMutation();
-  const promoteMutation = usePromoteRuleMutation();
-  const demoteMutation = useDemoteRuleMutation();
   const deleteMutation = useDeleteRuleMutation();
   const [expanded, setExpanded] = useState(false);
   const evidenceQ = useRuleEvidenceQuery(contextTaskId, rule.id, {
@@ -38,11 +34,7 @@ export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
   const matchCount = rule.matchCount ?? 0;
   const canExpand = contextTaskId !== null && matchCount > 0;
 
-  const isPending =
-    reEvalMutation.isPending ||
-    promoteMutation.isPending ||
-    demoteMutation.isPending ||
-    deleteMutation.isPending;
+  const isPending = reEvalMutation.isPending || deleteMutation.isPending;
 
   const confirmDelete = useConfirmAction(() => deleteMutation.mutate(rule.id));
 
@@ -94,8 +86,6 @@ export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
       </button>
 
       <div className="flex items-center gap-2 flex-wrap mt-1.5 font-mono text-[10.5px] text-ink-tertiary">
-        <span>scope · {rule.scope}</span>
-        <span className="text-hair-strong">·</span>
         <span>source · {rule.source}</span>
         {expectationTool(rule.expect) && (
           <>
@@ -112,21 +102,13 @@ export function RuleRow({ rule, contextTaskId, onEdit }: RuleRowProps) {
       )}
 
       <RuleRowActions
-        rule={rule}
         contextTaskId={contextTaskId}
         isPending={isPending}
         deleteFailed={deleteMutation.isError}
         deleteArmed={confirmDelete.armed}
         onReEval={stopAnd(() =>
-          reEvalMutation.mutate({
-            ruleId: rule.id,
-            ...(contextTaskId ? { taskId: contextTaskId } : {}),
-          }),
+          reEvalMutation.mutate({ ruleId: rule.id, taskId: rule.taskId }),
         )}
-        onPromote={stopAnd(() => promoteMutation.mutate(rule.id))}
-        onDemote={stopAnd(() => {
-          if (contextTaskId) demoteMutation.mutate({ ruleId: rule.id, taskId: contextTaskId });
-        })}
         onEdit={stopAnd(() => onEdit(rule))}
         onDelete={stopAnd(confirmDelete.trigger)}
       />

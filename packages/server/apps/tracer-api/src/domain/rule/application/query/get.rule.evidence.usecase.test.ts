@@ -10,15 +10,14 @@ import { GetRuleEvidenceUseCase } from "./get.rule.evidence.usecase.js";
 
 const NOW = new Date("2026-07-01T00:00:00.000Z");
 
-function makeRule(id: string, userId: string, taskId: string | null): RuleEntity {
+function makeRule(id: string, userId: string, taskId: string, anchorEventId = `anchor-${id}`): RuleEntity {
     const rule = new RuleEntity();
     rule.id = id;
     rule.userId = userId;
     rule.name = "배포 규칙";
-    rule.trigger = { phrases: ["배포"] };
     rule.expectation = { kind: "command", commandMatches: ["npm run deploy"] };
-    rule.scope = taskId !== null ? "task" : "global";
     rule.taskId = taskId;
+    rule.anchorEventId = anchorEventId;
     rule.source = "agent";
     rule.severity = "warn";
     rule.rationale = null;
@@ -120,18 +119,15 @@ describe("GetRuleEvidenceUseCase", () => {
         expect(result.triggers[0]?.unfulfilled).toBe(true);
     });
 
-    it("전역 규칙에 태스크를 지정하지 않으면 빈 증거를 낸다", async () => {
-        const useCase = makeUseCase({ rules: [makeRule("rule-1", "u1", null)] });
+    it("태스크를 지정하지 않으면 규칙이 속한 태스크로 증거를 낸다", async () => {
+        const useCase = makeUseCase({ rules: [makeRule("rule-1", "u1", "task-1")] });
 
         const result = await useCase.execute("u1", "rule-1");
 
-        expect(result).toEqual({
-            taskId: "",
+        expect(result).toMatchObject({
+            taskId: "task-1",
             ruleId: "rule-1",
-            anchorEventId: null,
-            status: null,
-            triggers: [],
-            expects: [],
+            anchorEventId: "anchor-rule-1",
         });
     });
 

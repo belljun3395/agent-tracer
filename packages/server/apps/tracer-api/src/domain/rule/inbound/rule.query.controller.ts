@@ -27,7 +27,7 @@ export class RuleQueryController {
     ) {
         return this.listRules.execute(resolveUserId(user), {
             ...(query.taskId !== undefined ? { taskId: query.taskId } : {}),
-            ...(query.scope === "all" ? { all: true } : {}),
+            ...(query.all === "true" ? { all: true } : {}),
         });
     }
 

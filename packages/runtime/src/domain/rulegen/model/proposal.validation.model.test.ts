@@ -3,8 +3,6 @@ import {validateRuleProposals} from "~runtime/domain/rulegen/model/proposal.vali
 
 const COMMAND_RULE = {
     name: "테스트 실행",
-    trigger: {phrases: ["테스트"]},
-    triggerOn: "user",
     expect: {kind: "command", commandMatches: ["npm test"]},
     severity: "warn",
     rationale: "사용자가 요구했다",
@@ -51,13 +49,6 @@ describe("validateRuleProposals", () => {
         expect(rejected.map((item) => item.reason)).toEqual(["invalid severity", "invalid expect"]);
     });
 
-    it("빈 문자열만 담긴 트리거 문구는 버린다", () => {
-        const {rejected} = validateRuleProposals([
-            {name: "빈 트리거", trigger: {phrases: ["  "]}, expect: {kind: "action", tool: "command"}},
-        ]);
-
-        expect(rejected).toEqual([{index: 0, reason: "invalid trigger.phrases"}]);
-    });
 
     it("객체가 아닌 후보는 버린다", () => {
         const {accepted, rejected} = validateRuleProposals(["문자열", null, 42]);

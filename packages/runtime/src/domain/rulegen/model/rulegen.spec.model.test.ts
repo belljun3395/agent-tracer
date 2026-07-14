@@ -69,7 +69,13 @@ describe("buildRuleGenerationSpec", () => {
         const spec = specFor({anchorText: "테스트 돌리고 커밋해"});
 
         expect(spec.userPrompt).toContain("<anchor-input>\n테스트 돌리고 커밋해\n</anchor-input>");
-        expect(spec.systemPrompt).toContain("it is the ONE user input these rules must verify");
+        expect(spec.systemPrompt).toContain("the ONE user request these rules verify");
+    });
+
+    it("한 요구가 여러 의무를 담을 수 있음을 알린다", () => {
+        const spec = specFor({anchorText: "테스트 돌리고 커밋해"});
+
+        expect(spec.systemPrompt).toContain("Propose one rule per distinct obligation");
     });
 
     it("근거는 프롬프트에 박지 않고 실행 중에 부를 도구로 안내한다", () => {

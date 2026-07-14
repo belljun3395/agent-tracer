@@ -31,20 +31,11 @@ export class RuleDefinitionController {
         return this.createRule.execute({
             userId: resolveUserId(user),
             name: body.name,
-            ...(body.trigger !== undefined
-                ? {
-                      trigger: {
-                          phrases: body.trigger.phrases,
-                          ...(body.triggerOn !== undefined ? { on: body.triggerOn } : {}),
-                      },
-                  }
-                : {}),
             expectation: body.expect,
-            scope: body.scope,
-            ...(body.taskId !== undefined ? { taskId: body.taskId } : {}),
+            taskId: body.taskId,
+            anchorEventId: body.anchorEventId,
             ...(body.severity !== undefined ? { severity: body.severity } : {}),
             ...(body.rationale !== undefined ? { rationale: body.rationale } : {}),
-            ...(body.anchorEventId !== undefined ? { anchorEventId: body.anchorEventId } : {}),
         });
     }
 
@@ -58,19 +49,7 @@ export class RuleDefinitionController {
             userId: resolveUserId(user),
             id,
             ...(body.name !== undefined ? { name: body.name } : {}),
-            ...(body.trigger !== undefined
-                ? {
-                      trigger: {
-                          phrases: body.trigger?.phrases ?? [],
-                          ...(body.triggerOn !== undefined && body.triggerOn !== null
-                              ? { on: body.triggerOn }
-                              : {}),
-                      },
-                  }
-                : {}),
             ...(body.expect !== undefined ? { expectation: body.expect } : {}),
-            ...(body.scope !== undefined ? { scope: body.scope } : {}),
-            ...(body.taskId !== undefined ? { taskId: body.taskId } : {}),
             ...(body.severity !== undefined ? { severity: body.severity } : {}),
             ...(body.rationale !== undefined ? { rationale: body.rationale } : {}),
         });

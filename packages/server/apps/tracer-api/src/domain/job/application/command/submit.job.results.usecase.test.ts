@@ -96,7 +96,6 @@ describe("SubmitJobResultsUseCase", () => {
             proposals: [
                 {
                     name: "테스트 실행",
-                    trigger: { phrases: ["테스트를 실행해줘"] },
                     expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm run test"] },
                 },
             ],

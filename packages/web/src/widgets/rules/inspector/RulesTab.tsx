@@ -40,9 +40,8 @@ export function RulesTab() {
     );
   }
 
-  const taskRules = rulesQ.data.task;
-  const globalRules = rulesQ.data.global;
-  const totalRules = taskRules.length + globalRules.length;
+  const rules = rulesQ.data.rules;
+  const totalRules = rules.length;
 
   const handleCreate = () => {
     setEditingRule(null);
@@ -61,9 +60,7 @@ export function RulesTab() {
 
     setBulkReEvalPending(true);
     void Promise.allSettled(
-      [...taskRules, ...globalRules].map((rule) =>
-        reEvaluateMutation.mutateAsync({ ruleId: rule.id, taskId }),
-      ),
+      rules.map((rule) => reEvaluateMutation.mutateAsync({ ruleId: rule.id, taskId })),
     ).finally(() => setBulkReEvalPending(false));
   };
 
@@ -89,22 +86,13 @@ export function RulesTab() {
           locale={guidance.locale}
         />
       ) : (
-        <>
-          <RuleSection
-            title="Task-scoped"
-            rules={taskRules}
-            contextTaskId={taskId}
-            emptyHint="No rules attached to this task."
-            onEdit={handleEdit}
-          />
-          <RuleSection
-            title="Global"
-            rules={globalRules}
-            contextTaskId={taskId}
-            emptyHint="No global rules."
-            onEdit={handleEdit}
-          />
-        </>
+        <RuleSection
+          title="Rules"
+          rules={rules}
+          contextTaskId={taskId}
+          emptyHint="No rules attached to this task."
+          onEdit={handleEdit}
+        />
       )}
 
       <Modal
@@ -120,8 +108,7 @@ export function RulesTab() {
       >
         <RuleForm
           {...(editingRule ? { rule: editingRule } : {})}
-          defaultTaskId={taskId}
-          defaultScope={editingRule?.scope ?? "task"}
+          taskId={taskId}
           onClose={handleClose}
         />
       </Modal>

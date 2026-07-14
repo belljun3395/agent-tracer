@@ -1,5 +1,4 @@
 import {
-    KIND,
     TERMINAL_COMMAND_TOOL_NAME,
     isTerminalCommand,
     toolNameOf,
@@ -8,7 +7,6 @@ import { AGENT_TRACER_ATTR, SEMCONV_ATTR } from "~kernel/observability/semconv.c
 import { canonicalizeToolName, normalizeRuleExpectedAction } from "./rule.tool-alias.const.js";
 import {
     RULE_EXPECTED_ACTION,
-    type RuleTriggerSource,
     type ToolCall,
 } from "../definition/rule.vocabulary.js";
 
@@ -128,11 +126,4 @@ export function sliceFromAnchor<T extends { readonly id: string }>(
 ): readonly T[] | null {
     const at = events.findIndex((event) => event.id === anchorEventId);
     return at === -1 ? null : events.slice(at);
-}
-
-/** 이벤트 종류를 규칙 발화자 어휘로 변환한다. */
-export function eventSpeaker(kind: string): RuleTriggerSource | "other" {
-    if (kind === KIND.userMessage) return "user";
-    if (kind === KIND.assistantResponse) return "assistant";
-    return "other";
 }

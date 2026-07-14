@@ -37,7 +37,8 @@ describe("hasRuleCommand", () => {
 
 describe("isAutoRuleGenerationTrigger", () => {
     it("토글이 켜진 사용자 입력의 규칙 명령만 자격을 준다", () => {
-        expect(isAutoRuleGenerationTrigger(ENABLED, KIND.userMessage, "t1", "e1", "/rule")).toBe(true);
+        expect(isAutoRuleGenerationTrigger(ENABLED, KIND.userMessage, "t1", "e1", "/rule 테스트 돌려줘")).toBe(true);
+        expect(isAutoRuleGenerationTrigger(ENABLED, KIND.userMessage, "t1", "e1", "/rule")).toBe(false);
     });
 
     it("토글이 꺼졌거나 이벤트 종류나 식별자가 없으면 자격을 뺏는다", () => {

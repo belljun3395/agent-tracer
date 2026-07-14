@@ -1,9 +1,5 @@
 import {RULE_REVIEW_STATE} from "@monitor/kernel/rule/definition/rule.review.js";
-import {
-    RULE_SCOPE,
-    type RuleExpectation,
-    type RuleTrigger,
-} from "@monitor/kernel/rule/definition/rule.vocabulary.js";
+import type {RuleExpectation} from "@monitor/kernel/rule/definition/rule.vocabulary.js";
 import {getJson} from "~runtime/config/http.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {RuleSourcePort} from "~runtime/domain/guardrail/port/rule.source.port.js";
@@ -36,18 +32,18 @@ export class HttpRuleSourceAdapter implements RuleSourcePort {
 
 function parseRule(item: unknown): GuardrailRule | null {
     if (!isRecord(item)) return null;
-    const trigger = item["trigger"];
     const expectation = item["expectation"];
-    if (typeof item["name"] !== "string" || !isRecord(trigger) || !isRecord(expectation)) return null;
-    if (!Array.isArray(trigger["phrases"])) return null;
+    const taskId = item["taskId"];
+    const anchorEventId = item["anchorEventId"];
+    if (typeof item["name"] !== "string" || !isRecord(expectation)) return null;
+    // 서버가 주는 규칙에는 태스크와 근거 입력이 반드시 있다.
+    if (typeof taskId !== "string" || typeof anchorEventId !== "string") return null;
     return {
         name: item["name"],
         severity: typeof item["severity"] === "string" ? item["severity"] : "info",
-        scope: typeof item["scope"] === "string" ? item["scope"] : RULE_SCOPE.global,
-        taskId: typeof item["taskId"] === "string" ? item["taskId"] : null,
+        taskId,
+        anchorEventId,
         reviewState: typeof item["reviewState"] === "string" ? item["reviewState"] : RULE_REVIEW_STATE.pendingReview,
-        anchorEventId: typeof item["anchorEventId"] === "string" ? item["anchorEventId"] : null,
-        trigger: trigger as unknown as RuleTrigger,
         expectation: expectation as unknown as RuleExpectation,
     };
 }

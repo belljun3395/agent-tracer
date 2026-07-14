@@ -2,7 +2,6 @@ import { useState } from "react";
 import type {
   RuleCreateInput,
   RuleRecord,
-  RuleScope,
   RuleUpdateInput,
 } from "~web/entities/rule/model/rule.js";
 import type { TaskId } from "~web/shared/identity.js";
@@ -10,12 +9,12 @@ import {
   useCreateRuleMutation,
   useUpdateRuleMutation,
 } from "~web/entities/rule/api/mutations.js";
+import { useTaskUserInputsQuery } from "~web/entities/task/api/detail-queries.js";
 import type { GuidanceMessage } from "~web/shared/guidance.js";
 import { useGuidance } from "~web/shared/store/index.js";
 import { GuidanceText } from "~web/shared/ui/index.js";
 import { RuleBasicsFields } from "~web/widgets/rules/editor/RuleBasicsFields.js";
 import { RuleExpectationFields } from "~web/widgets/rules/editor/RuleExpectationFields.js";
-import { RuleTriggerFields } from "~web/widgets/rules/editor/RuleTriggerFields.js";
 import {
   RuleFormField,
   ruleFormTextareaClassName,
@@ -23,14 +22,12 @@ import {
 import {
   buildRuleExpectation,
   createRuleFormState,
-  splitRuleFormLines,
   type RuleFormState,
 } from "~web/widgets/rules/editor/rule-form-state.js";
 
 interface RuleFormProps {
   readonly rule?: RuleRecord;
-  readonly defaultTaskId?: TaskId;
-  readonly defaultScope?: RuleScope;
+  readonly taskId: TaskId;
   readonly onClose: () => void;
 }
 
@@ -39,16 +36,12 @@ type FormError =
   | { readonly kind: "raw"; readonly message: string };
 
 /** 규칙 생성과 수정의 폼 상태와 저장 흐름을 조율한다. */
-export function RuleForm({
-  rule,
-  defaultTaskId,
-  defaultScope = "global",
-  onClose,
-}: RuleFormProps) {
+export function RuleForm({ rule, taskId, onClose }: RuleFormProps) {
   const guidance = useGuidance();
   const isEdit = Boolean(rule);
+  const userInputs = useTaskUserInputsQuery(taskId).data ?? [];
   const [form, setForm] = useState<RuleFormState>(() =>
-    createRuleFormState(rule, defaultScope),
+    createRuleFormState(rule, ""),
   );
   const [error, setError] = useState<FormError | null>(null);
   const createMutation = useCreateRuleMutation();
@@ -76,14 +69,11 @@ export function RuleForm({
       return;
     }
 
-    const phrases = splitRuleFormLines(form.triggerPhrases);
     const rationale = form.rationale.trim();
 
     if (isEdit && rule) {
       const body: RuleUpdateInput = {
         name,
-        trigger: phrases.length > 0 ? { phrases } : null,
-        triggerOn: form.triggerOn || null,
         expect: expectation,
         severity: form.severity,
         rationale: rationale || null,
@@ -105,13 +95,16 @@ export function RuleForm({
       return;
     }
 
+    if (!form.anchorEventId) {
+      setError({ kind: "guidance", message: messages.anchorRequired });
+      return;
+    }
+
     const body: RuleCreateInput = {
       name,
-      ...(phrases.length > 0 ? { trigger: { phrases } } : {}),
-      ...(form.triggerOn ? { triggerOn: form.triggerOn } : {}),
       expect: expectation,
-      scope: form.scope,
-      ...(form.scope === "task" && defaultTaskId ? { taskId: defaultTaskId } : {}),
+      taskId,
+      anchorEventId: form.anchorEventId,
       severity: form.severity,
       ...(rationale ? { rationale } : {}),
     };
@@ -135,15 +128,8 @@ export function RuleForm({
     >
       <RuleBasicsFields
         form={form}
-        defaultTaskId={defaultTaskId}
+        userInputs={userInputs}
         isEdit={isEdit}
-        disabled={isPending}
-        locale={guidance.locale}
-        messages={messages}
-        onChange={updateForm}
-      />
-      <RuleTriggerFields
-        form={form}
         disabled={isPending}
         locale={guidance.locale}
         messages={messages}

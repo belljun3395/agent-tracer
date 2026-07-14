@@ -33,15 +33,9 @@ export class RuleEvaluator {
         rule: RuleEntity,
         turn: TurnEntity,
     ): Promise<{ readonly turn: TurnEntity; readonly windowEvents: readonly EventEntity[] } | null> {
-        if (!rule.isAnchored()) {
-            const turnEvents = await this.ports.events.findByTurn(turn.id);
-            return { turn, windowEvents: turnEvents };
-        }
-
-        const anchorEventId = rule.anchorEventId ?? "";
-        const windowEvents = await this.ports.events.findByTaskSinceEvent(turn.taskId, anchorEventId);
+        const windowEvents = await this.ports.events.findByTaskSinceEvent(turn.taskId, rule.anchorEventId);
         const anchor = windowEvents[0];
-        if (anchor === undefined || anchor.id !== anchorEventId) return null;
+        if (anchor === undefined || anchor.id !== rule.anchorEventId) return null;
 
         const anchorTurn = await this.resolveAnchorTurn(anchor, turn);
         if (anchorTurn === null) return null;

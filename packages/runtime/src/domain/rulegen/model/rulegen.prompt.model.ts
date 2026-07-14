@@ -15,7 +15,7 @@ const RECENT_SCOPE = "This is an AUTO rule-generation job. Focus ONLY on the mos
 
 const WORKSPACE_ACCESS = `Read, Glob, and Grep let you inspect the workspace read-only. Use them to ground a rule in what the repository actually contains: the real test command, the real path, the real config key. Never turn a file you merely read into an obligation the user never asked for.`;
 
-const CLOSING = "Rules are not blockers. They describe what to EXPECT a future agent doing similar work to do.";
+const CLOSING = "A rule is a checklist item the user will read: did the agent do what I asked? Verify fulfilment, never police the agent's style.";
 
 function toolLine(spec: RulegenToolSpec): string {
     const params = spec.params.map((param) => (param.optional ? `${param.name}?` : param.name)).join(", ");
@@ -35,15 +35,15 @@ function manualRoute(maxTurns: number): string {
   1. Read the task turns turn by turn and extract explicit and implied obligations (e.g. "run the tests" → expect npm test).
   2. Read the task events to cross-check how the agent actually fulfilled those obligations; raise the limit or call again when ${RULEGEN_EVENT_LIMIT.fallback} events do not cover the work.
   3. List the existing rules and check for duplicates.
-  4. Produce rules anchored to the user's asks.`;
+  4. Produce one rule per distinct obligation the user asked for.`;
 }
 
 function recentRoute(maxTurns: number): string {
     return `Recent-turn route (you have up to ${maxTurns} turns; usually three tool calls suffice):
-  1. List the existing rules FIRST and identify existing rule intent and trigger coverage before proposing anything.
+  1. List the existing rules FIRST and identify which obligations are already covered before proposing anything.
   2. Pull the latest user turn, its assistant reply, and the latest assistant actions with the tools, and pull less or more as the evidence demands.
   3. Do NOT read the whole task for rule coverage.
-  4. Output 1-2 rules anchored to the latest user turn. If the latest turn introduces no new verifiable obligation, return an EMPTY rules array: {"rules":[]}.`;
+  4. Output 1-2 rules for the obligations that request carries. If it carries none, return an EMPTY rules array: {"rules":[]}.`;
 }
 
 export interface RulegenPromptOptions {

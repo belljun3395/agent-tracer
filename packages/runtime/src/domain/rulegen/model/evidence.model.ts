@@ -27,7 +27,6 @@ export interface EventEvidence {
 /** 중복 제안을 피하려고 제공하는 기존 규칙 근거다. */
 export interface ExistingRuleEvidence {
     readonly name: string;
-    readonly trigger: unknown;
     readonly expect: unknown;
 }
 
@@ -73,8 +72,7 @@ export function digestExistingRules(items: readonly unknown[]): ExistingRuleEvid
         if (!isRecord(item)) continue;
         rules.push({
             name: truncate(readString(item, "name") ?? "", EXISTING_RULE_NAME_MAX_LEN),
-            trigger: item["trigger"] ?? null,
-            expect: item["expect"] ?? null,
+            expect: item["expectation"] ?? null,
         });
     }
     return rules;

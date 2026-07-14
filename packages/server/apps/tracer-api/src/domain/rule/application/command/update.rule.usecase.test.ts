@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { RULE_SCOPE } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { UpdateRuleUseCase } from "./update.rule.usecase.js";
@@ -35,9 +34,7 @@ function rule(id: string, source: RuleEntity["source"]): RuleEntity {
         id,
         userId: "u1",
         name: "규칙",
-        trigger: { phrases: [] },
         expectation: { tool: "command" },
-        scope: RULE_SCOPE.task,
         taskId: "task-1",
         source,
         severity: "info",

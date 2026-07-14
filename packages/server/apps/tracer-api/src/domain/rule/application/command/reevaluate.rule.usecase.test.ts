@@ -4,10 +4,8 @@ import {
     KIND,
     RULE_EXPECTATION_KIND,
     RULE_REVIEW_STATE,
-    RULE_SCOPE,
     VERDICT_STATUS,
     type RuleExpectation,
-    type RuleTrigger,
 } from "@monitor/kernel";
 import { EventEntity, RuleEntity, TurnEntity } from "@monitor/tracer-domain";
 import { InMemoryEventReader } from "~tracer-api/domain/rule/port/__fakes__/in-memory.event.reader.js";
@@ -21,22 +19,20 @@ const NOW = new Date("2026-01-01T00:00:00.000Z");
 
 function makeRule(overrides: {
     readonly id: string;
-    readonly scope: RuleEntity["scope"];
-    readonly taskId: string | null;
-    readonly trigger?: RuleTrigger;
+    readonly taskId: string;
+    readonly anchorEventId: string;
     readonly expectation?: RuleExpectation;
 }): RuleEntity {
     const rule = new RuleEntity();
     rule.id = overrides.id;
     rule.userId = "u1";
     rule.name = "규칙";
-    rule.trigger = overrides.trigger ?? { phrases: [] };
     rule.expectation = overrides.expectation ?? {
         kind: RULE_EXPECTATION_KIND.command,
         commandMatches: ["gh run view"],
     };
-    rule.scope = overrides.scope;
     rule.taskId = overrides.taskId;
+    rule.anchorEventId = overrides.anchorEventId;
     rule.source = "human";
     rule.severity = "info";
     rule.reviewState = RULE_REVIEW_STATE.active;
@@ -53,10 +49,29 @@ function makeTurn(taskId: string): TurnEntity {
     return turn;
 }
 
+function makeAnchorEvent(turn: TurnEntity): EventEntity {
+    const event = new EventEntity();
+    event.id = "anchor-1";
+    event.seq = "1";
+    event.userId = "u1";
+    event.taskId = turn.taskId;
+    event.sessionId = turn.sessionId;
+    event.turnId = turn.id;
+    event.kind = KIND.userMessage;
+    event.lane = "implementation";
+    event.title = "github.com/runs/1 확인하고 해결해줘";
+    event.body = null;
+    event.toolName = null;
+    event.filePaths = [];
+    event.metadata = {};
+    event.occurredAt = NOW;
+    return event;
+}
+
 function makeCommandEvent(turn: TurnEntity, command: string): EventEntity {
     const event = new EventEntity();
     event.id = "event-1";
-    event.seq = "1";
+    event.seq = "2";
     event.userId = "u1";
     event.taskId = turn.taskId;
     event.sessionId = turn.sessionId;
@@ -85,13 +100,14 @@ function makeUseCase(rules: readonly RuleEntity[], turns: readonly TurnEntity[],
 }
 
 describe("ReevaluateRuleUseCase", () => {
-    it("전역 규칙을 지정한 작업의 턴에 다시 평가한다", async () => {
-        const rule = makeRule({ id: "rule-1", scope: RULE_SCOPE.global, taskId: null });
+    it("규칙을 지정한 작업의 턴에 다시 평가한다", async () => {
+        const rule = makeRule({ id: "rule-1", taskId: "task-1", anchorEventId: "anchor-1" });
         const turn = makeTurn("task-1");
+        const anchor = makeAnchorEvent(turn);
         const event = makeCommandEvent(turn, "gh run view 85534985858 2>&1 | head -60");
-        const { useCase, verdictRepo, turnRepo } = makeUseCase([rule], [turn], [event]);
+        const { useCase, verdictRepo, turnRepo } = makeUseCase([rule], [turn], [anchor, event]);
 
-        const result = await useCase.execute("u1", "rule-1", { taskId: "task-1" });
+        const result = await useCase.execute("u1", "rule-1");
 
         expect(result).toEqual({ reevaluated: 1 });
         expect(verdictRepo.all()).toMatchObject([

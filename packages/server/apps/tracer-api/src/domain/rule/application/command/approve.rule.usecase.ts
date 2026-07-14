@@ -20,7 +20,7 @@ export class ApproveRuleUseCase {
         }
         rule.approve();
         await this.rules.upsert(rule);
-        const reevaluated = rule.taskId !== null ? await this.backfill.backfill(rule, rule.taskId) : 0;
+        const reevaluated = await this.backfill.backfill(rule, rule.taskId);
         return { rule: mapRule(rule), reevaluated };
     }
 }

@@ -1,4 +1,5 @@
 import {LOCAL_JOB_LEASE_HEARTBEAT_MS} from "@monitor/kernel/job/job.const.js";
+import {readRuleRequest} from "~runtime/domain/rulegen/model/auto.trigger.model.js";
 import {
     readJobAnchorEventId,
     toRuleGenerationRequest,
@@ -76,9 +77,10 @@ export class PollRuleJobsUsecase {
         }
 
         const anchorEventId = readJobAnchorEventId(job);
-        const anchorText = anchorEventId === undefined
+        const rawAnchorText = anchorEventId === undefined
             ? undefined
             : await this.jobs.anchorText(taskId, anchorEventId);
+        const anchorText = rawAnchorText === undefined ? undefined : toRuleRequestText(rawAnchorText);
         const request = toRuleGenerationRequest(job, taskId, {
             workspacePath,
             ...(anchorText !== undefined ? {anchorText} : {}),
@@ -114,4 +116,10 @@ export class PollRuleJobsUsecase {
         heartbeat.unref();
         return heartbeat;
     }
+}
+
+/** 근거 텍스트는 사용자가 친 원문이므로 명령 접두사를 벗겨 요구만 남긴다. */
+function toRuleRequestText(anchorText: string): string {
+    const request = readRuleRequest(anchorText);
+    return request.length > 0 ? request : anchorText;
 }

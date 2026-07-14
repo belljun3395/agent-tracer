@@ -61,18 +61,7 @@ export class GetRuleEvidenceUseCase {
         // 남의 규칙은 존재 여부도 드러내지 않는다.
         if (rule === null || rule.userId !== userId) throw new NotFoundException("Rule not found");
 
-        const scopeTaskId = taskId ?? rule.taskId ?? undefined;
-        if (scopeTaskId === undefined) {
-            return {
-                taskId: "",
-                ruleId,
-                anchorEventId: rule.anchorEventId ?? null,
-                status: null,
-                triggers: [],
-                expects: [],
-            };
-        }
-
+        const scopeTaskId = taskId ?? rule.taskId;
         const turns = await this.turns.findByTask(scopeTaskId);
         const verdicts = await this.verdicts.findByRuleAndTurns(
             ruleId,
@@ -103,7 +92,7 @@ export class GetRuleEvidenceUseCase {
         return {
             taskId: scopeTaskId,
             ruleId,
-            anchorEventId: rule.anchorEventId ?? null,
+            anchorEventId: rule.anchorEventId,
             status: aggregateVerdictStatus(verdicts.map((verdict) => verdict.status)),
             triggers,
             expects,

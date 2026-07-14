@@ -117,7 +117,7 @@ export class InterventionLog {
                 taskId,
                 ruleName: verdict.ruleName,
                 severity: verdict.severity,
-                detail: verdict.matchedPhrase ?? verdict.expectedPattern ?? verdict.status,
+                detail: verdict.expectedPattern ?? verdict.status,
             });
         }
     }

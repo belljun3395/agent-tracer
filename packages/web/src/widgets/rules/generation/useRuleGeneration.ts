@@ -68,7 +68,7 @@ export function useRuleGeneration(taskId: TaskId, taskStatus: string | null) {
   };
 
   const settingsLoaded = !settingsQuery.isLoading;
-  const disabled = !settingsLoaded || isInFlight;
+  const disabled = !settingsLoaded || isInFlight || anchorEventId === "";
   const operationalBlockingReason = !settingsLoaded
     ? "Loading settings…"
     : isInFlight

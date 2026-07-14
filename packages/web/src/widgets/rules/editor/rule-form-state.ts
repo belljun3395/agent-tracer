@@ -3,22 +3,19 @@ import type {
   RuleExpectationKind,
   RuleExpectedAction,
   RuleRecord,
-  RuleScope,
   RuleSeverity,
-  RuleTriggerSource,
 } from "~web/entities/rule/model/rule.js";
 import { RULE_EXPECTATION_KIND } from "~web/entities/rule/model/rule.js";
 
 /** 규칙 편집기의 입력 초안을 나타낸다. */
 export interface RuleFormState {
   name: string;
-  triggerPhrases: string;
-  triggerOn: RuleTriggerSource | "";
+  /** 규칙이 검증하는 사용자 발화이며 판정 창이 여기서 시작한다. */
+  anchorEventId: string;
   expectKind: RuleExpectationKind;
   expectTool: RuleExpectedAction | "";
   expectCommandMatches: string;
   expectPattern: string;
-  scope: RuleScope;
   severity: RuleSeverity;
   rationale: string;
 }
@@ -28,18 +25,16 @@ export type UpdateRuleForm = (changes: Partial<RuleFormState>) => void;
 /** 저장된 규칙을 편집 가능한 폼 상태로 변환한다. */
 export function createRuleFormState(
   rule: RuleRecord | undefined,
-  fallbackScope: RuleScope,
+  fallbackAnchorEventId: string,
 ): RuleFormState {
   if (!rule) {
     return {
       name: "",
-      triggerPhrases: "",
-      triggerOn: "",
+      anchorEventId: fallbackAnchorEventId,
       expectKind: RULE_EXPECTATION_KIND.command,
       expectTool: "",
       expectCommandMatches: "",
       expectPattern: "",
-      scope: fallbackScope,
       severity: "warn",
       rationale: "",
     };
@@ -48,8 +43,7 @@ export function createRuleFormState(
   const expect = rule.expect;
   return {
     name: rule.name,
-    triggerPhrases: (rule.trigger?.phrases ?? []).join("\n"),
-    triggerOn: rule.triggerOn ?? "",
+    anchorEventId: rule.anchorEventId,
     expectKind: expect.kind,
     expectTool:
       expect.kind === RULE_EXPECTATION_KIND.pattern ||
@@ -62,7 +56,6 @@ export function createRuleFormState(
         : "",
     expectPattern:
       expect.kind === RULE_EXPECTATION_KIND.pattern ? expect.pattern : "",
-    scope: rule.scope,
     severity: rule.severity,
     rationale: rule.rationale ?? "",
   };

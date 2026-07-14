@@ -53,7 +53,7 @@ const LIMIT_PARAM: RulegenToolParam = {
 export const RULEGEN_TOOL_SPECS: readonly RulegenToolSpec[] = [
     {
         name: RULEGEN_TOOL.turns,
-        description: "Get what the user asked in each turn of the task, chronologically. askedText is the user's own words, the primary source for rules and trigger phrases. assistantSummary is a short reply excerpt for context.",
+        description: "Get what the user asked in each turn of the task, chronologically. askedText is the user's own words, the primary source of every obligation. assistantSummary is a short reply excerpt for context.",
         failureLabel: "Failed to fetch turns",
         params: [TASK_ID_PARAM],
     },
@@ -65,7 +65,7 @@ export const RULEGEN_TOOL_SPECS: readonly RulegenToolSpec[] = [
     },
     {
         name: RULEGEN_TOOL.rules,
-        description: "List existing rules (name + trigger) to avoid duplicates.",
+        description: "List existing rules (name + expectation) to avoid duplicates.",
         failureLabel: "Failed to fetch rules",
         params: [],
     },

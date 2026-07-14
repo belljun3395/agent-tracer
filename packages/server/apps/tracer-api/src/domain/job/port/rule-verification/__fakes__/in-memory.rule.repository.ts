@@ -1,4 +1,4 @@
-import { RULE_REVIEW_STATE, RULE_SCOPE } from "@monitor/kernel";
+import { RULE_REVIEW_STATE } from "@monitor/kernel";
 import type { RuleEntity } from "@monitor/tracer-domain";
 import type { RuleRepositoryPort } from "~tracer-api/domain/job/port/rule-verification/rule.repository.port.js";
 
@@ -31,9 +31,11 @@ export class InMemoryRuleRepository implements RuleRepositoryPort {
         return Promise.resolve(this.all().filter((rule) => rule.userId === userId && rule.deletedAt === null));
     }
 
-    async findApplicableSignatures(userId: string, taskId: string): Promise<string[]> {
-        const rules = await this.findAllForListing(userId, taskId);
-        return rules.map((rule) => rule.signature);
+    findSignaturesByAnchor(userId: string, anchorEventId: string): Promise<string[]> {
+        const rules = this.all().filter(
+            (rule) => rule.userId === userId && rule.deletedAt === null && rule.anchorEventId === anchorEventId,
+        );
+        return Promise.resolve(rules.map((rule) => rule.signature));
     }
 
     upsert(rule: RuleEntity): Promise<void> {
@@ -43,10 +45,7 @@ export class InMemoryRuleRepository implements RuleRepositoryPort {
 
     private inScope(userId: string, taskId: string): RuleEntity[] {
         return this.all().filter(
-            (rule) =>
-                rule.userId === userId &&
-                rule.deletedAt === null &&
-                (rule.scope === RULE_SCOPE.global || rule.taskId === taskId),
+            (rule) => rule.userId === userId && rule.deletedAt === null && rule.taskId === taskId,
         );
     }
 }

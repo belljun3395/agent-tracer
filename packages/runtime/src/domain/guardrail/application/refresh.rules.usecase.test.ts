@@ -1,4 +1,4 @@
-import {RULE_EXPECTATION_KIND, RULE_REVIEW_STATE, RULE_SCOPE} from "@monitor/kernel";
+import {RULE_EXPECTATION_KIND, RULE_REVIEW_STATE} from "@monitor/kernel";
 import {describe, expect, it} from "vitest";
 import {RefreshRulesUsecase} from "~runtime/domain/guardrail/application/refresh.rules.usecase.js";
 import {InMemoryRuleSource} from "~runtime/domain/guardrail/port/__fakes__/in-memory.rule.source.js";
@@ -7,11 +7,9 @@ import type {RuleSourcePort} from "~runtime/domain/guardrail/port/rule.source.po
 const RULE = {
     name: "검증 실행",
     severity: "info",
-    scope: RULE_SCOPE.global,
-    taskId: null,
+    taskId: "task-1",
     reviewState: RULE_REVIEW_STATE.active,
-    anchorEventId: null,
-    trigger: {phrases: ["수정"]},
+    anchorEventId: "anchor-1",
     expectation: {kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"]},
 } as const;
 

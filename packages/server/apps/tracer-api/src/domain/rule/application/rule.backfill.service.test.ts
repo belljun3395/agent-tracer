@@ -4,7 +4,6 @@ import {
     KIND,
     RULE_EXPECTATION_KIND,
     RULE_REVIEW_STATE,
-    RULE_SCOPE,
     RULE_SEVERITY,
     RULE_SOURCE,
     VERDICT_STATUS,
@@ -22,10 +21,9 @@ function rule(reviewState: RuleEntity["reviewState"]): RuleEntity {
     entity.id = "rule-1";
     entity.userId = "u1";
     entity.name = "린트 실행";
-    entity.trigger = { phrases: ["린트"] };
     entity.expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm run lint"] };
-    entity.scope = RULE_SCOPE.task;
     entity.taskId = "task-1";
+    entity.anchorEventId = "anchor-1";
     entity.source = RULE_SOURCE.agent;
     entity.severity = RULE_SEVERITY.info;
     entity.reviewState = reviewState;
@@ -42,10 +40,29 @@ function pastTurn(): TurnEntity {
     return turn;
 }
 
+function anchorEvent(turn: TurnEntity): EventEntity {
+    const event = new EventEntity();
+    event.id = "anchor-1";
+    event.seq = "1";
+    event.userId = "u1";
+    event.taskId = turn.taskId;
+    event.sessionId = turn.sessionId;
+    event.turnId = turn.id;
+    event.kind = KIND.userMessage;
+    event.lane = "implementation";
+    event.title = "린트 돌려줘";
+    event.body = null;
+    event.toolName = null;
+    event.filePaths = [];
+    event.metadata = {};
+    event.occurredAt = NOW;
+    return event;
+}
+
 function lintEvent(turn: TurnEntity): EventEntity {
     const event = new EventEntity();
     event.id = "event-1";
-    event.seq = "1";
+    event.seq = "2";
     event.userId = "u1";
     event.taskId = turn.taskId;
     event.sessionId = turn.sessionId;
@@ -74,7 +91,7 @@ function makeService(turn: TurnEntity, events: readonly EventEntity[]) {
 describe("RuleBackfillService", () => {
     it("규칙을 낳은 지난 턴에 소급 적용해 판정을 남긴다", async () => {
         const turn = pastTurn();
-        const { service, verdictRepo } = makeService(turn, [lintEvent(turn)]);
+        const { service, verdictRepo } = makeService(turn, [anchorEvent(turn), lintEvent(turn)]);
 
         const reevaluated = await service.backfill(rule(RULE_REVIEW_STATE.active), "task-1", NOW);
 
@@ -86,7 +103,7 @@ describe("RuleBackfillService", () => {
 
     it("승인 대기 규칙은 소급 판정하지 않는다", async () => {
         const turn = pastTurn();
-        const { service, verdictRepo } = makeService(turn, [lintEvent(turn)]);
+        const { service, verdictRepo } = makeService(turn, [anchorEvent(turn), lintEvent(turn)]);
 
         const reevaluated = await service.backfill(rule(RULE_REVIEW_STATE.pendingReview), "task-1", NOW);
 

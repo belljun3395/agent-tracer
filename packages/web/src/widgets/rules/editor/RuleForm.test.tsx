@@ -21,6 +21,17 @@ vi.mock("~web/entities/rule/api/mutations.js", () => ({
   }),
 }));
 
+vi.mock("~web/entities/task/api/detail-queries.js", () => ({
+  useTaskUserInputsQuery: () => ({
+    data: [
+      { eventId: "event-1", text: "deploy 전에 테스트 돌려줘" },
+      { eventId: "event-2", text: "린트도 돌려줘" },
+    ],
+  }),
+}));
+
+const TASK_ID = TaskId("task-1");
+
 afterEach(() => cleanup());
 
 beforeEach(() => {
@@ -54,26 +65,38 @@ describe("RuleForm", () => {
     expect(createMutate).not.toHaveBeenCalled();
   });
 
-  it("필드 그룹의 값을 태스크 범위 생성 입력으로 조합한다", () => {
-    const taskId = TaskId("task-1");
-    const onClose = vi.fn();
-    const { container } = renderRuleForm("en", {
-      defaultTaskId: taskId,
-      defaultScope: "task",
-      onClose,
+  it("검증할 사용자 발화를 고르지 않으면 생성하지 않는다", () => {
+    const { container } = renderRuleForm("ko");
+    fireEvent.change(screen.getByRole("textbox", { name: /Name/ }), {
+      target: { value: "Verify tests" },
     });
+    fireEvent.change(screen.getByRole("combobox", { name: /^Kind/ }), {
+      target: { value: "action" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: /^Tool name/ }), {
+      target: { value: "command" },
+    });
+
+    fireEvent.submit(requireForm(container));
+
+    const error = screen.getByText("규칙이 검증할 사용자 발화를 고르세요.");
+    expect(error.getAttribute("lang")).toBe("ko");
+    expect(createMutate).not.toHaveBeenCalled();
+  });
+
+  it("필드 그룹의 값을 생성 입력으로 조합한다", () => {
+    const onClose = vi.fn();
+    const { container } = renderRuleForm("en", { onClose });
 
     fireEvent.change(screen.getByRole("textbox", { name: /Name/ }), {
       target: { value: "  Protect deploys  " },
     });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "User input this rule verifies" }),
+      { target: { value: "event-2" } },
+    );
     fireEvent.change(screen.getByRole("combobox", { name: "Severity" }), {
       target: { value: "block" },
-    });
-    fireEvent.change(screen.getByRole("textbox", { name: /^Phrases/ }), {
-      target: { value: "deploy\ndeploy\nverify" },
-    });
-    fireEvent.change(screen.getByRole("combobox", { name: /^Source/ }), {
-      target: { value: "assistant" },
     });
     fireEvent.change(screen.getByRole("combobox", { name: /^Kind/ }), {
       target: { value: "pattern" },
@@ -93,15 +116,13 @@ describe("RuleForm", () => {
     expect(createMutate).toHaveBeenCalledWith(
       {
         name: "Protect deploys",
-        trigger: { phrases: ["deploy", "verify"] },
-        triggerOn: "assistant",
         expect: {
           kind: "pattern",
           pattern: "^safe",
           tool: "command",
         },
-        scope: "task",
-        taskId,
+        taskId: TASK_ID,
+        anchorEventId: "event-2",
         severity: "block",
         rationale: "Require a safe deploy.",
       },
@@ -112,14 +133,16 @@ describe("RuleForm", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("수정할 때 고정 범위를 보존하고 변경 가능한 값만 전송한다", () => {
+  it("수정할 때 검증 대상 발화를 고정하고 변경 가능한 값만 전송한다", () => {
     const onClose = vi.fn();
     const { container } = renderRuleForm("en", {
       rule: editableRule,
       onClose,
     });
 
-    expect(screen.getByRole("combobox", { name: /^Scope/ })).toBeDisabled();
+    expect(
+      screen.getByRole("combobox", { name: "User input this rule verifies" }),
+    ).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox", { name: /Name/ }), {
       target: { value: "Updated rule" },
     });
@@ -130,8 +153,6 @@ describe("RuleForm", () => {
         ruleId: editableRule.id,
         body: {
           name: "Updated rule",
-          trigger: { phrases: ["deploy"] },
-          triggerOn: "user",
           expect: {
             kind: "command",
             commandMatches: ["migrate up"],
@@ -147,8 +168,6 @@ describe("RuleForm", () => {
 
 interface RenderRuleFormOptions {
   readonly rule?: RuleRecord;
-  readonly defaultTaskId?: TaskId;
-  readonly defaultScope?: "global" | "task";
   readonly onClose?: () => void;
 }
 
@@ -159,8 +178,7 @@ function renderRuleForm(locale: "en" | "ko", options: RenderRuleFormOptions = {}
     <UiStoreProvider store={store}>
       <RuleForm
         {...(options.rule ? { rule: options.rule } : {})}
-        {...(options.defaultTaskId ? { defaultTaskId: options.defaultTaskId } : {})}
-        {...(options.defaultScope ? { defaultScope: options.defaultScope } : {})}
+        taskId={TASK_ID}
         onClose={options.onClose ?? vi.fn()}
       />
     </UiStoreProvider>,
@@ -176,11 +194,9 @@ function requireForm(container: HTMLElement): HTMLFormElement {
 const editableRule: RuleRecord = {
   id: RuleId("rule-1"),
   name: "Migration rule",
-  trigger: { phrases: ["deploy"] },
-  triggerOn: "user",
   expect: { kind: "command", commandMatches: ["migrate up"] },
-  scope: "task",
-  taskId: TaskId("task-1"),
+  taskId: TASK_ID,
+  anchorEventId: "event-1",
   source: "human",
   severity: "warn",
   rationale: "Keep migrations explicit.",

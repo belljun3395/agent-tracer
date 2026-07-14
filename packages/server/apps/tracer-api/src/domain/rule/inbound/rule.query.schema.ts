@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const listRulesQuerySchema = z.object({
     taskId: z.string().optional(),
-    scope: z.literal("all").optional(),
+    // 태스크를 가리지 않고 이 사용자의 모든 규칙을 달라는 요청이다.
+    all: z.literal("true").optional(),
 });
 
 export const ruleEvidenceQuerySchema = z.object({ taskId: z.string().optional() });

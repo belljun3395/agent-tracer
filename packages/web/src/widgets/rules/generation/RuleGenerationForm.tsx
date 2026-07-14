@@ -56,7 +56,6 @@ export function RuleGenerationForm({ controller }: RuleGenerationFormProps) {
               {`#${index + 1} · ${truncateInput(input.text)}`}
             </option>
           ))}
-          <option value="">Whole task (no single input)</option>
         </select>
         <GuidanceText
           className="text-[10px] text-ink-subtle"

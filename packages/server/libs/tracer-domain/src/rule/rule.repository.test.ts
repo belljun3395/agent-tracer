@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RULE_EXPECTATION_KIND, RULE_REVIEW_STATE, RULE_SCOPE, RULE_SEVERITY, RULE_SOURCE } from "@monitor/kernel";
+import { RULE_EXPECTATION_KIND, RULE_REVIEW_STATE, RULE_SEVERITY, RULE_SOURCE } from "@monitor/kernel";
 import { asRepository, createInMemoryRepository } from "../__fixtures__/in-memory-repository.js";
 import { RuleEntity } from "./rule.entity.js";
 import { RuleRepository } from "./rule.repository.js";
@@ -9,10 +9,9 @@ function rule(id: string, reviewState: RuleEntity["reviewState"]): RuleEntity {
     entity.id = id;
     entity.userId = "u1";
     entity.name = "배포 전 테스트 실행";
-    entity.trigger = { phrases: ["배포"] };
     entity.expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] };
-    entity.scope = RULE_SCOPE.global;
-    entity.taskId = null;
+    entity.taskId = "t1";
+    entity.anchorEventId = `anchor-${id}`;
     entity.source = RULE_SOURCE.agent;
     entity.severity = RULE_SEVERITY.block;
     entity.rationale = null;

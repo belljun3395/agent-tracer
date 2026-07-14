@@ -14,13 +14,13 @@ export class InMemoryRuleStore {
         return [...this.rows.values()];
     }
 
-    findApplicableSignatures(userId: string, taskId: string): Promise<string[]> {
+    findSignaturesByAnchor(userId: string, anchorEventId: string): Promise<string[]> {
         return Promise.resolve(
             this.all()
                 .filter((rule) =>
                     rule.userId === userId
                     && rule.deletedAt === null
-                    && (rule.taskId === null || rule.taskId === taskId),
+                    && rule.anchorEventId === anchorEventId,
                 )
                 .map((rule) => rule.signature),
         );

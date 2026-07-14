@@ -1,31 +1,24 @@
 import type { MouseEvent } from "react";
-import type { RuleRecord } from "~web/entities/rule/model/rule.js";
 import type { TaskId } from "~web/shared/identity.js";
-import { DownIcon, IconButton, PencilIcon, RefreshIcon, Tooltip, TrashIcon, UpIcon } from "~web/shared/ui/index.js";
+import { IconButton, PencilIcon, RefreshIcon, Tooltip, TrashIcon } from "~web/shared/ui/index.js";
 
 interface RuleRowActionsProps {
-  readonly rule: RuleRecord;
   readonly contextTaskId: TaskId | null;
   readonly isPending: boolean;
   readonly deleteFailed: boolean;
   readonly deleteArmed: boolean;
   readonly onReEval: (e: MouseEvent<HTMLButtonElement>) => void;
-  readonly onPromote: (e: MouseEvent<HTMLButtonElement>) => void;
-  readonly onDemote: (e: MouseEvent<HTMLButtonElement>) => void;
   readonly onEdit: (e: MouseEvent<HTMLButtonElement>) => void;
   readonly onDelete: (e: MouseEvent<HTMLButtonElement>) => void;
 }
 
-/** 모든 규칙 행이 공유하는 재평가/승격/강등/편집/삭제 아이콘 버튼 행. */
+/** 모든 규칙 행이 공유하는 재평가/편집/삭제 아이콘 버튼 행. */
 export function RuleRowActions({
-  rule,
   contextTaskId,
   isPending,
   deleteFailed,
   deleteArmed,
   onReEval,
-  onPromote,
-  onDemote,
   onEdit,
   onDelete,
 }: RuleRowActionsProps) {
@@ -36,20 +29,6 @@ export function RuleRowActions({
           <RefreshIcon />
         </IconButton>
       </Tooltip>
-      {rule.scope === "task" && (
-        <Tooltip content="Promote to global rule" side="top">
-          <IconButton onClick={onPromote} disabled={isPending} aria-label="Promote" className="h-6 w-6">
-            <UpIcon />
-          </IconButton>
-        </Tooltip>
-      )}
-      {rule.scope === "global" && contextTaskId !== null && (
-        <Tooltip content="Demote to this task" side="top">
-          <IconButton onClick={onDemote} disabled={isPending} aria-label="Demote" className="h-6 w-6">
-            <DownIcon />
-          </IconButton>
-        </Tooltip>
-      )}
       <Tooltip content="Edit rule" side="top">
         <IconButton onClick={onEdit} disabled={isPending} aria-label="Edit" className="h-6 w-6">
           <PencilIcon />

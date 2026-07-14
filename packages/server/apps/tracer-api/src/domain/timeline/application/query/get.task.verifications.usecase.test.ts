@@ -35,9 +35,7 @@ function makeRule(id: string, userId: string, taskId: string, name: string): Rul
     rule.id = id;
     rule.userId = userId;
     rule.name = name;
-    rule.trigger = { phrases: ["배포"] };
     rule.expectation = { kind: "action", tool: "command" };
-    rule.scope = "task";
     rule.taskId = taskId;
     rule.source = "agent";
     rule.severity = "warn";

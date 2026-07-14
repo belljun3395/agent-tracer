@@ -7,7 +7,7 @@ import type {SpoolSenderState} from "~runtime/daemon/delivery/spool.sender.js";
 import type {InterventionSnapshot, RuleActivity} from "~runtime/daemon/observation/intervention.log.js";
 import type {RecentEventStats} from "~runtime/domain/ingest/model/recent.event.model.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
-import {describeTriggerPhrases} from "~runtime/domain/guardrail/model/rules.context.model.js";
+import {describeRuleExpectation} from "~runtime/domain/guardrail/model/rules.context.model.js";
 
 export type PipelineStatus = "ok" | "idle" | "retrying" | "rejecting" | "unreachable";
 
@@ -57,9 +57,8 @@ export interface RuleView {
     readonly ruleName: string;
     readonly taskId: string | null;
     readonly severity: string;
-    readonly scope: string;
     readonly reviewState: string;
-    readonly trigger: string;
+    readonly expectation: string;
     readonly cached: boolean;
     readonly evaluated: number;
     readonly verified: number;
@@ -119,8 +118,7 @@ function fileBytes(filePath: string): number {
 }
 
 function belongsTo(rule: GuardrailRule, item: RuleActivity): boolean {
-    if (item.ruleName !== rule.name) return false;
-    return rule.taskId === null || rule.taskId === item.taskId;
+    return item.ruleName === rule.name && rule.taskId === item.taskId;
 }
 
 function sum(stats: readonly RuleActivity[], pick: (stat: RuleActivity) => number): number {
@@ -140,9 +138,8 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
             ruleName: rule.name,
             taskId: rule.taskId,
             severity: rule.severity,
-            scope: rule.scope,
             reviewState: rule.reviewState,
-            trigger: describeTriggerPhrases(rule.trigger),
+            expectation: describeRuleExpectation(rule),
             cached: true,
             evaluated: sum(stats, (stat) => stat.evaluated),
             verified: sum(stats, (stat) => stat.verified),
@@ -156,9 +153,9 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
         views.push({
             ...orphan,
             severity: "unknown",
-            scope: "unknown",
+
             reviewState: "unknown",
-            trigger: "unknown",
+            expectation: "unknown",
             cached: false,
         });
     }

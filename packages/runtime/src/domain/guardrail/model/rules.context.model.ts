@@ -24,22 +24,19 @@ export function formatRulesContext(rules: readonly GuardrailRule[]): string {
     if (rules.length === 0) return "";
     const lines = [
         "<agent-tracer-rules>",
-        "이 작업에 발효 중인 규칙이다. block 규칙을 어기면 도구 호출이 거부되거나 턴이 차단된다.",
+        "이 작업에 발효 중인 규칙이다. 사용자의 요구에서 나왔으며 미이행이면 턴이 차단된다.",
     ];
     for (const rule of selectAnnouncedRules(rules)) {
         const detail = describeExpectation(rule.expectation);
-        lines.push(`• [${rule.severity}] ${rule.name} (${describeTrigger(rule)})${detail ? `: ${detail}` : ""}`);
+        lines.push(`• [${rule.severity}] ${rule.name}${detail ? `: ${detail}` : ""}`);
     }
     lines.push("</agent-tracer-rules>");
     return lines.join("\n");
 }
 
-/** 제어 화면이 규칙 행에 쓰는 트리거 요약이다. */
-export function describeTriggerPhrases(trigger: GuardrailRule["trigger"]): string {
-    const phrases = trigger.phrases.filter((phrase) => phrase.trim().length > 0);
-    if (phrases.length === 0) return "always";
-    const joined = phrases.join(", ");
-    return trigger.on !== undefined ? `${trigger.on}: ${joined}` : joined;
+/** 제어 화면이 규칙 행에 쓰는 기대 요약이다. */
+export function describeRuleExpectation(rule: GuardrailRule): string {
+    return describeExpectation(rule.expectation);
 }
 
 function describeExpectation(expectation: RuleExpectation): string {
@@ -56,9 +53,4 @@ function describeExpectation(expectation: RuleExpectation): string {
             break;
     }
     return clauses.join(" / ");
-}
-
-function describeTrigger(rule: GuardrailRule): string {
-    const phrases = rule.trigger.phrases.filter((phrase) => phrase.trim().length > 0);
-    return phrases.length === 0 ? "항상 적용" : `발화 시: ${phrases.join(", ")}`;
 }

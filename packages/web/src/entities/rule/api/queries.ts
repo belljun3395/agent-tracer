@@ -1,6 +1,6 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { TaskId } from "~web/shared/identity.js";
-import type { RulesListResponse, TaskRulesResponse } from "~web/entities/rule/model/rule.js";
+import type { RulesListResponse } from "~web/entities/rule/model/rule.js";
 import type { RuleEvidenceResponse } from "~web/entities/rule/model/rule-evidence.js";
 import {
   fetchRuleEvidence,
@@ -19,7 +19,7 @@ export function useRulesQuery(): UseQueryResult<RulesListResponse> {
 export function useTaskRulesQuery(
   taskId: TaskId | null,
   options?: { readonly enabled?: boolean },
-): UseQueryResult<TaskRulesResponse> {
+): UseQueryResult<RulesListResponse> {
   return useQuery({
     queryKey: taskId
       ? monitorQueryKeys.taskRules(taskId)

@@ -2,22 +2,18 @@ import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 import { InvariantViolationError } from "../error/invariant.error.js";
 import {
     RULE_REVIEW_STATE,
-    RULE_SCOPE,
     type RuleExpectation,
     type RuleReviewState,
-    type RuleScope,
     type RuleSeverity,
     RULE_SOURCE,
     type RuleSource,
-    type RuleTrigger,
-    isAnchoredRule,
 } from "@monitor/kernel";
 
 @Entity({ name: "rules" })
-@Index("rules_user_scope", ["userId", "scope"])
+@Index("rules_user_task", ["userId", "taskId"])
 @Index("rules_signature", ["userId", "signature"])
 @Index("rules_anchor_event", ["anchorEventId"])
-@Index("rules_live_user_scope", ["userId", "scope"], {
+@Index("rules_live_user_task", ["userId", "taskId"], {
     where: "\"review_state\" = 'active' AND \"deleted_at\" IS NULL",
 })
 export class RuleEntity {
@@ -31,16 +27,10 @@ export class RuleEntity {
     name!: string;
 
     @Column({ type: "jsonb", default: {} })
-    trigger!: RuleTrigger;
-
-    @Column({ type: "jsonb", default: {} })
     expectation!: RuleExpectation;
 
-    @Column({ type: "text" })
-    scope!: RuleScope;
-
-    @Column({ name: "task_id", type: "text", nullable: true })
-    taskId!: string | null;
+    @Column({ name: "task_id", type: "text" })
+    taskId!: string;
 
     @Column({ type: "text" })
     source!: RuleSource;
@@ -70,27 +60,15 @@ export class RuleEntity {
     @Column({ name: "source_job_id", type: "text", nullable: true })
     sourceJobId!: string | null;
 
-    // 규칙의 근거가 된 사용자 입력이며, 이 이벤트가 곧 트리거이므로 문구 재발화를 요구하지 않고 판정 창은 이 입력부터 시작한다.
-    @Column({ name: "anchor_event_id", type: "text", nullable: true })
-    anchorEventId!: string | null;
+    // 규칙을 낳은 사용자 입력이며 판정 창이 여기서 시작한다.
+    @Column({ name: "anchor_event_id", type: "text" })
+    anchorEventId!: string;
 
     @Column({ name: "created_at", type: "timestamptz" })
     createdAt!: Date;
 
     @Column({ name: "deleted_at", type: "timestamptz", nullable: true })
     deletedAt!: Date | null;
-
-    promote(): void {
-        // 이미 전역 규칙은 승격할 수 없다.
-        if (this.scope === RULE_SCOPE.global) throw new InvariantViolationError("rule.already-global");
-        this.scope = RULE_SCOPE.global;
-        this.taskId = null;
-    }
-
-    demote(taskId: string): void {
-        this.scope = RULE_SCOPE.task;
-        this.taskId = taskId;
-    }
 
     initializeProvenance(source: RuleSource): void {
         this.rev = 1;
@@ -120,11 +98,6 @@ export class RuleEntity {
     // 판정기·가드레일이 로드하는 것은 발효된 규칙뿐이다.
     isActive(): boolean {
         return this.reviewState === RULE_REVIEW_STATE.active;
-    }
-
-    // anchor된 규칙은 근거 입력 이후를 통째로 판정 창으로 써 다음 턴의 이행도 인정하며, anchor가 없는 규칙만 트리거 문구가 그 턴에 발화됐는지를 본다.
-    isAnchored(): boolean {
-        return isAnchoredRule(this);
     }
 
     needsReview(): boolean {

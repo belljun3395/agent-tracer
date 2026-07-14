@@ -6,28 +6,21 @@ import type {
 import { RULE_EXPECTATION_KIND, RULE_EXPECTATION_KINDS } from "@monitor/kernel";
 import type { RuleId, TaskId } from "~web/shared/identity.js";
 
-export type RuleScope = "global" | "task";
 export type RuleSeverity = "info" | "warn" | "block";
 export type RuleSource = "human" | "agent";
-export type RuleTriggerSource = "user" | "assistant";
 export type { RuleExpectation, RuleExpectationKind, RuleExpectedAction };
 export { RULE_EXPECTATION_KIND, RULE_EXPECTATION_KINDS };
 export type VerdictStatus = "verified" | "contradicted" | "unverifiable";
-
-export interface RuleTrigger {
-  readonly phrases: readonly string[];
-}
 
 export type RuleExpect = RuleExpectation;
 
 export interface RuleRecord {
   readonly id: RuleId;
   readonly name: string;
-  readonly trigger?: RuleTrigger;
-  readonly triggerOn?: RuleTriggerSource;
   readonly expect: RuleExpect;
-  readonly scope: RuleScope;
-  readonly taskId?: TaskId;
+  readonly taskId: TaskId;
+  /** 규칙을 낳은 사용자 입력이며 판정 창이 여기서 시작한다. */
+  readonly anchorEventId: string;
   readonly source: RuleSource;
   readonly severity: RuleSeverity;
   readonly rationale?: string;
@@ -37,14 +30,8 @@ export interface RuleRecord {
   readonly lastEditedBy: RuleSource;
   readonly rev: number;
   readonly sourceJobId?: string;
-  readonly anchorEventId?: string;
   readonly createdAt: string;
   readonly matchCount?: number;
-}
-
-export interface TaskRulesResponse {
-  readonly task: readonly RuleRecord[];
-  readonly global: readonly RuleRecord[];
 }
 
 export interface RulesListResponse {
@@ -53,19 +40,15 @@ export interface RulesListResponse {
 
 export interface RuleCreateInput {
   readonly name: string;
-  readonly trigger?: { readonly phrases: readonly string[] };
-  readonly triggerOn?: RuleTriggerSource;
   readonly expect: RuleExpect;
-  readonly scope: RuleScope;
-  readonly taskId?: TaskId;
+  readonly taskId: TaskId;
+  readonly anchorEventId: string;
   readonly severity?: RuleSeverity;
   readonly rationale?: string;
 }
 
 export interface RuleUpdateInput {
   readonly name?: string;
-  readonly trigger?: { readonly phrases: readonly string[] } | null;
-  readonly triggerOn?: RuleTriggerSource | null;
   readonly expect?: RuleExpect;
   readonly severity?: RuleSeverity;
   readonly rationale?: string | null;
@@ -82,9 +65,13 @@ export function needsReview(rule: RuleRecord): boolean {
   return rule.reviewState === RULE_REVIEW_STATE.pendingReview;
 }
 
-export function partitionRulesByScope(rules: readonly RuleRecord[]): TaskRulesResponse {
-  return {
-    task: rules.filter((rule) => rule.scope === "task"),
-    global: rules.filter((rule) => rule.scope === "global"),
-  };
+/** 규칙은 하나의 사용자 발화에서 나오므로 그 발화별로 묶어 보여준다. */
+export function groupRulesByAnchor(rules: readonly RuleRecord[]): readonly (readonly RuleRecord[])[] {
+  const groups = new Map<string, RuleRecord[]>();
+  for (const rule of rules) {
+    const bucket = groups.get(rule.anchorEventId);
+    if (bucket === undefined) groups.set(rule.anchorEventId, [rule]);
+    else bucket.push(rule);
+  }
+  return [...groups.values()];
 }

@@ -16,8 +16,7 @@ const testState = vi.hoisted(() => ({
   enqueue: vi.fn(),
   reEvaluate: vi.fn(),
   refetchJob: vi.fn(),
-  taskRules: [] as RuleRecord[],
-  globalRules: [] as RuleRecord[],
+  rules: [] as RuleRecord[],
   userInputs: [
     {
       eventId: "event-1",
@@ -37,8 +36,7 @@ const testState = vi.hoisted(() => ({
 vi.mock("~web/entities/rule/api/queries.js", () => ({
   useTaskRulesQuery: () => ({
     data: {
-      task: testState.taskRules,
-      global: testState.globalRules,
+      rules: testState.rules,
     },
     isLoading: false,
     isError: false,
@@ -94,22 +92,20 @@ beforeEach(() => {
   testState.enqueue.mockResolvedValue({});
   testState.reEvaluate.mockReset();
   testState.refetchJob.mockReset();
-  testState.taskRules = [makeRule("task-rule", "Task rule", "task")];
-  testState.globalRules = [makeRule("global-rule", "Global rule", "global")];
+  testState.rules = [
+    makeRule("rule-a", "Run tests", "event-2"),
+    makeRule("rule-b", "Run lint", "event-2"),
+  ];
 });
 
 afterEach(() => cleanup());
 
 describe("RulesTab", () => {
-  it("태스크 범위 규칙과 전역 규칙을 별도 섹션에 표시한다", () => {
+  it("한 발화에서 나온 규칙 여럿을 모두 표시한다", () => {
     renderRulesTab();
 
-    expect(screen.getByText("Task-scoped")).toBeTruthy();
-    expect(screen.getByText("Global")).toBeTruthy();
-    expect(screen.getByTestId("rule-task-rule").textContent).toBe("Task rule");
-    expect(screen.getByTestId("rule-global-rule").textContent).toBe(
-      "Global rule",
-    );
+    expect(screen.getByTestId("rule-rule-a").textContent).toBe("Run tests");
+    expect(screen.getByTestId("rule-rule-b").textContent).toBe("Run lint");
   });
 
   it("최신 사용자 입력과 설정값을 규칙 생성 잡 입력으로 조합한다", async () => {
@@ -151,14 +147,14 @@ function renderRulesTab() {
 function makeRule(
   id: string,
   name: string,
-  scope: "global" | "task",
+  anchorEventId: string,
 ): RuleRecord {
   return {
     id: RuleId(id),
     name,
     expect: { kind: "command", commandMatches: ["npm test"] },
-    scope,
-    ...(scope === "task" ? { taskId: TaskId("task-1") } : {}),
+    taskId: TaskId("task-1"),
+    anchorEventId,
     source: "human",
     severity: "warn",
     signature: `${id}-signature`,

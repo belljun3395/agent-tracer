@@ -2,10 +2,8 @@ import {
     RULE_EXPECTATION_KIND,
     RULE_EXPECTED_ACTIONS,
     RULE_SEVERITIES,
-    RULE_TRIGGER_SOURCES,
     type RuleExpectedAction,
     type RuleSeverity,
-    type RuleTriggerSource,
 } from "@monitor/kernel/rule/definition/rule.vocabulary.js";
 import type {RuleProposalPayload} from "@monitor/kernel/rule/proposal/rule.proposal.schema.js";
 import {isRecord} from "~runtime/support/json.js";
@@ -94,11 +92,6 @@ function parseSeverity(value: unknown): RuleSeverity | null {
     return found ?? null;
 }
 
-function parseTriggerSource(value: unknown): RuleTriggerSource | null {
-    const found = RULE_TRIGGER_SOURCES.find((source) => source === value);
-    return found ?? null;
-}
-
 function parseProposal(candidate: unknown): RuleProposalPayload | string {
     if (!isRecord(candidate)) return "not an object";
 
@@ -107,19 +100,6 @@ function parseProposal(candidate: unknown): RuleProposalPayload | string {
 
     const expect = parseExpect(candidate["expect"]);
     if (expect === null) return "invalid expect";
-
-    const rawTrigger = candidate["trigger"];
-    let trigger: {phrases: string[]} | null = null;
-    if (rawTrigger !== undefined && rawTrigger !== null) {
-        if (!isRecord(rawTrigger)) return "invalid trigger";
-        const phrases = textList(rawTrigger["phrases"]);
-        if (phrases === null) return "invalid trigger.phrases";
-        trigger = {phrases};
-    }
-
-    const rawTriggerOn = candidate["triggerOn"];
-    const triggerOn = rawTriggerOn === undefined ? null : parseTriggerSource(rawTriggerOn);
-    if (rawTriggerOn !== undefined && triggerOn === null) return "invalid triggerOn";
 
     const rawSeverity = candidate["severity"];
     const severity = rawSeverity === undefined ? null : parseSeverity(rawSeverity);
@@ -132,8 +112,6 @@ function parseProposal(candidate: unknown): RuleProposalPayload | string {
     return {
         name,
         expect,
-        ...(trigger === null ? {} : {trigger}),
-        ...(triggerOn === null ? {} : {triggerOn}),
         ...(severity === null ? {} : {severity}),
         ...(rationale === null ? {} : {rationale}),
     };

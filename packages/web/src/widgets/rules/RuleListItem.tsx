@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { expectationTool } from "@monitor/kernel";
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
 import { RULE_EXPECTATION_KIND, needsReview, type RuleRecord } from "~web/entities/rule/model/rule.js";
@@ -6,36 +5,23 @@ import { RuleSeverityChip } from "~web/widgets/rules/presentation/RuleSeverityCh
 import {
   useApproveRuleMutation,
   useDeleteRuleMutation,
-  useDemoteRuleMutation,
-  usePromoteRuleMutation,
 } from "~web/entities/rule/api/mutations.js";
-import { Button, Modal } from "~web/shared/ui/index.js";
-import { useGuidance } from "~web/shared/store/index.js";
+import { Button } from "~web/shared/ui/index.js";
 import { useConfirmAction } from "~web/shared/lib/hooks/use-confirm-action.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
 import { RuleTaskBreadcrumb } from "~web/widgets/rules/RuleTaskBreadcrumb.js";
-import { DemoteRuleForm } from "~web/widgets/rules/DemoteRuleForm.js";
 
 interface RuleListItemProps {
   readonly rule: RuleRecord;
   readonly onEdit: (rule: RuleRecord) => void;
   readonly task: MonitoringTask | null;
-  readonly tasks: readonly MonitoringTask[];
 }
 
-export function RuleListItem({ rule, onEdit, task, tasks }: RuleListItemProps) {
-  const guidance = useGuidance();
-  const promoteMutation = usePromoteRuleMutation();
-  const demoteMutation = useDemoteRuleMutation();
+export function RuleListItem({ rule, onEdit, task }: RuleListItemProps) {
   const deleteMutation = useDeleteRuleMutation();
   const approveMutation = useApproveRuleMutation();
-  const [demoteOpen, setDemoteOpen] = useState(false);
   const awaitingReview = needsReview(rule);
-  const isPending =
-    promoteMutation.isPending
-    || demoteMutation.isPending
-    || deleteMutation.isPending
-    || approveMutation.isPending;
+  const isPending = deleteMutation.isPending || approveMutation.isPending;
 
   const confirmDelete = useConfirmAction(() => deleteMutation.mutate(rule.id));
 
@@ -56,9 +42,6 @@ export function RuleListItem({ rule, onEdit, task, tasks }: RuleListItemProps) {
             Pending review
           </span>
         )}
-        <span className="font-mono text-[10.5px] text-ink-tertiary py-0.5 px-1.5 bg-s2 rounded-[2px] uppercase tracking-[0.06em]">
-          {rule.scope}
-        </span>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap font-mono text-[10.5px] text-ink-tertiary">
@@ -75,21 +58,8 @@ export function RuleListItem({ rule, onEdit, task, tasks }: RuleListItemProps) {
             <span title={rule.expect.pattern}>pattern</span>
           </>
         )}
-        {rule.trigger?.phrases.length && (
-          <>
-            <span className="text-hair-strong">·</span>
-            <span>
-              {rule.trigger.phrases.length} trigger phrase
-              {rule.trigger.phrases.length === 1 ? "" : "s"}
-            </span>
-          </>
-        )}
-        {rule.scope === "task" && rule.taskId && (
-          <>
-            <span className="text-hair-strong">·</span>
-            <RuleTaskBreadcrumb taskId={rule.taskId} task={task} />
-          </>
-        )}
+        <span className="text-hair-strong">·</span>
+        <RuleTaskBreadcrumb taskId={rule.taskId} task={task} />
       </div>
 
       {rule.rationale && (
@@ -105,16 +75,6 @@ export function RuleListItem({ rule, onEdit, task, tasks }: RuleListItemProps) {
         <Button variant="ghost" onClick={() => onEdit(rule)} disabled={isPending}>
           Edit
         </Button>
-        {rule.scope === "task" && (
-          <Button variant="ghost" onClick={() => promoteMutation.mutate(rule.id)} disabled={isPending}>
-            Promote to global
-          </Button>
-        )}
-        {rule.scope === "global" && (
-          <Button variant="ghost" onClick={() => setDemoteOpen(true)} disabled={isPending}>
-            Demote to task…
-          </Button>
-        )}
         <span className="flex-1" />
         <Button
           variant="ghost"
@@ -134,26 +94,6 @@ export function RuleListItem({ rule, onEdit, task, tasks }: RuleListItemProps) {
               : "Delete"}
         </Button>
       </div>
-
-      <Modal
-        open={demoteOpen}
-        onClose={() => setDemoteOpen(false)}
-        title="Demote rule to a task"
-        description={guidance.messages.rules.demoteDescription}
-        descriptionLocale={guidance.locale}
-      >
-        <DemoteRuleForm
-          tasks={tasks}
-          isPending={demoteMutation.isPending}
-          onCancel={() => setDemoteOpen(false)}
-          onSubmit={(taskId) => {
-            demoteMutation.mutate(
-              { ruleId: rule.id, taskId },
-              { onSuccess: () => setDemoteOpen(false) },
-            );
-          }}
-        />
-      </Modal>
     </article>
   );
 }

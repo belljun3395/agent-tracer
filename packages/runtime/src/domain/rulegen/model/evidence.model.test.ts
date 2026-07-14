@@ -68,9 +68,9 @@ describe("digestEvents", () => {
 });
 
 describe("digestExistingRules", () => {
-    it("중복 판단에 필요한 트리거와 기대 조건을 남긴다", () => {
-        expect(digestExistingRules([{name: "기존", trigger: {phrases: ["test"]}}])).toEqual([
-            {name: "기존", trigger: {phrases: ["test"]}, expect: null},
+    it("중복 판단에 필요한 기대 조건을 남긴다", () => {
+        expect(digestExistingRules([{name: "기존", expectation: {kind: "action", tool: "command"}}])).toEqual([
+            {name: "기존", expect: {kind: "action", tool: "command"}},
         ]);
     });
 });

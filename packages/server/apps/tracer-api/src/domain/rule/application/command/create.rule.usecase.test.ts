@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RULE_EXPECTATION_KIND, RULE_SCOPE } from "@monitor/kernel";
+import { RULE_EXPECTATION_KIND } from "@monitor/kernel";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";
 
@@ -12,8 +12,8 @@ describe("CreateRuleUseCase", () => {
             userId: "u1",
             name: "명령 확인",
             expectation: { kind: RULE_EXPECTATION_KIND.action, tool: "command" },
-            scope: RULE_SCOPE.task,
             taskId: "task-1",
+            anchorEventId: "anchor-1",
             source: "agent",
         });
 
@@ -38,7 +38,8 @@ describe("CreateRuleUseCase", () => {
             userId: "u1",
             name: "직접 규칙",
             expectation: { kind: RULE_EXPECTATION_KIND.action, tool: "file-write" },
-            scope: RULE_SCOPE.global,
+            taskId: "task-1",
+            anchorEventId: "anchor-1",
         });
 
         expect(result.rule).toMatchObject({
@@ -47,5 +48,41 @@ describe("CreateRuleUseCase", () => {
             lastEditedBy: "human",
             rev: 1,
         });
+    });
+
+    it("같은 발화의 같은 기대는 중복으로 보고 기존 규칙을 돌려준다", async () => {
+        const repo = new InMemoryRuleRepository();
+        const useCase = new CreateRuleUseCase(repo);
+        const input = {
+            userId: "u1",
+            name: "명령 확인",
+            expectation: { kind: RULE_EXPECTATION_KIND.action, tool: "command" } as const,
+            taskId: "task-1",
+            anchorEventId: "anchor-1",
+        };
+
+        const first = await useCase.execute(input);
+        const second = await useCase.execute(input);
+
+        expect(second.created).toBe(false);
+        expect(second.rule.id).toBe(first.rule.id);
+        expect(repo.all()).toHaveLength(1);
+    });
+
+    it("다른 발화라면 같은 기대라도 규칙을 새로 만든다", async () => {
+        const repo = new InMemoryRuleRepository();
+        const useCase = new CreateRuleUseCase(repo);
+        const base = {
+            userId: "u1",
+            name: "명령 확인",
+            expectation: { kind: RULE_EXPECTATION_KIND.action, tool: "command" } as const,
+            taskId: "task-1",
+        };
+
+        await useCase.execute({ ...base, anchorEventId: "anchor-1" });
+        const second = await useCase.execute({ ...base, anchorEventId: "anchor-2" });
+
+        expect(second.created).toBe(true);
+        expect(repo.all()).toHaveLength(2);
     });
 });

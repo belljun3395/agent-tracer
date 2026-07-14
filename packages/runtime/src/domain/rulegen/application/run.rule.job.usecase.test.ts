@@ -114,7 +114,7 @@ describe("RunRuleJobUsecase", () => {
     });
 
     it("규칙 도구를 부르면 기존 규칙을 텍스트로 돌려준다", async () => {
-        const evidence = new InMemoryRuleEvidence([], [], [{name: "기존 규칙", trigger: null, expect: null}]);
+        const evidence = new InMemoryRuleEvidence([], [], [{name: "기존 규칙", expect: null}]);
         const generator = new InMemoryRuleGenerator(outcome());
         const usecase = new RunRuleJobUsecase(evidence, generator, new InMemoryRuleJob());
         await usecase.execute(REQUEST);

@@ -25,31 +25,22 @@ export const EN_RULES = {
   newWorkspaceDescription: createGuidanceMessage(
     "Define a new check that runs against agent events.",
   ),
-  demoteDescription: createGuidanceMessage(
-    "Choose the task this rule should apply to. The rule becomes task-scoped, and past verdicts under the global scope are removed.",
-  ),
   form: {
     nameRequired: createGuidanceMessage("Enter a rule name."),
     expectationRequired: createGuidanceMessage(
       "Fill in the fields the selected kind requires.",
     ),
-    lockedScope: createGuidanceMessage(
-      "Scope is locked while editing. Use Promote or Demote on the rule row to move the rule.",
+    anchor: createGuidanceMessage(
+      "The user input this rule verifies. Fulfilment is judged from what the agent did after that input.",
     ),
-    trigger: createGuidanceMessage(
-      "Choose when this rule runs. Leave both fields empty to match every event.",
-    ),
-    phrases: createGuidanceMessage(
-      "Enter one phrase per line. Leave this blank to match every event.",
-    ),
-    source: createGuidanceMessage(
-      "Restrict matching to one side of the conversation.",
+    anchorRequired: createGuidanceMessage(
+      "Choose the user input this rule verifies.",
     ),
     expectation: createGuidanceMessage(
-      "Describe what the agent must (or must not) do after the rule triggers. Kind selects the field combination below.",
+      "Describe what the agent must do to fulfil the user's request. Kind selects the field combination below.",
     ),
     kind: createGuidanceMessage(
-      "The expectation shape. command matches literal commands, pattern matches a regex, action checks only the tool category, forbidden is a pure prohibition.",
+      "The expectation shape. command matches literal commands, pattern matches a regex, action checks only the tool category.",
     ),
     toolName: createGuidanceMessage(
       "Required for action, optional for pattern where it narrows the call checked.",
@@ -79,7 +70,7 @@ export const EN_RULES = {
         ", so its timeline may be incomplete.",
       ),
     anchorHelp: createGuidanceMessage(
-      "Rules are generated from this input and checked against everything the agent does after it. Pick \"Whole task\" only for rules that should fire on future turns instead.",
+      "Rules are generated from this input and checked against everything the agent does after it. One input can produce several rules.",
     ),
     intentHelp: createGuidanceMessage(
       "Optionally describe what the rules should verify. Leave this empty to scan the entire task.",
@@ -99,10 +90,10 @@ export const EN_RULES = {
       "No events on this task have matched the rule yet.",
     ),
     unfulfilled: createGuidanceMessage(
-      "The trigger fired, but the expected follow-up did not occur on this task.",
+      "The expected action did not occur after the user's request.",
     ),
     matchedTrigger: createGuidanceMessage(
-      "Matched a configured trigger phrase.",
+      "The user input this rule came from.",
     ),
     matchedCondition: (condition: string) =>
       createGuidanceMessage(

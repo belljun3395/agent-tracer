@@ -2,7 +2,6 @@ import {
     RULE_EXPECTATION_KIND,
     RULE_EXPECTED_ACTIONS,
     RULE_SEVERITIES,
-    RULE_TRIGGER_SOURCES,
 } from "@monitor/kernel/rule/definition/rule.vocabulary.js";
 
 /** 구조화 출력으로 받는 규칙 제안의 유일한 JSON 스키마다. */
@@ -16,13 +15,6 @@ export function buildRuleOutputSchema(): Record<string, unknown> {
                     type: "object",
                     properties: {
                         name: {type: "string"},
-                        trigger: {
-                            type: "object",
-                            properties: {
-                                phrases: {type: "array", items: {type: "string"}},
-                            },
-                        },
-                        triggerOn: {type: "string", enum: [...RULE_TRIGGER_SOURCES]},
                         expect: {
                             type: "object",
                             oneOf: [

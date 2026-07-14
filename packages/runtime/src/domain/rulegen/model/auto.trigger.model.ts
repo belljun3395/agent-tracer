@@ -6,6 +6,13 @@ const MAX_RULES_LIMIT = 20;
 // 터미널에서 규칙 생성을 부르는 두 표면이며 플러그인 네임스페이스 접두사도 같은 명령으로 본다.
 const RULE_COMMAND = /^(?:\/(?:[\w-]+:)?rule|\$rule)(?:\s|$)/i;
 
+/** 규칙이 검증할 요구는 명령 뒤에 오며 접두사는 요구의 일부가 아니다. */
+export function readRuleRequest(prompt: string): string {
+    const trimmed = prompt.trimStart();
+    if (!RULE_COMMAND.test(trimmed)) return "";
+    return trimmed.replace(RULE_COMMAND, "").trim();
+}
+
 /** 데몬이 주기적으로 갱신하는 자동 규칙 생성 설정이다. */
 export interface AutoRuleGenerationSetting {
     readonly enabled: boolean;
@@ -38,7 +45,7 @@ export function isAutoRuleGenerationTrigger(
     if (!setting.enabled) return false;
     if (kind !== KIND.userMessage) return false;
     if (taskId.length === 0 || eventId.length === 0) return false;
-    return hasRuleCommand(prompt);
+    return readRuleRequest(prompt).length > 0;
 }
 
 /** 갱신 주기 사이에 두 유스케이스가 함께 보는 설정 캐시다. */

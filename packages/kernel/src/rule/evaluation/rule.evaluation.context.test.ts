@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { KIND } from "~kernel/ingest/event.kind.const.js";
 import { AGENT_TRACER_ATTR, SEMCONV_ATTR } from "~kernel/observability/semconv.const.js";
-import { eventSpeaker, inferToolCall, sliceFromAnchor } from "./rule.evaluation.context.js";
+import { inferToolCall, sliceFromAnchor } from "./rule.evaluation.context.js";
 
 describe("inferToolCall", () => {
     it("metadata의 toolName과 command로 도구 호출을 복원한다", () => {
@@ -45,13 +45,6 @@ describe("inferToolCall", () => {
 
     it("도구를 유추할 수 없으면 null이다", () => {
         expect(inferToolCall({ kind: KIND.thoughtLogged, metadata: {} })).toBeNull();
-    });
-});
-
-describe("eventSpeaker", () => {
-    it("규칙의 assistant 발화는 턴을 닫는 최종 응답만 포함한다", () => {
-        expect(eventSpeaker(KIND.assistantResponse)).toBe("assistant");
-        expect(eventSpeaker(KIND.assistantCommentary)).toBe("other");
     });
 });
 

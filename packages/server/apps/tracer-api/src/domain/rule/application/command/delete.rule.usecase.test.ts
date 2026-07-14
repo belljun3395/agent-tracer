@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
-import { RULE_EXPECTATION_KIND, RULE_SCOPE, RULE_SOURCE } from "@monitor/kernel";
+import { RULE_EXPECTATION_KIND, RULE_SOURCE } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
 import { InMemoryRuleRepository } from "~tracer-api/domain/rule/port/__fakes__/in-memory.rule.repository.js";
 import { DeleteRuleUseCase } from "./delete.rule.usecase.js";
@@ -10,10 +10,8 @@ function rule(id: string): RuleEntity {
     entity.id = id;
     entity.userId = "u1";
     entity.name = "규칙";
-    entity.trigger = { phrases: ["배포"] };
     entity.expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] };
-    entity.scope = RULE_SCOPE.global;
-    entity.taskId = null;
+    entity.taskId = "task-1";
     entity.source = RULE_SOURCE.agent;
     entity.severity = "warn";
     entity.rationale = null;

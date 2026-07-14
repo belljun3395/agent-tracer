@@ -1,5 +1,5 @@
-import type { TaskId } from "~web/shared/identity.js";
-import type { RuleScope, RuleSeverity } from "~web/entities/rule/model/rule.js";
+import type { RuleSeverity } from "~web/entities/rule/model/rule.js";
+import type { TaskUserInput } from "~web/entities/task/model/task-query.js";
 import type {
   GuidanceCatalog,
   GuidanceLocale,
@@ -12,10 +12,11 @@ import {
 import type { RuleFormState, UpdateRuleForm } from "~web/widgets/rules/editor/rule-form-state.js";
 
 const SEVERITY_OPTIONS: readonly RuleSeverity[] = ["info", "warn", "block"];
+const ANCHOR_PREVIEW_MAX = 70;
 
 interface RuleBasicsFieldsProps {
   readonly form: RuleFormState;
-  readonly defaultTaskId: TaskId | undefined;
+  readonly userInputs: readonly TaskUserInput[];
   readonly isEdit: boolean;
   readonly disabled: boolean;
   readonly locale: GuidanceLocale;
@@ -23,10 +24,10 @@ interface RuleBasicsFieldsProps {
   readonly onChange: UpdateRuleForm;
 }
 
-/** 규칙의 이름과 심각도와 범위를 편집한다. */
+/** 규칙의 이름과 심각도와 검증 대상 발화를 편집한다. */
 export function RuleBasicsFields({
   form,
-  defaultTaskId,
+  userInputs,
   isEdit,
   disabled,
   locale,
@@ -40,11 +41,34 @@ export function RuleBasicsFields({
           type="text"
           value={form.name}
           onChange={(event) => onChange({ name: event.target.value })}
-          placeholder="No raw secrets in commands"
+          placeholder="Run the test suite"
           required
           disabled={disabled}
           className={ruleFormInputClassName}
         />
+      </RuleFormField>
+
+      <RuleFormField
+        label="Verifies user input"
+        required
+        hint={messages.anchor}
+        hintLocale={locale}
+      >
+        <select
+          value={form.anchorEventId}
+          onChange={(event) => onChange({ anchorEventId: event.target.value })}
+          disabled={disabled || isEdit || userInputs.length === 0}
+          required
+          aria-label="User input this rule verifies"
+          className={ruleFormInputClassName}
+        >
+          <option value="">Select a user input…</option>
+          {userInputs.map((input, index) => (
+            <option key={input.eventId} value={input.eventId}>
+              {`#${index + 1} · ${truncateInput(input.text)}`}
+            </option>
+          ))}
+        </select>
       </RuleFormField>
 
       <RuleFormRow>
@@ -64,27 +88,14 @@ export function RuleBasicsFields({
             ))}
           </select>
         </RuleFormField>
-        <RuleFormField
-          label="Scope"
-          {...(isEdit
-            ? { hint: messages.lockedScope, hintLocale: locale }
-            : {})}
-        >
-          <select
-            value={form.scope}
-            onChange={(event) =>
-              onChange({ scope: event.target.value as RuleScope })
-            }
-            disabled={disabled || isEdit}
-            className={ruleFormInputClassName}
-          >
-            <option value="global">global</option>
-            <option value="task" disabled={!defaultTaskId && !isEdit}>
-              task{!defaultTaskId && !isEdit ? " (no task selected)" : ""}
-            </option>
-          </select>
-        </RuleFormField>
       </RuleFormRow>
     </>
   );
+}
+
+function truncateInput(text: string): string {
+  const singleLine = text.replace(/\s+/g, " ").trim();
+  return singleLine.length > ANCHOR_PREVIEW_MAX
+    ? `${singleLine.slice(0, ANCHOR_PREVIEW_MAX)}…`
+    : singleLine;
 }

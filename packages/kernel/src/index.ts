@@ -32,7 +32,6 @@ export * from "./rule/definition/rule.expectation.js";
 export * from "./rule/definition/rule.signature.js";
 export * from "./rule/evaluation/rule.pattern.js";
 export * from "./rule/evaluation/rule.verdict.js";
-export * from "./rule/evaluation/rule.trigger.match.js";
 export * from "./rule/evaluation/rule.tool-alias.const.js";
 export * from "./rule/evaluation/rule.evaluation.context.js";
 export * from "./rule/evaluation/rule.expectation.condition.js";

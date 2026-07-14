@@ -43,9 +43,9 @@ export const EN_SETTINGS = {
     " in Claude Code to run the local generator with the CLI's own authentication.",
   ),
   localRuleTrigger: createGuidanceMessage(
-    "When enabled, the local daemon proposes task-scoped rules only for messages that start with ",
-    guidanceCode("/rule"),
-    ". It uses the local Claude Code CLI, needs no API key, and skips a task while an earlier pass is running. Disabled by default.",
+    "When enabled, the local daemon proposes rules only for messages shaped like ",
+    guidanceCode("/rule <request>"),
+    ", and that message becomes what the rules verify. A bare command with no request is skipped. It uses the local Claude Code CLI, needs no API key, and skips a task while an earlier pass is running. Disabled by default.",
   ),
   anthropicApiKey: createGuidanceMessage(
     "Used by the Python LangGraph and Claude SDK backends.",

@@ -1,12 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import {
     RULE_PROPOSAL_DISCARD_REASON,
-    RULE_SCOPE,
     RULE_SEVERITY,
     RULE_SOURCE,
     admitReviewState,
     computeRuleSignature,
     type DiscardedRuleProposal,
+    type RuleProposalDiscardReason,
     type RuleProposalPayload,
 } from "@monitor/kernel";
 import { parseRuleProposals } from "@monitor/kernel/rule/proposal/rule.proposal.schema.js";
@@ -16,7 +16,7 @@ import type { RuleRepositoryPort } from "~tracer-api/domain/job/port/rule-verifi
 import { RuleBackfillService } from "~tracer-api/domain/job/application/rule.backfill.service.js";
 
 interface PrepareRuleGenerationResultInput {
-    readonly rules: Pick<RuleRepositoryPort, "findApplicableSignatures" | "upsert">;
+    readonly rules: Pick<RuleRepositoryPort, "findSignaturesByAnchor" | "upsert">;
     readonly userId: string;
     readonly sourceJobId: string;
     readonly taskId: string | null;
@@ -58,7 +58,6 @@ export class RuleGenerationResultService {
             jobResult,
             afterCommit: async () => {
                 for (const rule of outcome.created) {
-                    if (rule.taskId === null) continue;
                     await this.backfill.backfill(rule, rule.taskId, input.now);
                 }
             },
@@ -69,25 +68,21 @@ export class RuleGenerationResultService {
         input: PrepareRuleGenerationResultInput,
         proposals: readonly RuleProposalPayload[],
     ): Promise<RuleCreationOutcome> {
-        if (input.taskId === null) {
+        const taskId = input.taskId;
+        const anchorEventId = readAnchorEventId(input.jobInput);
+        const blocker = this.blockingReason(taskId, anchorEventId);
+        if (blocker !== null) {
             return {
                 created: [],
-                discarded: proposals.map((proposal) => ({
-                    name: proposal.name,
-                    reason: RULE_PROPOSAL_DISCARD_REASON.noTask,
-                })),
+                discarded: proposals.map((proposal) => ({ name: proposal.name, reason: blocker })),
             };
         }
 
-        const seen = new Set(await input.rules.findApplicableSignatures(input.userId, input.taskId));
+        const seen = new Set(await input.rules.findSignaturesByAnchor(input.userId, anchorEventId!));
         const created: RuleEntity[] = [];
         const discarded: DiscardedRuleProposal[] = [];
         for (const proposal of proposals) {
-            const trigger = {
-                phrases: proposal.trigger?.phrases ?? [],
-                ...(proposal.triggerOn !== undefined ? { on: proposal.triggerOn } : {}),
-            };
-            const signature = computeRuleSignature(trigger, proposal.expect);
+            const signature = computeRuleSignature(proposal.expect);
             if (seen.has(signature)) {
                 discarded.push({ name: proposal.name, reason: RULE_PROPOSAL_DISCARD_REASON.duplicate });
                 continue;
@@ -97,17 +92,15 @@ export class RuleGenerationResultService {
             rule.id = generateUlid(input.now.getTime());
             rule.userId = input.userId;
             rule.name = proposal.name;
-            rule.trigger = trigger;
             rule.expectation = proposal.expect;
-            rule.scope = RULE_SCOPE.task;
-            rule.taskId = input.taskId;
+            rule.taskId = taskId!;
+            rule.anchorEventId = anchorEventId!;
             rule.source = RULE_SOURCE.agent;
             rule.severity = proposal.severity ?? RULE_SEVERITY.info;
             rule.reviewState = admitReviewState(rule.source, rule.severity);
             rule.rationale = proposal.rationale ?? null;
             rule.signature = signature;
             rule.sourceJobId = input.sourceJobId;
-            rule.anchorEventId = readAnchorEventId(input.jobInput);
             rule.createdAt = input.now;
             rule.deletedAt = null;
             await input.rules.upsert(rule);
@@ -115,5 +108,11 @@ export class RuleGenerationResultService {
             created.push(rule);
         }
         return { created, discarded };
+    }
+
+    private blockingReason(taskId: string | null, anchorEventId: string | null): RuleProposalDiscardReason | null {
+        if (taskId === null) return RULE_PROPOSAL_DISCARD_REASON.noTask;
+        if (anchorEventId === null) return RULE_PROPOSAL_DISCARD_REASON.noAnchor;
+        return null;
     }
 }

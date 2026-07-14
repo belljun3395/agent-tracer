@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { INestApplication } from "@nestjs/common";
-import { DEFAULT_USER_ID, RULE_SCOPE } from "@monitor/kernel";
+import { DEFAULT_USER_ID } from "@monitor/kernel";
 import { ApproveRuleUseCase } from "~tracer-api/domain/rule/application/command/approve.rule.usecase.js";
 import { CreateRuleUseCase } from "~tracer-api/domain/rule/application/command/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "~tracer-api/domain/rule/application/command/delete.rule.usecase.js";
@@ -29,9 +29,7 @@ const updateRule = {
             id: input.id,
             userId: "local",
             name: input.name ?? "rule",
-            trigger: { phrases: [] },
             expectation: { kind: "action", tool: "command" },
-            scope: RULE_SCOPE.global,
             taskId: null,
             source: "human",
             severity: "info",
@@ -85,7 +83,6 @@ describe("규칙 HTTP 컨트롤러", () => {
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
                 name: "CI 실패 링크 제공 시 원인 진단 후 수정",
-                trigger: { phrases: ["github.com", "runs/", "확인하고 해결해줘"] },
                 triggerOn: "user",
                 expect: { kind: "command", commandMatches: ["gh run view"] },
                 severity: "info",
@@ -98,7 +95,6 @@ describe("규칙 HTTP 컨트롤러", () => {
             userId: DEFAULT_USER_ID,
             id: "rule-1",
             name: "CI 실패 링크 제공 시 원인 진단 후 수정",
-            trigger: { phrases: ["github.com", "runs/", "확인하고 해결해줘"], on: "user" },
             expectation: { kind: "command", commandMatches: ["gh run view"] },
             severity: "info",
             rationale: null,
@@ -120,18 +116,18 @@ describe("규칙 HTTP 컨트롤러", () => {
         expect(res.status).toBe(400);
     });
 
-    it("재평가 요청의 taskId를 전달한다", async () => {
+    it("재평가 요청을 규칙 식별자만으로 전달한다", async () => {
         app = await NestFactory.create(TestModule, { logger: false });
         await app.listen(0, "127.0.0.1");
 
         const res = await fetch(`${await app.getUrl()}/api/v1/rules/rule-1/reevaluate`, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ taskId: "task-1" }),
+            body: "{}",
         });
 
         expect(res.status).toBe(200);
-        expect(reevaluateRule.execute).toHaveBeenCalledWith(DEFAULT_USER_ID, "rule-1", { taskId: "task-1" });
+        expect(reevaluateRule.execute).toHaveBeenCalledWith(DEFAULT_USER_ID, "rule-1");
     });
 
     it("근거 조회 요청의 규칙과 태스크 범위를 전달한다", async () => {

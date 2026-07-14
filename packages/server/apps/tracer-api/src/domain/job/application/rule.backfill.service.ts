@@ -28,8 +28,9 @@ export class RuleBackfillService {
         const evaluated = new Set<string>();
         for (const turn of turns) {
             const target = await evaluator.evaluate(rule, turn, now);
-            if (target !== null) evaluated.add(target.id);
-            if (rule.isAnchored() && evaluated.size > 0) break;
+            if (target === null) continue;
+            evaluated.add(target.id);
+            break;
         }
         return evaluated.size;
     }

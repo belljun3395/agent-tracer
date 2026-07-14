@@ -1,17 +1,19 @@
 ---
-description: Ask the local daemon to generate rules for this task (runs in the background)
-argument-hint: [optional note]
+description: State a request and have the local daemon derive verification rules for it (runs in the background)
+argument-hint: <the request the rules must verify>
 ---
 
-The local daemon already detected this message via the `/rule` prefix and queued a
-task-scoped `rule.generation` job (skipped if the dashboard's `ruleGen.autoOnUserInput`
-toggle is off). Actual rule generation runs in the background on the local daemon, so
-**you must not write rules yourself or edit rule-related code** — that is the only
-thing you should skip.
+$ARGUMENTS **is the request itself**, not a note about it. Write `/rule add rate limiting
+to the auth middleware`, not a bare `/rule`. A rule verifies that you did what the user
+asked in this one message, so a message with no request produces no rules and the daemon
+ignores it.
 
-If $ARGUMENTS contains any other real request (a question, checking a file, a task
-instruction, etc.), carry it out normally as you would any other turn. If there is no
-such request, output only one line acknowledging that the rule-generation request was
-received and progress can be checked in the dashboard Rules tab — written in the same
-language $ARGUMENTS is written in (e.g. Korean in, Korean out; English in, English out).
-If $ARGUMENTS is empty, default to English.
+The local daemon already detected this message via the `/rule` prefix and queued a
+`rule.generation` job anchored to it (skipped if the dashboard's `ruleGen.autoOnUserInput`
+toggle is off). A background agent inspects the workspace and derives the obligations
+$ARGUMENTS implies — one message can yield several rules. **You must not write rules
+yourself or edit rule-related code**; that is the only thing you should skip.
+
+Carry out $ARGUMENTS normally, exactly as you would any other turn. Everything you do
+from here until you stop is the evidence those rules are judged against, and unfulfilled
+rules will halt your turn. Answer in the language $ARGUMENTS is written in.

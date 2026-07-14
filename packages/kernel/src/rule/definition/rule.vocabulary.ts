@@ -11,26 +11,12 @@ export function isTurnHaltingSeverity(severity: string): boolean {
     return severity === RULE_SEVERITY.warn || severity === RULE_SEVERITY.block;
 }
 
-export const RULE_SCOPE = {
-    global: "global",
-    task: "task",
-} as const;
-export const RULE_SCOPES = [RULE_SCOPE.global, RULE_SCOPE.task] as const;
-export type RuleScope = (typeof RULE_SCOPES)[number];
-
 export const RULE_SOURCE = {
     human: "human",
     agent: "agent",
 } as const;
 export const RULE_SOURCES = [RULE_SOURCE.human, RULE_SOURCE.agent] as const;
 export type RuleSource = (typeof RULE_SOURCES)[number];
-
-export const RULE_TRIGGER_SOURCE = {
-    user: "user",
-    assistant: "assistant",
-} as const;
-export const RULE_TRIGGER_SOURCES = [RULE_TRIGGER_SOURCE.user, RULE_TRIGGER_SOURCE.assistant] as const;
-export type RuleTriggerSource = (typeof RULE_TRIGGER_SOURCES)[number];
 
 export const RULE_EXPECTED_ACTION = {
     command: "command",
@@ -48,11 +34,7 @@ export type RuleExpectedAction = (typeof RULE_EXPECTED_ACTIONS)[number];
 
 export type RuleEventMatchKind = "trigger" | "expect-fulfilled";
 
-export interface RuleTrigger {
-    readonly phrases: readonly string[];
-    readonly on?: RuleTriggerSource;
-}
-
+/** 규칙을 낳은 사용자 입력이며 판정 창이 여기서 시작한다. */
 export interface RuleAnchor {
     readonly anchorEventId: string | null;
 }
@@ -108,7 +90,6 @@ export interface EnforcementRecord {
 }
 
 export interface VerdictEvidence {
-    matchedPhrase?: string;
     expectedPattern?: string;
     actualToolCalls: string[];
     matchedToolCalls: string[];

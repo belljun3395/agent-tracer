@@ -3,11 +3,9 @@ import {
     RULE_EXPECTATION_KIND,
     RULE_EXPECTED_ACTION,
     RULE_PROPOSAL_DISCARD_REASON,
-    RULE_SCOPE,
     RULE_SEVERITY,
     computeRuleSignature,
     type RuleExpectation,
-    type RuleTrigger,
 } from "@monitor/kernel";
 import { RuleEntity } from "@monitor/tracer-domain";
 import { InMemoryRuleRepository } from "~tracer-api/domain/job/port/rule-verification/__fakes__/in-memory.rule.repository.js";
@@ -16,19 +14,18 @@ import { RuleGenerationResultService } from "./rule.generation.result.service.js
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
 
-function makeRule(id: string, taskId: string, trigger: RuleTrigger, expectation: RuleExpectation): RuleEntity {
+function makeRule(id: string, taskId: string, anchorEventId: string, expectation: RuleExpectation): RuleEntity {
     const rule = new RuleEntity();
     rule.id = id;
     rule.userId = "u1";
     rule.name = `규칙 ${id}`;
-    rule.trigger = trigger;
     rule.expectation = expectation;
-    rule.scope = RULE_SCOPE.task;
     rule.taskId = taskId;
+    rule.anchorEventId = anchorEventId;
     rule.source = "agent";
     rule.severity = RULE_SEVERITY.info;
     rule.rationale = null;
-    rule.signature = computeRuleSignature(trigger, expectation);
+    rule.signature = computeRuleSignature(expectation);
     rule.createdAt = NOW;
     rule.deletedAt = null;
     return rule;
@@ -66,7 +63,6 @@ describe("RuleGenerationResultService", () => {
         const prepared = await prepare(service, rules, [
             {
                 name: "테스트 실행",
-                trigger: { phrases: ["테스트를 실행해줘"] },
                 expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm run test"] },
             },
         ]);
@@ -87,13 +83,12 @@ describe("RuleGenerationResultService", () => {
         expect(backfill).toHaveBeenCalledWith(store.all()[0], "task-1", NOW);
     });
 
-    it("같은 태스크에 이미 있는 지문의 제안을 폐기한다", async () => {
-        const trigger = { phrases: ["테스트를 실행해줘"] };
+    it("같은 발화에 이미 있는 지문의 제안을 폐기한다", async () => {
         const expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm run test"] } as const;
-        const { service, rules, store } = makeService([makeRule("rule-1", "task-1", trigger, expectation)]);
+        const { service, rules, store } = makeService([makeRule("rule-1", "task-1", "event-1", expectation)]);
 
         const prepared = await prepare(service, rules, [
-            { name: "테스트 실행", trigger, expect: expectation },
+            { name: "테스트 실행", expect: expectation },
         ]);
 
         expect(prepared.jobResult).toEqual({
@@ -105,17 +100,52 @@ describe("RuleGenerationResultService", () => {
         expect(store.all()).toHaveLength(1);
     });
 
-    it("다른 태스크에 있는 같은 지문은 제안 수용을 막지 않는다", async () => {
-        const trigger = { phrases: ["테스트를 실행해줘"] };
+    it("다른 발화에 있는 같은 지문은 제안 수용을 막지 않는다", async () => {
         const expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm run test"] } as const;
-        const { service, rules, store } = makeService([makeRule("rule-1", "other-task", trigger, expectation)]);
+        const { service, rules, store } = makeService([makeRule("rule-1", "task-1", "other-event", expectation)]);
 
         const prepared = await prepare(service, rules, [
-            { name: "테스트 실행", trigger, expect: expectation },
+            { name: "테스트 실행", expect: expectation },
         ]);
 
         expect(prepared.jobResult).toEqual({ rulesCreated: 1 });
         expect(store.all()).toHaveLength(2);
+    });
+
+    it("한 발화가 서로 다른 기대의 규칙 여럿을 낳는다", async () => {
+        const { service, rules, store } = makeService();
+
+        const prepared = await prepare(service, rules, [
+            { name: "테스트 실행", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] } },
+            { name: "린트 실행", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm run lint"] } },
+        ]);
+
+        expect(prepared.jobResult).toEqual({ rulesCreated: 2 });
+        expect(store.all().map((rule) => rule.anchorEventId)).toEqual(["event-1", "event-1"]);
+    });
+
+    it("근거 입력이 없으면 제안을 폐기한다", async () => {
+        const { service, rules, store } = makeService();
+
+        const prepared = await service.prepare({
+            rules,
+            userId: "u1",
+            sourceJobId: "job-1",
+            taskId: "task-1",
+            jobInput: {},
+            proposals: [
+                { name: "테스트 실행", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] } },
+            ],
+            now: NOW,
+        });
+
+        expect(prepared.jobResult).toEqual({
+            rulesCreated: 0,
+            proposalsDiscarded: [
+                { name: "테스트 실행", reason: RULE_PROPOSAL_DISCARD_REASON.noAnchor },
+            ],
+        });
+        expect(store.all()).toHaveLength(0);
     });
 
     it("태스크가 없으면 모든 제안을 폐기한다", async () => {

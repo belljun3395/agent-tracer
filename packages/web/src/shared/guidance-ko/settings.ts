@@ -44,8 +44,8 @@ export const KO_SETTINGS = {
   ),
   localRuleTrigger: createGuidanceMessage(
     "켜면 로컬 데몬이 ",
-    guidanceCode("/rule"),
-    "로 시작하는 메시지에만 태스크 범위 규칙을 제안합니다. 로컬 Claude Code CLI를 사용하므로 API 키가 필요 없으며, 이전 실행이 끝나지 않은 태스크는 건너뜁니다. 기본값은 꺼짐입니다.",
+    guidanceCode("/rule <요구>"),
+    " 형식의 메시지에서만 규칙을 제안하며, 그 발화가 규칙의 검증 대상이 됩니다. 요구 없이 명령만 있으면 건너뜁니다. 로컬 Claude Code CLI를 사용하므로 API 키가 필요 없으며, 이전 실행이 끝나지 않은 태스크도 건너뜁니다. 기본값은 꺼짐입니다.",
   ),
   anthropicApiKey: createGuidanceMessage(
     "Python LangGraph와 Claude SDK 백엔드에서 사용합니다.",
