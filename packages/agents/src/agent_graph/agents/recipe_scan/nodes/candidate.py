@@ -8,11 +8,11 @@ from typing import Any
 import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
+from ...runtime.llm.tool_loop import ToolLoopBudget
+from ..langchain_agent import RecipeAgentContext, build_recipe_agent
 from ..models import MAX_TOOL_ROUNDS, RecipeDraft, RecipeScanRequest, RecipeScanState
 from ..policy import MAX_RECIPE_MODEL_COST_USD, validate_recipe_candidates
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
-from ..tools.client import RECIPE_TOOL_SPECS, invoke_tool, record_evidence
 
 type RecipeNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
 
@@ -27,35 +27,49 @@ def create_candidate_nodes(
 ) -> tuple[RecipeNode, RecipeNode, RecipeNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    async def run_tool(name: str, args: dict[str, Any]) -> str:
-        return await invoke_tool(client, req.toolCallback, name, args)
+    recipe_agent = build_recipe_agent(chat, INVESTIGATOR_SYSTEM_PROMPT, MAX_TOOL_ROUNDS)
+
+    async def invoke_agent(
+        messages: list[Any], state: RecipeScanState
+    ) -> tuple[RecipeDraft, list[Any], RecipeAgentContext]:
+        budget = ToolLoopBudget(
+            agent_name, req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
+        )
+        context = RecipeAgentContext(
+            agent_name,
+            client,
+            req.toolCallback,
+            usage,
+            budget,
+            state["provenance"],
+        )
+        output = await recipe_agent.ainvoke(
+            {"messages": messages},
+            context=context,
+            config={"recursion_limit": 2 * MAX_TOOL_ROUNDS + 10},
+        )
+        draft = output.get("structured_response")
+        if not isinstance(draft, RecipeDraft):
+            raise ValueError(f"{agent_name} produced no structured output")
+        return draft, list(output["messages"]), context
 
     async def investigate(state: RecipeScanState) -> dict[str, Any]:
-        catalog = state["provenance"]
-
-        def observe(name: str, args: dict[str, Any], content: str) -> None:
-            record_evidence(catalog, name, args, content)
-
-        draft, messages, cost = await run_tool_loop(
-            chat,
-            system=INVESTIGATOR_SYSTEM_PROMPT,
-            user=build_user_prompt(state["task_id"], state["user_prompt"], state["language"]),
-            tools=RECIPE_TOOL_SPECS,
-            schema=RecipeDraft,
-            trace=usage,
-            run_tool=run_tool,
-            observe=observe,
-            agent_name=agent_name,
-            model_name=req.model,
-            max_rounds=MAX_TOOL_ROUNDS,
-            max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
-            spent=state["model_cost_usd"],
+        draft, messages, context = await invoke_agent(
+            [
+                {
+                    "role": "user",
+                    "content": build_user_prompt(
+                        state["task_id"], state["user_prompt"], state["language"]
+                    ),
+                }
+            ],
+            state,
         )
         return {
             "candidates": draft.recipes,
             "messages": messages,
-            "provenance": catalog,
-            "model_cost_usd": cost,
+            "provenance": context.provenance,
+            "model_cost_usd": context.budget.spent,
         }
 
     async def validate_candidate(state: RecipeScanState) -> dict[str, Any]:
@@ -67,32 +81,23 @@ def create_candidate_nodes(
     async def repair(state: RecipeScanState) -> dict[str, Any]:
         if not state["candidates"]:
             return {"repair_attempted": True}
-        catalog = state["provenance"]
-
-        def observe(name: str, args: dict[str, Any], content: str) -> None:
-            record_evidence(catalog, name, args, content)
-
-        draft, cost = await continue_tool_loop(
-            chat,
-            messages=state["messages"],
-            directive=REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
-            tools=RECIPE_TOOL_SPECS,
-            schema=RecipeDraft,
-            trace=usage,
-            run_tool=run_tool,
-            observe=observe,
-            agent_name=agent_name,
-            model_name=req.model,
-            max_rounds=MAX_TOOL_ROUNDS,
-            max_cost_usd=MAX_RECIPE_MODEL_COST_USD,
-            spent=state["model_cost_usd"],
+        messages = [
+            *state["messages"],
+            {
+                "role": "user",
+                "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
+            },
+        ]
+        draft, messages, context = await invoke_agent(
+            messages,
+            state,
         )
         return {
             "candidates": draft.recipes,
-            "messages": state["messages"],
-            "provenance": catalog,
+            "messages": messages,
+            "provenance": context.provenance,
             "repair_attempted": True,
-            "model_cost_usd": cost,
+            "model_cost_usd": context.budget.spent,
         }
 
     return investigate, validate_candidate, repair
