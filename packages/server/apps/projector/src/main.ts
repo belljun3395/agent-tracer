@@ -104,15 +104,15 @@ async function bootstrap(): Promise<void> {
     await searchConsumer.start();
     if (otlpConsumer) await otlpConsumer.start();
     const scheduler = new PeriodicScheduler(new SystemClock());
-    scheduler.every(runtimeConfig.taskReaper.intervalMs, (now) =>
+    scheduler.every("task_reaper", runtimeConfig.taskReaper.intervalMs, (now) =>
         reaper.runOnce(now, runtimeConfig.taskReaper.idleMs),
     );
-    scheduler.every(runtimeConfig.aiJobStepReaper.intervalMs, (now) =>
+    scheduler.every("ai_job_step_reaper", runtimeConfig.aiJobStepReaper.intervalMs, (now) =>
         aiJobStepReaper.runOnce(now, runtimeConfig.aiJobStepReaper.retentionMs),
     );
-    scheduler.every(runtimeConfig.jobLeaseReapIntervalMs, (now) => jobLeaseReaper.runOnce(now));
-    scheduler.every(runtimeConfig.searchOutboxDrainIntervalMs, () => searchOutboxDrain.runOnce());
-    scheduler.every(runtimeConfig.searchEventsReaper.intervalMs, (now) =>
+    scheduler.every("job_lease_reaper", runtimeConfig.jobLeaseReapIntervalMs, (now) => jobLeaseReaper.runOnce(now));
+    scheduler.every("search_outbox_drain", runtimeConfig.searchOutboxDrainIntervalMs, () => searchOutboxDrain.runOnce());
+    scheduler.every("search_events_reaper", runtimeConfig.searchEventsReaper.intervalMs, (now) =>
         searchEventsReaper.runOnce(now, runtimeConfig.searchEventsReaper.retentionMs),
     );
     logInfo({ msg: "projector.started", otlpExport: otlp !== undefined });
@@ -129,7 +129,7 @@ async function bootstrap(): Promise<void> {
         }, SHUTDOWN_TIMEOUT_MS);
         forceExit.unref();
         try {
-            scheduler.stopAll();
+            await scheduler.stopAndDrain();
             await dbConsumer.stop();
             await searchConsumer.stop();
             if (otlpConsumer) await otlpConsumer.stop();
