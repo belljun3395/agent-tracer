@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 // 사람 기여자는 저장소 소유자뿐이므로 도구가 붙이는 트레일러만 예외로 둔다.
-const ALLOWED_EMAILS = new Set(["noreply@anthropic.com"]);
+const ALLOWED_EMAILS = new Set(["noreply@anthropic.com", "omx@oh-my-codex.dev"]);
 const COAUTHOR_PATTERN = /^Co-authored-by:\s*(?<name>.*?)\s*<(?<email>[^>]+)>\s*$/gim;
 
 /** 메시지에서 허용되지 않은 공동 작성자를 찾는다. */

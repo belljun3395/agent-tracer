@@ -13,10 +13,15 @@ describe("findDisallowedCoauthors", () => {
     assert.deepEqual(findDisallowedCoauthors(message), []);
   });
 
-  it("허용 목록에 없는 트레일러를 잡아낸다", () => {
+  it("OmX 공동 작성자 트레일러를 통과시킨다", () => {
     const message = "feat(kernel): 어휘를 세운다\n\nCo-authored-by: OmX <omx@oh-my-codex.dev>";
+    assert.deepEqual(findDisallowedCoauthors(message), []);
+  });
+
+  it("허용 목록에 없는 트레일러를 잡아낸다", () => {
+    const message = "feat(kernel): 어휘를 세운다\n\nCo-authored-by: Tool <tool@example.com>";
     assert.deepEqual(findDisallowedCoauthors(message), [
-      { name: "OmX", email: "omx@oh-my-codex.dev" },
+      { name: "Tool", email: "tool@example.com" },
     ]);
   });
 
