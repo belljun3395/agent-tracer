@@ -60,14 +60,15 @@ class FakeToolLoopChat:
                 for index, call in enumerate(turn)
             ]
             return mk_ai(tool_calls=calls)
+        structured_names = {"TitleSuggestionDraft", "CleanupDraft", "RecipeDraft"}
         structured_tool = next(
-            (tool for tool in self.bound_tools if getattr(tool, "name", "") == "TitleSuggestionDraft"),
-            None,
+            (tool for tool in self.bound_tools if getattr(tool, "name", "") in structured_names), None
         )
         if structured_tool is not None:
+            tool_name = structured_tool.name
             return mk_ai(
                 tool_calls=[
-                    {"name": "TitleSuggestionDraft", "args": turn, "id": "call-structured", "type": "tool_call"}
+                    {"name": tool_name, "args": turn, "id": "call-structured", "type": "tool_call"}
                 ]
             )
         return mk_ai(content=_json.dumps(turn, ensure_ascii=False))

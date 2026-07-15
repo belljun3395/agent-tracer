@@ -9,6 +9,7 @@ from typing import Any, get_args
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from agent_graph.agents.task_cleanup.langchain_agent import get_task_events, list_candidate_tasks
 from agent_graph.agents.task_cleanup.models import (
     MAX_EVIDENCE_EVENT_IDS,
     MAX_SUGGESTIONS,
@@ -59,6 +60,18 @@ def test_턴_예산이_골든_계약과_같다() -> None:
 
 def test_모델에게_여는_도구_이름이_골든_계약과_같다() -> None:
     assert {spec.name for spec in CLEANUP_TOOL_SPECS} == set(_contract()["tools"])
+
+
+def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:
+    tools = {tool.name: tool for tool in (list_candidate_tasks, get_task_events)}
+
+    assert set(tools) == set(_contract()["tools"])
+    for name, tool in tools.items():
+        schema = tool.tool_call_schema.model_json_schema()
+        contract = _tool(name)
+        assert set(schema.get("required", [])) == set(contract["required"])
+        assert set(schema["properties"]) == set(contract["required"] + contract["optional"])
+        assert "runtime" not in schema["properties"]
 
 
 def test_list_candidate_tasks의_필수와_선택_인자가_골든_계약과_같다() -> None:

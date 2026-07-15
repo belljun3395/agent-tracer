@@ -8,11 +8,11 @@ from typing import Any
 import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
+from ...runtime.llm.tool_loop import ToolLoopBudget
+from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
 from ..models import CleanupDraft, TaskCleanupRequest, TaskCleanupState
 from ..policy import MAX_TOOL_ROUNDS, TASK_CLEANUP_MAX_MODEL_COST_USD, validate_suggestions
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
-from ..tools import CLEANUP_TOOL_SPECS, invoke_tool, record_evidence
 
 type CleanupNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
 
@@ -27,37 +27,54 @@ def create_decision_nodes(
 ) -> tuple[CleanupNode, CleanupNode, CleanupNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    async def run_tool(name: str, args: dict[str, Any]) -> str:
-        return await invoke_tool(client, req.toolCallback, name, args)
+    cleanup_agent = build_cleanup_agent(chat, INVESTIGATOR_SYSTEM_PROMPT)
+
+    async def invoke_agent(
+        messages: list[Any], state: TaskCleanupState
+    ) -> tuple[CleanupDraft, list[Any], CleanupAgentContext]:
+        budget = ToolLoopBudget(
+            agent_name,
+            req.model,
+            TASK_CLEANUP_MAX_MODEL_COST_USD,
+            state["model_cost_usd"],
+        )
+        context = CleanupAgentContext(
+            agent_name,
+            client,
+            req.toolCallback,
+            usage,
+            budget,
+            state["exposed_candidates"],
+            state["event_ids_by_task"],
+        )
+        output = await cleanup_agent.ainvoke(
+            {"messages": messages},
+            context=context,
+            config={"recursion_limit": 2 * MAX_TOOL_ROUNDS + 10},
+        )
+        draft = output.get("structured_response")
+        if not isinstance(draft, CleanupDraft):
+            raise ValueError(f"{agent_name} produced no structured output")
+        return draft, list(output["messages"]), context
 
     async def investigate(state: TaskCleanupState) -> dict[str, Any]:
-        exposed = state["exposed_candidates"]
-        event_ids = state["event_ids_by_task"]
-
-        def observe(name: str, args: dict[str, Any], content: str) -> None:
-            record_evidence(exposed, event_ids, name, args, content)
-
-        draft, messages, cost = await run_tool_loop(
-            chat,
-            system=INVESTIGATOR_SYSTEM_PROMPT,
-            user=build_user_prompt(state["scanned_at"], state["max_suggestions"], state["language"]),
-            tools=CLEANUP_TOOL_SPECS,
-            schema=CleanupDraft,
-            trace=usage,
-            run_tool=run_tool,
-            observe=observe,
-            agent_name=agent_name,
-            model_name=req.model,
-            max_rounds=MAX_TOOL_ROUNDS,
-            max_cost_usd=TASK_CLEANUP_MAX_MODEL_COST_USD,
-            spent=state["model_cost_usd"],
+        draft, messages, context = await invoke_agent(
+            [
+                {
+                    "role": "user",
+                    "content": build_user_prompt(
+                        state["scanned_at"], state["max_suggestions"], state["language"]
+                    ),
+                }
+            ],
+            state,
         )
         return {
             "suggestions": draft.suggestions,
             "messages": messages,
-            "exposed_candidates": exposed,
-            "event_ids_by_task": event_ids,
-            "model_cost_usd": cost,
+            "exposed_candidates": context.exposed_candidates,
+            "event_ids_by_task": context.event_ids_by_task,
+            "model_cost_usd": context.budget.spent,
         }
 
     async def validate_decisions(state: TaskCleanupState) -> dict[str, Any]:
@@ -71,34 +88,24 @@ def create_decision_nodes(
         return {"suggestions": valid, "validation_errors": errors}
 
     async def repair(state: TaskCleanupState) -> dict[str, Any]:
-        exposed = state["exposed_candidates"]
-        event_ids = state["event_ids_by_task"]
-
-        def observe(name: str, args: dict[str, Any], content: str) -> None:
-            record_evidence(exposed, event_ids, name, args, content)
-
-        draft, cost = await continue_tool_loop(
-            chat,
-            messages=state["messages"],
-            directive=REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
-            tools=CLEANUP_TOOL_SPECS,
-            schema=CleanupDraft,
-            trace=usage,
-            run_tool=run_tool,
-            observe=observe,
-            agent_name=agent_name,
-            model_name=req.model,
-            max_rounds=MAX_TOOL_ROUNDS,
-            max_cost_usd=TASK_CLEANUP_MAX_MODEL_COST_USD,
-            spent=state["model_cost_usd"],
+        messages = [
+            *state["messages"],
+            {
+                "role": "user",
+                "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
+            },
+        ]
+        draft, messages, context = await invoke_agent(
+            messages,
+            state,
         )
         return {
             "suggestions": draft.suggestions,
-            "messages": state["messages"],
-            "exposed_candidates": exposed,
-            "event_ids_by_task": event_ids,
+            "messages": messages,
+            "exposed_candidates": context.exposed_candidates,
+            "event_ids_by_task": context.event_ids_by_task,
             "repair_attempted": True,
-            "model_cost_usd": cost,
+            "model_cost_usd": context.budget.spent,
         }
 
     return investigate, validate_decisions, repair
