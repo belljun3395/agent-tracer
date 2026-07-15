@@ -21,6 +21,8 @@ function makeRule(id: string, anchorEventId = "event-1") {
     expectation: { kind: "action", tool: "file-read" },
     taskId: "task-1",
     anchorEventId,
+    citedTurnIds: ["turn-1"],
+    citedEventIds: ["event-1"],
     source: "agent",
     severity: "warn",
     rationale: "reason",
@@ -50,6 +52,8 @@ describe("fetchRules", () => {
       expect: { kind: "action", tool: "file-read" },
       taskId: "task-1",
       anchorEventId: "event-1",
+      citedTurnIds: ["turn-1"],
+      citedEventIds: ["event-1"],
       sourceJobId: "job-1",
       matchCount: 2,
     });

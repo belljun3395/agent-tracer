@@ -26,6 +26,8 @@ export function mapRuleWithVerdict(rule: RuleEntity, verdict: VerdictEntity | nu
         rev: rule.rev,
         sourceJobId: rule.sourceJobId,
         anchorEventId: rule.anchorEventId,
+        citedTurnIds: rule.citedTurnIds,
+        citedEventIds: rule.citedEventIds,
         createdAt: rule.createdAt.toISOString(),
         verdictStatus: verdict?.status ?? null,
         nudgeCount: verdict?.nudgeCount ?? 0,

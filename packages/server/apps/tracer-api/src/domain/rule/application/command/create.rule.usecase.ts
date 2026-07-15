@@ -49,6 +49,8 @@ export class CreateRuleUseCase {
         rule.expectation = input.expectation;
         rule.taskId = input.taskId;
         rule.anchorEventId = input.anchorEventId;
+        rule.citedTurnIds = [];
+        rule.citedEventIds = [];
         rule.source = input.source ?? RULE_SOURCE.human;
         rule.severity = input.severity ?? RULE_SEVERITY.info;
         rule.reviewState = admitReviewState(rule.source, rule.severity);

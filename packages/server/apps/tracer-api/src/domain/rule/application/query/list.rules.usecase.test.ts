@@ -13,6 +13,8 @@ function makeRule(id: string, userId: string, taskId: string, deleted = false): 
     rule.expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] };
     rule.taskId = taskId;
     rule.anchorEventId = `anchor-${id}`;
+    rule.citedTurnIds = [`turn-${id}`];
+    rule.citedEventIds = [`event-${id}`];
     rule.source = "human";
     rule.severity = "block";
     rule.rationale = null;
@@ -36,6 +38,8 @@ describe("ListRulesUseCase all 모드", () => {
         ]);
         const result = await useCase.execute("u1", { all: true });
         expect(result.items.map((r) => r.id).sort()).toEqual(["t1", "t2"]);
+        expect(result.items.find((r) => r.id === "t1")?.citedEventIds).toEqual(["event-t1"]);
+        expect(result.items.find((r) => r.id === "t1")?.citedTurnIds).toEqual(["turn-t1"]);
     });
 
     it("삭제된 규칙은 제외한다", async () => {

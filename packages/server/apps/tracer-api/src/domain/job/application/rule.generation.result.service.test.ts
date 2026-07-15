@@ -7,12 +7,30 @@ import {
     computeRuleSignature,
     type RuleExpectation,
 } from "@monitor/kernel";
-import { RuleEntity } from "@monitor/tracer-domain";
+import { EventEntity, RuleEntity, TurnEntity } from "@monitor/tracer-domain";
+import { InMemoryEventReader } from "~tracer-api/domain/job/port/rule-verification/__fakes__/in-memory.event.reader.js";
 import { InMemoryRuleRepository } from "~tracer-api/domain/job/port/rule-verification/__fakes__/in-memory.rule.repository.js";
+import { InMemoryTurnRepository } from "~tracer-api/domain/job/port/rule-verification/__fakes__/in-memory.turn.repository.js";
 import type { RuleBackfillService } from "./rule.backfill.service.js";
 import { RuleGenerationResultService } from "./rule.generation.result.service.js";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
+
+function makeEvent(id: string, userId: string, taskId: string): EventEntity {
+    const event = new EventEntity();
+    event.id = id;
+    event.seq = "1";
+    event.userId = userId;
+    event.taskId = taskId;
+    return event;
+}
+
+function makeTurn(id: string, taskId: string): TurnEntity {
+    const turn = new TurnEntity();
+    turn.id = id;
+    turn.taskId = taskId;
+    return turn;
+}
 
 function makeRule(id: string, taskId: string, anchorEventId: string, expectation: RuleExpectation): RuleEntity {
     const rule = new RuleEntity();
@@ -34,9 +52,17 @@ function makeRule(id: string, taskId: string, anchorEventId: string, expectation
 function makeService(existing: readonly RuleEntity[] = []) {
     const store = new InMemoryRuleRepository();
     store.seed(...existing);
+    const events = new InMemoryEventReader();
+    events.seed(makeEvent("event-1", "u1", "task-1"));
+    const turns = new InMemoryTurnRepository();
+    turns.seed(makeTurn("turn-1", "task-1"));
     const backfill = vi.fn(async () => 1);
-    const service = new RuleGenerationResultService({ backfill } as unknown as RuleBackfillService);
-    return { service, rules: store, store, backfill };
+    const service = new RuleGenerationResultService(
+        { backfill } as unknown as RuleBackfillService,
+        events,
+        turns,
+    );
+    return { service, rules: store, store, backfill, events, turns };
 }
 
 const CITATIONS = { citedTurnIds: ["turn-1"], citedEventIds: ["event-1"] };
@@ -198,15 +224,61 @@ describe("RuleGenerationResultService", () => {
         expect(store.all()).toHaveLength(0);
     });
 
-    it("인용한 식별자는 합격 기준을 위한 값이라 규칙에 저장하지 않는다", async () => {
+    it("원장이 뒷받침하는 인용 식별자를 규칙에 저장한다", async () => {
         const { service, rules, store } = makeService();
 
         await prepare(service, rules, [
             { name: "테스트 실행", expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] } },
         ]);
 
-        expect(store.all()[0]).not.toHaveProperty("citedTurnIds");
-        expect(store.all()[0]).not.toHaveProperty("citedEventIds");
+        expect(store.all()[0]).toMatchObject({ citedTurnIds: ["turn-1"], citedEventIds: ["event-1"] });
+    });
+
+    it("원장에 없는 이벤트를 인용한 제안은 그 식별자를 떨궈 저장한다", async () => {
+        const { service, rules, store } = makeService();
+
+        await service.prepare({
+            rules,
+            userId: "u1",
+            sourceJobId: "job-1",
+            taskId: "task-1",
+            jobInput: { anchorEventId: "event-1" },
+            proposals: [
+                {
+                    name: "테스트 실행",
+                    expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] },
+                    citedTurnIds: ["turn-1", "ghost-turn"],
+                    citedEventIds: ["event-1", "ghost-event"],
+                },
+            ],
+            now: NOW,
+        });
+
+        expect(store.all()[0]).toMatchObject({ citedTurnIds: ["turn-1"], citedEventIds: ["event-1"] });
+    });
+
+    it("다른 사용자의 이벤트를 인용하면 원장이 뒷받침하지 않으므로 떨군다", async () => {
+        const { service, rules, store, events } = makeService();
+        events.seed(makeEvent("other-user-event", "u2", "task-1"));
+
+        await service.prepare({
+            rules,
+            userId: "u1",
+            sourceJobId: "job-1",
+            taskId: "task-1",
+            jobInput: { anchorEventId: "event-1" },
+            proposals: [
+                {
+                    name: "테스트 실행",
+                    expect: { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] },
+                    citedTurnIds: ["turn-1"],
+                    citedEventIds: ["event-1", "other-user-event"],
+                },
+            ],
+            now: NOW,
+        });
+
+        expect(store.all()[0]?.citedEventIds).toEqual(["event-1"]);
     });
 
     it("검증할 수 없는 제안을 거부하고 유효한 제안은 계속 수용한다", async () => {

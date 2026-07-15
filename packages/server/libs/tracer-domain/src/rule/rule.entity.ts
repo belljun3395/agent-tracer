@@ -64,6 +64,14 @@ export class RuleEntity {
     @Column({ name: "anchor_event_id", type: "text" })
     anchorEventId!: string;
 
+    // 모델이 인용한 사용자 턴 식별자 가운데 서버가 원장과 대조해 실재를 확인한 것만 담는다.
+    @Column({ name: "cited_turn_ids", type: "jsonb", default: [] })
+    citedTurnIds!: string[];
+
+    // 모델이 인용한 이벤트 식별자 가운데 서버가 원장과 대조해 실재를 확인한 것만 담는다.
+    @Column({ name: "cited_event_ids", type: "jsonb", default: [] })
+    citedEventIds!: string[];
+
     @Column({ name: "created_at", type: "timestamptz" })
     createdAt!: Date;
 

@@ -31,6 +31,8 @@ describe("CreateRuleUseCase", () => {
             lastEditedBy: "agent",
             rev: 1,
         });
+        expect(result.rule.citedTurnIds).toEqual([]);
+        expect(result.rule.citedEventIds).toEqual([]);
     });
 
     it("human 생성 규칙은 사용자 편집 provenance로 저장한다", async () => {

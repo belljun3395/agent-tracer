@@ -24,6 +24,10 @@ export interface RuleDto {
     readonly sourceJobId: string | null;
     /** 규칙 판정 창의 시작점인 사용자 입력 이벤트 식별자다. */
     readonly anchorEventId: string;
+    /** 이 규칙의 의무가 담긴 사용자 턴 식별자이며 서버가 원장과 대조해 걸러낸 것만 남는다. */
+    readonly citedTurnIds: readonly string[];
+    /** 의무 이행을 보여 주는 이벤트 식별자이며 서버가 원장과 대조해 걸러낸 것만 남는다. */
+    readonly citedEventIds: readonly string[];
     readonly createdAt: string;
     /** 이 규칙에 대응한 이벤트 수다. */
     readonly matchCount?: number;

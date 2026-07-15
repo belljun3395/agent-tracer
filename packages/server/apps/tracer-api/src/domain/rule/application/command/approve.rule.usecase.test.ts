@@ -19,6 +19,8 @@ function rule(id: string, reviewState: RuleEntity["reviewState"]): RuleEntity {
     entity.name = "배포 전 테스트 실행";
     entity.expectation = { kind: RULE_EXPECTATION_KIND.command, commandMatches: ["npm test"] };
     entity.taskId = "task-1";
+    entity.citedTurnIds = ["turn-1"];
+    entity.citedEventIds = ["event-1"];
     entity.source = RULE_SOURCE.agent;
     entity.severity = RULE_SEVERITY.block;
     entity.rationale = null;
@@ -52,6 +54,8 @@ describe("ApproveRuleUseCase", () => {
         const result = await useCase.execute("u1", "r1");
 
         expect(result.rule.reviewState).toBe(RULE_REVIEW_STATE.active);
+        expect(result.rule.citedTurnIds).toEqual(["turn-1"]);
+        expect(result.rule.citedEventIds).toEqual(["event-1"]);
         const stored = await repo.findById("r1");
         expect(stored?.isActive()).toBe(true);
     });

@@ -197,6 +197,8 @@ const editableRule: RuleRecord = {
   expect: { kind: "command", commandMatches: ["migrate up"] },
   taskId: TASK_ID,
   anchorEventId: "event-1",
+  citedTurnIds: [],
+  citedEventIds: [],
   source: "human",
   severity: "warn",
   rationale: "Keep migrations explicit.",

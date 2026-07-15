@@ -13,6 +13,8 @@ export function toRuleRecord(rule: RuleDto): RuleRecord {
     expect: rule.expectation,
     taskId: rule.taskId as TaskId,
     anchorEventId: rule.anchorEventId,
+    citedTurnIds: rule.citedTurnIds,
+    citedEventIds: rule.citedEventIds,
     source: rule.source as RuleSource,
     severity: rule.severity as RuleSeverity,
     ...(rule.rationale ? { rationale: rule.rationale } : {}),

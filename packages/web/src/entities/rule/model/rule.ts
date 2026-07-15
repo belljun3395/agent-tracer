@@ -21,6 +21,10 @@ export interface RuleRecord {
   readonly taskId: TaskId;
   /** 규칙을 낳은 사용자 입력이며 판정 창이 여기서 시작한다. */
   readonly anchorEventId: string;
+  /** 서버가 원장과 대조해 남긴, 이 규칙의 의무가 담긴 사용자 턴 식별자다. */
+  readonly citedTurnIds: readonly string[];
+  /** 서버가 원장과 대조해 남긴, 의무 이행을 보여 주는 이벤트 식별자다. */
+  readonly citedEventIds: readonly string[];
   readonly source: RuleSource;
   readonly severity: RuleSeverity;
   readonly rationale?: string;

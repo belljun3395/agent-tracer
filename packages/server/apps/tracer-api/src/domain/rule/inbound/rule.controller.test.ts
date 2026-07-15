@@ -38,6 +38,8 @@ const updateRule = {
             userEdited: true,
             lastEditedBy: "human",
             rev: 1,
+            citedTurnIds: [],
+            citedEventIds: [],
             createdAt: new Date(0).toISOString(),
         },
     })),

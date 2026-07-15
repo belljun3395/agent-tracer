@@ -155,6 +155,8 @@ function makeRule(
     expect: { kind: "command", commandMatches: ["npm test"] },
     taskId: TaskId("task-1"),
     anchorEventId,
+    citedTurnIds: [],
+    citedEventIds: [],
     source: "human",
     severity: "warn",
     signature: `${id}-signature`,

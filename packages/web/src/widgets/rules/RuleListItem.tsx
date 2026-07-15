@@ -8,6 +8,8 @@ import {
 } from "~web/entities/rule/api/mutations.js";
 import { Button } from "~web/shared/ui/index.js";
 import { useConfirmAction } from "~web/shared/lib/hooks/use-confirm-action.js";
+import { useSetSelectedEventId } from "~web/shared/store/index.js";
+import { EventId } from "~web/shared/identity.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
 import { RuleTaskBreadcrumb } from "~web/widgets/rules/RuleTaskBreadcrumb.js";
 
@@ -20,8 +22,10 @@ interface RuleListItemProps {
 export function RuleListItem({ rule, onEdit, task }: RuleListItemProps) {
   const deleteMutation = useDeleteRuleMutation();
   const approveMutation = useApproveRuleMutation();
+  const setSelectedEventId = useSetSelectedEventId();
   const awaitingReview = needsReview(rule);
   const isPending = deleteMutation.isPending || approveMutation.isPending;
+  const hasCitations = rule.citedTurnIds.length > 0 || rule.citedEventIds.length > 0;
 
   const confirmDelete = useConfirmAction(() => deleteMutation.mutate(rule.id));
 
@@ -64,6 +68,36 @@ export function RuleListItem({ rule, onEdit, task }: RuleListItemProps) {
 
       {rule.rationale && (
         <p className="m-0 text-xs text-ink-subtle leading-[1.5]">{rule.rationale}</p>
+      )}
+
+      {awaitingReview && hasCitations && (
+        <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-dashed border-hair">
+          {rule.citedTurnIds.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap font-mono text-[10.5px] text-ink-tertiary">
+              <span className="uppercase tracking-[0.06em]">Cited turns</span>
+              {rule.citedTurnIds.map((turnId) => (
+                <span key={turnId} className="text-ink-subtle">
+                  {turnId}
+                </span>
+              ))}
+            </div>
+          )}
+          {rule.citedEventIds.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap font-mono text-[10.5px] text-ink-tertiary">
+              <span className="uppercase tracking-[0.06em]">Cited events</span>
+              {rule.citedEventIds.map((eventId) => (
+                <button
+                  key={eventId}
+                  type="button"
+                  onClick={() => setSelectedEventId(EventId(eventId))}
+                  className="text-primary-hover bg-primary/12 py-0.5 px-1.5 rounded-xs cursor-pointer hover:bg-primary/20"
+                >
+                  {eventId}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="flex items-center gap-2 mt-1">

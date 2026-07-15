@@ -94,6 +94,8 @@ function makeRule(overrides: Partial<RuleRecord>): RuleRecord {
     expect: { kind: "command", commandMatches: ["npm run lint:deps"] },
     taskId: TaskId("task-1"),
     anchorEventId: "event-1",
+    citedTurnIds: [],
+    citedEventIds: [],
     source: "agent",
     severity: "warn",
     signature: "rule-a-signature",

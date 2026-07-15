@@ -6,7 +6,9 @@ import type { RuleEntity } from "@monitor/tracer-domain";
 import { FixedClock } from "~tracer-api/domain/job/port/__fakes__/fixed.clock.js";
 import { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
 import { InMemoryAiJobStepRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.step.repository.js";
+import { InMemoryEventReader } from "~tracer-api/domain/job/port/rule-verification/__fakes__/in-memory.event.reader.js";
 import { InMemoryJobTransaction, InMemoryRuleStore } from "~tracer-api/domain/job/port/__fakes__/in-memory.job.transaction.js";
+import { InMemoryTurnRepository } from "~tracer-api/domain/job/port/rule-verification/__fakes__/in-memory.turn.repository.js";
 import { SubmitJobResultsUseCase } from "./submit.job.results.usecase.js";
 import type { RuleBackfillService } from "~tracer-api/domain/job/application/rule.backfill.service.js";
 import { RuleGenerationResultService } from "~tracer-api/domain/job/application/rule.generation.result.service.js";
@@ -34,7 +36,8 @@ function makeUseCase(jobs: AiJobEntity[], rules: RuleEntity[] = [], options: Mak
         useCase: new SubmitJobResultsUseCase(
             jobRepo,
             new InMemoryJobTransaction(jobRepo, ruleStore, stepStore),
-            options.generatedRules ?? new RuleGenerationResultService(backfill),
+            options.generatedRules ??
+                new RuleGenerationResultService(backfill, new InMemoryEventReader(), new InMemoryTurnRepository()),
             new FixedClock(new Date("2026-01-01T00:00:00.000Z")),
         ),
         ruleStore,

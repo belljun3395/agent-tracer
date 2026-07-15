@@ -3,6 +3,7 @@ import { DropForbiddenExpectation1784090000000 } from "./0002-DropForbiddenExpec
 import { RuleAnchoredToOneUtterance1784100000000 } from "./0003-RuleAnchoredToOneUtterance.js";
 import { VerdictLivesUntilFulfilled1784110000000 } from "./0004-VerdictLivesUntilFulfilled.js";
 import { DropJobFeedback1784120000000 } from "./0005-DropJobFeedback.js";
+import { RuleCitations1784130000000 } from "./0006-RuleCitations.js";
 
 /** 읽기 모델 스키마의 마이그레이션 순서다. */
 export const TRACER_MIGRATIONS = [
@@ -11,4 +12,5 @@ export const TRACER_MIGRATIONS = [
     RuleAnchoredToOneUtterance1784100000000,
     VerdictLivesUntilFulfilled1784110000000,
     DropJobFeedback1784120000000,
+    RuleCitations1784130000000,
 ] as const;
