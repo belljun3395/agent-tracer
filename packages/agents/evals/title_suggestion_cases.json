@@ -1,0 +1,51 @@
+[
+  {
+    "name": "구체적인 대안 두 개",
+    "inputs": {"currentTitle": "Untitled"},
+    "outputs": {
+      "suggestions": [
+        {"title": "인증 토큰 누수 수정", "rationale": "토큰 누수 수정이 핵심 작업이다."},
+        {"title": "인증 회귀 테스트 추가", "rationale": "회귀 검증을 함께 추가했다."}
+      ]
+    },
+    "expectedScore": 1
+  },
+  {
+    "name": "좋은 기존 제목 유지",
+    "inputs": {"currentTitle": "인증 토큰 누수 수정"},
+    "outputs": {"suggestions": []},
+    "expectedScore": 1
+  },
+  {
+    "name": "기존 제목 반복",
+    "inputs": {"currentTitle": "Untitled"},
+    "outputs": {
+      "suggestions": [
+        {"title": "Untitled", "rationale": "현재 제목을 유지한다."},
+        {"title": "인증 회귀 테스트 추가", "rationale": "회귀 검증을 추가했다."}
+      ]
+    },
+    "expectedScore": 0
+  },
+  {
+    "name": "후보 한 개",
+    "inputs": {"currentTitle": "Untitled"},
+    "outputs": {
+      "suggestions": [
+        {"title": "인증 토큰 누수 수정", "rationale": "토큰 누수를 수정했다."}
+      ]
+    },
+    "expectedScore": 0
+  },
+  {
+    "name": "자리표시자 후보",
+    "inputs": {"currentTitle": "기존 제목"},
+    "outputs": {
+      "suggestions": [
+        {"title": "Task 123", "rationale": "작업 번호를 사용한다."},
+        {"title": "Test", "rationale": "테스트 작업이다."}
+      ]
+    },
+    "expectedScore": 0
+  }
+]

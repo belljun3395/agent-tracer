@@ -55,10 +55,15 @@ uv pip install -e ".[dev]"
 .venv/bin/mypy src scripts              # 타입 검사(strict)
 .venv/bin/python scripts/check_comments.py src tests scripts  # 주석 규칙 검사
 .venv/bin/python scripts/check_internal_dependencies.py src  # 내부 의존 방향 검사
+.venv/bin/python scripts/evaluate_title_quality.py  # 체크인한 품질 기준선(네트워크 없음)
 .venv/bin/python -m pytest -q       # 유닛 테스트(네트워크 없음, 페이크 모델)
 
 python -m agent_graph               # 로컬 기동(기본 :8800)
 ```
+
+실제 모델 실행을 LangSmith에 기록한 뒤 같은 결정적 평가기를 적용하려면
+`LANGSMITH_API_KEY=... .venv/bin/python scripts/evaluate_title_quality.py --langsmith-experiment <실험>`을
+명시적으로 실행한다. 기본 평가와 CI는 네트워크를 사용하지 않는다.
 
 ## 설정 (환경변수)
 
