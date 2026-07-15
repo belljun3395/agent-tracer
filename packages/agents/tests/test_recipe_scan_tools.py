@@ -7,8 +7,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from agent_graph.agents.recipe_scan.langchain_agent import RECIPE_LANGCHAIN_TOOLS
 from agent_graph.agents.recipe_scan.models import EvidenceRecord, ProvenanceCatalog
-from agent_graph.agents.recipe_scan.tools.client import RECIPE_TOOL_SPECS, invoke_tool, record_evidence
+from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
 from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
 from agent_graph.agents.recipe_scan.tools.provenance import add_provenance
 from agent_graph.agents.shared.models import ToolCallback
@@ -16,7 +17,14 @@ from tests.fakes import FakeToolClient
 
 
 def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> None:
-    catalog = [tool.to_anthropic() for tool in RECIPE_TOOL_SPECS]
+    catalog = [
+        {
+            "name": tool.name,
+            "description": tool.description,
+            "input_schema": tool.tool_call_schema.model_json_schema(),
+        }
+        for tool in RECIPE_LANGCHAIN_TOOLS
+    ]
 
     assert [tool["name"] for tool in catalog] == [
         "get_task_summary",

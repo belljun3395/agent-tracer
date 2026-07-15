@@ -8,16 +8,11 @@ from typing import Any
 import httpx
 
 from ...runtime.callback import invoke_remote_tool
-from ...runtime.llm.tool_loop import ToolSpec
 from ...runtime.telemetry.spans import tool_span
 from ...shared.models import ToolCallback
 from ..models import EvidenceRecord, ProvenanceCatalog
-from .contracts import RECIPE_TOOLS, validate_tool_args
+from .contracts import validate_tool_args
 from .provenance import add_provenance
-
-RECIPE_TOOL_SPECS: tuple[ToolSpec, ...] = tuple(
-    ToolSpec(tool.name, tool.description, tool.args_model) for tool in RECIPE_TOOLS
-)
 
 
 def _parse_content(content: str) -> Any:

@@ -25,7 +25,6 @@ from agent_graph.agents.task_cleanup.policy import (
     TASK_CLEANUP_MAX_OUTPUT_TOKENS,
 )
 from agent_graph.agents.task_cleanup.tools import (
-    CLEANUP_TOOL_SPECS,
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
@@ -59,7 +58,7 @@ def test_턴_예산이_골든_계약과_같다() -> None:
 
 
 def test_모델에게_여는_도구_이름이_골든_계약과_같다() -> None:
-    assert {spec.name for spec in CLEANUP_TOOL_SPECS} == set(_contract()["tools"])
+    assert {tool.name for tool in (list_candidate_tasks, get_task_events)} == set(_contract()["tools"])
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:

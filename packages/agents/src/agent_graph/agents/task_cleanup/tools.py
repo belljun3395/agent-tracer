@@ -9,7 +9,6 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..runtime.callback import invoke_remote_tool
-from ..runtime.llm.tool_loop import ToolSpec
 from ..runtime.telemetry.spans import tool_span
 from ..shared.models import ToolCallback, TrimmedStr
 from .models import CandidatePage, CleanupCandidate, EventPage
@@ -93,11 +92,6 @@ GET_TASK_EVENTS_DESCRIPTION = (
     "the latest events (e.g. to see how a long task ended). truncated/total tell you whether more "
     "events exist. Call this whenever you need to see what actually happened in a task before "
     "judging it."
-)
-
-CLEANUP_TOOL_SPECS: tuple[ToolSpec, ...] = (
-    ToolSpec(LIST_CANDIDATE_TASKS, LIST_CANDIDATE_TASKS_DESCRIPTION, ListCandidateTasksArgs),
-    ToolSpec(GET_TASK_EVENTS, GET_TASK_EVENTS_DESCRIPTION, GetTaskEventsArgs),
 )
 
 _ARGS_BY_TOOL: dict[str, type[BaseModel]] = {
