@@ -14,7 +14,7 @@
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build": "node scripts/run-workspaces.mjs build",
     "check:coauthors": "node scripts/check-coauthors.mjs",
-    "test": "vitest run && node --test \"scripts/**/*.test.mjs\"",
+    "test": "vitest run && node --test \"scripts/**/*.test.mjs\" && cd packages/agents && uv run pytest -q",
     "lint:deps": "node scripts/check-dependencies.mjs",
     "gen:paths": "node scripts/gen-paths.mjs",
     "check:paths": "node scripts/gen-paths.mjs --check",

@@ -45,9 +45,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.completion_client.aclose()
 
 
-app = FastAPI(title="agent-graph", lifespan=lifespan)
-
-
 def accept(
     label: str,
     req: AgentExecutionRequest,
@@ -56,7 +53,7 @@ def accept(
     request: Request,
 ) -> AgentAccepted:
     """실행을 배경으로 넘기고 접수만 응답한다."""
-    client: httpx.AsyncClient = app.state.tool_client
+    client: httpx.AsyncClient = request.app.state.tool_client
     parent_context = extract_trace_context(dict(request.headers))
 
     async def run() -> AgentResponse:
@@ -72,16 +69,14 @@ def accept(
             req.idempotency_input_hash(),
         )
 
-    background.add_task(run_and_deliver, app.state.completion_client, req.completionCallback, run)
+    background.add_task(run_and_deliver, request.app.state.completion_client, req.completionCallback, run)
     return AgentAccepted(runId=req.idempotencyKey or req.jobId or "")
 
 
-@app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/agents/title-suggestion", status_code=202)
 async def title_suggestion(
     req: TitleSuggestionRequest,
     background: BackgroundTasks,
@@ -96,7 +91,6 @@ async def title_suggestion(
     )
 
 
-@app.post("/agents/task-cleanup", status_code=202)
 async def task_cleanup(
     req: TaskCleanupRequest,
     background: BackgroundTasks,
@@ -111,7 +105,6 @@ async def task_cleanup(
     )
 
 
-@app.post("/agents/recipe-scan", status_code=202)
 async def recipe_scan(
     req: RecipeScanRequest,
     background: BackgroundTasks,
@@ -126,6 +119,19 @@ async def recipe_scan(
     )
 
 
-@app.post("/agents/runs/{run_id}/cancel")
 async def cancel_run_endpoint(run_id: str) -> dict[str, bool]:
     return {"cancelled": cancel_run(run_id)}
+
+
+def create_app() -> FastAPI:
+    """독립 수명을 가진 에이전트 HTTP 앱을 만든다."""
+    app = FastAPI(title="agent-graph", lifespan=lifespan)
+    app.get("/health")(health)
+    app.post("/agents/title-suggestion", status_code=202)(title_suggestion)
+    app.post("/agents/task-cleanup", status_code=202)(task_cleanup)
+    app.post("/agents/recipe-scan", status_code=202)(recipe_scan)
+    app.post("/agents/runs/{run_id}/cancel")(cancel_run_endpoint)
+    return app
+
+
+app = create_app()

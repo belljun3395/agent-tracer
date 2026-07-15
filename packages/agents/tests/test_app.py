@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -81,8 +82,9 @@ def _title_body(*, api_key: bool = True) -> dict[str, object]:
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(app_module.app)
+def client() -> Iterator[TestClient]:
+    with TestClient(app_module.create_app()) as test_client:
+        yield test_client
 
 
 @pytest.fixture
@@ -99,21 +101,34 @@ def _post(
     tools: object | None = None,
     headers: dict[str, str] | None = None,
 ) -> httpx.Response:
-    with client:
-        original_tools = app_module.app.state.tool_client
-        app_module.app.state.completion_client = completions
-        if tools is not None:
-            app_module.app.state.tool_client = tools
-        try:
-            return client.post(path, json=body, headers=headers or {})
-        finally:
-            app_module.app.state.tool_client = original_tools
+    original_tools = client.app.state.tool_client
+    original_completions = client.app.state.completion_client
+    client.app.state.completion_client = completions
+    if tools is not None:
+        client.app.state.tool_client = tools
+    try:
+        return client.post(path, json=body, headers=headers or {})
+    finally:
+        client.app.state.tool_client = original_tools
+        client.app.state.completion_client = original_completions
 
 
 def test_health_ok(client: TestClient) -> None:
     res = client.get("/health")
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
+
+
+def test_요청별_client_대역은_앱_상태에_남지_않는다(
+    client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(title_mod, "make_chat", lambda *a, **k: FakeToolLoopChat([{"suggestions": []}]))
+
+    original_tools = client.app.state.tool_client
+    original_completions = client.app.state.completion_client
+    _post(client, completions, "/agents/title-suggestion", _title_body(), tools=FakeToolClient({}))
+    assert client.app.state.tool_client is original_tools
+    assert client.app.state.completion_client is original_completions
 
 
 def test_실행을_접수하고_결과는_완료_창구로_돌려준다(
@@ -174,28 +189,24 @@ def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
 
 
 def test_잘못된_요청은_422(client: TestClient) -> None:
-    with client:
-        res = client.post("/agents/title-suggestion", json={"model": "x"})
+    res = client.post("/agents/title-suggestion", json={"model": "x"})
     assert res.status_code == 422
 
 
 def test_apiKey가_없으면_422(client: TestClient) -> None:
     # env 폴백 없이 요청 본문의 apiKey를 강제한다.
-    with client:
-        res = client.post("/agents/title-suggestion", json=_title_body(api_key=False))
+    res = client.post("/agents/title-suggestion", json=_title_body(api_key=False))
     assert res.status_code == 422
 
 
 def test_완료_창구가_없으면_422(client: TestClient) -> None:
     body = {key: value for key, value in _title_body().items() if key != "completionCallback"}
-    with client:
-        res = client.post("/agents/title-suggestion", json=body)
+    res = client.post("/agents/title-suggestion", json=body)
     assert res.status_code == 422
 
 
 def test_등록되지_않은_runId_취소는_cancelled_false(client: TestClient) -> None:
-    with client:
-        res = client.post("/agents/runs/no-such-run/cancel")
+    res = client.post("/agents/runs/no-such-run/cancel")
     assert res.status_code == 200
     assert res.json() == {"cancelled": False}
 
