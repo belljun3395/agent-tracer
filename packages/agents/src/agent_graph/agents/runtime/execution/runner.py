@@ -7,12 +7,12 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from ...shared.models import AgentResponse, UsageDTO
+from ...shared.models import AgentErrorDTO, AgentResponse, UsageDTO
 from ..errors import DeadlineExceeded, classify_exception
 from ..telemetry.attributes import apply_usage_attributes
 from ..telemetry.metrics import record_client_metrics
 from ..telemetry.spans import invoke_agent_span, mark_span_error
-from .registry import run_registered
+from .registry import IdempotencyConflict, run_registered
 from .trace import ExecutionTrace
 
 AgentBody = Callable[[ExecutionTrace], Awaitable[dict[str, object]]]
@@ -27,14 +27,26 @@ async def execute(
     idempotency_key: str | None = None,
     run_id: str | None = None,
     parent_context: Any = None,
+    input_hash: str = "",
 ) -> AgentResponse:
     """에이전트 실행을 등록하고 표준 응답으로 돌려준다."""
     key = run_id or idempotency_key or job_id
-    return await run_registered(
-        lambda: _execute(label, model, deadline_ms, body, job_id, parent_context),
-        idempotency_key=idempotency_key,
-        run_key=key,
-    )
+    try:
+        return await run_registered(
+            lambda: _execute(label, model, deadline_ms, body, job_id, parent_context),
+            label=label,
+            model=model,
+            job_id=job_id,
+            input_hash=input_hash,
+            idempotency_key=idempotency_key,
+            run_key=key,
+        )
+    except IdempotencyConflict as err:
+        return AgentResponse(
+            modelUsed=model,
+            durationMs=0,
+            error=AgentErrorDTO(subtype="invalid_request_error", summary=str(err)),
+        )
 
 
 async def _execute(

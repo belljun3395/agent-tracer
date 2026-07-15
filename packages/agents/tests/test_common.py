@@ -94,6 +94,161 @@ async def test_실패한_idempotency_key는_다음_Temporal_시도에서_다시_
     assert calls == 2
 
 
+async def test_만료시각이_지나도_진행중인_실행은_다시_시작하지_않는다(monkeypatch: pytest.MonkeyPatch) -> None:
+    import agent_graph.agents.runtime.execution.registry as registry
+
+    calls = 0
+    release = asyncio.Event()
+    clock = 0.0
+    monkeypatch.setattr(registry, "_IDEMPOTENCY_TTL_S", 1.0)
+    monkeypatch.setattr(registry.time, "monotonic", lambda: clock)
+
+    async def body(_usage: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        await release.wait()
+        return {"ok": True}
+
+    first = asyncio.ensure_future(
+        execute("recipe-scan", "model", 1_000, body, idempotency_key="long-running-key")
+    )
+    await asyncio.sleep(0)
+    clock = 2.0
+    second = asyncio.ensure_future(
+        execute("recipe-scan", "model", 1_000, body, idempotency_key="long-running-key")
+    )
+    await asyncio.sleep(0)
+    release.set()
+
+    await asyncio.gather(first, second)
+
+    assert calls == 1
+
+
+async def test_성공_캐시_TTL은_실행_완료부터_계산한다(monkeypatch: pytest.MonkeyPatch) -> None:
+    import agent_graph.agents.runtime.execution.registry as registry
+
+    calls = 0
+    release = asyncio.Event()
+    clock = 0.0
+    monkeypatch.setattr(registry, "_IDEMPOTENCY_TTL_S", 1.0)
+    monkeypatch.setattr(registry.time, "monotonic", lambda: clock)
+
+    async def body(_usage: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        await release.wait()
+        return {"ok": True}
+
+    first = asyncio.ensure_future(
+        execute("recipe-scan", "model", 1_000, body, idempotency_key="completed-cache-key")
+    )
+    await asyncio.sleep(0)
+    clock = 2.0
+    release.set()
+    await first
+    clock = 2.5
+
+    second = await execute("recipe-scan", "model", 1_000, body, idempotency_key="completed-cache-key")
+
+    assert second.data == {"ok": True}
+    assert calls == 1
+
+
+@pytest.mark.parametrize(
+    ("label", "model", "input_hash"),
+    [
+        ("title-suggestion", "other-model", "input-a"),
+        ("title-suggestion", "model", "input-b"),
+    ],
+)
+async def test_같은_key의_다른_실행_범위는_거부한다(
+    label: str,
+    model: str,
+    input_hash: str,
+) -> None:
+    calls = 0
+    key = f"conflicting-key-{model}-{input_hash}"
+
+    async def body(_usage: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {"ok": True}
+
+    await execute(
+        "title-suggestion",
+        "model",
+        1_000,
+        body,
+        idempotency_key=key,
+        input_hash="input-a",
+    )
+    conflict = await execute(
+        label,
+        model,
+        1_000,
+        body,
+        idempotency_key=key,
+        input_hash=input_hash,
+    )
+
+    assert calls == 1
+    assert conflict.error is not None
+    assert conflict.error.subtype == "invalid_request_error"
+
+
+async def test_같은_key라도_다른_agent는_독립적으로_실행한다() -> None:
+    calls = 0
+
+    async def body(_usage: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {"ok": True}
+
+    first = await execute(
+        "title-suggestion", "model", 1_000, body, idempotency_key="agent-scoped-key", input_hash="input-a"
+    )
+    second = await execute(
+        "recipe-scan", "model", 1_000, body, idempotency_key="agent-scoped-key", input_hash="input-a"
+    )
+
+    assert first.error is None
+    assert second.error is None
+    assert calls == 2
+
+
+async def test_같은_key의_다른_job은_거부한다() -> None:
+    calls = 0
+
+    async def body(_usage: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {"ok": True}
+
+    await execute(
+        "title-suggestion",
+        "model",
+        1_000,
+        body,
+        job_id="job-a",
+        idempotency_key="job-scoped-key",
+        input_hash="input-a",
+    )
+    conflict = await execute(
+        "title-suggestion",
+        "model",
+        1_000,
+        body,
+        job_id="job-b",
+        idempotency_key="job-scoped-key",
+        input_hash="input-a",
+    )
+
+    assert calls == 1
+    assert conflict.error is not None
+    assert conflict.error.subtype == "invalid_request_error"
+
+
 class TestCancelRun:
     async def test_취소된_실행은_CancelledError를_그대로_재전파한다(self) -> None:
         started = asyncio.Event()

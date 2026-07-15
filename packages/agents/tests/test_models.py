@@ -55,6 +55,32 @@ class TestTitleSuggestionRequest:
                 }
             )
 
+    def test_멱등_입력_해시는_콜백과_자격증명에_영향받지_않는다(self) -> None:
+        base = {
+            "model": "m",
+            "apiKey": "first-key",
+            "jobId": "job-1",
+            "idempotencyKey": "key-1",
+            "taskId": "task-1",
+            "context": _TITLE_CONTEXT,
+            "toolCallback": _CALLBACK,
+            "completionCallback": _COMPLETION,
+        }
+        changed_callbacks = {
+            **base,
+            "apiKey": "second-key",
+            "toolCallback": {"url": "http://worker:8810/tools/invoke", "token": "tok-2"},
+            "completionCallback": {"url": "http://worker:8810/runs/complete", "token": "done-2"},
+        }
+        changed_input = {**base, "language": "ko"}
+
+        assert TitleSuggestionRequest.model_validate(base).idempotency_input_hash() == (
+            TitleSuggestionRequest.model_validate(changed_callbacks).idempotency_input_hash()
+        )
+        assert TitleSuggestionRequest.model_validate(base).idempotency_input_hash() != (
+            TitleSuggestionRequest.model_validate(changed_input).idempotency_input_hash()
+        )
+
 
 class TestTaskCleanupRequest:
     def test_도메인_봉투와_한도를_보존한다(self) -> None:

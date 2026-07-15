@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
@@ -41,6 +43,22 @@ class AgentExecutionRequest(BaseModel):
         description="같은 키의 성공한 실행 결과를 단일 프로세스의 제한된 시간 동안 재사용한다.",
     )
     completionCallback: CompletionCallback
+
+    def idempotency_input_hash(self) -> str:
+        """실행 제어·권한 창구를 제외한 도메인 입력의 안정 해시를 돌려준다."""
+        payload = self.model_dump(
+            mode="json",
+            exclude={
+                "apiKey",
+                "jobId",
+                "deadlineMs",
+                "idempotencyKey",
+                "completionCallback",
+                "toolCallback",
+            },
+        )
+        encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        return hashlib.sha256(encoded.encode()).hexdigest()
 
 
 class AgentAccepted(BaseModel):

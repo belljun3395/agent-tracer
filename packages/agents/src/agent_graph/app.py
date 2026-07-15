@@ -69,6 +69,7 @@ def accept(
             req.idempotencyKey,
             None,
             parent_context,
+            req.idempotency_input_hash(),
         )
 
     background.add_task(run_and_deliver, app.state.completion_client, req.completionCallback, run)
