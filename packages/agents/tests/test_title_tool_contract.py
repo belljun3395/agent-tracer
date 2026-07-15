@@ -9,6 +9,7 @@ from typing import Any, get_args
 import pytest
 from pydantic import ValidationError
 
+from agent_graph.agents.title_suggestion.langchain_agent import get_task_events
 from agent_graph.agents.title_suggestion.models import (
     MAX_CONTEXT_TURNS,
     RECENT_TURN_LIMIT,
@@ -80,6 +81,16 @@ def test_get_task_events의_필수와_선택_인자가_골든_계약과_같다()
 
     assert required == set(contract["required"])
     assert optional == set(contract["optional"])
+
+
+def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:
+    contract = _contract()["getTaskEvents"]
+    schema = get_task_events.tool_call_schema.model_json_schema()
+
+    assert get_task_events.name == "get_task_events"
+    assert set(schema["required"]) == set(contract["required"])
+    assert set(schema["properties"]) == set(contract["required"] + contract["optional"])
+    assert "runtime" not in schema["properties"]
 
 
 def test_limit의_기본값과_최소와_최대가_골든_계약과_같다() -> None:

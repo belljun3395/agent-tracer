@@ -8,11 +8,11 @@ from typing import Any
 import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.tool_loop import continue_tool_loop, run_tool_loop
+from ...runtime.llm.tool_loop import ToolLoopBudget
+from ..langchain_agent import TitleAgentContext, build_title_agent
 from ..models import TitleSuggestionDraft, TitleSuggestionRequest, TitleSuggestionState
 from ..policy import MAX_TITLE_MODEL_COST_USD, MAX_TOOL_ROUNDS, validate_title_candidate
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
-from ..tools import TITLE_TOOL_SPECS, invoke_tool
 
 type TitleNode = Callable[[TitleSuggestionState], Awaitable[dict[str, Any]]]
 
@@ -27,27 +27,32 @@ def create_candidate_nodes(
 ) -> tuple[TitleNode, TitleNode, TitleNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    async def run_tool(name: str, args: dict[str, Any]) -> str:
-        return await invoke_tool(client, req.toolCallback, name, args)
+    title_agent = build_title_agent(chat, INVESTIGATOR_SYSTEM_PROMPT)
 
-    def observe(_name: str, _args: dict[str, Any], _content: str) -> None:
-        return None
+    async def invoke_agent(
+        messages: list[Any], spent: float
+    ) -> tuple[TitleSuggestionDraft, list[Any], float]:
+        budget = ToolLoopBudget(agent_name, req.model, MAX_TITLE_MODEL_COST_USD, spent)
+        context = TitleAgentContext(client, req.toolCallback, usage, budget)
+        output = await title_agent.ainvoke(
+            {"messages": messages},
+            context=context,
+            config={"recursion_limit": 2 * MAX_TOOL_ROUNDS + 10},
+        )
+        candidate = output.get("structured_response")
+        if not isinstance(candidate, TitleSuggestionDraft):
+            raise ValueError(f"{agent_name} produced no structured output")
+        return candidate, list(output["messages"]), budget.spent
 
     async def investigate(state: TitleSuggestionState) -> dict[str, Any]:
-        draft, messages, cost = await run_tool_loop(
-            chat,
-            system=INVESTIGATOR_SYSTEM_PROMPT,
-            user=build_user_prompt(state["task_id"], state["context"], state["language"]),
-            tools=TITLE_TOOL_SPECS,
-            schema=TitleSuggestionDraft,
-            trace=usage,
-            run_tool=run_tool,
-            observe=observe,
-            agent_name=agent_name,
-            model_name=req.model,
-            max_rounds=MAX_TOOL_ROUNDS,
-            max_cost_usd=MAX_TITLE_MODEL_COST_USD,
-            spent=state["model_cost_usd"],
+        draft, messages, cost = await invoke_agent(
+            [
+                {
+                    "role": "user",
+                    "content": build_user_prompt(state["task_id"], state["context"], state["language"]),
+                }
+            ],
+            state["model_cost_usd"],
         )
         return {"candidate": draft, "messages": messages, "model_cost_usd": cost}
 
@@ -62,24 +67,20 @@ def create_candidate_nodes(
         return {"validation_errors": errors}
 
     async def repair(state: TitleSuggestionState) -> dict[str, Any]:
-        draft, cost = await continue_tool_loop(
-            chat,
-            messages=state["messages"],
-            directive=REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
-            tools=TITLE_TOOL_SPECS,
-            schema=TitleSuggestionDraft,
-            trace=usage,
-            run_tool=run_tool,
-            observe=observe,
-            agent_name=agent_name,
-            model_name=req.model,
-            max_rounds=MAX_TOOL_ROUNDS,
-            max_cost_usd=MAX_TITLE_MODEL_COST_USD,
-            spent=state["model_cost_usd"],
+        messages = [
+            *state["messages"],
+            {
+                "role": "user",
+                "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
+            },
+        ]
+        draft, messages, cost = await invoke_agent(
+            messages,
+            state["model_cost_usd"],
         )
         return {
             "candidate": draft,
-            "messages": state["messages"],
+            "messages": messages,
             "repair_attempted": True,
             "model_cost_usd": cost,
         }

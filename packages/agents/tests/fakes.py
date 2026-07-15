@@ -41,7 +41,7 @@ class FakeToolLoopChat:
         self.output_config: dict[str, Any] | None = None
         self.requests: list[list[Any]] = []
 
-    def bind_tools(self, tools: list[dict[str, Any]]) -> FakeToolLoopChat:
+    def bind_tools(self, tools: list[Any], **_kwargs: Any) -> FakeToolLoopChat:
         self.bound_tools = tools
         return self
 
@@ -60,6 +60,16 @@ class FakeToolLoopChat:
                 for index, call in enumerate(turn)
             ]
             return mk_ai(tool_calls=calls)
+        structured_tool = next(
+            (tool for tool in self.bound_tools if getattr(tool, "name", "") == "TitleSuggestionDraft"),
+            None,
+        )
+        if structured_tool is not None:
+            return mk_ai(
+                tool_calls=[
+                    {"name": "TitleSuggestionDraft", "args": turn, "id": "call-structured", "type": "tool_call"}
+                ]
+            )
         return mk_ai(content=_json.dumps(turn, ensure_ascii=False))
 
     def cached_blocks(self) -> int:

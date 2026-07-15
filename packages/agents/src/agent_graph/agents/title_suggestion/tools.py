@@ -8,7 +8,6 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..runtime.callback import invoke_remote_tool
-from ..runtime.llm.tool_loop import ToolSpec
 from ..runtime.telemetry.spans import tool_span
 from ..shared.models import ToolCallback, TrimmedStr
 
@@ -17,6 +16,11 @@ DEFAULT_EVENT_LIMIT = 100
 MIN_EVENT_LIMIT = 1
 MAX_EVENT_LIMIT = 300
 DEFAULT_EVENT_ORDER: Literal["asc", "desc"] = "asc"
+GET_TASK_EVENTS_DESCRIPTION = (
+    "Read one page of the task's raw events when the recorded conversation cannot name the work: "
+    f"pick limit (default {DEFAULT_EVENT_LIMIT}, hard cap {MAX_EVENT_LIMIT}), pass the response's "
+    'nextCursor back as cursor to keep paging, and set order="desc" to read the latest events first.'
+)
 
 
 class GetTaskEventsArgs(BaseModel):
@@ -28,17 +32,6 @@ class GetTaskEventsArgs(BaseModel):
     limit: int = Field(default=DEFAULT_EVENT_LIMIT, ge=MIN_EVENT_LIMIT, le=MAX_EVENT_LIMIT)
     cursor: TrimmedStr | None = Field(default=None, min_length=1)
     order: Literal["asc", "desc"] = DEFAULT_EVENT_ORDER
-
-
-TITLE_TOOL_SPECS: tuple[ToolSpec, ...] = (
-    ToolSpec(
-        GET_TASK_EVENTS_TOOL_NAME,
-        "Read one page of the task's raw events when the recorded conversation cannot name the work: "
-        f"pick limit (default {DEFAULT_EVENT_LIMIT}, hard cap {MAX_EVENT_LIMIT}), pass the response's "
-        'nextCursor back as cursor to keep paging, and set order="desc" to read the latest events first.',
-        GetTaskEventsArgs,
-    ),
-)
 
 
 def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
