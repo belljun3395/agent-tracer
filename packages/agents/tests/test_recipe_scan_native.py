@@ -2,27 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
-
-from agent_graph.agents.recipe_scan.graph import build_recipe_scan_graph
+from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH
 from agent_graph.agents.recipe_scan.models import (
     ProvenanceCatalog,
     RecipeCandidate,
-    RecipeScanState,
 )
 from agent_graph.agents.recipe_scan.policy import validate_recipe_candidate
 
 
-async def _node(_state: RecipeScanState) -> dict[str, Any]:
-    return {}
-
-
-def _validate(_state: RecipeScanState) -> Literal["repair", "finalize", "empty"]:
-    return "finalize"
-
-
 def test_recipe_전용_그래프_위상을_명시한다() -> None:
-    graph = build_recipe_scan_graph(_node, _node, _node, _node, _node, _validate).get_graph()
+    graph = RECIPE_SCAN_GRAPH.get_graph()
 
     assert set(graph.nodes) == {
         "__start__",

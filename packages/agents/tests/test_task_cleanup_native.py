@@ -9,20 +9,12 @@ from pydantic import ValidationError
 
 from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
-from agent_graph.agents.task_cleanup.graph import build_task_cleanup_graph
-from agent_graph.agents.task_cleanup.models import TaskCleanupRequest, TaskCleanupState
+from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH
+from agent_graph.agents.task_cleanup.models import TaskCleanupRequest
 from tests.fakes import FakeToolClient, FakeToolLoopChat
 
 _CALLBACK = {"url": "http://worker:8810/tools/invoke", "token": "tok-1"}
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
-
-
-async def _node(_state: TaskCleanupState) -> dict[str, Any]:
-    return {}
-
-
-def _validate(_state: TaskCleanupState) -> Any:
-    return "finalize"
 
 
 def _request() -> TaskCleanupRequest:
@@ -88,7 +80,7 @@ async def _run(chat: FakeToolLoopChat, client: FakeToolClient) -> Any:
 
 
 def test_전용_그래프_위상을_고정한다() -> None:
-    graph = build_task_cleanup_graph(_node, _node, _node, _node, _node, _validate).get_graph()
+    graph = TASK_CLEANUP_GRAPH.get_graph()
 
     assert set(graph.nodes) == {
         "__start__",

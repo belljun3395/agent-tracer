@@ -8,7 +8,8 @@ import httpx
 
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.llm.client import make_chat
-from .graph import TITLE_SUGGESTION_GRAPH, TitleGraphContext
+from ..runtime.validation_graph import ValidationGraphContext
+from .graph import TITLE_SUGGESTION_GRAPH
 from .models import TitleSuggestionRequest
 from .nodes.candidate import create_candidate_nodes, empty, finalize
 from .policy import TITLE_MAX_OUTPUT_TOKENS, build_routes
@@ -33,13 +34,16 @@ async def run_title_suggestion(
         chat,
         agent_name=AGENT_NAME,
     )
-    context = TitleGraphContext(
+    context = ValidationGraphContext(
+        AGENT_NAME,
         usage,
-        investigate,
-        validate_candidate,
-        repair,
-        finalize,
-        empty,
+        {
+            "investigate": investigate,
+            "validate_candidate": validate_candidate,
+            "repair": repair,
+            "finalize": finalize,
+            "empty": empty,
+        },
         build_routes(usage),
     )
     final = await TITLE_SUGGESTION_GRAPH.ainvoke(

@@ -5,26 +5,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from langgraph.graph.state import CompiledStateGraph
 
-from agent_graph.agents.recipe_scan.graph import build_recipe_scan_graph
-from agent_graph.agents.recipe_scan.models import RecipeScanState
+from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH
 
 
-async def _node(_state: RecipeScanState) -> dict[str, Any]:
-    return {}
-
-
-def _validate(_state: RecipeScanState) -> Literal["repair", "finalize", "empty"]:
-    return "empty"
-
-
-def build_graph() -> CompiledStateGraph[
-    RecipeScanState, None, RecipeScanState, RecipeScanState
-]:
-    return build_recipe_scan_graph(_node, _node, _node, _node, _node, _validate)
+def build_graph() -> CompiledStateGraph[Any, Any, Any, Any]:
+    """실행 코드가 공유하는 정적 recipe-scan 그래프를 반환한다."""
+    return RECIPE_SCAN_GRAPH
 
 
 if __name__ == "__main__":

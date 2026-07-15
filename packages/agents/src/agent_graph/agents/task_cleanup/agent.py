@@ -6,10 +6,10 @@ from typing import Any
 
 import httpx
 
-from ..runtime.execution.node_trace import traced_node
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.llm.client import make_chat
-from .graph import build_task_cleanup_graph
+from ..runtime.validation_graph import ValidationGraphContext
+from .graph import TASK_CLEANUP_GRAPH
 from .models import TaskCleanupRequest
 from .nodes.decision import create_decision_nodes
 from .nodes.result import empty, finalize
@@ -35,15 +35,19 @@ async def run_task_cleanup(
         chat,
         agent_name=AGENT_NAME,
     )
-    graph = build_task_cleanup_graph(
-        traced_node(AGENT_NAME, "investigate", usage, investigate),
-        traced_node(AGENT_NAME, "validate_decisions", usage, validate_decisions),
-        traced_node(AGENT_NAME, "repair", usage, repair),
-        traced_node(AGENT_NAME, "finalize", usage, finalize),
-        traced_node(AGENT_NAME, "empty", usage, empty),
+    context = ValidationGraphContext(
+        AGENT_NAME,
+        usage,
+        {
+            "investigate": investigate,
+            "validate_decisions": validate_decisions,
+            "repair": repair,
+            "finalize": finalize,
+            "empty": empty,
+        },
         build_routes(usage),
     )
-    final = await graph.ainvoke(
+    final = await TASK_CLEANUP_GRAPH.ainvoke(
         {
             "scanned_at": req.scannedAt,
             "language": req.language,
@@ -57,6 +61,7 @@ async def run_task_cleanup(
             "repair_attempted": False,
             "result": None,
         },
+        context=context,
         config={"recursion_limit": 30},
     )
     return final["result"] or {"suggestions": []}
