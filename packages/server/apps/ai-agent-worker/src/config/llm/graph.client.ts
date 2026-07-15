@@ -7,11 +7,16 @@ import {
 import { estimateCostUsd } from "~ai-agent-worker/support/llm/pricing.js";
 import type { AgentRunnerPort, OutputSchema, StructuredAgentResult } from "./llm.runner.js";
 import type { AgentGraphResponse } from "./graph.protocol.js";
-import type { CompletionCallbackGranter } from "./agent.callback.server.js";
+import {
+    COMPLETION_INBOX_STATUS,
+    type CompletionInbox,
+    type CompletionInboxEntry,
+} from "./durable.completion.inbox.js";
 
 const OUTER_TIMEOUT_BUFFER_MS = 30_000;
 const START_TIMEOUT_MS = 30_000;
 const CANCEL_TIMEOUT_MS = 5_000;
+const COMPLETION_POLL_MS = 100;
 
 const ROUTE_BY_AGENT_ID: Readonly<Record<string, string>> = Object.fromEntries(
     Object.values(AGENT).map((agent) => [agent.id, agent.route]),
@@ -21,7 +26,7 @@ const ROUTE_BY_AGENT_ID: Readonly<Record<string, string>> = Object.fromEntries(
 export class AgentGraphClient implements AgentRunnerPort {
     constructor(
         private readonly baseUrl: string,
-        private readonly callbacks: CompletionCallbackGranter,
+        private readonly completionInbox: CompletionInbox,
     ) {}
 
     requiresLocalApiKey(): boolean {
@@ -35,38 +40,49 @@ export class AgentGraphClient implements AgentRunnerPort {
         opts: { deadlineMs: number; abortSignal?: AbortSignal },
     ): Promise<StructuredAgentResult<T>> {
         const runId = cancellationRunId(input);
-        let settle: (outcome: Settlement) => void = () => undefined;
-        const settled = new Promise<Settlement>((resolve) => {
-            settle = resolve;
-        });
-
-        const grant = this.callbacks.grantCompletion((response) => {
-            settle({ response: response as unknown as AgentGraphResponse });
-        });
-        const timer = setTimeout(
-            () => settle({ failure: "agent-graph completion timeout" }),
-            opts.deadlineMs + OUTER_TIMEOUT_BUFFER_MS,
-        );
-        const onAbort = (): void => settle({ failure: "agent-graph run cancelled" });
-        if (opts.abortSignal?.aborted === true) onAbort();
-        else opts.abortSignal?.addEventListener("abort", onAbort, { once: true });
+        if (runId === null) throw new AgentExecutionFailure(agentId, "AGENT_FAILED", "agent-graph run requires an id");
+        const runKey = `${agentId}:${runId}`;
+        const deadlineMs = opts.deadlineMs + OUTER_TIMEOUT_BUFFER_MS;
+        const opened = await this.completionInbox.open(runKey, deadlineMs);
 
         try {
-            await this.start(agentId, { ...input, completionCallback: { url: grant.url, token: grant.token } });
-            const outcome = await settled;
-            if (outcome.response === undefined) {
-                throw new AgentExecutionFailure(agentId, "AGENT_FAILED", outcome.failure ?? "agent-graph run lost");
+            if (opened.grant !== null) {
+                await this.start(agentId, { ...input, completionCallback: opened.grant });
             }
-            return parseStructured(agentId, outcome.response, schema);
+            const response = await this.waitForCompletion(runKey, opened.entry, deadlineMs, opts.abortSignal);
+            return parseStructured(agentId, response as unknown as AgentGraphResponse, schema);
         } catch (error) {
             // 기다림을 멈춘 뒤에도 백엔드는 계속 돌고 있으므로 고아가 된 실행을 끊는다.
-            if (runId !== null) await this.cancelRun(runId);
+            await this.completionInbox.close(runKey, "canceled");
+            await this.cancelRun(runId);
             throw error;
-        } finally {
-            clearTimeout(timer);
-            grant.revoke();
-            opts.abortSignal?.removeEventListener("abort", onAbort);
         }
+    }
+
+    private async waitForCompletion(
+        runKey: string,
+        initial: CompletionInboxEntry,
+        deadlineMs: number,
+        abortSignal?: AbortSignal,
+    ): Promise<Record<string, unknown>> {
+        const deadlineAt = Date.now() + deadlineMs;
+        let entry: CompletionInboxEntry | null = initial;
+        while (entry !== null) {
+            if (entry.status === COMPLETION_INBOX_STATUS.completed && entry.response !== null) return entry.response;
+            if (entry.status !== COMPLETION_INBOX_STATUS.pending) {
+                throw new AgentExecutionFailure("agent-graph", "AGENT_FAILED", `agent-graph completion ${entry.status}`);
+            }
+            if (abortSignal?.aborted === true) {
+                throw new AgentExecutionFailure("agent-graph", "AGENT_FAILED", "agent-graph run cancelled");
+            }
+            if (Date.now() >= deadlineAt) {
+                await this.completionInbox.close(runKey, "expired");
+                throw new AgentExecutionFailure("agent-graph", "AGENT_FAILED", "agent-graph completion timeout");
+            }
+            await delay(COMPLETION_POLL_MS);
+            entry = await this.completionInbox.find(runKey);
+        }
+        throw new AgentExecutionFailure("agent-graph", "AGENT_FAILED", "agent-graph completion inbox missing");
     }
 
     private async start(agentId: string, input: Record<string, unknown>): Promise<void> {
@@ -116,11 +132,6 @@ export class AgentGraphClient implements AgentRunnerPort {
             return;
         }
     }
-}
-
-interface Settlement {
-    readonly response?: AgentGraphResponse;
-    readonly failure?: string;
 }
 
 function parseStructured<T>(
@@ -179,4 +190,8 @@ function cancellationRunId(body: Record<string, unknown>): string | null {
 
 function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }

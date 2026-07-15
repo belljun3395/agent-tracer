@@ -51,6 +51,8 @@ export * from "./job/ai.job.entity.js";
 export * from "./job/ai.job.repository.js";
 export * from "./job/ai.job.step.entity.js";
 export * from "./job/ai.job.step.repository.js";
+export * from "./job/agent.completion.inbox.entity.js";
+export * from "./job/agent.completion.inbox.repository.js";
 
 // settings·user
 export * from "./settings/settings.const.js";

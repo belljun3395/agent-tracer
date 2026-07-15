@@ -11,6 +11,8 @@ import {
 import {
     AiJobEntity,
     AiJobRepository,
+    AgentCompletionInboxEntity,
+    AgentCompletionInboxRepository,
     AppSettingEntity,
     AppSettingRepository,
     EventEntity,
@@ -31,6 +33,7 @@ import { resolveDefaultAgentBackend } from "~ai-agent-worker/config/agent.backen
 import { ClaudeQueryRunner } from "~ai-agent-worker/config/llm/claude.query.runner.js";
 import { AgentGraphClient } from "~ai-agent-worker/config/llm/graph.client.js";
 import { AgentCallbackServer } from "~ai-agent-worker/config/llm/agent.callback.server.js";
+import { DurableCompletionInbox } from "~ai-agent-worker/config/llm/durable.completion.inbox.js";
 import { errorMessage, logError, logInfo } from "~ai-agent-worker/config/log.js";
 import { createNotificationPublisher } from "~ai-agent-worker/config/notification.js";
 import { createTemporalWorkers } from "~ai-agent-worker/config/temporal.worker.js";
@@ -82,6 +85,7 @@ async function bootstrap(): Promise<void> {
 
     const clock = new SystemClock();
     const jobs = new AiJobRepository(dataSource.getRepository(AiJobEntity));
+    const completionInbox = new AgentCompletionInboxRepository(dataSource.getRepository(AgentCompletionInboxEntity));
     const tasks = new TaskRepository(dataSource.getRepository(TaskEntity));
     const taskStates = new TaskUserStateRepository(dataSource.getRepository(TaskUserStateEntity));
     const events = new EventRepository(dataSource.getRepository(EventEntity));
@@ -96,9 +100,13 @@ async function bootstrap(): Promise<void> {
         config.agentGraph.toolCallbackPort,
         config.agentGraph.toolCallbackUrl,
         config.agentGraph.instanceId,
+        new DurableCompletionInbox(config.agentGraph.toolCallbackUrl, completionInbox),
     );
     await callbacks.start();
-    const graphClient = new AgentGraphClient(config.agentGraph.url, callbacks);
+    const graphClient = new AgentGraphClient(config.agentGraph.url, new DurableCompletionInbox(
+        config.agentGraph.toolCallbackUrl,
+        completionInbox,
+    ));
     // 세 에이전트 모두 도구를 쓰므로 Claude 쪽은 Agent SDK 러너 하나로 충분하다.
     const claudeRunner = new ClaudeQueryRunner();
 

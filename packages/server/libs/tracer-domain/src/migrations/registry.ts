@@ -4,6 +4,7 @@ import { RuleAnchoredToOneUtterance1784100000000 } from "./0003-RuleAnchoredToOn
 import { VerdictLivesUntilFulfilled1784110000000 } from "./0004-VerdictLivesUntilFulfilled.js";
 import { DropJobFeedback1784120000000 } from "./0005-DropJobFeedback.js";
 import { RuleCitations1784130000000 } from "./0006-RuleCitations.js";
+import { AgentCompletionInbox1784140000000 } from "./0007-AgentCompletionInbox.js";
 
 /** 읽기 모델 스키마의 마이그레이션 순서다. */
 export const TRACER_MIGRATIONS = [
@@ -13,4 +14,5 @@ export const TRACER_MIGRATIONS = [
     VerdictLivesUntilFulfilled1784110000000,
     DropJobFeedback1784120000000,
     RuleCitations1784130000000,
+    AgentCompletionInbox1784140000000,
 ] as const;

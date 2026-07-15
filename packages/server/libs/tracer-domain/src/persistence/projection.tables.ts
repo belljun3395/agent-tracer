@@ -15,6 +15,7 @@ export const REBUILDABLE_TABLES = [
 export const OWNED_TABLES = [
     "ai_jobs",
     "ai_job_steps",
+    "agent_completion_inbox",
     "rules",
     "recipes",
     "app_settings",

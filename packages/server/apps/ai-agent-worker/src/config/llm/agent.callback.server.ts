@@ -14,6 +14,7 @@ import {
     TOOL_INVOKE_PATH,
 } from "./agent.callback.protocol.js";
 import { createCallbackToken, callbackRejectionReason } from "./agent.callback.token.js";
+import type { CompletionInbox } from "./durable.completion.inbox.js";
 
 /** 한 에이전트 실행에만 발급된 콜백 권한이다. */
 export interface CallbackGrant {
@@ -27,30 +28,20 @@ export interface ToolCallbackGranter {
 }
 
 /** 분리 실행의 결과를 그 실행을 기다리는 쪽으로 넘긴다. */
-export type CompletionHandler = (response: Record<string, unknown>) => void;
-
-export interface CompletionCallbackGranter {
-    grantCompletion(handle: CompletionHandler): CallbackGrant;
-}
-
 /** 실행 백엔드의 도구 호출과 완료 통지를 워커 안으로 받아들인다. */
-export class AgentCallbackServer implements ToolCallbackGranter, CompletionCallbackGranter {
+export class AgentCallbackServer implements ToolCallbackGranter {
     private readonly toolSessions = new Map<string, ToolHandlers>();
-    private readonly completionSessions = new Map<string, CompletionHandler>();
     private server: Server | null = null;
 
     constructor(
         private readonly port: number,
         private readonly advertisedUrl: string,
         private readonly instanceId: string,
+        private readonly completionInbox: CompletionInbox,
     ) {}
 
     grantTools(handlers: ToolHandlers): CallbackGrant {
         return this.grant(this.toolSessions, handlers, TOOL_INVOKE_PATH);
-    }
-
-    grantCompletion(handle: CompletionHandler): CallbackGrant {
-        return this.grant(this.completionSessions, handle, COMPLETION_PATH);
     }
 
     async start(): Promise<void> {
@@ -72,7 +63,6 @@ export class AgentCallbackServer implements ToolCallbackGranter, CompletionCallb
         if (server === null) return;
         this.server = null;
         this.toolSessions.clear();
-        this.completionSessions.clear();
         await new Promise<void>((resolve) => server.close(() => resolve()));
     }
 
@@ -129,13 +119,10 @@ export class AgentCallbackServer implements ToolCallbackGranter, CompletionCallb
             return send(res, 400, { error: invokeErrorMessage(error) });
         }
 
-        const handle = this.completionSessions.get(body.token);
-        if (handle === undefined) {
-            return send(res, 403, { error: callbackRejectionReason(body.token, this.instanceId) });
-        }
-        // 결과를 받은 창구는 그 자리에서 닫아 같은 실행의 재전달을 막는다.
-        this.completionSessions.delete(body.token);
-        handle(body.response);
-        return send(res, 200, { accepted: true });
+        const accepted = await this.completionInbox.accept(body.token, body.response);
+        if (accepted === "accepted") return send(res, 200, { accepted: true });
+        // 완료 결과는 pending inbox만 수락해 취소·만료 뒤 늦은 결과를 버린다.
+        if (accepted === "duplicate") return send(res, 200, { accepted: true, duplicate: true });
+        return send(res, accepted === "unknown" ? 403 : 409, { error: "completion callback is closed" });
     }
 }
