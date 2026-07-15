@@ -19,7 +19,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - uses: astral-sh/setup-uv@v8
+        with:
+          version: "0.10.2"
+          enable-cache: true
+          cache-dependency-glob: packages/agents/uv.lock
+
       - run: npm ci
+
+      - name: Python 개발 환경
+        working-directory: packages/agents
+        run: uv sync --frozen --extra dev
 
       - name: 별칭 신선도
         run: npm run check:paths
@@ -29,6 +39,14 @@ jobs:
 
       - name: 테스트
         run: npm run test
+
+      - name: Python 품질 검사
+        working-directory: packages/agents
+        run: |
+          .venv/bin/ruff check src tests scripts
+          .venv/bin/mypy src scripts
+          .venv/bin/python scripts/check_comments.py src tests scripts
+          .venv/bin/python scripts/check_internal_dependencies.py src
 
       - name: 의존 그래프
         run: npm run lint:deps

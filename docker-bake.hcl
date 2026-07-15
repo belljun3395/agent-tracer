@@ -1,4 +1,4 @@
-# 5개 이미지 타깃을 하나의 그래프로 빌드하며 공유 스테이지는 한 번만 돈다.
+# 6개 이미지 타깃을 하나의 그래프로 빌드하며 공유 스테이지는 한 번만 돈다.
 # CI가 이 파일로 bake하고 로컬은 docker compose가 같은 Dockerfile 타깃을 그대로 쓴다.
 
 # 타깃마다 독립된 gha 스코프를 준다. 한 스코프에 여러 타깃이 동시에 mode=max로 쓰면 매니페스트가 서로 덮어써 레이스가 난다.
@@ -11,7 +11,7 @@ function "cache" {
 }
 
 group "default" {
-  targets = ["runtime-api", "tracer-api", "projector", "ai-agent-worker", "web"]
+  targets = ["runtime-api", "tracer-api", "projector", "ai-agent-worker", "agents", "web"]
 }
 
 target "runtime-api" {
@@ -48,6 +48,14 @@ target "ai-agent-worker" {
   tags       = ["agent-tracer-ai-agent-worker:ci"]
   cache-from = cache("ai-agent-worker").cache-from
   cache-to   = cache("ai-agent-worker").cache-to
+}
+
+target "agents" {
+  context    = "packages/agents"
+  dockerfile = "Dockerfile"
+  tags       = ["agent-tracer-agents:ci"]
+  cache-from = cache("agents").cache-from
+  cache-to   = cache("agents").cache-to
 }
 
 target "web" {

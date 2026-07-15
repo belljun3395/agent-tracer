@@ -1,4 +1,4 @@
-// 빌드가 성공해도 못 뜨는 이미지가 있으므로 다섯을 빌드하고 실행에 필요한 것을 담았는지 확인한다.
+// 빌드가 성공해도 못 뜨는 이미지가 있으므로 여섯을 빌드하고 실행에 필요한 것을 담았는지 확인한다.
 //
 //   npm run check:images                    빌드 + 내용 검사
 //   npm run check:images -- --skip-build    이미 만든 이미지만 검사
@@ -11,6 +11,7 @@ const BAKE_FILE = "docker-bake.hcl";
 // 소스를 그대로 실행하므로 커널 소스와 생성된 별칭 맵과 의존성이 이미지 안에 있어야 앱이 뜬다.
 const SERVER_APPS = ["runtime-api", "tracer-api", "projector", "ai-agent-worker"];
 const SERVER_ASSERTIONS = "test -d packages/kernel/src && test -f tsconfig.paths.json && test -d node_modules";
+const AGENTS_ASSERTIONS = "test -x /app/.venv/bin/python && /app/.venv/bin/python -c 'import agent_graph'";
 const WEB_ASSERTIONS = "test -s /usr/share/nginx/html/index.html";
 
 function run(command, args) {
@@ -42,6 +43,7 @@ function main() {
     console.log("\n이미지 내용 검사");
     const failures = [
         ...SERVER_APPS.map((app) => inspect(`agent-tracer-${app}:ci`, SERVER_ASSERTIONS)),
+        inspect("agent-tracer-agents:ci", AGENTS_ASSERTIONS),
         inspect("agent-tracer-web:ci", WEB_ASSERTIONS),
     ].filter((failure) => failure !== null);
 
@@ -50,7 +52,7 @@ function main() {
         for (const failure of failures) console.error(`  ${failure}`);
         process.exit(1);
     }
-    console.log("\n이미지 다섯이 실행에 필요한 것을 모두 담았다");
+    console.log("\n이미지 여섯이 실행에 필요한 것을 모두 담았다");
 }
 
 main();
