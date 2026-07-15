@@ -2,7 +2,7 @@
 
 from langchain_core.messages import ToolMessage
 
-from agent_graph.agents.title_suggestion.langchain_agent import _cache_tool_messages
+from agent_graph.agents.runtime.llm.standard_agent import cache_tool_messages
 
 
 def test_최근_도구_결과_두_개에만_캐시_경계를_둔다() -> None:
@@ -11,7 +11,7 @@ def test_최근_도구_결과_두_개에만_캐시_경계를_둔다() -> None:
         for index in range(3)
     ]
 
-    cached = _cache_tool_messages(messages)
+    cached = cache_tool_messages(messages)
     blocks = [message.content[0] for message in cached]
 
     assert "cache_control" not in blocks[0]

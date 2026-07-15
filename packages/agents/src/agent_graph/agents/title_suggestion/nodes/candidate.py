@@ -33,7 +33,7 @@ def create_candidate_nodes(
         messages: list[Any], spent: float
     ) -> tuple[TitleSuggestionDraft, list[Any], float]:
         budget = ToolLoopBudget(agent_name, req.model, MAX_TITLE_MODEL_COST_USD, spent)
-        context = TitleAgentContext(client, req.toolCallback, usage, budget)
+        context = TitleAgentContext(agent_name, client, req.toolCallback, usage, budget)
         output = await title_agent.ainvoke(
             {"messages": messages},
             context=context,
