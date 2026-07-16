@@ -17,6 +17,15 @@ export const SESSION_END_REASON = {
 } as const;
 export type SessionEndReason = (typeof SESSION_END_REASON)[keyof typeof SESSION_END_REASON];
 
+/** Claude Code가 SessionStart로 싣는 계기 값이며 clear는 태스크 경계를 여닫는다. */
+export const SESSION_START_SOURCE = {
+    startup: "startup",
+    resume: "resume",
+    clear: "clear",
+    compact: "compact",
+} as const;
+export type SessionStartSource = (typeof SESSION_START_SOURCE)[keyof typeof SESSION_START_SOURCE];
+
 export interface SessionStartPayload extends ClaudeSessionContext {
     readonly source: string;
     readonly model: string | undefined;

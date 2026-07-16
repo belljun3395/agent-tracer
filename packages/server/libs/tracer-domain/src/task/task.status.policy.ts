@@ -36,7 +36,9 @@ function resolveSessionEndedEffect(input: TaskStatusEffectInput): TaskStatus | u
 }
 
 function isSessionTerminatingReason(reason: TaskCompletionReason | undefined): boolean {
-    return reason === TASK_COMPLETION_REASON.explicitExit || reason === TASK_COMPLETION_REASON.runtimeTerminated;
+    return reason === TASK_COMPLETION_REASON.explicitExit
+        || reason === TASK_COMPLETION_REASON.runtimeTerminated
+        || reason === TASK_COMPLETION_REASON.cleared;
 }
 
 function isWaitingReason(reason: TaskCompletionReason | undefined): boolean {

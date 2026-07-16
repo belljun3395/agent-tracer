@@ -98,6 +98,7 @@ export const TASK_COMPLETION_REASONS = [
     "assistant_turn_complete",
     "explicit_exit",
     "runtime_terminated",
+    "cleared",
 ] as const;
 export type TaskCompletionReason = (typeof TASK_COMPLETION_REASONS)[number];
 

@@ -13,6 +13,7 @@ export const TASK_COMPLETION_REASONS = [
     "assistant_turn_complete",
     "explicit_exit",
     "runtime_terminated",
+    "cleared",
 ] as const;
 
 export type MonitoringTaskKind = (typeof MONITORING_TASK_KINDS)[number];
@@ -33,4 +34,5 @@ export const TASK_COMPLETION_REASON = {
     assistantTurnComplete: "assistant_turn_complete",
     explicitExit: "explicit_exit",
     runtimeTerminated: "runtime_terminated",
+    cleared: "cleared",
 } as const satisfies Record<string, TaskCompletionReason>;

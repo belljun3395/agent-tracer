@@ -33,12 +33,11 @@ import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refr
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import {ClearSessionUsecase} from "~runtime/domain/session/application/clear.session.usecase.js";
 import {EndSessionUsecase} from "~runtime/domain/session/application/end.session.usecase.js";
-import {
-    EnsureSessionUsecase,
-    type EnsuredSession,
-} from "~runtime/domain/session/application/ensure.session.usecase.js";
-import {onSessionStart, type SessionHook} from "~runtime/domain/session/inbound/session.hook.js";
+import {EnsureSessionUsecase} from "~runtime/domain/session/application/ensure.session.usecase.js";
+import {onSessionClear, onSessionStart, type SessionHook} from "~runtime/domain/session/inbound/session.hook.js";
+import type {EnsuredSession} from "~runtime/domain/session/model/ensured.session.model.js";
 import {subagentSessionId, subagentTitle} from "~runtime/domain/session/model/session.event.model.js";
 import type {TaskKind} from "~runtime/domain/session/model/session.event.model.js";
 import {CloseTurnUsecase} from "~runtime/domain/turn/application/close.turn.usecase.js";
@@ -81,6 +80,7 @@ const ingest: IngestHook = {
 const session: SessionHook = {
     ensureSession: new EnsureSessionUsecase(bindings, sink, ids, clock),
     endSession: new EndSessionUsecase(sink, ids, clock),
+    clearSession: new ClearSessionUsecase(bindings, sink, ids, clock),
 };
 
 const turn: TurnHook = {
@@ -194,6 +194,17 @@ export async function ensureClaudeSession(
         ...(options.taskKind !== undefined ? {taskKind: options.taskKind} : {}),
         ...(options.resume === false ? {resume: false} : {}),
         ...(resumedFrom !== undefined ? {resumedFrom} : {}),
+    });
+}
+
+/** /clear는 새 session_id와 빈 트랜스크립트로 오므로 상속 없이 독립된 새 태스크를 연다. */
+export function clearClaudeSession(runtimeSessionId: string): Promise<EnsuredSession> {
+    return onSessionClear(session, {
+        runtimeSource: CLAUDE_RUNTIME_SOURCE,
+        runtimeSessionId,
+        title: defaultTaskTitle(projectDir),
+        titled: false,
+        workspacePath: projectDir,
     });
 }
 

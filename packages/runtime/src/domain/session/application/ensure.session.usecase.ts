@@ -1,25 +1,19 @@
 import {
     bindingKey,
     capBindingStore,
-    turnStateOf,
     type BindingRecord,
 } from "~runtime/domain/binding/model/binding.model.js";
 import type {BindingStorePort} from "~runtime/domain/binding/port/binding.store.port.js";
-import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import {toRunIngestEvent} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
+import {restored, type EnsuredSession} from "~runtime/domain/session/model/ensured.session.model.js";
 import type {ClockPort} from "~runtime/domain/session/port/clock.port.js";
 import {
     sessionStartedEvent,
     taskLinkedEvent,
     type SessionBindingInput,
 } from "~runtime/domain/session/model/session.event.model.js";
-
-/** 바인딩을 복원했는지 새로 만들었는지까지 알려주는 세션 확보 결과다. */
-export interface EnsuredSession extends IngestTarget {
-    readonly taskCreated: boolean;
-}
 
 /** 런타임 세션을 기존 태스크에 복원하거나 새 태스크에 연결한다. */
 export class EnsureSessionUsecase {
@@ -93,14 +87,4 @@ export class EnsureSessionUsecase {
             () => this.ids.next(),
         )]);
     }
-}
-
-function restored(binding: BindingRecord): EnsuredSession {
-    const turn = turnStateOf(binding);
-    return {
-        taskId: binding.taskId,
-        sessionId: binding.sessionId,
-        taskCreated: false,
-        ...(turn ? {turnId: turn.turnId} : {}),
-    };
 }

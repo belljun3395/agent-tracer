@@ -7,24 +7,28 @@ await runHook("SessionEnd", {
     parse: readSessionEnd,
     handler: async (payload) => {
         const reason = payload.reason ?? "other";
-        // clear로 끝난 세션에는 곧바로 SessionStart(clear)가 뒤따른다.
-        if (reason === SESSION_END_REASON.clear) return;
+        // /clear는 옛 session_id로 여기 오므로 태스크 경계의 '닫기'를 이 훅이 맡는다.
+        const cleared = reason === SESSION_END_REASON.clear;
+        const exited = reason === SESSION_END_REASON.promptInputExit;
 
         const target = await ensureClaudeSession(payload.sessionId, undefined, {
             resume: false,
             transcriptPath: payload.transcriptPath,
         });
+        let completionReason: "cleared" | "explicit_exit" | "runtime_terminated" = "runtime_terminated";
+        if (cleared) completionReason = "cleared";
+        else if (exited) completionReason = "explicit_exit";
         await onSessionEnd(claudeRuntime.session, {
             taskId: target.taskId,
             sessionId: target.sessionId,
             ...(target.turnId !== undefined ? {turnId: target.turnId} : {}),
             runtimeSource: claudeRuntime.runtimeSource,
             runtimeSessionId: payload.sessionId,
-            summary: `Claude Code session ended (${reason})`,
-            completionReason: reason === SESSION_END_REASON.promptInputExit
-                ? "explicit_exit"
-                : "runtime_terminated",
-            completeTask: reason === SESSION_END_REASON.promptInputExit,
+            summary: cleared
+                ? "Claude Code conversation cleared (/clear)"
+                : `Claude Code session ended (${reason})`,
+            completionReason,
+            completeTask: cleared || exited,
         });
 
         claudeRuntime.todoSnapshots.clear(payload.sessionId);

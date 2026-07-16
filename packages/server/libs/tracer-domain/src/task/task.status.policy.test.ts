@@ -53,6 +53,15 @@ describe("resolveTaskStatusEffect", () => {
         expect(status).toBe("completed");
     });
 
+    it("cleared 사유의 세션 종료(/clear 경계)는 completed를 반환한다", () => {
+        const status = resolveTaskStatusEffect({
+            kind: KIND.sessionEnded,
+            completeTask: false,
+            completionReason: "cleared",
+        });
+        expect(status).toBe("completed");
+    });
+
     it("유저 메시지가 도착하면 running을 반환한다", () => {
         const status = resolveTaskStatusEffect({ kind: KIND.userMessage });
         expect(status).toBe("running");
