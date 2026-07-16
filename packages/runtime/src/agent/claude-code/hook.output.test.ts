@@ -1,5 +1,40 @@
-import {describe, expect, it} from "vitest";
-import {formatDeliveryWarning} from "~runtime/agent/claude-code/hook.output.js";
+import {afterEach, describe, expect, it, vi} from "vitest";
+import {emitAgentContext, formatDeliveryWarning} from "~runtime/agent/claude-code/hook.output.js";
+import type {AgentContextInput} from "~runtime/agent/claude-code/hook.output.js";
+
+const EMPTY_CONTEXT_INPUT: AgentContextInput = {
+    rules: [],
+    hints: [],
+    recipeContext: "",
+    titleNudge: "",
+};
+
+describe("emitAgentContext", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("titleNudge가 있으면 additionalContext에 담아 낸다", () => {
+        const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+        const emission = emitAgentContext("UserPromptSubmit", {...EMPTY_CONTEXT_INPUT, titleNudge: "<agent-tracer-task-title>call set_task_title</agent-tracer-task-title>"});
+
+        expect(emission.emitted).toBe(true);
+        const written = JSON.parse(stdoutSpy.mock.calls[0]?.[0] as string) as {
+            hookSpecificOutput: {additionalContext: string};
+        };
+        expect(written.hookSpecificOutput.additionalContext).toContain("set_task_title");
+    });
+
+    it("titleNudge가 비어 있고 다른 섹션도 없으면 아무것도 내지 않는다", () => {
+        const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+
+        const emission = emitAgentContext("UserPromptSubmit", EMPTY_CONTEXT_INPUT);
+
+        expect(emission.emitted).toBe(false);
+        expect(stdoutSpy).not.toHaveBeenCalled();
+    });
+});
 
 describe("formatDeliveryWarning", () => {
     it("서버에 닿고 있으면 아무 말도 하지 않는다", () => {

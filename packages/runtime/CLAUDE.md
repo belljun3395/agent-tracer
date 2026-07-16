@@ -70,8 +70,12 @@ npm run build --workspace @monitor/runtime
   서버 타입을 함께 고친다.
 - MCP 도구의 이름·설명·입력 스키마는 제품 지식이므로 도메인 `model/`이 소유한다
   (레시피 도구는 `domain/recipe/model/`, 제목 도구는 `domain/session/model/`). 도구
-  설명 문구에 언제 불러야 하는지를 못박는 것이 그 자체로 설계물이다 — 프롬프트 주입이
-  아니라 에이전트가 설명만 보고 스스로 판단해 부르는 통로이기 때문이다.
+  설명 문구는 무엇을 하는 도구이고 부를지 말지를 어떻게 판단하는지를 못박는다 —
+  판단 기준 자체가 설계물이기 때문이다.
+- 부를 시점("언제")은 판단 기준과 다른 문제라 설명 문구만으로는 유발되지 않는다
+  — 관측용 도구가 실측에서 거의 자발 호출되지 않았다. 그래서 훅이 `emitAgentContext`의
+  additionalContext로 시점 넛지를 주입해 유발한다. 넛지 문구도 제품 지식이므로 도메인
+  `model/`이 소유한다(제목 넛지는 `domain/session/model/task.title.nudge.model.ts`).
 
 ## 검증
 

@@ -12,6 +12,7 @@ export interface AgentContextInput {
     readonly rules: readonly GuardrailRule[];
     readonly hints: readonly PreprocessingHint[];
     readonly recipeContext: string;
+    readonly titleNudge: string;
 }
 
 export interface AgentContextEmission {
@@ -27,6 +28,7 @@ export function emitAgentContext(
         formatRulesContext(input.rules),
         formatHintsContext(input.hints),
         input.recipeContext,
+        input.titleNudge,
     ].filter((section) => section !== "");
     if (sections.length === 0) return {emitted: false, recipeBytes: 0};
 

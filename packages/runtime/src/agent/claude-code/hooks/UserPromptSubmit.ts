@@ -13,6 +13,7 @@ import {TITLE_MAX, userMessageEvent} from "~runtime/domain/ingest/model/message.
 import {recipeInjectedEvent} from "~runtime/domain/ingest/model/recipe.injection.event.model.js";
 import {isSystemNotificationPrompt} from "~runtime/domain/ingest/model/system.notification.model.js";
 import {onPromptRecipes, onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import {formatTitleNudge} from "~runtime/domain/session/model/task.title.nudge.model.js";
 import {onTurnOpen} from "~runtime/domain/turn/inbound/turn.hook.js";
 import {ellipsize} from "~runtime/support/text.js";
 import {createMessageId, deterministicUlid, generateUlid} from "~runtime/support/ulid.js";
@@ -81,6 +82,7 @@ await runHook("UserPromptSubmit", {
             rules,
             hints,
             recipeContext: recipes?.context ?? "",
+            titleNudge: target.taskCreated && !systemNotification ? formatTitleNudge() : "",
         });
         if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
 
