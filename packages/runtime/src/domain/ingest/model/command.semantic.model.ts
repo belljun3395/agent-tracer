@@ -22,10 +22,12 @@ import {
     analyzeSed,
     analyzeStreamTransform,
     buildBaseStep,
+    hasDangerousArgs,
     withStep,
 } from "~runtime/domain/ingest/model/command.classifier.model.js";
 import {analyzeGit} from "~runtime/domain/ingest/model/command.git.model.js";
 import {analyzePackageManager} from "~runtime/domain/ingest/model/command.package.model.js";
+import {runnerStepFrom, unwrapCommand} from "~runtime/domain/ingest/model/command.runner.model.js";
 import {
     extractRedirects,
     isEnvAssignment,
@@ -97,7 +99,7 @@ export function inferCommandSemantic(command: string, rulePatterns: readonly str
         };
     }
 
-    if (analysis.overallEffect === "read_only" || isExplorationProbe(normalized)) {
+    if (analysis.overallEffect === "read_only") {
         return {
             lane: "exploration",
             metadata: terminalSemantic(
@@ -157,17 +159,26 @@ function analyzeSequencePart(part: CommandSequencePart): CommandStep {
 
 function analyzeSimpleCommand(part: CommandSequencePart): CommandStep {
     const {tokens: commandTokens, redirects} = extractRedirects(tokenizeShell(part.raw));
-    const usefulTokens = commandTokens.filter((token) => !isEnvAssignment(token));
+    const usefulTokens = unwrapCommand(commandTokens.filter((token) => !isEnvAssignment(token)));
     const commandName = usefulTokens[0] ?? "shell";
     const args = usefulTokens.slice(1);
     const base = buildBaseStep(part, commandName, redirects);
+    const step = dispatchSimpleCommand(base, commandName, args, redirects, part.raw);
+    return hasDangerousArgs(part.raw) ? withStep(step, {effect: "destructive"}) : step;
+}
 
+function dispatchSimpleCommand(
+    base: CommandStep,
+    commandName: string,
+    args: readonly string[],
+    redirects: readonly {readonly operator: string}[],
+    raw: string,
+): CommandStep {
     if (commandName === "sed") return analyzeSed(base, args);
     if (commandName === "git") return analyzeGit(base, args);
     if (["npm", "pnpm", "yarn"].includes(commandName)) return analyzePackageManager(base, args);
-    if (commandName === "vitest") return withStep(base, {operation: "run_test", effect: "execute_check", confidence: "high"});
-    if (commandName === "tsc") return withStep(base, {operation: "run_build", effect: "execute_check", confidence: "high"});
-    if (commandName === "eslint") return withStep(base, {operation: "run_lint", effect: "execute_check", confidence: "high"});
+    const runner = runnerStepFrom(base, commandName, args);
+    if (runner) return runner;
     if (STREAM_TRANSFORM_COMMANDS.has(commandName)) return analyzeStreamTransform(base, args);
     if (commandName === "find") return analyzeFind(base, args);
     if (commandName === "rg") return analyzeRipgrep(base, args);
@@ -187,7 +198,7 @@ function analyzeSimpleCommand(part: CommandSequencePart): CommandStep {
     return withStep(base, {
         operation: "unknown",
         effect: redirects.some((redirect) => redirect.operator.includes(">")) ? "write" : "unknown",
-        confidence: containsComplexShell(part.raw) ? "low" : "medium",
+        confidence: containsComplexShell(raw) ? "low" : "medium",
     });
 }
 
@@ -240,11 +251,6 @@ function subtypeLabel(subtypeKey: ExecutionSubtype): string {
         case "run_build": return "Run build";
         case "verify": return "Verify";
     }
-}
-
-function isExplorationProbe(normalized: string): boolean {
-    return /^(pwd|ls|tree|find|fd|rg|grep|cat|sed|head|tail|wc|stat|file|which|whereis)\b/.test(normalized)
-        || /^git\s+(status|diff|show|log)\b/.test(normalized);
 }
 
 function firstCommandToken(command: string): string {

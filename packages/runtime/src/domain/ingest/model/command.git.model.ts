@@ -35,13 +35,33 @@ export function analyzeGit(base: CommandStep, args: readonly string[]): CommandS
         });
     }
     if (["push", "pull", "fetch", "clone"].includes(subcommand)) {
+        const forcePush = subcommand === "push" && hasForceFlag(args.slice(1));
         return withStep(base, {
             subcommand,
-            operation: subcommand === "push" ? "publish" : "fetch_repo",
-            effect: subcommand === "push" ? "network" : "read_only",
+            operation: subcommand === "push" ? (forcePush ? "force_publish" : "publish") : "fetch_repo",
+            effect: subcommand === "push" ? (forcePush ? "destructive" : "network") : "read_only",
             targets: [],
             confidence: "high",
         });
     }
+    if (subcommand === "clean") {
+        const forced = hasForceFlag(args.slice(1));
+        return withStep(base, {
+            subcommand,
+            operation: forced ? "clean_worktree" : "inspect_clean",
+            effect: forced ? "destructive" : "read_only",
+            targets: gitPathspecTargets(args.slice(1)),
+            confidence: "high",
+        });
+    }
     return withStep(base, {subcommand, operation: "git_command", effect: "unknown", confidence: "medium"});
+}
+
+/** git push·clean에서 `-fd` 같은 묶음까지 포함해 force 계열 플래그를 찾는다. */
+function hasForceFlag(args: readonly string[]): boolean {
+    return args.some((arg) =>
+        arg === "--force"
+        || arg === "--force-with-lease"
+        || arg === "--force-if-includes"
+        || /^-[a-z]*f/.test(arg));
 }

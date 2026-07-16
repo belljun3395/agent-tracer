@@ -1,4 +1,5 @@
 import type {
+    CommandEffect,
     CommandRedirect,
     CommandSequencePart,
     CommandStep,
@@ -18,6 +19,14 @@ export const STREAM_TRANSFORM_COMMANDS = new Set(["head", "tail", "wc", "sort"])
 export const DESTRUCTIVE_COMMANDS = new Set(["rm", "rmdir"]);
 export const WRITE_COMMANDS = new Set(["mv", "cp", "chmod", "chown", "mkdir", "touch"]);
 export const NETWORK_COMMANDS = new Set(["curl", "wget"]);
+
+/** 명령 이름으로는 안 드러나고 인자 문자열에만 나타나는 파괴적 조작이다. */
+const DANGEROUS_ARG_PATTERNS: readonly RegExp[] = [/\bdrop\s+(table|database)\b/i];
+
+/** psql·mysql의 인자에 실린 SQL 삭제처럼 인자에만 드러나는 파괴성을 판정한다. */
+export function hasDangerousArgs(raw: string): boolean {
+    return DANGEROUS_ARG_PATTERNS.some((pattern) => pattern.test(raw));
+}
 
 export function buildBaseStep(
     part: CommandSequencePart,
@@ -49,6 +58,16 @@ export function analyzeSed(base: CommandStep, args: readonly string[]): CommandS
     const targets = pathTargets(
         args.filter((arg) => !arg.startsWith("-") && extractSedLineRange(arg) === undefined),
     );
+    const inPlace = args.some((arg) => arg === "--in-place" || arg.startsWith("--in-place=") || /^-i/.test(arg));
+    if (inPlace) {
+        return withStep(base, {
+            operation: "edit_in_place",
+            effect: "write",
+            targets,
+            confidence: targets.length > 0 ? "high" : "medium",
+            ...(lineRange ? {selectors: {lineRange}} : {}),
+        });
+    }
     return withStep(base, {
         operation: lineRange ? "read_range" : "read_file",
         effect: "read_only",
@@ -76,12 +95,27 @@ export function analyzeFind(base: CommandStep, args: readonly string[]): Command
         if (arg.startsWith("-") || isFindExpressionValue(arg)) break;
         targets.push({type: targetTypeForPath(arg), value: arg});
     }
-    return withStep(base, {
-        operation: "search",
-        effect: "read_only",
-        targets: targets.length > 0 ? targets : [{type: "directory", value: "."}],
-        confidence: "high",
-    });
+    const resolvedTargets = targets.length > 0 ? targets : [{type: "directory" as const, value: "."}];
+    const action = findAction(args);
+    if (action) {
+        return withStep(base, {operation: action.operation, effect: action.effect, targets: resolvedTargets, confidence: "high"});
+    }
+    return withStep(base, {operation: "search", effect: "read_only", targets: resolvedTargets, confidence: "high"});
+}
+
+const FIND_EXEC_ACTIONS: ReadonlySet<string> = new Set(["-exec", "-execdir", "-ok", "-okdir"]);
+const FIND_DESTRUCTIVE_EXEC: ReadonlySet<string> = new Set(["rm", "rmdir", "unlink"]);
+
+/** find의 -delete와 -exec가 검색을 파괴적·쓰기 조작으로 바꾼다. */
+function findAction(args: readonly string[]): {operation: string; effect: CommandEffect} | null {
+    if (args.includes("-delete")) return {operation: "delete_file", effect: "destructive"};
+    const execIndex = args.findIndex((arg) => FIND_EXEC_ACTIONS.has(arg));
+    if (execIndex < 0) return null;
+    const execCommand = args[execIndex + 1];
+    if (execCommand !== undefined && FIND_DESTRUCTIVE_EXEC.has(execCommand)) {
+        return {operation: "delete_file", effect: "destructive"};
+    }
+    return {operation: "execute", effect: "write"};
 }
 
 export function analyzeRipgrep(base: CommandStep, args: readonly string[]): CommandStep {
