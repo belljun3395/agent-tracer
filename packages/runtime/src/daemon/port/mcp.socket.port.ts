@@ -25,10 +25,11 @@ export interface DaemonRecipeScanRequest {
     readonly type: "recipe-scan-request";
 }
 
-/** MCP set_task_title 도구가 보내는 재제목 요청이며 taskId는 데몬이 활성 바인딩으로 채운다. */
+/** MCP set_task_title 도구가 보내는 재제목 요청이며 데몬이 sessionId로 바인딩을 정확히 찾는다. */
 export interface DaemonSetTaskTitleRequest {
     readonly type: "set-task-title";
     readonly title: string;
+    readonly sessionId: string;
 }
 
 /** MCP create_memo 도구가 보내는 메모 요청이며 taskId는 데몬이 활성 바인딩으로 채운다. */
@@ -120,8 +121,8 @@ export function parseMcpSocketRequest(type: string, value: Record<string, unknow
         case "recipe-scan-request":
             return {type: "recipe-scan-request"};
         case "set-task-title":
-            return typeof value["title"] === "string"
-                ? {type: "set-task-title", title: value["title"]}
+            return typeof value["title"] === "string" && typeof value["sessionId"] === "string"
+                ? {type: "set-task-title", title: value["title"], sessionId: value["sessionId"]}
                 : null;
         case "memo-create":
             return typeof value["body"] === "string"

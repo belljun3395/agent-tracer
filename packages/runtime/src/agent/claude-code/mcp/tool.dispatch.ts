@@ -95,7 +95,7 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
         case SET_TASK_TITLE_TOOL.name: {
             const parsed = parseSetTaskTitleArgs(args);
             if (!parsed) return invalidArgs();
-            const result = await setTaskTitleViaDaemon(parsed.title);
+            const result = await setTaskTitleViaDaemon(parsed.title, parsed.sessionId);
             return result.ok
                 ? {text: "Task title updated.", isError: false}
                 : {text: `Could not update title${result.reason ? ` (${result.reason})` : ""}.`, isError: true};

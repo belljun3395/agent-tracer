@@ -12,26 +12,34 @@ export const SET_TASK_TITLE_TOOL: McpToolSpec = {
         + "first exchange; as a subagent, right after you grasp the delegated task you are starting. "
         + "Judge first — if the request is trivial, throwaway, or a one-off question where the placeholder "
         + "already reads fine, skip it. Give a short, specific, human-readable title (a few words to a "
-        + "short sentence). Best-effort: this tool cannot see which session it is attached to, so it "
-        + "retitles whichever task in this workspace was most recently active — normally your own if you "
-        + "call early, at the start of your work. Title once, promptly, and re-title only if the scope "
-        + "later shifts substantially. If several sessions or subagents may be active at once, expect it "
-        + "to occasionally land on the wrong task.",
+        + "short sentence). This tool cannot see which session it is attached to on its own — you must pass "
+        + "the sessionId given to you in the injected task-title context exactly as provided; do not invent "
+        + "one, and do not call this tool if you were not given that value. Title once, promptly, and "
+        + "re-title only if the scope later shifts substantially.",
     inputSchema: {
         type: "object",
         properties: {
             title: {type: "string", description: "Short, specific task title (a few words to a short sentence)."},
+            sessionId: {
+                type: "string",
+                description: "The sessionId provided to you in the injected task-title context. "
+                    + "Pass it exactly; do not invent one.",
+            },
         },
-        required: ["title"],
+        required: ["title", "sessionId"],
     },
 };
 
 export interface SetTaskTitleArgs {
     readonly title: string;
+    readonly sessionId: string;
 }
 
 export function parseSetTaskTitleArgs(value: unknown): SetTaskTitleArgs | null {
     if (!isRecord(value)) return null;
     const title = value["title"];
-    return typeof title === "string" && title.trim() !== "" ? {title: title.trim()} : null;
+    const sessionId = value["sessionId"];
+    if (typeof title !== "string" || title.trim() === "") return null;
+    if (typeof sessionId !== "string" || sessionId.trim() === "") return null;
+    return {title: title.trim(), sessionId};
 }

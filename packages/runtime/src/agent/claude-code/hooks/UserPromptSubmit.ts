@@ -82,7 +82,7 @@ await runHook("UserPromptSubmit", {
             rules,
             hints,
             recipeContext: recipes?.context ?? "",
-            titleNudge: target.taskCreated && !systemNotification ? formatTitleNudge() : "",
+            titleNudge: target.taskCreated && !systemNotification ? formatTitleNudge(payload.sessionId) : "",
         });
         if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
 

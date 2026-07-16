@@ -1,4 +1,5 @@
 import {monitorUserHeaders, resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
+import {CLAUDE_RUNTIME_SOURCE} from "~runtime/config/env.js";
 import {EvaluateTurnUsecase} from "~runtime/domain/guardrail/application/evaluate.turn.usecase.js";
 import {RefreshRulesUsecase} from "~runtime/domain/guardrail/application/refresh.rules.usecase.js";
 import {HttpRuleSourceAdapter} from "~runtime/domain/guardrail/adapter/http.rule.source.adapter.js";
@@ -7,6 +8,7 @@ import {ComputeHintsUsecase} from "~runtime/domain/hint/application/compute.hint
 import type {HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
 import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.binding.store.adapter.js";
 import {FindActiveBindingUsecase} from "~runtime/domain/binding/application/find.active.binding.usecase.js";
+import {ReadBindingUsecase} from "~runtime/domain/binding/application/read.binding.usecase.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {HttpMemoSearchAdapter} from "~runtime/domain/memo/adapter/http.memo.search.adapter.js";
@@ -46,6 +48,7 @@ export interface DaemonHooks {
     readonly rulegen: RulegenHook;
     readonly recipeCache: RecipeCachePort;
     readonly findActiveBinding: FindActiveBindingUsecase;
+    readonly findTaskIdBySession: (sessionId: string) => string | undefined;
     readonly setTaskTitle: SetTaskTitleUsecase;
     readonly memo: MemoHook;
 }
@@ -83,6 +86,9 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     };
 
     const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
+    const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
+    const findTaskIdBySession = (sessionId: string): string | undefined =>
+        readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId)?.taskId;
     const ids: IdGeneratorPort = {next: generateUlid};
     const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
 
@@ -112,5 +118,5 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache),
     };
 
-    return {guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle, memo};
+    return {guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, findTaskIdBySession, setTaskTitle, memo};
 }

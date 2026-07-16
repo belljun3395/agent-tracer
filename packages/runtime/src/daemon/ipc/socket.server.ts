@@ -53,6 +53,8 @@ export interface DaemonSocketContext {
     readonly readDelivery: () => DaemonDeliveryResponse;
     /** MCP 도구처럼 자기 세션을 모르는 호출자를 위해 가장 최근 활성 태스크를 추정한다. */
     readonly findActiveTaskId: () => string | undefined;
+    /** 넛지가 박아 준 sessionId로 바인딩을 정확히 찾는다. */
+    readonly findTaskIdBySession: (sessionId: string) => string | undefined;
     readonly setTaskTitle: (taskId: string, title: string) => Promise<boolean>;
     readonly refreshHistory: () => void;
     readonly onHookVersion: (version: string) => void;
@@ -185,9 +187,9 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "set-task-title": {
-                const taskId = context.findActiveTaskId();
+                const taskId = context.findTaskIdBySession(request.sessionId);
                 if (taskId === undefined) {
-                    send(socket, {ok: false, reason: "no_active_task"} satisfies DaemonSetTaskTitleResponse);
+                    send(socket, {ok: false, reason: "unknown_session"} satisfies DaemonSetTaskTitleResponse);
                     return;
                 }
                 const ok = await context.setTaskTitle(taskId, request.title);

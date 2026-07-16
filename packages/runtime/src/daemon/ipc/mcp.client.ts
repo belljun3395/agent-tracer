@@ -92,12 +92,12 @@ export async function requestRecipeScanViaDaemon(): Promise<DaemonRecipeScanResp
 }
 
 /** MCP set_task_title 도구가 데몬에 재제목을 위임한다. */
-export async function setTaskTitleViaDaemon(title: string): Promise<DaemonSetTaskTitleResponse> {
+export async function setTaskTitleViaDaemon(title: string, sessionId: string): Promise<DaemonSetTaskTitleResponse> {
     const paths = resolveAgentTracerPaths();
     try {
         return await requestDaemon(
             paths.socketPath,
-            {type: "set-task-title", title} satisfies DaemonSetTaskTitleRequest,
+            {type: "set-task-title", title, sessionId} satisfies DaemonSetTaskTitleRequest,
             REQUEST_TIMEOUT_MS,
             (parsed) => parseDaemonSetTaskTitleResponse(parsed) ?? NO_DAEMON_TITLE,
             NO_DAEMON_TITLE,

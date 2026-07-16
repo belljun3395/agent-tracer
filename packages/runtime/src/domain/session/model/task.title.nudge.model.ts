@@ -1,9 +1,11 @@
-/** 태스크가 처음 열린 첫 발화 시점만 겨누는 넛지이며, 부를지 말지의 판단 기준은 `set_task_title` 도구 설명이 소유한다. */
-export function formatTitleNudge(): string {
+/** 태스크가 처음 열린 첫 발화 시점만 겨누는 넛지이며, sessionId를 문구에 박아 `set_task_title` 호출이 그 세션을 정확히 겨누게 한다. */
+export function formatTitleNudge(sessionId: string): string {
     return [
         "<agent-tracer-task-title>",
         "This task just opened with a crude placeholder title.",
-        "If the work ahead is already scoped and worth tracking on its own, call the `set_task_title` tool now, before doing anything else.",
+        `Your sessionId is ${sessionId}.`,
+        "If the work ahead is already scoped and worth tracking on its own, call the `set_task_title` tool now, "
+            + `before doing anything else, passing sessionId exactly as ${sessionId}.`,
         "If this is a trivial, throwaway, or one-off question, skip it — that judgment call is yours.",
         "</agent-tracer-task-title>",
     ].join("\n");
