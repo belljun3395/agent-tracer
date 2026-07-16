@@ -1,4 +1,4 @@
-import type { TaskEntity, TaskPageFilter } from "@monitor/tracer-domain";
+import type { TaskEntity, TaskPageFilter, TaskView } from "@monitor/tracer-domain";
 
 export const TASK_REPOSITORY = Symbol("TaskRepository");
 
@@ -7,5 +7,6 @@ export interface TaskRepositoryPort {
     findById(id: string): Promise<TaskEntity | null>;
     findChildren(taskId: string): Promise<TaskEntity[]>;
     findPage(userId: string, filter: TaskPageFilter): Promise<TaskEntity[]>;
+    findVisiblePage(userId: string, filter: TaskPageFilter): Promise<TaskView[]>;
     upsert(task: TaskEntity): Promise<void>;
 }

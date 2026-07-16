@@ -1,17 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { TaskOrigin, TaskStatus } from "@monitor/kernel";
 import {
-    TaskView,
     decodeTaskPageCursor,
     encodeTaskPageCursor,
     type TaskListItemDto,
     type TaskPageFilter,
 } from "@monitor/tracer-domain";
 import { TASK_REPOSITORY, type TaskRepositoryPort } from "~tracer-api/domain/task/port/task.repository.port.js";
-import {
-    TASK_USER_STATE_REPOSITORY,
-    type TaskUserStateRepositoryPort,
-} from "~tracer-api/domain/task/port/task.user.state.repository.port.js";
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
@@ -34,10 +29,7 @@ export interface ListTasksResult {
 
 @Injectable()
 export class ListTasksUseCase {
-    constructor(
-        @Inject(TASK_REPOSITORY) private readonly tasks: TaskRepositoryPort,
-        @Inject(TASK_USER_STATE_REPOSITORY) private readonly states: TaskUserStateRepositoryPort,
-    ) {}
+    constructor(@Inject(TASK_REPOSITORY) private readonly tasks: TaskRepositoryPort) {}
 
     async execute(input: ListTasksInput): Promise<ListTasksResult> {
         const limit = clampLimit(input.limit);
@@ -50,20 +42,13 @@ export class ListTasksUseCase {
             ...(input.parentTaskId !== undefined ? { parentTaskId: input.parentTaskId } : {}),
             ...(input.cursor !== undefined ? { cursor: decodeTaskPageCursor(input.cursor) } : {}),
         };
-        const page = await this.tasks.findPage(input.userId, filter);
+        const page = await this.tasks.findVisiblePage(input.userId, filter);
+        const items = page.map((view) => view.toListItem());
 
-        const items: TaskListItemDto[] = [];
-        for (const task of page) {
-            const state = await this.states.findById(task.id);
-            const view = new TaskView(task, state);
-            if (!view.isVisible()) continue;
-            items.push(view.toListItem());
-        }
-
-        const last = page.at(-1);
+        const last = items.at(-1);
         const nextCursor =
             page.length === limit && last !== undefined
-                ? encodeTaskPageCursor({ updatedAt: last.updatedAt.toISOString(), id: last.id })
+                ? encodeTaskPageCursor({ updatedAt: last.updatedAt, id: last.id })
                 : null;
         return { items, nextCursor };
     }

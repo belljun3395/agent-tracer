@@ -1,8 +1,12 @@
-import { In, type Repository } from "typeorm";
+import { In, type Repository, type SelectQueryBuilder } from "typeorm";
 import { RUNNING_TASK_STATUS, WAITING_TASK_STATUS } from "@monitor/kernel";
 import type { TaskEntity } from "./task.entity.js";
 import type { TaskPageFilter } from "./task.const.js";
+import { TaskView } from "./task.view.domain.js";
+import { TaskUserStateEntity } from "./user-state/task.user.state.entity.js";
 import { upsertByKeys } from "../persistence/repository.upsert.js";
+
+type TaskWithListState = TaskEntity & { readonly listState?: TaskUserStateEntity | null };
 
 export class TaskRepository {
     constructor(private readonly repo: Repository<TaskEntity>) {}
@@ -47,6 +51,41 @@ export class TaskRepository {
     }
 
     async findPage(userId: string, filter: TaskPageFilter): Promise<TaskEntity[]> {
+        const qb = this.buildPageQuery(userId, filter);
+        if (filter.archived !== undefined) {
+            qb.leftJoin("task_user_state", "s", "s.task_id = t.id AND s.user_id = :stateUserId", {
+                stateUserId: userId,
+            });
+            qb.andWhere(filter.archived ? "s.archived_at IS NOT NULL" : "s.archived_at IS NULL");
+        }
+        return qb.getMany();
+    }
+
+    /** 목록 표시값에 필요한 사용자 상태를 같은 쿼리로 읽고, 숨김을 페이지 상한 전에 제외한다. */
+    async findVisiblePage(userId: string, filter: TaskPageFilter): Promise<TaskView[]> {
+        const qb = this.buildPageQuery(userId, filter)
+            .leftJoinAndMapOne(
+                "t.listState",
+                TaskUserStateEntity,
+                "s",
+                "s.task_id = t.id AND s.user_id = :stateUserId",
+                { stateUserId: userId },
+            )
+            .andWhere("s.hidden_at IS NULL");
+
+        if (filter.archived !== undefined) {
+            qb.andWhere(filter.archived ? "s.archived_at IS NOT NULL" : "s.archived_at IS NULL");
+        }
+
+        const tasks = (await qb.getMany()) as TaskWithListState[];
+        return tasks.map((task) => new TaskView(task, task.listState ?? null));
+    }
+
+    async upsert(task: TaskEntity): Promise<void> {
+        await upsertByKeys(this.repo, task, ["id"]);
+    }
+
+    private buildPageQuery(userId: string, filter: TaskPageFilter): SelectQueryBuilder<TaskEntity> {
         const qb = this.repo
             .createQueryBuilder("t")
             .where("t.user_id = :userId", { userId })
@@ -66,14 +105,6 @@ export class TaskRepository {
                 cursorId: filter.cursor.id,
             });
         }
-        if (filter.archived !== undefined) {
-            qb.leftJoin("task_user_state", "s", "s.task_id = t.id");
-            qb.andWhere(filter.archived ? "s.archived_at IS NOT NULL" : "s.archived_at IS NULL");
-        }
-        return qb.getMany();
-    }
-
-    async upsert(task: TaskEntity): Promise<void> {
-        await upsertByKeys(this.repo, task, ["id"]);
+        return qb;
     }
 }
