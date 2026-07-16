@@ -13,8 +13,17 @@ await runHook("Notification", {
     parse: readNotification,
     handler: async (payload) => {
         const target = payload.agentId !== undefined
-            ? await ensureSubagentSession(payload.sessionId, payload.agentId, payload.agentType)
-            : await ensureClaudeSession(payload.sessionId, undefined, {resume: false});
+            ? await ensureSubagentSession(
+                payload.sessionId,
+                payload.agentId,
+                payload.agentType,
+                undefined,
+                payload.transcriptPath,
+            )
+            : await ensureClaudeSession(payload.sessionId, undefined, {
+                resume: false,
+                transcriptPath: payload.transcriptPath,
+            });
         await onLifecycleEvent(claudeRuntime.ingest, [
             notificationEvent(
                 target,

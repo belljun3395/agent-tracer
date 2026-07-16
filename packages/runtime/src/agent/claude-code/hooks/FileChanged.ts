@@ -7,7 +7,7 @@ import {fileChangedEvent} from "~runtime/domain/ingest/model/workspace.event.mod
 await runHook("FileChanged", {
     parse: readFileChanged,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             fileChangedEvent(target, claudeRuntime.projectDir, payload.filePath),
         ]);

@@ -22,7 +22,7 @@ await runHook("PostToolUse", {
     parse: readPostToolUse,
     handler: async (payload) => {
         if (!payload.toolName) return;
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         const call: ToolCall = {
             toolName: payload.toolName,
             toolInput: payload.toolInput,

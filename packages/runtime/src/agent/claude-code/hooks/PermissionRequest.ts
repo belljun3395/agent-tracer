@@ -7,7 +7,7 @@ import {permissionRequestEvent} from "~runtime/domain/ingest/model/workspace.eve
 await runHook("PermissionRequest", {
     parse: readPermissionRequest,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             permissionRequestEvent(target, {
                 toolName: payload.toolName,

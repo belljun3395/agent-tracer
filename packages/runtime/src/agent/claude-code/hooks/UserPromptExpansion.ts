@@ -7,7 +7,7 @@ import {promptExpansionEvent} from "~runtime/domain/ingest/model/message.event.m
 await runHook("UserPromptExpansion", {
     parse: readUserPromptExpansion,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             promptExpansionEvent(target, {
                 expansionType: payload.expansionType,

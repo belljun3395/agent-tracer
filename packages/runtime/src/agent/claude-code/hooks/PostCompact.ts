@@ -10,7 +10,9 @@ const SUMMARY_MAX = 1_000;
 await runHook("PostCompact", {
     parse: readPostCompact,
     handler: async (payload) => {
-        const target = await ensureClaudeSession(payload.sessionId);
+        const target = await ensureClaudeSession(payload.sessionId, undefined, {
+            transcriptPath: payload.transcriptPath,
+        });
         // compact_summary는 공식 훅 스키마에 없지만 실제 페이로드로 내려온다.
         const summary = toTrimmedString(payload.payload["compact_summary"], SUMMARY_MAX);
         await onLifecycleEvent(claudeRuntime.ingest, [

@@ -8,7 +8,7 @@ await runHook("PermissionDenied", {
     parse: readPermissionDenied,
     handler: async (payload) => {
         if (!payload.toolName) return;
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             permissionDeniedEvent(target, payload.toolName, payload.toolInput, payload.toolUseId),
         ]);
