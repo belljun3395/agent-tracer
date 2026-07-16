@@ -46,8 +46,13 @@ export class RecipeController {
     }
 
     @Get("recipes/applications")
-    async applications(@Query(new SchemaValidationPipe(applicationsQuerySchema)) query: ApplicationsQuery) {
-        return this.listApplications.execute(query.recipeId);
+    async applications(
+        @Headers(MONITOR_USER_HEADER) user: string | undefined,
+        @Query(new SchemaValidationPipe(applicationsQuerySchema)) query: ApplicationsQuery,
+    ) {
+        const result = await this.listApplications.execute(resolveUserId(user), query.recipeId);
+        if (result === null) throw new NotFoundException("Recipe not found");
+        return result;
     }
 
     @Get("recipes/:id")
