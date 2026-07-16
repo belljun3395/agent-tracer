@@ -37,8 +37,21 @@ export class VerdictEntity {
     @Column({ name: "evaluated_at", type: "timestamptz" })
     evaluatedAt!: Date;
 
+    /** 이 판정을 마지막으로 전진시킨 창의 최대 이벤트 seq이며, 그 뒤로 새 이벤트가 없으면 재평가를 건너뛴다. */
+    @Column({ name: "last_evaluated_seq", type: "text", nullable: true })
+    lastEvaluatedSeq!: string | null;
+
     isOpen(): boolean {
         return !isTerminalVerdict(this.status);
+    }
+
+    /** 재평가는 이 seq 뒤에 새 이벤트가 있을 때만 필요하다. */
+    hasSeenThrough(maxSeq: string): boolean {
+        return this.lastEvaluatedSeq !== null && BigInt(this.lastEvaluatedSeq) >= BigInt(maxSeq);
+    }
+
+    markEvaluatedSeq(maxSeq: string): void {
+        this.lastEvaluatedSeq = maxSeq;
     }
 
     isEscalated(): boolean {
@@ -81,6 +94,7 @@ export class VerdictEntity {
         verdict.nudgeCount = 0;
         verdict.evidence = evidence;
         verdict.evaluatedAt = at;
+        verdict.lastEvaluatedSeq = null;
         return verdict;
     }
 }

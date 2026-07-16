@@ -30,6 +30,11 @@ export class InMemoryEventReader implements EventReaderPort {
         return Promise.resolve(events);
     }
 
+    async maxSeqSinceEvent(taskId: string, anchorEventId: string): Promise<string | null> {
+        const events = await this.findByTaskSinceEvent(taskId, anchorEventId);
+        return events.at(-1)?.seq ?? null;
+    }
+
     private ordered(): EventEntity[] {
         return [...this.rows.values()].sort((a, b) => (BigInt(a.seq) < BigInt(b.seq) ? -1 : 1));
     }

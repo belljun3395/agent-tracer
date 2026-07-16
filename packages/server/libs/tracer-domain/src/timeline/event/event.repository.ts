@@ -41,6 +41,17 @@ export class EventRepository {
             .getMany();
     }
 
+    // anchor된 규칙의 판정 창의 현재 끝(최대 seq)이며 anchor가 원장에 없어 창이 비면 null이다.
+    async maxSeqSinceEvent(taskId: string, anchorEventId: string): Promise<string | null> {
+        const row = await this.repo
+            .createQueryBuilder("e")
+            .select("MAX(e.seq)", "maxSeq")
+            .where("e.task_id = :taskId", { taskId })
+            .andWhere("e.seq >= (SELECT a.seq FROM events a WHERE a.id = :anchorEventId)", { anchorEventId })
+            .getRawOne<{ maxSeq: string | null }>();
+        return row?.maxSeq ?? null;
+    }
+
     // 규칙 생성의 근거로 고를 수 있는 사용자 입력들이며 오래된 것부터 준다.
     async findUserMessagesByTask(taskId: string): Promise<EventEntity[]> {
         return this.repo.find({
