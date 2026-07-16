@@ -32,7 +32,6 @@ interface Harness {
     readonly timeline: { readonly project: ReturnType<typeof vi.fn> };
     readonly ruleEvaluation: { readonly project: ReturnType<typeof vi.fn> };
     readonly recipe: { readonly projectInjected: ReturnType<typeof vi.fn>; readonly resolveForTask: ReturnType<typeof vi.fn> };
-    readonly affinity: { readonly project: ReturnType<typeof vi.fn> };
     readonly published: NotificationEnvelope[];
     readonly transactionEvents: string[];
 }
@@ -61,7 +60,6 @@ function makeHarness(): Harness {
     };
     const ruleEvaluation = { project: vi.fn(async () => [ruleNotification]) };
     const recipe = { projectInjected: vi.fn(async () => undefined), resolveForTask: vi.fn(async () => undefined) };
-    const affinity = { project: vi.fn(async () => undefined) };
     const arrival = {
         merge: vi.fn(),
         projectBatch: vi.fn(async () => []),
@@ -79,12 +77,11 @@ function makeHarness(): Harness {
         timeline as unknown as TimelineProjection,
         ruleEvaluation,
         recipe,
-        affinity,
         arrival as unknown as ArrivalProjection,
         notifier,
     );
 
-    return { usecase, run, timeline, ruleEvaluation, recipe, affinity, published, transactionEvents };
+    return { usecase, run, timeline, ruleEvaluation, recipe, published, transactionEvents };
 }
 
 describe("ApplyLedgerBatchUseCase", () => {
@@ -105,7 +102,6 @@ describe("ApplyLedgerBatchUseCase", () => {
         expect(h.timeline.project).toHaveBeenNthCalledWith(2, {}, expect.objectContaining({ seq: "4" }), true);
         expect(h.timeline.project).toHaveBeenNthCalledWith(3, {}, expect.objectContaining({ seq: "5" }), true);
         expect(h.ruleEvaluation.project).toHaveBeenCalledOnce();
-        expect(h.affinity.project).toHaveBeenCalledOnce();
         expect(projected).toHaveLength(5);
         expect(h.transactionEvents).toEqual(["start", "commit"]);
         expect(h.published.map((e) => e.notification.type)).toEqual(["run", "timeline", "rule", "timeline"]);

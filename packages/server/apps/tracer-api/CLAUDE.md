@@ -6,7 +6,7 @@
 ## 슬라이스
 
 `task` `timeline` `rule` `recipe` `job` `search` `settings` `user` `session` `cleanup`
-`affinity` `health` 열두 개다. 각 슬라이스는
+`health` 열한 개다. 각 슬라이스는
 `{inbound,application,port,adapter,model}` 뼈대를 따르되 쓰는 계층만 둔다.
 
 ## 이 패키지만의 제약

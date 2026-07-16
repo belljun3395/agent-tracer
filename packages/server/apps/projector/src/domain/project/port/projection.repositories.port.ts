@@ -1,7 +1,6 @@
 import type {
     EventEntity,
     EventRepository,
-    FileAffinityRepository,
     RecipeApplicationRepository,
     RecipeRepository,
     RuleEvaluationPorts,
@@ -39,15 +38,7 @@ export interface RuleProjectionRepositories extends RuleEvaluationPorts {
     readonly rules: RuleRepository;
 }
 
-/** 파일 친화도 집계를 투영하는 저장소 경계다. */
-export interface AffinityProjectionRepositories {
-    readonly tasks: TaskRepository;
-    readonly affinities: FileAffinityRepository;
-    countFileTouches(taskId: string, filePath: string): Promise<number>;
-}
-
 /** 한 원장 배치를 투영하는 이 슬라이스 전체 저장소의 합집합이다. */
 export type LedgerProjectionRepositories = RunEventProjectionRepositories &
     TimelineProjectionRepositories &
-    RuleProjectionRepositories &
-    AffinityProjectionRepositories;
+    RuleProjectionRepositories;
