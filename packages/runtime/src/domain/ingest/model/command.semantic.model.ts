@@ -15,9 +15,7 @@ import {
     STREAM_TRANSFORM_COMMANDS,
     WRITE_COMMANDS,
     analyzeFind,
-    analyzeGit,
     analyzeList,
-    analyzePackageManager,
     analyzeRead,
     analyzeRipgrep,
     analyzeSearch,
@@ -26,6 +24,8 @@ import {
     buildBaseStep,
     withStep,
 } from "~runtime/domain/ingest/model/command.classifier.model.js";
+import {analyzeGit} from "~runtime/domain/ingest/model/command.git.model.js";
+import {analyzePackageManager} from "~runtime/domain/ingest/model/command.package.model.js";
 import {
     extractRedirects,
     isEnvAssignment,
