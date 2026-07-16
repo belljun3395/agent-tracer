@@ -140,8 +140,8 @@ describe("데몬 제어 HTTP", () => {
         const data = response.json["data"] as Record<string, unknown>;
         expect(data["settingsDrift"]).toBe(true);
         const settings = data["settings"] as Record<string, Record<string, unknown>>;
-        expect(settings["running"]["idleShutdownMs"]).toBe(DEFAULT_DAEMON_SETTINGS.idleShutdownMs);
-        expect(settings["saved"]["idleShutdownMs"]).toBe(60_000);
+        expect(settings["running"]?.["idleShutdownMs"]).toBe(DEFAULT_DAEMON_SETTINGS.idleShutdownMs);
+        expect(settings["saved"]?.["idleShutdownMs"]).toBe(60_000);
     });
 
     it("저장값과 실행값이 같으면 스냅샷이 드리프트를 표시하지 않는다", async () => {
