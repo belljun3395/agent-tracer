@@ -1,6 +1,10 @@
 import {describe, expect, it} from "vitest";
 import type {CommandStep} from "~runtime/domain/ingest/model/command.analysis.model.js";
-import {runnerStepFrom, unwrapCommand} from "~runtime/domain/ingest/model/command.runner.model.js";
+import {
+    runnerOperationFromArgs,
+    runnerStepFrom,
+    unwrapCommand,
+} from "~runtime/domain/ingest/model/command.runner.model.js";
 
 function baseStep(commandName: string): CommandStep {
     return {raw: commandName, commandName, operation: "unknown", targets: [], effect: "unknown", confidence: "medium"};
@@ -51,5 +55,27 @@ describe("runnerStepFrom", () => {
     it("러너 테이블에 없으면 null이다", () => {
         expect(runnerStepFrom(baseStep("go"), "go", ["run", "main.go"])).toBeNull();
         expect(runnerStepFrom(baseStep("cat"), "cat", ["x"])).toBeNull();
+    });
+});
+
+describe("runnerOperationFromArgs", () => {
+    it("인자 토큰에서 알려진 러너를 찾아 조작을 낸다", () => {
+        expect(runnerOperationFromArgs(["run", "biome"])).toBe("run_lint");
+        expect(runnerOperationFromArgs(["run", "vitest"])).toBe("run_test");
+        expect(runnerOperationFromArgs(["run", "tsc"])).toBe("run_build");
+    });
+
+    it("서브커맨드 러너도 인자 흐름에서 찾는다", () => {
+        expect(runnerOperationFromArgs(["go", "test", "./..."])).toBe("run_test");
+    });
+
+    it("여럿이 걸리면 test·lint·build 순으로 고른다", () => {
+        expect(runnerOperationFromArgs(["eslint", "vitest"])).toBe("run_test");
+        expect(runnerOperationFromArgs(["tsc", "eslint"])).toBe("run_lint");
+    });
+
+    it("알려진 러너가 없으면 undefined다", () => {
+        expect(runnerOperationFromArgs(["run", "start"])).toBeUndefined();
+        expect(runnerOperationFromArgs([])).toBeUndefined();
     });
 });

@@ -4,6 +4,7 @@ import type {
     CommandTarget,
 } from "~runtime/domain/ingest/model/command.analysis.model.js";
 import {withStep} from "~runtime/domain/ingest/model/command.classifier.model.js";
+import {runnerOperationFromArgs} from "~runtime/domain/ingest/model/command.runner.model.js";
 
 /** npm·pnpm·yarn 호출을 워크스페이스와 스크립트로 풀어 조작 종류로 분류한다. */
 export function analyzePackageManager(base: CommandStep, args: readonly string[]): CommandStep {
@@ -40,11 +41,14 @@ function extractScriptName(commandName: string, args: readonly string[]): string
 }
 
 function scriptOperation(scriptName: string | undefined, args: readonly string[]): string {
-    const normalizedArgs = args.join(" ").toLowerCase();
     const name = (scriptName ?? "").toLowerCase();
-    if (name.includes("test") || normalizedArgs.includes("vitest") || normalizedArgs.includes("jest")) return "run_test";
-    if (name.includes("lint") || name.includes("format") || normalizedArgs.includes("eslint")) return "run_lint";
-    if (name.includes("build") || normalizedArgs.includes("tsc")) return "run_build";
+    // 스크립트 이름 자체가 조작을 드러내면 그 이름으로 판정한다.
+    if (name.includes("test")) return "run_test";
+    if (name.includes("lint") || name.includes("format")) return "run_lint";
+    if (name.includes("build")) return "run_build";
+    // 러너 인자 판정은 RUNNER_SPECS 테이블이 단독으로 소유한다.
+    const runnerOperation = runnerOperationFromArgs(args);
+    if (runnerOperation) return runnerOperation;
     if (["install", "add", "i"].includes(name)) return "install_dependency";
     if (name === "publish") return "publish";
     return "run_command";

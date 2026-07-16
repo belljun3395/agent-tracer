@@ -28,11 +28,14 @@ const COMMAND_WRAPPERS: readonly CommandWrapper[] = [
 /** `-p pkg`처럼 뒤 토큰까지 값으로 데려가는 래퍼 플래그다. */
 const WRAPPER_VALUE_FLAGS: ReadonlySet<string> = new Set(["-p", "--package", "-c", "--call"]);
 
+/** test·lint·build 판정의 유일한 값 공간이다. */
+export type RunnerOperation = "run_test" | "run_lint" | "run_build";
+
 /** 실행기 하나가 어떤 조작·효과로 관측되는지를 선언한다. */
 interface RunnerSpec {
     readonly command: string;
     readonly subcommand?: string;
-    readonly operation: "run_test" | "run_lint" | "run_build";
+    readonly operation: RunnerOperation;
     readonly effect: CommandEffect;
 }
 
@@ -124,4 +127,17 @@ function matchRunner(commandName: string, firstArg: string | undefined): RunnerS
     );
     if (withSubcommand) return withSubcommand;
     return RUNNER_SPECS.find((spec) => spec.command === commandName && spec.subcommand === undefined);
+}
+
+/** 러너 인자 판정은 이 테이블이 단독 소유하며 여럿이 걸리면 test·lint·build 순으로 고른다. */
+export function runnerOperationFromArgs(args: readonly string[]): RunnerOperation | undefined {
+    const found = new Set<RunnerOperation>();
+    for (let index = 0; index < args.length; index += 1) {
+        const spec = matchRunner(args[index] ?? "", args[index + 1]);
+        if (spec) found.add(spec.operation);
+    }
+    if (found.has("run_test")) return "run_test";
+    if (found.has("run_lint")) return "run_lint";
+    if (found.has("run_build")) return "run_build";
+    return undefined;
 }
