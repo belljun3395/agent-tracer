@@ -13,7 +13,6 @@ import type {RunEventInput} from "~runtime/domain/ingest/model/ingest.event.mode
 const TARGET = {taskId: "task-1", sessionId: "session-1"};
 const SESSION = "claude-session";
 
-/** RuntimeIngestEvent와 RunEventInput은 필드 모양이 달라 테스트에서만 느슨하게 들여다본다. */
 function props(event: RuntimeIngestEvent | RunEventInput): Record<string, unknown> {
     return event as unknown as Record<string, unknown>;
 }

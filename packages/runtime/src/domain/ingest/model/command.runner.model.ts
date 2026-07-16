@@ -10,7 +10,6 @@ interface CommandWrapper {
     readonly subcommand?: string;
 }
 
-/** 새 래퍼는 여기 한 줄로 등록한다. */
 const COMMAND_WRAPPERS: readonly CommandWrapper[] = [
     {name: "npx"},
     {name: "bunx"},
@@ -37,7 +36,6 @@ interface RunnerSpec {
     readonly effect: CommandEffect;
 }
 
-/** 새 언어·러너는 여기 한 줄(서브커맨드가 있으면 몇 줄)로 등록한다. */
 const RUNNER_SPECS: readonly RunnerSpec[] = [
     {command: "vitest", operation: "run_test", effect: "execute_check"},
     {command: "jest", operation: "run_test", effect: "execute_check"},
