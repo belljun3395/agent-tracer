@@ -44,6 +44,26 @@ const TABS: readonly {readonly id: string; readonly label: string; readonly coun
     {id: "caches", label: "Caches"},
     {id: "ring", label: "Ring buffer"},
     {id: "lifecycle", label: "Lifecycle"},
+    {id: "settings", label: "Settings"},
+];
+
+/** 이미 파일 기반인 신원 2개이며 튜닝 9개와 같은 폼에 얹는다. */
+const IDENTITY_FIELDS: readonly {readonly id: string; readonly label: string}[] = [
+    {id: "userId", label: "User id"},
+    {id: "baseUrl", label: "Base URL"},
+];
+
+/** 승격 대상 튜닝 노브 9개이며 정합성 민감한 나머지 운영 상수는 여기 없다. */
+const DAEMON_FIELDS: readonly {readonly id: string; readonly label: string}[] = [
+    {id: "recipeRefreshMs", label: "Recipe refresh (ms)"},
+    {id: "rulesRefreshMs", label: "Rules refresh (ms)"},
+    {id: "ruleGenPollMs", label: "Rule generation poll (ms)"},
+    {id: "idleShutdownMs", label: "Idle shutdown (ms)"},
+    {id: "idleCheckMs", label: "Idle check (ms)"},
+    {id: "controlRebindRetryMs", label: "Control rebind retry (ms)"},
+    {id: "controlPort", label: "Control port"},
+    {id: "spoolMaxBytes", label: "Spool max bytes"},
+    {id: "poisonAttempts", label: "Poison attempts"},
 ];
 
 /** 서버가 페이지 스크립트에 심는 설정이다. */
@@ -59,6 +79,10 @@ function pageConfig(): unknown {
         ivLabel: IV_LABEL,
         reviewPending: RULE_REVIEW_STATE.pendingReview,
         actions,
+        settingsFields: {
+            identity: IDENTITY_FIELDS.map((field) => field.id),
+            daemon: DAEMON_FIELDS.map((field) => field.id),
+        },
     };
 }
 
@@ -80,6 +104,29 @@ function actionButtons(tab: string): string {
 
 function section(id: string, body: string): string {
     return `<section id="s-${id}" role="tabpanel"${id === "status" ? "" : " hidden"}>${body}</section>`;
+}
+
+function settingsField(field: {readonly id: string; readonly label: string}, type: "text" | "number"): string {
+    return `<label class="field"><span>${field.label}</span>`
+        + `<input id="set-${field.id}" name="${field.id}" type="${type}">`
+        + `<span class="hint" id="hint-${field.id}"></span>`
+        + `<span class="field-err" id="err-${field.id}"></span></label>`;
+}
+
+/** 신원 2개와 튜닝 9개를 한 폼으로 편집하며 저장은 파일만 바꾸고 재기동으로 적용된다. */
+function settingsForm(): string {
+    const identity = IDENTITY_FIELDS.map((field) => settingsField(field, "text")).join("");
+    const daemon = DAEMON_FIELDS.map((field) => settingsField(field, "number")).join("");
+    return `
+      <p class="note">Saving writes ~/.agent-tracer/config.json only. Restart the daemon for new values
+        to take effect.</p>
+      <form id="settings-form" class="field-grid">
+        <div class="grid">${identity}${daemon}</div>
+        <div class="actions">
+          <button type="submit" class="act primary">Save settings</button>
+          <span class="field-err" id="err-body"></span>
+        </div>
+      </form>`;
 }
 
 function renderSections(): string {
@@ -123,6 +170,7 @@ function renderSections(): string {
         section("lifecycle", `
       ${actionButtons("lifecycle")}
       <div class="grid" id="life-cards"></div>`),
+        section("settings", settingsForm()),
     ].join("");
 }
 
@@ -145,6 +193,10 @@ export function renderControlPage(token: string): string {
   </header>
   <div class="banner hidden" id="skew">
     <div><strong>Version skew</strong><p id="skew-body"></p></div>
+  </div>
+  <div class="banner hidden" id="settings-drift">
+    <div><strong>Settings changed</strong><p id="settings-drift-body"></p></div>
+    <button class="act primary" data-action="restart">Restart daemon</button>
   </div>
   <nav role="tablist">${renderTabs()}</nav>
   ${renderSections()}

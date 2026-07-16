@@ -52,7 +52,11 @@ async function call(path, body) {
     body: JSON.stringify(body ?? {}),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.ok === false) throw new Error(json?.error?.message ?? "request failed");
+  if (!res.ok || json.ok === false) {
+    const err = new Error(json?.error?.message ?? "request failed");
+    if (json?.errors) err.fieldErrors = json.errors;
+    throw err;
+  }
   return json.data;
 }
 
@@ -97,6 +101,43 @@ document.addEventListener("click", (event) => {
   if (spec) {
     if (spec.confirm && !confirm(spec.confirm)) return;
     void act(actionKey, {}, (d) => spec.toast + (d && typeof d.moved === "number" ? " " + d.moved + " event(s)" : ""));
+  }
+});
+
+function settingsFieldIds() {
+  return CFG.settingsFields.identity.concat(CFG.settingsFields.daemon);
+}
+
+function clearSettingsErrors() {
+  settingsFieldIds().concat(["body"]).forEach((field) => {
+    const el = $("err-" + field);
+    if (el) el.textContent = "";
+  });
+}
+
+function showSettingsErrors(errors) {
+  Object.entries(errors).forEach(([field, message]) => {
+    const el = $("err-" + field) || $("err-body");
+    if (el) el.textContent = message;
+  });
+}
+
+function collectSettingsBody() {
+  const daemon = {};
+  CFG.settingsFields.daemon.forEach((field) => { daemon[field] = Number($("set-" + field).value); });
+  return {userId: $("set-userId").value.trim(), baseUrl: $("set-baseUrl").value.trim(), daemon};
+}
+
+document.getElementById("settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearSettingsErrors();
+  try {
+    await call("config", collectSettingsBody());
+    toast("Settings saved — restart the daemon to apply them");
+    await poll();
+  } catch (err) {
+    if (err.fieldErrors) showSettingsErrors(err.fieldErrors);
+    else $("err-body").textContent = err.message;
   }
 });
 

@@ -74,7 +74,7 @@ async function route(
     }
 }
 
-/** 카탈로그 밖 폼 값이며 http 계층만 검증을 안다 — 액션은 검증이 끝난 값만 받는다. */
+/** 카탈로그 밖 폼 값이며 액션은 여기서 검증이 끝난 값만 받는다. */
 function validateConfigInput(
     raw: unknown,
 ): {ok: true; value: ConfigUpdateInput} | {ok: false; errors: Record<string, string>} {
@@ -90,8 +90,7 @@ function validateConfigInput(
     return {ok: true, value: {userId, baseUrl, daemon: daemonResult.value}};
 }
 
-/** 스냅샷 조회와 카탈로그 액션을 키 하나로 라우팅하며 알려진 키의 집합은 카탈로그가 정한다.
- * `config`는 카탈로그 밖 전용 분기다 — 검증 실패가 있는 액션이라 자동 버튼 렌더에서 뺀다. */
+/** 스냅샷 조회와 카탈로그 액션을 키 하나로 라우팅하며 `config`는 카탈로그 밖 전용 분기다. */
 async function dispatch(
     request: IncomingMessage,
     response: ServerResponse,

@@ -2,7 +2,7 @@ import {readAgentTracerConfig} from "~runtime/config/config.store.js";
 import {resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
 import {isRecord} from "~runtime/support/json.js";
 
-/** 화면에서 조정 가능한 운영 튜닝 노브 9개다. 나머지 상수는 정합성 민감한 내부값이라 여기 없다. */
+/** 화면에서 조정 가능한 운영 튜닝 노브 9개이며 정합성 민감한 내부값은 여기 없다. */
 export interface DaemonSettings {
     readonly recipeRefreshMs: number;
     readonly rulesRefreshMs: number;
@@ -61,7 +61,7 @@ function envControlPort(env: NodeJS.ProcessEnv): number | undefined {
     return inRange("controlPort", parsed) ? parsed : undefined;
 }
 
-/** 파일 값이 범위 밖이거나 없으면 조용히 기본값으로 떨어진다. `controlPort`만 env가 파일을 이긴다. */
+/** 파일 값이 범위 밖이거나 없으면 조용히 기본값으로 떨어지고 `controlPort`만 env가 파일을 이긴다. */
 export function resolveDaemonSettings(
     env: NodeJS.ProcessEnv = process.env,
     paths: AgentTracerPaths = resolveAgentTracerPaths(),
@@ -81,7 +81,7 @@ export type DaemonSettingsValidation =
     | {readonly ok: true; readonly value: DaemonSettings}
     | {readonly ok: false; readonly errors: Record<string, string>};
 
-/** 쓰기 경로가 쓰는 순수 검증이다. 클램프하지 않고 범위 밖 필드마다 메시지를 낸다. */
+/** 쓰기 경로가 쓰는 순수 검증이며 클램프하지 않고 범위 밖 필드마다 메시지를 낸다. */
 export function validateDaemonSettingsInput(raw: unknown): DaemonSettingsValidation {
     const record = isRecord(raw) ? raw : {};
     const errors: Record<string, string> = {};

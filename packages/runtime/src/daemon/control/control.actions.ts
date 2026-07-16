@@ -18,8 +18,7 @@ export interface ConfigUpdateResult {
     readonly daemon: DaemonSettings;
 }
 
-/** 제어 화면이 호출하는 데몬 조작 포트다. `updateConfig`는 카탈로그(`CONTROL_ACTIONS`) 밖의
- * 전용 dispatch 분기로만 호출되며 자동으로 버튼이 되지 않는다. */
+/** 제어 화면이 호출하는 데몬 조작 포트이며 `updateConfig`는 카탈로그 밖 전용 dispatch 분기로만 호출된다. */
 export interface ControlActions {
     readonly snapshot: () => ControlSnapshot;
     readonly flush: () => void;

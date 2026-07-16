@@ -106,6 +106,15 @@ button.act.danger { color: var(--err); border-color: var(--err); background: tra
 button.act.danger:hover { background: color-mix(in srgb, var(--err) 14%, var(--canvas)); }
 button.act:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field span:first-child { color: var(--ink-subtle); font-size: 11px; text-transform: uppercase;
+                           letter-spacing: 0.05em; }
+.field input { background: var(--s2); border: 1px solid var(--hair-strong); border-radius: 6px;
+               color: var(--ink); font: inherit; padding: 6px 10px; }
+.field input:focus { outline: none; border-color: var(--primary); }
+.field .hint { color: var(--ink-tertiary); font-size: 11px; }
+.field-err, #err-body { color: var(--err); font-size: 11px; }
+
 .empty { color: var(--ink-tertiary); padding: 22px; text-align: center; }
 .toast { position: fixed; right: 20px; bottom: 20px; background: var(--s3); color: var(--ink);
          border: 1px solid var(--hair-strong); border-radius: 8px; padding: 10px 14px;

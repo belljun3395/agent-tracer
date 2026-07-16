@@ -122,6 +122,18 @@ function renderRing(s) {
     + '<td class="muted">' + esc(t.lastOccurredAt ?? "") + "</td></tr>"), "Ring is empty.");
 }
 
+const SETTINGS_FIELDS = CFG.settingsFields.identity.concat(CFG.settingsFields.daemon);
+
+function renderSettings(s) {
+  const saved = s.settings.saved, running = s.settings.running;
+  SETTINGS_FIELDS.forEach((field) => {
+    const input = $("set-" + field);
+    if (input && document.activeElement !== input) input.value = saved[field];
+    const hint = $("hint-" + field);
+    if (hint) hint.textContent = saved[field] === running[field] ? "" : "running: " + running[field];
+  });
+}
+
 function renderLifecycle(s) {
   const d = s.daemon;
   $("life-cards").innerHTML = [
@@ -142,9 +154,14 @@ function render(s) {
       + s.daemon.version + ", running from " + s.daemon.entryPath
       + ". Events it ships may be rejected. Restart the daemon below.";
   }
+  $("settings-drift").classList.toggle("hidden", !s.settingsDrift);
+  if (s.settingsDrift) {
+    $("settings-drift-body").textContent = "Saved settings differ from what this daemon is running on. "
+      + "Restart the daemon to apply them.";
+  }
   $("c-dead").textContent = s.deadLetter.count || "";
   $("c-iv").textContent = s.interventions.recent.length || "";
   renderStatus(s); renderSpool(s); renderDead(s); renderInterventions(s);
-  renderRules(s); renderCaches(s); renderRing(s); renderLifecycle(s);
+  renderRules(s); renderCaches(s); renderRing(s); renderLifecycle(s); renderSettings(s);
 }
 `;

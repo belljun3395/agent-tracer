@@ -39,6 +39,10 @@ MCP 도구가 묻는 "지금 태스크가 뭔가"는 훅과 달리 답이 없다
 `config/monitor.identity.ts`가 그 해석을 단독 소유하고 두 프로세스가 그것만 부른다.
 값은 `~/.agent-tracer/config.json`의 `userId`와 `baseUrl`이며 환경변수가 파일을 이긴다.
 
+폴링 주기·idle 종료·스풀 상한 같은 운영 튜닝값 9개는 같은 파일의 `daemon` 키에 산다
+(`config/daemon.settings.ts`). 데몬은 부팅 시 한 번만 해석해 그 값으로 돌고, 저장은
+제어 화면의 Settings 탭이 파일만 바꾼다 — 적용은 데몬 재기동으로 한다.
+
 ## 플러그인 패키징
 
 이 디렉터리가 곧 플러그인 루트다. `.claude-plugin/plugin.json`이 배포 버전을 소유하고,
