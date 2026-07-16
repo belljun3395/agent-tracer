@@ -4,6 +4,7 @@ import {
     TIMELINE_EVENT_KINDS,
     TELEMETRY_EVENT_KINDS,
     RECIPE_INJECTED_VIA,
+    USER_MESSAGE_PROMPT_ORIGINS,
     type EventKind,
 } from "./event.kind.const.js";
 import { EVENT_LANES } from "./event.lane.const.js";
@@ -55,6 +56,8 @@ const timelinePayloadSchema = z.object({
     toolName: z.string().optional(),
     /** 실패한 셸 도구 호출이 payload 최상위에 싣는 실행 명령문이다. */
     command: z.string().optional(),
+    /** userMessage kind에서만 싣는 발화 출처이며 시스템이 주입한 알림 텍스트를 사용자 발화와 가른다. */
+    promptOrigin: z.enum(USER_MESSAGE_PROMPT_ORIGINS).optional(),
     parentEventId: z.string().min(1).optional(),
     taskEffects: z.object({ taskStatus: z.enum(TASK_STATUSES).optional() }).optional(),
 }).strict();

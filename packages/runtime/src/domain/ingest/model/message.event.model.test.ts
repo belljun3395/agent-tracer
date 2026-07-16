@@ -32,6 +32,33 @@ describe("사용자 발화 이벤트", () => {
         expect((event.metadata as Record<string, unknown>)["phase"]).toBe("initial");
         expect(event.lane).toBe(LANE.user);
     });
+
+    it("systemNotification이 없으면 promptOrigin을 싣지 않는다", () => {
+        const event = userMessageEvent(TARGET, {
+            eventId: "event-2",
+            messageId: "message-2",
+            turnId: "turn-2",
+            prompt: "일반 사용자 발화",
+            phase: "follow_up",
+            runtimeSource: RUNTIME_SOURCE,
+        });
+
+        expect(event.promptOrigin).toBeUndefined();
+    });
+
+    it("systemNotification이면 promptOrigin을 system_notification으로 싣는다", () => {
+        const event = userMessageEvent(TARGET, {
+            eventId: "event-3",
+            messageId: "message-3",
+            turnId: "turn-2",
+            prompt: "<task-notification>백그라운드 태스크가 끝났다</task-notification>",
+            phase: "follow_up",
+            runtimeSource: RUNTIME_SOURCE,
+            systemNotification: true,
+        });
+
+        expect(event.promptOrigin).toBe("system_notification");
+    });
 });
 
 describe("어시스턴트 응답 이벤트", () => {

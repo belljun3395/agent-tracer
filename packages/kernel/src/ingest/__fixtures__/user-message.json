@@ -9,6 +9,7 @@
         "lane": "user",
         "title": "Fix the bug in Bash.ts",
         "body": "Fix the bug in Bash.ts",
+        "promptOrigin": "system_notification",
         "metadata": {
             "agent_tracer.evidence_level": "proven",
             "agent_tracer.evidence_reason": "Captured directly by the UserPromptSubmit hook.",
