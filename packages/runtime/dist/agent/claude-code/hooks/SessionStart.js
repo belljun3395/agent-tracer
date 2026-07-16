@@ -3414,7 +3414,7 @@ function sessionStartedEvent(taskId, sessionId, input) {
       ...input.parentSessionId ? { parentSessionId: input.parentSessionId } : {},
       ...input.taskKind ? { taskKind: input.taskKind } : {},
       ...input.origin ? { origin: input.origin } : {},
-      ...input.resume === false ? { resume: false } : {}
+      ...input.resume !== void 0 ? { resume: input.resume } : {}
     }
   };
 }
@@ -3479,12 +3479,14 @@ var EnsureSessionUsecase = class {
     let created;
     let existing;
     let retitled = false;
+    let resumedFromPrior;
     try {
       const store = this.bindings.read();
       existing = store[key];
       if (!existing) {
+        resumedFromPrior = input.resumedFrom ? store[bindingKey(input.runtimeSource, input.resumedFrom)] : void 0;
         created = {
-          taskId: input.taskId?.trim() || this.ids.next(),
+          taskId: resumedFromPrior?.taskId ?? (input.taskId?.trim() || this.ids.next()),
           sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
@@ -3507,8 +3509,11 @@ var EnsureSessionUsecase = class {
       return restored(existing);
     }
     if (!created) throw new Error("session binding was not created");
-    await this.append(sessionStartedEvent(created.taskId, created.sessionId, input));
-    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: true };
+    await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
+      ...input,
+      ...resumedFromPrior ? { parentSessionId: resumedFromPrior.sessionId, resume: true } : {}
+    }));
+    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: !resumedFromPrior };
   }
   async append(event) {
     await this.sink.append([toRunIngestEvent(
@@ -3626,6 +3631,50 @@ var OpenTurnUsecase = class {
   }
 };
 
+// src/agent/claude-code/transcript/transcript.resume.ts
+import * as fs11 from "node:fs";
+import * as readline from "node:readline";
+var RESUME_SCAN_MAX_LINES = 2e4;
+function findResumedSessionId(transcriptPath, currentSessionId, maxLines = RESUME_SCAN_MAX_LINES) {
+  if (!transcriptPath || !fs11.existsSync(transcriptPath)) return Promise.resolve(void 0);
+  return new Promise((resolve2) => {
+    let resumedFrom;
+    let lineCount = 0;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve2(value);
+    };
+    const stream = fs11.createReadStream(transcriptPath, { encoding: "utf8" });
+    stream.on("error", () => finish(void 0));
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    rl.on("error", () => finish(void 0));
+    rl.on("line", (line) => {
+      lineCount += 1;
+      if (lineCount > maxLines) {
+        rl.close();
+        stream.destroy();
+        return;
+      }
+      const trimmed2 = line.trim();
+      if (!trimmed2) return;
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed2);
+      } catch {
+        return;
+      }
+      if (!isRecord(parsed)) return;
+      const sessionId = parsed["session_id"];
+      if (typeof sessionId === "string" && sessionId && sessionId !== currentSessionId) {
+        resumedFrom = sessionId;
+      }
+    });
+    rl.on("close", () => finish(resumedFrom));
+  });
+}
+
 // src/agent/claude-code/runtime.ts
 var transport = resolveMonitorTransportConfig();
 var headers = monitorUserHeaders(resolveMonitorIdentity());
@@ -3709,8 +3758,15 @@ async function runHook(name, script) {
     });
   }
 }
-function ensureClaudeSession(runtimeSessionId, title, options = {}) {
+async function resolveResumedFrom(runtimeSessionId, transcriptPath) {
+  if (!transcriptPath) return void 0;
+  const key = bindingKey(CLAUDE_RUNTIME_SOURCE, runtimeSessionId);
+  if (bindings.read()[key]) return void 0;
+  return findResumedSessionId(transcriptPath, runtimeSessionId);
+}
+async function ensureClaudeSession(runtimeSessionId, title, options = {}) {
   const explicitTitle = transport.taskTitleOverride ?? title;
+  const resumedFrom = await resolveResumedFrom(runtimeSessionId, options.transcriptPath);
   return onSessionStart(session, {
     runtimeSource: CLAUDE_RUNTIME_SOURCE,
     runtimeSessionId,
@@ -3722,7 +3778,8 @@ function ensureClaudeSession(runtimeSessionId, title, options = {}) {
     ...options.parentTaskId !== void 0 ? { parentTaskId: options.parentTaskId } : {},
     ...options.parentSessionId !== void 0 ? { parentSessionId: options.parentSessionId } : {},
     ...options.taskKind !== void 0 ? { taskKind: options.taskKind } : {},
-    ...options.resume === false ? { resume: false } : {}
+    ...options.resume === false ? { resume: false } : {},
+    ...resumedFrom !== void 0 ? { resumedFrom } : {}
   });
 }
 function messageOf(error) {
@@ -3777,7 +3834,9 @@ function onRecipeCacheRefresh(hook) {
 await runHook("SessionStart", {
   parse: readSessionStart,
   handler: async (payload) => {
-    const target = await ensureClaudeSession(payload.sessionId);
+    const target = await ensureClaudeSession(payload.sessionId, void 0, {
+      transcriptPath: payload.transcriptPath
+    });
     const event = sessionTriggerEvent(target, payload.source.toLowerCase());
     if (event !== null) await onLifecycleEvent(claudeRuntime.ingest, [event]);
     await onRecipeCacheRefresh(claudeRuntime.recipe);

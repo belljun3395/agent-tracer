@@ -3488,7 +3488,7 @@ function sessionStartedEvent(taskId, sessionId, input) {
       ...input.parentSessionId ? { parentSessionId: input.parentSessionId } : {},
       ...input.taskKind ? { taskKind: input.taskKind } : {},
       ...input.origin ? { origin: input.origin } : {},
-      ...input.resume === false ? { resume: false } : {}
+      ...input.resume !== void 0 ? { resume: input.resume } : {}
     }
   };
 }
@@ -3553,12 +3553,14 @@ var EnsureSessionUsecase = class {
     let created;
     let existing;
     let retitled = false;
+    let resumedFromPrior;
     try {
       const store = this.bindings.read();
       existing = store[key];
       if (!existing) {
+        resumedFromPrior = input.resumedFrom ? store[bindingKey(input.runtimeSource, input.resumedFrom)] : void 0;
         created = {
-          taskId: input.taskId?.trim() || this.ids.next(),
+          taskId: resumedFromPrior?.taskId ?? (input.taskId?.trim() || this.ids.next()),
           sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
@@ -3581,8 +3583,11 @@ var EnsureSessionUsecase = class {
       return restored(existing);
     }
     if (!created) throw new Error("session binding was not created");
-    await this.append(sessionStartedEvent(created.taskId, created.sessionId, input));
-    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: true };
+    await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
+      ...input,
+      ...resumedFromPrior ? { parentSessionId: resumedFromPrior.sessionId, resume: true } : {}
+    }));
+    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: !resumedFromPrior };
   }
   async append(event) {
     await this.sink.append([toRunIngestEvent(
@@ -3700,6 +3705,50 @@ var OpenTurnUsecase = class {
   }
 };
 
+// src/agent/claude-code/transcript/transcript.resume.ts
+import * as fs11 from "node:fs";
+import * as readline from "node:readline";
+var RESUME_SCAN_MAX_LINES = 2e4;
+function findResumedSessionId(transcriptPath, currentSessionId, maxLines = RESUME_SCAN_MAX_LINES) {
+  if (!transcriptPath || !fs11.existsSync(transcriptPath)) return Promise.resolve(void 0);
+  return new Promise((resolve2) => {
+    let resumedFrom;
+    let lineCount = 0;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve2(value);
+    };
+    const stream = fs11.createReadStream(transcriptPath, { encoding: "utf8" });
+    stream.on("error", () => finish(void 0));
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    rl.on("error", () => finish(void 0));
+    rl.on("line", (line) => {
+      lineCount += 1;
+      if (lineCount > maxLines) {
+        rl.close();
+        stream.destroy();
+        return;
+      }
+      const trimmed2 = line.trim();
+      if (!trimmed2) return;
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed2);
+      } catch {
+        return;
+      }
+      if (!isRecord(parsed)) return;
+      const sessionId = parsed["session_id"];
+      if (typeof sessionId === "string" && sessionId && sessionId !== currentSessionId) {
+        resumedFrom = sessionId;
+      }
+    });
+    rl.on("close", () => finish(resumedFrom));
+  });
+}
+
 // src/agent/claude-code/runtime.ts
 var transport = resolveMonitorTransportConfig();
 var headers = monitorUserHeaders(resolveMonitorIdentity());
@@ -3783,8 +3832,15 @@ async function runHook(name, script) {
     });
   }
 }
-function ensureClaudeSession(runtimeSessionId, title, options = {}) {
+async function resolveResumedFrom(runtimeSessionId, transcriptPath) {
+  if (!transcriptPath) return void 0;
+  const key = bindingKey(CLAUDE_RUNTIME_SOURCE, runtimeSessionId);
+  if (bindings.read()[key]) return void 0;
+  return findResumedSessionId(transcriptPath, runtimeSessionId);
+}
+async function ensureClaudeSession(runtimeSessionId, title, options = {}) {
   const explicitTitle = transport.taskTitleOverride ?? title;
+  const resumedFrom = await resolveResumedFrom(runtimeSessionId, options.transcriptPath);
   return onSessionStart(session, {
     runtimeSource: CLAUDE_RUNTIME_SOURCE,
     runtimeSessionId,
@@ -3796,7 +3852,8 @@ function ensureClaudeSession(runtimeSessionId, title, options = {}) {
     ...options.parentTaskId !== void 0 ? { parentTaskId: options.parentTaskId } : {},
     ...options.parentSessionId !== void 0 ? { parentSessionId: options.parentSessionId } : {},
     ...options.taskKind !== void 0 ? { taskKind: options.taskKind } : {},
-    ...options.resume === false ? { resume: false } : {}
+    ...options.resume === false ? { resume: false } : {},
+    ...resumedFrom !== void 0 ? { resumedFrom } : {}
   });
 }
 function messageOf(error) {
@@ -3827,6 +3884,7 @@ function userMessageEvent(target, input) {
     lane: LANE.user,
     title: ellipsize(input.prompt, TITLE_MAX2),
     body: input.prompt,
+    ...input.systemNotification ? { promptOrigin: "system_notification" } : {},
     metadata
   };
 }
@@ -3845,6 +3903,12 @@ function recipeInjectedEvent(target, input) {
       score: input.score
     }
   };
+}
+
+// src/domain/ingest/model/system.notification.model.ts
+var SYSTEM_NOTIFICATION_PREFIX = "<task-notification>";
+function isSystemNotificationPrompt(prompt) {
+  return prompt.trim().startsWith(SYSTEM_NOTIFICATION_PREFIX);
 }
 
 // src/domain/recipe/inbound/recipe.hook.ts
@@ -3869,12 +3933,16 @@ await runHook("UserPromptSubmit", {
   handler: async (payload) => {
     if (EXIT_PROMPTS.has(payload.prompt.toLowerCase())) return;
     if (!payload.prompt) {
-      await ensureClaudeSession(payload.sessionId);
+      await ensureClaudeSession(payload.sessionId, void 0, {
+        transcriptPath: payload.transcriptPath
+      });
       return;
     }
+    const systemNotification = isSystemNotificationPrompt(payload.prompt);
     const target = await ensureClaudeSession(
       payload.sessionId,
-      ellipsize(payload.prompt, TASK_TITLE_MAX)
+      systemNotification ? void 0 : ellipsize(payload.prompt, TASK_TITLE_MAX),
+      { transcriptPath: payload.transcriptPath }
     );
     const messageId = createMessageId();
     const turnId = deterministicUlid([
@@ -3897,7 +3965,8 @@ await runHook("UserPromptSubmit", {
         turnId,
         prompt: payload.prompt,
         phase: target.taskCreated ? "initial" : "follow_up",
-        runtimeSource: claudeRuntime.runtimeSource
+        runtimeSource: claudeRuntime.runtimeSource,
+        systemNotification
       })
     ]);
     await onRecipeScanRequested(claudeRuntime.recipe, {
@@ -3909,13 +3978,13 @@ await runHook("UserPromptSubmit", {
       queryDaemonRules(target.taskId),
       queryDaemonHints(target.taskId, { trigger: "user_prompt" })
     ]);
-    const recipes = onPromptRecipes(claudeRuntime.recipe, payload.prompt);
+    const recipes = systemNotification ? void 0 : onPromptRecipes(claudeRuntime.recipe, payload.prompt);
     const emission = emitAgentContext("UserPromptSubmit", {
       rules,
       hints,
-      recipeContext: recipes.context
+      recipeContext: recipes?.context ?? ""
     });
-    if (!emission.emitted || recipes.matches.length === 0) return;
+    if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
     await reportRecipeInjection(target.taskId, recipes.titles, emission.recipeBytes);
     await onLifecycleEvent(
       claudeRuntime.ingest,
