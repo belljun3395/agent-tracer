@@ -6,6 +6,7 @@ import type {AddressInfo} from "node:net";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {ensureSpoolDir, resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
 import {readAllSpoolLines} from "~runtime/config/spool.js";
+import {writeAgentTracerConfig} from "~runtime/config/config.store.js";
 import {InterventionLog} from "~runtime/daemon/observation/intervention.log.js";
 import {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
 import {createControlHttpHandler, type ControlActions} from "~runtime/daemon/control/control.http.js";
@@ -129,6 +130,27 @@ describe("데몬 제어 HTTP", () => {
 
         expect(response.status).toBe(200);
         expect(response.json["ok"]).toBe(true);
+    });
+
+    it("저장된 튜닝값이 실행 중인 값과 다르면 스냅샷이 드리프트를 표시한다", async () => {
+        writeAgentTracerConfig({daemon: {idleShutdownMs: 60_000}}, paths);
+
+        const response = await request("GET", "/api/v1/control/snapshot", {token: TOKEN});
+
+        const data = response.json["data"] as Record<string, unknown>;
+        expect(data["settingsDrift"]).toBe(true);
+        const settings = data["settings"] as Record<string, Record<string, unknown>>;
+        expect(settings["running"]["idleShutdownMs"]).toBe(DEFAULT_DAEMON_SETTINGS.idleShutdownMs);
+        expect(settings["saved"]["idleShutdownMs"]).toBe(60_000);
+    });
+
+    it("저장값과 실행값이 같으면 스냅샷이 드리프트를 표시하지 않는다", async () => {
+        writeAgentTracerConfig({userId: "local", baseUrl: "http://localhost:3000"}, paths);
+
+        const response = await request("GET", "/api/v1/control/snapshot", {token: TOKEN});
+
+        const data = response.json["data"] as Record<string, unknown>;
+        expect(data["settingsDrift"]).toBe(false);
     });
 
     it("훅 버전과 데몬 버전이 다르면 스냅샷이 스큐를 표시한다", async () => {
@@ -270,5 +292,16 @@ describe("데몬 제어 HTTP", () => {
 
     it("config 경로에 GET하면 405를 낸다", async () => {
         expect((await request("GET", "/api/v1/control/config", {token: TOKEN})).status).toBe(405);
+    });
+
+    it("baseUrl이 http(s) URL이 아니면 400과 필드 오류를 낸다", async () => {
+        const response = await request("POST", "/api/v1/control/config", {
+            token: TOKEN,
+            body: {userId: "me@example.com", baseUrl: "not-a-url", daemon: {}},
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.json["errors"]).toHaveProperty("baseUrl");
+        expect(actions.updateConfig).not.toHaveBeenCalled();
     });
 });

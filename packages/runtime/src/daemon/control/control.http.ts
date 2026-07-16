@@ -74,6 +74,14 @@ async function route(
     }
 }
 
+function isHttpUrl(value: string): boolean {
+    try {
+        return ["http:", "https:"].includes(new URL(value).protocol);
+    } catch {
+        return false;
+    }
+}
+
 /** 카탈로그 밖 폼 값이며 액션은 여기서 검증이 끝난 값만 받는다. */
 function validateConfigInput(
     raw: unknown,
@@ -84,6 +92,7 @@ function validateConfigInput(
     if (!userId) errors["userId"] = "userId is required";
     const baseUrl = typeof record["baseUrl"] === "string" ? record["baseUrl"].trim() : "";
     if (!baseUrl) errors["baseUrl"] = "baseUrl is required";
+    else if (!isHttpUrl(baseUrl)) errors["baseUrl"] = "baseUrl must be a valid http(s) URL";
     const daemonResult = validateDaemonSettingsInput(record["daemon"]);
     if (!daemonResult.ok) Object.assign(errors, daemonResult.errors);
     if (Object.keys(errors).length > 0 || !daemonResult.ok) return {ok: false, errors};
