@@ -1,19 +1,9 @@
 /** 스냅샷을 탭별 카드와 표로 그리는 브라우저 스크립트 조각이다. */
 export const CONTROL_PAGE_RENDER_SCRIPT = String.raw`
-const STATUS_TONE = {ok: "ok", idle: "", retrying: "warn", rejecting: "err", unreachable: "err"};
-const STATUS_TEXT = {
-  ok: "Shipping events",
-  idle: "Idle, nothing queued",
-  retrying: "Retrying, events held",
-  rejecting: "Server rejecting events",
-  unreachable: "Server unreachable",
-};
-const IV_TAG = {stop_blocked: "block", hints_injected: "hint", recipe_injected: "recipe"};
-const IV_LABEL = {
-  stop_blocked: "stop blocked",
-  hints_injected: "hints injected",
-  recipe_injected: "recipe injected",
-};
+const STATUS_TONE = CFG.statusTone;
+const STATUS_TEXT = CFG.statusText;
+const IV_TAG = CFG.ivTag;
+const IV_LABEL = CFG.ivLabel;
 
 function renderStatus(s) {
   const d = s.daemon, t = s.transport;
@@ -88,7 +78,7 @@ function renderRules(s) {
   $("rule-rows").innerHTML = table(
     ["Rule", "Scope / task", "Severity", "Trigger", "Evaluated", "Verified", "Contradicted", "Blocked", "Last fired"],
     s.rules.map((r) => {
-      const pending = r.reviewState === "pendingReview";
+      const pending = r.reviewState === CFG.reviewPending;
       const dead = r.cached && !pending && r.evaluated === 0 && r.blocked === 0;
       return "<tr><td>" + esc(r.ruleName)
         + (pending ? ' <span class="tag warn">awaiting approval, not enforced</span>' : "")

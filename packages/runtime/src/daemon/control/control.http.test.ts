@@ -10,7 +10,8 @@ import {InterventionLog} from "~runtime/daemon/observation/intervention.log.js";
 import {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
 import {createControlHttpHandler, type ControlActions} from "~runtime/daemon/control/control.http.js";
 import {buildControlSnapshot, type DaemonRuntimeState} from "~runtime/daemon/control/control.state.js";
-import {RESUME_TOKEN_HEADER} from "~runtime/daemon/control/resume.http.js";
+import {CONTROL_ACTIONS} from "~runtime/daemon/control/control.actions.js";
+import {CONTROL_TOKEN_HEADER} from "~runtime/daemon/control/loopback.http.js";
 
 const TOKEN = "test-token-0123456789";
 
@@ -61,7 +62,7 @@ async function request(
     options: {token?: string; body?: unknown} = {},
 ): Promise<{status: number; json: Record<string, unknown>}> {
     const headers: Record<string, string> = {"content-type": "application/json"};
-    if (options.token !== undefined) headers[RESUME_TOKEN_HEADER] = options.token;
+    if (options.token !== undefined) headers[CONTROL_TOKEN_HEADER] = options.token;
     const response = await fetch(`${baseUrl}${url}`, {
         method,
         headers,
@@ -178,5 +179,26 @@ describe("데몬 제어 HTTP", () => {
 
     it("스냅샷 경로에 POST하면 405를 낸다", async () => {
         expect((await request("POST", "/api/v1/control/snapshot", {token: TOKEN})).status).toBe(405);
+    });
+
+    it("카탈로그의 모든 액션 경로가 POST로 200을 낸다", async () => {
+        for (const key of Object.keys(CONTROL_ACTIONS)) {
+            const response = await request("POST", `/api/v1/control/${key}`, {token: TOKEN});
+            expect(response.status, key).toBe(200);
+            expect(response.json["ok"], key).toBe(true);
+        }
+    });
+
+    it("카탈로그의 액션 경로에 GET하면 405를 낸다", async () => {
+        expect((await request("GET", "/api/v1/control/flush", {token: TOKEN})).status).toBe(405);
+    });
+
+    it("제어 페이지가 카탈로그의 모든 액션 버튼을 렌더한다", async () => {
+        const html = await (await fetch(`${baseUrl}/`)).text();
+
+        for (const [key, action] of Object.entries(CONTROL_ACTIONS)) {
+            expect(html, key).toContain(`data-action="${key}"`);
+            expect(html, key).toContain(`>${action.label}</button>`);
+        }
     });
 });

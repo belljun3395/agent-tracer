@@ -2,6 +2,7 @@ import {resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {ensureAgentTracerHome, resolveAgentTracerPaths} from "~runtime/config/home.paths.js";
 import {listSpoolSegments} from "~runtime/config/spool.js";
 import {composeDaemonHooks} from "~runtime/daemon/composition.js";
+import {daemonLog} from "~runtime/daemon/daemon.log.js";
 import {isServerReachable} from "~runtime/daemon/delivery/ingest.retry.js";
 import {buildControlSnapshot, type DaemonRuntimeState} from "~runtime/daemon/control/control.state.js";
 import {createControlHttpHandler, type ControlActions} from "~runtime/daemon/control/control.http.js";
@@ -162,7 +163,7 @@ async function shutdown(reason: string): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     spoolSender.stop();
-    process.stderr.write(`[agent-tracer-daemon] ${reason} — final flush\n`);
+    daemonLog(`${reason} — final flush`);
     servers.close();
     await releaseRunningRuleGenerationJobs(hooks.rulegen);
     await spoolSender.finalFlush();
@@ -253,7 +254,7 @@ const timers = [
             return;
         }
         if (Date.now() - lastActivityAt < IDLE_SHUTDOWN_MS) return;
-        process.stderr.write(`[agent-tracer-daemon] idle ${IDLE_SHUTDOWN_MS}ms — exiting\n`);
+        daemonLog(`idle ${IDLE_SHUTDOWN_MS}ms — exiting`);
         void shutdown("idle-timeout");
     }, IDLE_CHECK_MS),
 ];

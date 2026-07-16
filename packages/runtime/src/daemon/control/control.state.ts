@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import {RULE_REVIEW_STATE, type RuleReviewState} from "@monitor/kernel/rule/definition/rule.review.js";
 import {resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
 import type {IdentityOrigin, MonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {listSpoolSegments, SPOOL_MAX_BYTES} from "~runtime/config/spool.js";
@@ -57,7 +58,7 @@ export interface RuleView {
     readonly ruleName: string;
     readonly taskId: string | null;
     readonly severity: string;
-    readonly reviewState: string;
+    readonly reviewState: RuleReviewState;
     readonly expectation: string;
     readonly cached: boolean;
     readonly evaluated: number;
@@ -143,7 +144,9 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
             ruleName: rule.name,
             taskId: rule.taskId,
             severity: rule.severity,
-            reviewState: rule.reviewState,
+            reviewState: rule.reviewState === RULE_REVIEW_STATE.pendingReview
+                ? RULE_REVIEW_STATE.pendingReview
+                : RULE_REVIEW_STATE.active,
             expectation: describeRuleExpectation(rule),
             cached: true,
             evaluated: sum(stats, (stat) => stat.evaluated),
@@ -159,7 +162,8 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
         views.push({
             ...orphan,
             severity: "unknown",
-            reviewState: "unknown",
+            // 이행되지 않은 규칙은 집행되지 않으므로, 발동 기록만 남은 규칙은 활성이었던 것이다.
+            reviewState: RULE_REVIEW_STATE.active,
             expectation: "unknown",
             cached: false,
         });

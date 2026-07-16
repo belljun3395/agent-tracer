@@ -1,24 +1,84 @@
+import {RULE_REVIEW_STATE} from "@monitor/kernel/rule/definition/rule.review.js";
+import {CONTROL_ACTIONS, type ControlAction} from "~runtime/daemon/control/control.actions.js";
+import type {PipelineStatus} from "~runtime/daemon/control/control.state.js";
+import type {InterventionKind} from "~runtime/daemon/observation/intervention.log.js";
 import {CONTROL_PAGE_SCRIPT} from "~runtime/daemon/control/control.page.script.js";
 import {CONTROL_PAGE_STYLE} from "~runtime/daemon/control/control.page.style.js";
 
-const TABS: readonly (readonly [string, string])[] = [
-    ["status", "Status"],
-    ["interventions", "Interventions"],
-    ["rules", "Rules"],
-    ["spool", "Spool"],
-    ["dead", "Dead-letter"],
-    ["caches", "Caches"],
-    ["ring", "Ring buffer"],
-    ["lifecycle", "Lifecycle"],
+// 브라우저 문자열 맵이 유니언과 갈라지지 않도록 상태·개입 어휘에 값이 추가되면 satisfies가 컴파일을 멈춘다.
+const STATUS_TONE = {
+    ok: "ok",
+    idle: "",
+    retrying: "warn",
+    rejecting: "err",
+    unreachable: "err",
+} satisfies Record<PipelineStatus, string>;
+
+const STATUS_TEXT = {
+    ok: "Shipping events",
+    idle: "Idle, nothing queued",
+    retrying: "Retrying, events held",
+    rejecting: "Server rejecting events",
+    unreachable: "Server unreachable",
+} satisfies Record<PipelineStatus, string>;
+
+const IV_TAG = {
+    stop_blocked: "block",
+    hints_injected: "hint",
+    recipe_injected: "recipe",
+} satisfies Record<InterventionKind, string>;
+
+const IV_LABEL = {
+    stop_blocked: "stop blocked",
+    hints_injected: "hints injected",
+    recipe_injected: "recipe injected",
+} satisfies Record<InterventionKind, string>;
+
+// satisfies가 좁힌 리터럴 타입이 아니라 넓힌 계약으로 순회해 옵션 필드(confirm)에 닿는다.
+const ACTION_ENTRIES = Object.entries(CONTROL_ACTIONS) as readonly (readonly [string, ControlAction])[];
+
+const TABS: readonly {readonly id: string; readonly label: string; readonly count?: string}[] = [
+    {id: "status", label: "Status"},
+    {id: "interventions", label: "Interventions", count: "iv"},
+    {id: "rules", label: "Rules"},
+    {id: "spool", label: "Spool"},
+    {id: "dead", label: "Dead-letter", count: "dead"},
+    {id: "caches", label: "Caches"},
+    {id: "ring", label: "Ring buffer"},
+    {id: "lifecycle", label: "Lifecycle"},
 ];
 
-const COUNTED = new Set(["dead", "interventions"]);
+/** 서버가 페이지 스크립트에 심는 설정이며, 브라우저 문자열 맵과 액션 배선이 전부 여기서 나온다. */
+function pageConfig(): unknown {
+    const actions: Record<string, {toast: string; confirm?: string}> = {};
+    for (const [key, action] of ACTION_ENTRIES) {
+        actions[key] = {toast: action.toast, ...(action.confirm !== undefined ? {confirm: action.confirm} : {})};
+    }
+    return {
+        statusTone: STATUS_TONE,
+        statusText: STATUS_TEXT,
+        ivTag: IV_TAG,
+        ivLabel: IV_LABEL,
+        reviewPending: RULE_REVIEW_STATE.pendingReview,
+        actions,
+    };
+}
 
 function renderTabs(): string {
-    return TABS.map(([id, label], index) => {
-        const counter = COUNTED.has(id) ? `<span class="count" id="c-${id === "interventions" ? "iv" : id}"></span>` : "";
-        return `<button data-tab="${id}" role="tab" aria-selected="${index === 0}">${label}${counter}</button>`;
+    return TABS.map((tab, index) => {
+        const counter = tab.count ? `<span class="count" id="c-${tab.count}"></span>` : "";
+        return `<button data-tab="${tab.id}" role="tab" aria-selected="${index === 0}">${tab.label}${counter}</button>`;
     }).join("");
+}
+
+/** 카탈로그에 액션을 더하면 해당 탭에 버튼이 자동으로 붙는다. */
+function actionButtons(tab: string): string {
+    const buttons = ACTION_ENTRIES
+        .filter(([, action]) => action.tab === tab)
+        .map(([key, action]) =>
+            `<button class="act${action.tone ? ` ${action.tone}` : ""}" data-action="${key}">${action.label}</button>`)
+        .join("");
+    return buttons ? `<div class="actions">${buttons}</div>` : "";
 }
 
 function section(id: string, body: string): string {
@@ -39,18 +99,12 @@ function renderSections(): string {
         A rule that never fires is dead. A rule that fires every turn is noise.</p>
       <div id="rule-rows"></div>`),
         section("spool", `
-      <div class="actions">
-        <button class="act primary" id="a-flush">Flush now</button>
-        <button class="act" id="a-backoff">Clear backoff</button>
-      </div>
+      ${actionButtons("spool")}
       <div class="grid" id="spool-cards"></div>`),
         section("dead", `
       <p class="note">Events the server refused for good. They are already lost from the dashboard.
         Requeue what a fix made shippable again, and only then purge the rest.</p>
-      <div class="actions">
-        <button class="act" id="a-requeue-all">Requeue all</button>
-        <button class="act danger" id="a-purge">Purge all</button>
-      </div>
+      ${actionButtons("dead")}
       <div class="grid" id="dead-cards"></div>
       <h2 style="margin-top:18px">By kind</h2>
       <div id="dead-kinds"></div>
@@ -59,7 +113,7 @@ function renderSections(): string {
         section("caches", `
       <p class="note">The daemon pulls these from the server. If the pipeline stalls they freeze,
         and the daemon keeps enforcing rules the server no longer has.</p>
-      <div class="actions"><button class="act" id="a-refresh">Refresh now</button></div>
+      ${actionButtons("caches")}
       <div class="grid" id="cache-cards"></div>`),
         section("ring", `
       <p class="note">Events the daemon holds in memory. Hints and the guardrail judge from this and
@@ -70,15 +124,12 @@ function renderSections(): string {
       <h2 style="margin-top:18px">By task</h2>
       <div id="ring-tasks"></div>`),
         section("lifecycle", `
-      <div class="actions">
-        <button class="act primary" id="a-restart">Restart daemon</button>
-        <button class="act danger" id="a-stop">Stop daemon</button>
-      </div>
+      ${actionButtons("lifecycle")}
       <div class="grid" id="life-cards"></div>`),
     ].join("");
 }
 
-/** 루프백에만 바인딩되는 제어 화면 HTML을 렌더링하며 제어 토큰을 문서에 심는다. */
+/** 루프백에만 바인딩되는 제어 화면 HTML을 렌더링하며 제어 토큰과 카탈로그 설정을 문서에 심는다. */
 export function renderControlPage(token: string): string {
     return `<!doctype html>
 <html lang="en">
@@ -102,7 +153,8 @@ export function renderControlPage(token: string): string {
   ${renderSections()}
 </div>
 <div class="toast" id="toast"></div>
-<script data-token="${token}">${CONTROL_PAGE_SCRIPT}</script>
+<script data-token="${token}">const CFG=${JSON.stringify(pageConfig())};
+${CONTROL_PAGE_SCRIPT}</script>
 </body>
 </html>`;
 }

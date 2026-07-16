@@ -7,6 +7,7 @@ import {
     spoolBacklogBytes,
     type SpoolSegment,
 } from "~runtime/config/spool.js";
+import {daemonLog} from "~runtime/daemon/daemon.log.js";
 import {sendDaemonHealth, sendIngestBatch} from "~runtime/daemon/delivery/ingest.client.js";
 import {MAX_INGEST_BACKOFF_MS, type SendOutcome} from "~runtime/daemon/delivery/ingest.retry.js";
 import {collectSpoolBatch, eventIdOfSpoolLine, type SpoolBatch} from "~runtime/daemon/delivery/spool.batch.js";
@@ -136,7 +137,7 @@ export class SpoolSender {
     async #flushTick(): Promise<void> {
         if (this.#stopped) return;
         if (!ownsDaemonPid(this.#options.paths)) {
-            process.stderr.write("[agent-tracer-daemon] socket ownership lost — exiting\n");
+            daemonLog("socket ownership lost — exiting");
             this.#options.onOwnershipLost();
             return;
         }
@@ -152,7 +153,7 @@ export class SpoolSender {
             this.#options.onActivity();
             await this.#sendBatch(batch);
         } catch (error) {
-            process.stderr.write(`[agent-tracer-daemon] flush error: ${String(error)}\n`);
+            daemonLog(`flush error: ${String(error)}`);
             this.#options.health.recordSwallowedError();
             this.#scheduleFlush(FLUSH_IDLE_MS);
         }
@@ -184,9 +185,7 @@ export class SpoolSender {
             this.#lastDeadReason = result.reason;
             appendDeadLetter(batch.lines, this.#options.paths);
             this.#options.health.recordDeadLetter(result.reason, batch.lines.length);
-            process.stderr.write(
-                `[agent-tracer-daemon] batch rejected (${result.reason}) — ${batch.lines.length} event(s) to dead-letter\n`,
-            );
+            daemonLog(`batch rejected (${result.reason}) — ${batch.lines.length} event(s) to dead-letter`);
         } else {
             this.#parkRejected(batch, result.rejectedIds, "rejected by id");
         }
@@ -204,7 +203,7 @@ export class SpoolSender {
             this.#options.paths,
         );
         this.#options.health.recordDeadLetter(reason, rejected.size);
-        process.stderr.write(`[agent-tracer-daemon] ${rejected.size} event(s) rejected — moved to dead-letter\n`);
+        daemonLog(`${rejected.size} event(s) rejected — moved to dead-letter`);
     }
 
     #handleServerError(batch: SpoolBatch): void {
@@ -228,7 +227,7 @@ export class SpoolSender {
         }
         appendDeadLetter(batch.lines, this.#options.paths);
         this.#options.health.recordDeadLetter(`poison after ${POISON_ATTEMPTS} server errors`, batch.lines.length);
-        process.stderr.write(`[agent-tracer-daemon] poison segment parked after ${POISON_ATTEMPTS} server errors\n`);
+        daemonLog(`poison segment parked after ${POISON_ATTEMPTS} server errors`);
         this.#removeSegments(batch.segments);
         this.#resetPoisonState();
         this.#backoffMs = 0;
@@ -245,9 +244,7 @@ export class SpoolSender {
         const cap = enforceSpoolSizeCap(this.#options.paths);
         if (cap.droppedSegments.length === 0) return;
         this.#options.history.forget(cap.droppedSegments);
-        process.stderr.write(
-            `[agent-tracer-daemon] spool over cap — dropped ${cap.droppedSegments.length} segment(s), ${cap.droppedBytes} byte(s)\n`,
-        );
+        daemonLog(`spool over cap — dropped ${cap.droppedSegments.length} segment(s), ${cap.droppedBytes} byte(s)`);
     }
 
     #removeSegments(segments: readonly SpoolSegment[]): void {

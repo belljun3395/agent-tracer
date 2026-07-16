@@ -1,4 +1,6 @@
 import type * as net from "node:net";
+import {daemonLog} from "~runtime/daemon/daemon.log.js";
+import {createLineFramer} from "~runtime/daemon/ipc/socket.framing.js";
 import type {InterventionLog} from "~runtime/daemon/observation/intervention.log.js";
 import {
     parseDaemonRequest,
@@ -58,12 +60,9 @@ export function createDaemonConnectionHandler(context: DaemonSocketContext): (so
     return (socket) => {
         context.onConnectionOpened();
         context.onActivity();
-        let buffer = "";
+        const frame = createLineFramer();
         socket.on("data", (chunk) => {
-            buffer += chunk.toString("utf8");
-            const index = buffer.indexOf("\n");
-            if (index === -1) return;
-            const line = buffer.slice(0, index).trim();
+            const line = frame(chunk);
             if (line) void handleMessage(socket, line, context);
         });
         socket.on("close", context.onConnectionClosed);
@@ -87,7 +86,7 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
             case "shutdown": {
                 const reason = request.reason ?? "requested";
                 send(socket, {ok: true} satisfies DaemonAckResponse);
-                process.stderr.write(`[agent-tracer-daemon] shutdown requested via socket (${reason})\n`);
+                daemonLog(`shutdown requested via socket (${reason})`);
                 context.shutdown(`socket-shutdown: ${reason}`);
                 return;
             }

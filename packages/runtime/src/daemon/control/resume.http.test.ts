@@ -1,10 +1,7 @@
 import http from "node:http";
 import {afterEach, describe, expect, it} from "vitest";
-import {
-    createResumeHttpHandler,
-    isAllowedResumeOrigin,
-    RESUME_TOKEN_HEADER,
-} from "~runtime/daemon/control/resume.http.js";
+import {createResumeHttpHandler} from "~runtime/daemon/control/resume.http.js";
+import {CONTROL_TOKEN_HEADER, isAllowedLoopbackOrigin} from "~runtime/daemon/control/loopback.http.js";
 
 const TOKEN = "test-resume-token";
 
@@ -24,11 +21,11 @@ async function listen(handler: http.RequestListener): Promise<string> {
     return `http://127.0.0.1:${address.port}`;
 }
 
-describe("isAllowedResumeOrigin", () => {
+describe("isAllowedLoopbackOrigin", () => {
     it("loopback origin만 허용한다", () => {
-        expect(isAllowedResumeOrigin("http://127.0.0.1:5173")).toBe(true);
-        expect(isAllowedResumeOrigin("http://localhost:5173")).toBe(true);
-        expect(isAllowedResumeOrigin("https://example.com")).toBe(false);
+        expect(isAllowedLoopbackOrigin("http://127.0.0.1:5173")).toBe(true);
+        expect(isAllowedLoopbackOrigin("http://localhost:5173")).toBe(true);
+        expect(isAllowedLoopbackOrigin("https://example.com")).toBe(false);
     });
 });
 
@@ -45,7 +42,7 @@ describe("createResumeHttpHandler", () => {
             headers: {
                 "content-type": "application/json",
                 origin: "http://127.0.0.1:5173",
-                [RESUME_TOKEN_HEADER]: TOKEN,
+                [CONTROL_TOKEN_HEADER]: TOKEN,
             },
             body: JSON.stringify({
                 taskId: "task-1",
@@ -94,7 +91,7 @@ describe("createResumeHttpHandler", () => {
             headers: {
                 "content-type": "application/json",
                 origin: "http://127.0.0.1:5173",
-                [RESUME_TOKEN_HEADER]: "wrong-token",
+                [CONTROL_TOKEN_HEADER]: "wrong-token",
             },
             body: JSON.stringify({runtimeSource: "claude-plugin", runtimeSessionId: "abc"}),
         });
@@ -114,7 +111,7 @@ describe("createResumeHttpHandler", () => {
             headers: {
                 "content-type": "application/json",
                 origin: "https://example.com",
-                [RESUME_TOKEN_HEADER]: TOKEN,
+                [CONTROL_TOKEN_HEADER]: TOKEN,
             },
             body: "{}",
         });

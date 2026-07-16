@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as net from "node:net";
 import type {AgentTracerPaths} from "~runtime/config/home.paths.js";
+import {daemonLog} from "~runtime/daemon/daemon.log.js";
+import {RESUME_PATH} from "~runtime/daemon/control/resume.http.js";
 import {DAEMON_SOCKET_MODE, probeSocket} from "~runtime/daemon/ipc/socket.client.js";
 import {writeDaemonPid} from "~runtime/daemon/lifecycle/daemon.pid.js";
-
-const RESUME_PATH_PREFIX = "/api/v1/resume";
 
 interface DaemonServerOptions {
     readonly paths: AgentTracerPaths;
@@ -29,7 +29,8 @@ export function createDaemonServers(options: DaemonServerOptions): DaemonServers
     const socketServer = net.createServer(options.onConnection);
     const httpServer = http.createServer((request, response) => {
         options.onActivity();
-        if ((request.url ?? "").startsWith(RESUME_PATH_PREFIX)) options.resumeHandler(request, response);
+        // 라우팅은 접두어로 갈라 재개 핸들러에 OPTIONS까지 넘기고, 정확한 경로 판정은 그 핸들러가 한다.
+        if ((request.url ?? "").startsWith(RESUME_PATH)) options.resumeHandler(request, response);
         else options.controlHandler(request, response);
     });
 
@@ -47,9 +48,7 @@ export function createDaemonServers(options: DaemonServerOptions): DaemonServers
             // 소켓 파일의 권한 변경은 파일 시스템 지원 여부에 달려 있다.
         }
         writeDaemonPid(options.paths);
-        process.stderr.write(
-            `[agent-tracer-daemon] listening at ${options.paths.socketPath} (pid=${process.pid})\n`,
-        );
+        daemonLog(`listening at ${options.paths.socketPath} (pid=${process.pid})`);
         options.onSocketReady();
         listenOnControl();
     });
@@ -61,18 +60,18 @@ export function createDaemonServers(options: DaemonServerOptions): DaemonServers
             void reclaimSocket(options, listenOnSocket);
             return;
         }
-        process.stderr.write(`[agent-tracer-daemon] server error: ${String(error)}\n`);
+        daemonLog(`server error: ${String(error)}`);
         process.exit(1);
     });
 
     httpServer.on("listening", () => {
         httpServer.unref();
-        process.stderr.write(`[agent-tracer-daemon] control page at http://127.0.0.1:${options.controlPort}/\n`);
+        daemonLog(`control page at http://127.0.0.1:${options.controlPort}/`);
     });
 
     httpServer.on("error", (error) => {
         if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE" || options.isShuttingDown()) {
-            process.stderr.write(`[agent-tracer-daemon] control server error: ${String(error)}\n`);
+            daemonLog(`control server error: ${String(error)}`);
             return;
         }
         const retry = setTimeout(() => {
@@ -92,9 +91,7 @@ export function createDaemonServers(options: DaemonServerOptions): DaemonServers
 
 async function reclaimSocket(options: DaemonServerOptions, listenOnSocket: () => void): Promise<void> {
     if (await probeSocket(options.paths.socketPath, 100)) {
-        process.stderr.write(
-            `[agent-tracer-daemon] already running at ${options.paths.socketPath} — exiting\n`,
-        );
+        daemonLog(`already running at ${options.paths.socketPath} — exiting`);
         process.exit(0);
     }
     try {

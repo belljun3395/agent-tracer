@@ -90,22 +90,15 @@ document.addEventListener("click", (event) => {
   const kind = event.target.dataset?.requeue;
   if (kind) {
     void act("dead-letter/requeue", {kinds: [kind]}, (d) => "Requeued " + d.moved + " event(s)");
+    return;
+  }
+  const actionKey = event.target.dataset?.action;
+  const spec = actionKey ? CFG.actions[actionKey] : null;
+  if (spec) {
+    if (spec.confirm && !confirm(spec.confirm)) return;
+    void act(actionKey, {}, (d) => spec.toast + (d && typeof d.moved === "number" ? " " + d.moved + " event(s)" : ""));
   }
 });
-
-$("a-flush").onclick = () => act("flush", {}, () => "Flushing now");
-$("a-backoff").onclick = () => act("reset-backoff", {}, () => "Backoff cleared");
-$("a-refresh").onclick = () => act("refresh-caches", {}, () => "Refreshing caches");
-$("a-requeue-all").onclick = () => act("dead-letter/requeue", {}, (d) => "Requeued " + d.moved + " event(s)");
-$("a-purge").onclick = () => {
-  if (!confirm("Delete every dead-lettered event? This cannot be undone.")) return;
-  return act("dead-letter/purge", {}, (d) => "Purged " + d.moved + " event(s)");
-};
-$("a-restart").onclick = () => act("restart", {}, () => "Restarting, a hook call will bring it back");
-$("a-stop").onclick = () => {
-  if (!confirm("Stop the daemon? Hooks will respawn it on the next call.")) return;
-  return act("stop", {}, () => "Stopping");
-};
 
 void poll();
 setInterval(() => void poll(), POLL_MS);

@@ -1,4 +1,5 @@
 import * as net from "node:net";
+import {createLineFramer} from "~runtime/daemon/ipc/socket.framing.js";
 import type {DaemonRequest} from "~runtime/daemon/port/daemon.socket.port.js";
 
 export const DAEMON_SOCKET_MODE = 0o600;
@@ -32,7 +33,7 @@ export function requestDaemon<TMessage extends DaemonRequest, T>(
 ): Promise<T> {
     return new Promise((resolve, reject) => {
         const socket = net.createConnection(socketPath);
-        let buffer = "";
+        const frame = createLineFramer();
         let settled = false;
         const finish = (value: T | undefined, error?: Error): void => {
             if (settled) return;
@@ -51,10 +52,8 @@ export function requestDaemon<TMessage extends DaemonRequest, T>(
             socket.write(`${JSON.stringify(message)}\n`);
         });
         socket.on("data", (chunk) => {
-            buffer += chunk.toString("utf8");
-            const index = buffer.indexOf("\n");
-            if (index === -1) return;
-            const line = buffer.slice(0, index).trim();
+            const line = frame(chunk);
+            if (line === null) return;
             try {
                 finish(parse(JSON.parse(line)));
             } catch {
