@@ -1,6 +1,7 @@
 import {
     bindingKey,
     capBindingStore,
+    mostRecentBindingWhere,
     type BindingRecord,
 } from "~runtime/domain/binding/model/binding.model.js";
 import type {BindingStorePort} from "~runtime/domain/binding/port/binding.store.port.js";
@@ -10,11 +11,13 @@ import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.por
 import {restored, type EnsuredSession} from "~runtime/domain/session/model/ensured.session.model.js";
 import type {ClockPort} from "~runtime/domain/session/port/clock.port.js";
 import {
+    isSubagentSession,
+    sessionEndedEvent,
     sessionStartedEvent,
     type SessionBindingInput,
 } from "~runtime/domain/session/model/session.event.model.js";
 
-/** /clear 뒤의 세션은 트랜스크립트와 무관하게 항상 독립된 새 태스크로 열고 직전 태스크는 SessionEnd(clear)가 닫는다. */
+/** /clear는 트랜스크립트와 무관하게 항상 독립된 새 태스크를 열고, 같은 워크스페이스에서 가장 최근에 활동한 비-서브에이전트 태스크를 닫는다. */
 export class ClearSessionUsecase {
     constructor(
         private readonly bindings: BindingStorePort,
@@ -33,13 +36,22 @@ export class ClearSessionUsecase {
         }
 
         let created: BindingRecord;
+        let predecessor: BindingRecord | undefined;
         try {
             const store = this.bindings.read();
+            predecessor = input.workspacePath
+                ? mostRecentBindingWhere(store, (candidate) => (
+                    candidate.workspacePath === input.workspacePath &&
+                    bindingKey(candidate.runtimeSource, candidate.runtimeSessionId) !== key &&
+                    !isSubagentSession(candidate.runtimeSessionId)
+                ))
+                : undefined;
             created = {
                 taskId: this.ids.next(),
                 sessionId: this.ids.next(),
                 runtimeSource: input.runtimeSource,
                 runtimeSessionId: input.runtimeSessionId,
+                ...(input.workspacePath ? {workspacePath: input.workspacePath} : {}),
                 createdAt: new Date(this.clock.now()).toISOString(),
                 titled: input.titled ?? true,
             };
@@ -47,6 +59,18 @@ export class ClearSessionUsecase {
             this.bindings.write(capBindingStore(store));
         } finally {
             this.bindings.releaseLock();
+        }
+
+        if (predecessor) {
+            await this.append(sessionEndedEvent({
+                taskId: predecessor.taskId,
+                sessionId: predecessor.sessionId,
+                runtimeSource: input.runtimeSource,
+                runtimeSessionId: predecessor.runtimeSessionId,
+                summary: "Claude Code conversation cleared (/clear)",
+                completionReason: "cleared",
+                completeTask: true,
+            }));
         }
 
         await this.append(sessionStartedEvent(created.taskId, created.sessionId, {

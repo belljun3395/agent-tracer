@@ -29,6 +29,10 @@ export function subagentSessionId(agentId: string): string {
     return `${SUBAGENT_PREFIX}${agentId}`;
 }
 
+export function isSubagentSession(runtimeSessionId: string): boolean {
+    return runtimeSessionId.startsWith(SUBAGENT_PREFIX);
+}
+
 export function subagentTitle(agentId: string, agentType?: string): string {
     return agentType ? `Subagent: ${agentType}` : `Subagent: ${agentId}`;
 }

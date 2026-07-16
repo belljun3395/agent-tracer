@@ -8,6 +8,7 @@ export interface BindingRecord {
     readonly sessionId: string;
     readonly runtimeSource: string;
     readonly runtimeSessionId: string;
+    readonly workspacePath?: string;
     readonly createdAt: string;
     readonly titled?: boolean;
     readonly currentTurnId?: string;
@@ -79,9 +80,17 @@ function activityTimestamp(binding: BindingRecord): number {
 
 /** MCP 브리지는 자기 세션을 알 방법이 없으므로 가장 최근에 턴이 열린 바인딩을 현재 작업으로 추정한다. */
 export function mostRecentActiveBinding(bindings: BindingStore): BindingRecord | undefined {
-    const entries = Object.values(bindings);
-    if (entries.length === 0) return undefined;
-    return entries.reduce((latest, candidate) => (
+    return mostRecentBindingWhere(bindings, () => true);
+}
+
+/** 조건을 만족하는 바인딩 중 가장 최근에 턴이 열린 것을 고른다. */
+export function mostRecentBindingWhere(
+    bindings: BindingStore,
+    predicate: (binding: BindingRecord) => boolean,
+): BindingRecord | undefined {
+    const matches = Object.values(bindings).filter(predicate);
+    if (matches.length === 0) return undefined;
+    return matches.reduce((latest, candidate) => (
         activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest
     ));
 }

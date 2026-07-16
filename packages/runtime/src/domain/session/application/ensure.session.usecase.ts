@@ -50,6 +50,7 @@ export class EnsureSessionUsecase {
                     sessionId: this.ids.next(),
                     runtimeSource: input.runtimeSource,
                     runtimeSessionId: input.runtimeSessionId,
+                    ...(input.workspacePath ? {workspacePath: input.workspacePath} : {}),
                     createdAt: new Date(this.clock.now()).toISOString(),
                     titled,
                 };
