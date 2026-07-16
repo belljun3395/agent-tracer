@@ -65,6 +65,7 @@ describe("골든 픽스처", () => {
         const payload = payloadOf("user-message");
 
         expect(payload["body"]).toBe("Fix the bug in Bash.ts");
+        expect(payload["promptOrigin"]).toBe("system_notification");
         expect(metadataOf(payload)["messageId"]).toBe("msg-1");
     });
 

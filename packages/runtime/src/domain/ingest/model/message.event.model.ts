@@ -27,6 +27,7 @@ export interface UserMessageInput {
     readonly prompt: string;
     readonly phase: UserMessagePhase;
     readonly runtimeSource: string;
+    readonly systemNotification?: boolean;
 }
 
 export function userMessageEvent(target: IngestTarget, input: UserMessageInput): RuntimeIngestEvent {
@@ -46,6 +47,7 @@ export function userMessageEvent(target: IngestTarget, input: UserMessageInput):
         lane: LANE.user,
         title: ellipsize(input.prompt, TITLE_MAX),
         body: input.prompt,
+        ...(input.systemNotification ? {promptOrigin: "system_notification" as const} : {}),
         metadata,
     };
 }

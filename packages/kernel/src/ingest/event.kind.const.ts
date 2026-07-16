@@ -121,3 +121,7 @@ export function isSpanEventKind(kind: string): boolean {
 
 export const RECIPE_INJECTED_VIA = ["auto", "slash_command", "manual"] as const;
 export type RecipeInjectedVia = (typeof RECIPE_INJECTED_VIA)[number];
+
+/** userMessage kind에서만 쓰며 시스템이 주입한 알림 텍스트인지 사용자가 직접 쓴 발화인지를 가른다. */
+export const USER_MESSAGE_PROMPT_ORIGINS = ["user", "system_notification"] as const;
+export type UserMessagePromptOrigin = (typeof USER_MESSAGE_PROMPT_ORIGINS)[number];
