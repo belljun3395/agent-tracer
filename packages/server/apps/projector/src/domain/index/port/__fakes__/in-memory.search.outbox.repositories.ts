@@ -1,5 +1,6 @@
-import type { RecipeEntity, SearchOutboxEntity, TaskUserStateEntity } from "@monitor/tracer-domain";
+import type { MemoEntity, RecipeEntity, SearchOutboxEntity, TaskUserStateEntity } from "@monitor/tracer-domain";
 import type {
+    SearchOutboxMemoRepository,
     SearchOutboxRecipeRepository,
     SearchOutboxRepositoryPort,
     SearchOutboxTaskUserStateRepository,
@@ -55,6 +56,19 @@ export class InMemorySearchOutboxTaskUserStateRepository implements SearchOutbox
     }
 
     findById(id: string): Promise<TaskUserStateEntity | null> {
+        return Promise.resolve(this.rows.get(id) ?? null);
+    }
+}
+
+/** 메모 조회 포트의 인메모리 대역이다. */
+export class InMemorySearchOutboxMemoRepository implements SearchOutboxMemoRepository {
+    private readonly rows = new Map<string, MemoEntity>();
+
+    seed(...memos: readonly MemoEntity[]): void {
+        for (const memo of memos) this.rows.set(memo.id, memo);
+    }
+
+    findById(id: string): Promise<MemoEntity | null> {
         return Promise.resolve(this.rows.get(id) ?? null);
     }
 }

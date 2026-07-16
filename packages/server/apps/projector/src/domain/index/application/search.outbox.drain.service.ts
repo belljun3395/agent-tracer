@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { RecipeEntity, SearchOutboxEntity } from "@monitor/tracer-domain";
+import type { MemoEntity, RecipeEntity, SearchOutboxEntity } from "@monitor/tracer-domain";
 import { ADVISORY_LOCK_KEY } from "~projector/domain/index/port/advisory.lock.keys.js";
 import {
     ADVISORY_LOCK,
@@ -7,9 +7,11 @@ import {
 } from "~projector/domain/index/port/advisory.lock.port.js";
 import type {
     SearchOutboxDrainRepositories,
+    SearchOutboxMemoRepository,
     SearchOutboxRecipeRepository,
     SearchOutboxTaskUserStateRepository,
 } from "~projector/domain/index/port/search.outbox.drain.repository.port.js";
+import { MEMOS_ALIAS } from "~projector/domain/index/model/search.index.definitions.js";
 import {
     SEARCH_INDEX_WRITER,
     type SearchIndexWriterPort,
@@ -32,6 +34,17 @@ function recipeDocument(recipe: RecipeEntity): Record<string, unknown> {
         userEdited: recipe.userEdited,
         rev: recipe.rev,
         updatedAt: recipe.updatedAt.toISOString(),
+    };
+}
+
+function memoDocument(memo: MemoEntity): Record<string, unknown> {
+    return {
+        userId: memo.userId,
+        taskId: memo.taskId,
+        eventId: memo.eventId,
+        author: memo.author,
+        body: memo.body,
+        updatedAt: memo.updatedAt.toISOString(),
     };
 }
 
@@ -61,9 +74,9 @@ export class SearchOutboxDrainService {
     }
 
     private async apply(row: SearchOutboxEntity, repos: SearchOutboxDrainRepositories): Promise<boolean> {
-        return row.isRecipe()
-            ? this.applyRecipe(row, repos.recipes)
-            : this.applyTask(row, repos.taskUserStates);
+        if (row.isRecipe()) return this.applyRecipe(row, repos.recipes);
+        if (row.isMemo()) return this.applyMemo(row, repos.memos);
+        return this.applyTask(row, repos.taskUserStates);
     }
 
     private async applyRecipe(row: SearchOutboxEntity, recipes: SearchOutboxRecipeRepository): Promise<boolean> {
@@ -71,6 +84,21 @@ export class SearchOutboxDrainService {
             const recipe = await recipes.findById(row.targetId);
             if (recipe === null) return true;
             await this.searchIndex.indexDocument(RECIPES_ALIAS, recipe.id, recipeDocument(recipe));
+            return true;
+        } catch (error) {
+            this.logFailure(row, error);
+            return false;
+        }
+    }
+
+    private async applyMemo(row: SearchOutboxEntity, memos: SearchOutboxMemoRepository): Promise<boolean> {
+        try {
+            const memo = await memos.findById(row.targetId);
+            if (memo === null || memo.isDeleted()) {
+                await this.searchIndex.deleteDocument(MEMOS_ALIAS, row.targetId);
+                return true;
+            }
+            await this.searchIndex.indexDocument(MEMOS_ALIAS, memo.id, memoDocument(memo));
             return true;
         } catch (error) {
             this.logFailure(row, error);

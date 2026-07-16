@@ -16,6 +16,7 @@ export class InMemorySearchIndex implements SearchIndexWriterPort, SearchIndexAd
     indexFails = false;
     updateFails = false;
     reindexLimit: number | null = null;
+    readonly deletedDocuments: { readonly index: string; readonly id: string }[] = [];
 
     private readonly aliases = new Map<string, string[]>();
     private readonly indices = new Map<string, Map<string, Record<string, unknown>>>();
@@ -68,6 +69,12 @@ export class InMemorySearchIndex implements SearchIndexWriterPort, SearchIndexAd
         if (this.updateFails) return Promise.reject(new Error("opensearch down"));
         const store = this.ensureStore(index);
         store.set(id, { ...store.get(id) ?? {}, ...document });
+        return Promise.resolve();
+    }
+
+    deleteDocument(index: string, id: string): Promise<void> {
+        this.deletedDocuments.push({ index, id });
+        this.ensureStore(index).delete(id);
         return Promise.resolve();
     }
 

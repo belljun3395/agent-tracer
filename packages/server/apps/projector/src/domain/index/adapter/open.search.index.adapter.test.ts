@@ -72,4 +72,22 @@ describe("OpenSearchIndexAdapter", () => {
         });
         expect(deleted).toBe(7);
     });
+
+    it("문서 삭제 요청을 그대로 전달한다", async () => {
+        const del = vi.fn(async () => ({}));
+        const adapter = new OpenSearchIndexAdapter({ delete: del } as unknown as Client);
+
+        await adapter.deleteDocument("memos-v1", "m1");
+
+        expect(del).toHaveBeenCalledWith({ index: "memos-v1", id: "m1" });
+    });
+
+    it("이미 없는 문서를 지우는 404는 실패로 보지 않는다", async () => {
+        const del = vi.fn(async () => {
+            throw Object.assign(new Error("not_found"), { statusCode: 404 });
+        });
+        const adapter = new OpenSearchIndexAdapter({ delete: del } as unknown as Client);
+
+        await expect(adapter.deleteDocument("memos-v1", "gone")).resolves.toBeUndefined();
+    });
 });

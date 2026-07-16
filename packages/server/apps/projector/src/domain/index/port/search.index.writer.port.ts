@@ -24,4 +24,6 @@ export interface SearchIndexWriterPort {
     writeBulk(operations: readonly SearchBulkOperation[]): Promise<{ readonly errors: boolean; readonly itemCount: number }>;
     indexDocument(index: string, id: string, document: Record<string, unknown>): Promise<void>;
     updateDocument(index: string, id: string, document: Record<string, unknown>): Promise<void>;
+    /** 존재하지 않는 문서를 지워도 실패로 보지 않는다. */
+    deleteDocument(index: string, id: string): Promise<void>;
 }

@@ -1,6 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { DataSource, EntityManager } from "typeorm";
 import {
+    MemoEntity,
+    MemoRepository,
     RecipeEntity,
     RecipeRepository,
     SearchOutboxEntity,
@@ -36,6 +38,7 @@ export class TypeOrmSearchOutboxLockAdapter implements AdvisoryLockPort<SearchOu
             searchOutbox: new SearchOutboxRepository(manager.getRepository(SearchOutboxEntity)),
             recipes: new RecipeRepository(manager.getRepository(RecipeEntity)),
             taskUserStates: new TaskUserStateRepository(manager.getRepository(TaskUserStateEntity)),
+            memos: new MemoRepository(manager.getRepository(MemoEntity)),
         };
     }
 }

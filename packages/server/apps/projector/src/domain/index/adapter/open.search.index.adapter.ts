@@ -12,6 +12,10 @@ function isAlreadyExists(error: unknown): boolean {
     return error instanceof Error && error.message.includes("resource_already_exists");
 }
 
+function isNotFound(error: unknown): boolean {
+    return typeof error === "object" && error !== null && "statusCode" in error && error.statusCode === 404;
+}
+
 function toBulkBody(operations: readonly SearchBulkOperation[]): Record<string, unknown>[] {
     const body: Record<string, unknown>[] = [];
     for (const operation of operations) {
@@ -81,6 +85,14 @@ implements SearchIndexWriterPort, SearchIndexAdminPort, SearchIndexRetentionPort
 
     async updateDocument(index: string, id: string, document: Record<string, unknown>): Promise<void> {
         await this.client.update({ index, id, body: { doc: document, doc_as_upsert: true } });
+    }
+
+    async deleteDocument(index: string, id: string): Promise<void> {
+        try {
+            await this.client.delete({ index, id });
+        } catch (error) {
+            if (!isNotFound(error)) throw error;
+        }
     }
 
     async resolveAlias(alias: string): Promise<readonly string[]> {

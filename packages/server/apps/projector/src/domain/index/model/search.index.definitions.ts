@@ -12,6 +12,8 @@ export const TASKS_ALIAS = "tasks";
 export const TASKS_INDEX = "tasks-v1";
 export const RECIPES_ALIAS = "recipes";
 export const RECIPES_INDEX = "recipes-v1";
+export const MEMOS_ALIAS = "memos";
+export const MEMOS_INDEX = "memos-v1";
 
 export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
     {
@@ -70,6 +72,21 @@ export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
                 status: { type: "keyword" },
                 userEdited: { type: "boolean" },
                 rev: { type: "integer" },
+                updatedAt: { type: "date" },
+            },
+        },
+    },
+    {
+        alias: MEMOS_ALIAS,
+        index: MEMOS_INDEX,
+        settings: { number_of_shards: 1, number_of_replicas: 0 },
+        mappings: {
+            properties: {
+                userId: { type: "keyword" },
+                taskId: { type: "keyword" },
+                eventId: { type: "keyword" },
+                author: { type: "keyword" },
+                body: { type: "text" },
                 updatedAt: { type: "date" },
             },
         },
