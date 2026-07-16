@@ -29,7 +29,12 @@ export interface RequiredEventMetadata {
     readonly tags?: readonly string[];
 }
 
-export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetadata & {
+/** PreToolUse와 상관시켜 구한 도구 호출 소요 시간이며, 시작 기록이 없으면 싣지 않는다. */
+export interface ToolTimingMetadata {
+    readonly durationMs?: number;
+}
+
+export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetadata & ToolTimingMetadata & {
     readonly toolName: string;
     readonly command: string;
     readonly description?: string;
@@ -48,7 +53,7 @@ export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetad
     readonly stderrTruncated?: boolean;
 };
 
-export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {
+export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & ToolTimingMetadata & {
     readonly toolName: string;
     readonly filePath?: string;
     readonly relPath?: string;
@@ -77,7 +82,7 @@ export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {
     readonly monitorDescription?: string;
 };
 
-export type AgentActivityMetadata = RequiredEventMetadata & EventSemanticMetadata & {
+export type AgentActivityMetadata = RequiredEventMetadata & EventSemanticMetadata & ToolTimingMetadata & {
     readonly activityType: AgentActivityType;
     readonly mcpServer?: string;
     readonly mcpTool?: string;
@@ -115,10 +120,11 @@ export type PlanLoggedMetadata = RequiredEventMetadata & {
     readonly toolUseId?: string;
 };
 
-export type ToolFailureMetadata = RequiredEventMetadata & Partial<EventSemanticMetadata> & {
+export type ToolFailureMetadata = RequiredEventMetadata & Partial<EventSemanticMetadata> & ToolTimingMetadata & {
     readonly failed: true;
     readonly error: string;
     readonly isInterrupt: boolean;
+    readonly errorType: string;
     readonly description?: string;
     readonly toolUseId?: string;
     readonly activityType?: AgentActivityType;

@@ -1,4 +1,5 @@
 import type {AppendEventsUsecase} from "~runtime/domain/ingest/application/append.events.usecase.js";
+import type {MarkToolStartUsecase} from "~runtime/domain/ingest/application/mark.tool.start.usecase.js";
 import type {RecordTodoUsecase} from "~runtime/domain/ingest/application/record.todo.usecase.js";
 import type {RecordToolFailureUsecase} from "~runtime/domain/ingest/application/record.tool.failure.usecase.js";
 import type {RecordToolUseUsecase} from "~runtime/domain/ingest/application/record.tool.use.usecase.js";
@@ -12,6 +13,7 @@ export interface IngestHook {
     readonly recordToolUse: RecordToolUseUsecase;
     readonly recordToolFailure: RecordToolFailureUsecase;
     readonly recordTodo: RecordTodoUsecase;
+    readonly markToolStart: MarkToolStartUsecase;
 }
 
 export function onToolUse(
@@ -33,6 +35,10 @@ export function onTodoTool(
     runtimeSessionId: string,
 ): Promise<void> {
     return hook.recordTodo.execute(call, target, runtimeSessionId);
+}
+
+export function onToolStart(hook: IngestHook, sessionId: string, toolUseId: string): void {
+    hook.markToolStart.execute(sessionId, toolUseId);
 }
 
 export function onLifecycleEvent(

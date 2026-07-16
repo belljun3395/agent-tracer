@@ -1,4 +1,5 @@
 import {inferCommandSemantic} from "~runtime/domain/ingest/model/command.semantic.model.js";
+import {classifyToolError} from "~runtime/domain/ingest/model/error.taxonomy.model.js";
 import {KIND, LANE, provenEvidence, type EventLane} from "~runtime/domain/ingest/model/event.model.js";
 import {
     toolUseIdOf,
@@ -35,6 +36,7 @@ export function shapeToolFailure(failure: ToolFailure, context: ToolShapeContext
         failed: true,
         error: failure.error,
         isInterrupt: failure.isInterrupt,
+        errorType: classifyToolError(failure.error, failure.isInterrupt),
         ...toolUseIdOf(failure),
     };
 

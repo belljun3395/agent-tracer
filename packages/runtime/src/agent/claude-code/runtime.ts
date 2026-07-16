@@ -14,8 +14,10 @@ import {ReadBindingUsecase} from "~runtime/domain/binding/application/read.bindi
 import {ReleaseBindingUsecase} from "~runtime/domain/binding/application/release.binding.usecase.js";
 import type {BindingHook} from "~runtime/domain/binding/inbound/binding.hook.js";
 import {FileTodoSnapshotAdapter} from "~runtime/domain/ingest/adapter/file.todo.snapshot.adapter.js";
+import {FileToolTimingAdapter} from "~runtime/domain/ingest/adapter/file.tool.timing.adapter.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
 import {AppendEventsUsecase} from "~runtime/domain/ingest/application/append.events.usecase.js";
+import {MarkToolStartUsecase} from "~runtime/domain/ingest/application/mark.tool.start.usecase.js";
 import {RecordTodoUsecase} from "~runtime/domain/ingest/application/record.todo.usecase.js";
 import {RecordToolFailureUsecase} from "~runtime/domain/ingest/application/record.tool.failure.usecase.js";
 import {RecordToolUseUsecase} from "~runtime/domain/ingest/application/record.tool.use.usecase.js";
@@ -50,6 +52,7 @@ const projectDir = resolveProjectDir();
 const sink = new SpoolEventSinkAdapter();
 const bindings = new FileBindingStoreAdapter();
 const todoSnapshots = new FileTodoSnapshotAdapter(projectDir);
+const toolTiming = new FileToolTimingAdapter(projectDir);
 const recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 const recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 const shapeContext = {projectDir};
@@ -58,9 +61,17 @@ const clock = {now: (): number => Date.now()};
 
 const ingest: IngestHook = {
     appendEvents: new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE),
-    recordToolUse: new RecordToolUseUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
-    recordToolFailure: new RecordToolFailureUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+    recordToolUse: new RecordToolUseUsecase(sink, toolTiming, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+    recordToolFailure: new RecordToolFailureUsecase(
+        sink,
+        toolTiming,
+        ids,
+        clock,
+        CLAUDE_RUNTIME_SOURCE,
+        shapeContext,
+    ),
     recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, clock, CLAUDE_RUNTIME_SOURCE),
+    markToolStart: new MarkToolStartUsecase(toolTiming, clock),
 };
 
 const session: SessionHook = {

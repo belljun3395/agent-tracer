@@ -122,6 +122,7 @@ const ATTRIBUTE_PROMOTION: Readonly<Record<string, string>> = {
     command: AGENT_TRACER_ATTR.command,
     costUsd: AGENT_TRACER_ATTR.costUsd,
     durationMs: AGENT_TRACER_ATTR.durationMs,
+    errorType: SEMCONV_ATTR.errorType,
     evidenceLevel: AGENT_TRACER_ATTR.evidenceLevel,
     evidenceReason: AGENT_TRACER_ATTR.evidenceReason,
     filePaths: AGENT_TRACER_ATTR.filePaths,

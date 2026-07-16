@@ -4,7 +4,7 @@ import {readPreToolUse} from "~runtime/agent/claude-code/payload/tool.payload.js
 import {claudeRuntime, resolveEventSession, runHook} from "~runtime/agent/claude-code/runtime.js";
 import {captureTranscriptCommentary} from "~runtime/agent/claude-code/transcript/transcript.commentary.js";
 import {queryDaemonHints} from "~runtime/daemon/ipc/hook.client.js";
-import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
+import {onLifecycleEvent, onToolStart} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {
     POWERSHELL_TOOL_NAME,
     TERMINAL_COMMAND_TOOL_NAME,
@@ -19,6 +19,8 @@ await runHook("PreToolUse", {
         const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
         await captureTranscriptCommentary(payload, target, (events) =>
             onLifecycleEvent(claudeRuntime.ingest, events));
+
+        if (payload.toolUseId) onToolStart(claudeRuntime.ingest, target.sessionId, payload.toolUseId);
 
         const toolName = payload.toolName;
         if (!toolName) return;
