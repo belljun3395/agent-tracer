@@ -263,7 +263,7 @@ Python으로 구현한 에이전트 실행 백엔드. npm workspace가 아니라
 src/
   domain/     ingest/ guardrail/ recipe/ hint/ rulegen/ binding/ session/ turn/
   agent/
-    claude-code/    훅 엔트리와 페이로드 리더
+    claude-code/    훅 엔트리와 페이로드 리더, MCP 서버(mcp/)
   daemon/     장수 프로세스. 조립 근원과 제어 화면
   config/  support/
 ```
@@ -281,7 +281,9 @@ src/
 단독으로 갖는다.
 
 데몬은 배포되는 장수 프로세스다. 훅과 데몬 사이의 소켓 계약은 `daemon/port/`가 단독으로
-소유하고 클라이언트와 서버가 같은 타입을 쓴다.
+소유하고 클라이언트와 서버가 같은 타입을 쓴다. 훅이 이벤트를 밀어 넣는 통로라면 MCP
+서버는 에이전트가 스스로 판단해 부르는 반대 방향 통로이며, 같은 원칙으로 얇게 두고
+처리는 데몬 소켓에 위임한다.
 
 ### packages/web
 

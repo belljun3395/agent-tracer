@@ -5,10 +5,16 @@ import {HttpRuleSourceAdapter} from "~runtime/domain/guardrail/adapter/http.rule
 import type {GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {ComputeHintsUsecase} from "~runtime/domain/hint/application/compute.hints.usecase.js";
 import type {HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
+import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.binding.store.adapter.js";
+import {FindActiveBindingUsecase} from "~runtime/domain/binding/application/find.active.binding.usecase.js";
+import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
+import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
+import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {BuildRecipeContextUsecase} from "~runtime/domain/recipe/application/build.recipe.context.usecase.js";
 import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
+import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {AgentRuleGeneratorAdapter} from "~runtime/domain/rulegen/adapter/agent.rule.generator.adapter.js";
@@ -24,6 +30,8 @@ import type {RulegenHook} from "~runtime/domain/rulegen/inbound/rulegen.hook.js"
 import {RuleGenerationSettingCache} from "~runtime/domain/rulegen/model/rule.command.model.js";
 import type {SchedulerPort} from "~runtime/domain/rulegen/port/scheduler.port.js";
 import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
+import {SetTaskTitleUsecase} from "~runtime/domain/session/application/set.task.title.usecase.js";
+import {generateUlid} from "~runtime/support/ulid.js";
 
 /** 데몬이 부르는 도메인 진입점 묶음 전체다. */
 export interface DaemonHooks {
@@ -32,6 +40,8 @@ export interface DaemonHooks {
     readonly recipe: RecipeHook;
     readonly rulegen: RulegenHook;
     readonly recipeCache: RecipeCachePort;
+    readonly findActiveBinding: FindActiveBindingUsecase;
+    readonly setTaskTitle: SetTaskTitleUsecase;
 }
 
 /** 데몬 프로세스가 쓰는 어댑터와 유스케이스를 한 곳에서 조립한다. */
@@ -63,7 +73,12 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
         buildContext: new BuildRecipeContextUsecase(recipeCache),
         requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
+        reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
     };
+
+    const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
+    const ids: IdGeneratorPort = {next: generateUlid};
+    const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
 
     const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
     const runRuleJob = new RunRuleJobUsecase(
@@ -86,5 +101,5 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache),
     };
 
-    return {guardrail, hint, recipe, rulegen, recipeCache};
+    return {guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle};
 }

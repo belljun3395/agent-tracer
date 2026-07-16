@@ -24,6 +24,7 @@ export class RecipeProjection {
         application.injectedVia = payload.injectedVia ?? DEFAULT_INJECTED_VIA;
         application.score = payload.score ?? null;
         application.outcome = null;
+        application.note = null;
         application.createdAt = record.occurredAt;
         application.resolvedAt = null;
         await repositories.recipeApplications.upsert(application);

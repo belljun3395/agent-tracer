@@ -414,6 +414,32 @@ function resolveDaemonVersion(root = resolveRuntimeRoot()) {
   return readRuntimeManifestVersion(root) || UNKNOWN_DAEMON_VERSION;
 }
 
+// ../kernel/src/recipe/recipe.const.ts
+var RECIPE_STATUS = {
+  candidate: "candidate",
+  active: "active",
+  dismissed: "dismissed",
+  superseded: "superseded",
+  retired: "retired"
+};
+var RECIPE_STATUSES = [
+  RECIPE_STATUS.candidate,
+  RECIPE_STATUS.active,
+  RECIPE_STATUS.dismissed,
+  RECIPE_STATUS.superseded,
+  RECIPE_STATUS.retired
+];
+var RECIPE_OUTCOME = {
+  completed: "completed",
+  abandoned: "abandoned",
+  superseded: "superseded"
+};
+var RECIPE_OUTCOMES = [
+  RECIPE_OUTCOME.completed,
+  RECIPE_OUTCOME.abandoned,
+  RECIPE_OUTCOME.superseded
+];
+
 // src/daemon/port/daemon.socket.port.ts
 function parseDaemonVersionResponse(value) {
   if (!isRecord(value) || typeof value["version"] !== "string") return null;
@@ -629,6 +655,15 @@ function turnStateOf(binding2) {
     ...binding2.turnPrompt ? { prompt: binding2.turnPrompt } : {}
   };
 }
+function toBoundSession(binding2) {
+  const turn2 = turnStateOf(binding2);
+  return {
+    taskId: binding2.taskId,
+    sessionId: binding2.sessionId,
+    startedAt: binding2.createdAt,
+    ...turn2 ? { turnId: turn2.turnId, turn: turn2 } : {}
+  };
+}
 
 // src/domain/binding/application/read.binding.usecase.ts
 var ReadBindingUsecase = class {
@@ -638,14 +673,7 @@ var ReadBindingUsecase = class {
   bindings;
   execute(runtimeSource, runtimeSessionId) {
     const binding2 = this.bindings.read()[bindingKey(runtimeSource, runtimeSessionId)];
-    if (!binding2) return void 0;
-    const turn2 = turnStateOf(binding2);
-    return {
-      taskId: binding2.taskId,
-      sessionId: binding2.sessionId,
-      startedAt: binding2.createdAt,
-      ...turn2 ? { turnId: turn2.turnId, turn: turn2 } : {}
-    };
+    return binding2 ? toBoundSession(binding2) : void 0;
   }
 };
 
@@ -3079,6 +3107,45 @@ function readString2(source, key) {
   return typeof value === "string" ? value : "";
 }
 
+// src/config/http.ts
+var DEFAULT_TIMEOUT_MS = 5e3;
+function jsonHeaders(headers2) {
+  return { ...headers2, "Content-Type": "application/json" };
+}
+async function getJson(url, headers2, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const response = await fetch(url, { headers: headers2, signal: AbortSignal.timeout(timeoutMs) });
+  if (!response.ok) return null;
+  const parsed = await response.json();
+  return isRecord(parsed) ? parsed : null;
+}
+async function postJson(url, headers2, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  return fetch(url, {
+    method: "POST",
+    headers: jsonHeaders(headers2),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+}
+
+// src/domain/recipe/adapter/http.recipe.outcome.report.adapter.ts
+var HttpRecipeOutcomeReportAdapter = class {
+  constructor(baseUrl, headers2) {
+    this.baseUrl = baseUrl;
+    this.headers = headers2;
+  }
+  baseUrl;
+  headers;
+  async report(input) {
+    const url = `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(input.recipeId)}/outcome`;
+    const response = await postJson(url, this.headers, {
+      taskId: input.taskId,
+      outcome: input.outcome,
+      ...input.note !== void 0 ? { note: input.note } : {}
+    });
+    return response.ok;
+  }
+};
+
 // ../kernel/src/job/job.const.ts
 var JOB_KIND = {
   titleSuggestion: "title.suggestion",
@@ -3109,26 +3176,6 @@ var JOB_STATUS = {
   canceled: "canceled"
 };
 var JOB_STATUSES = Object.values(JOB_STATUS);
-
-// src/config/http.ts
-var DEFAULT_TIMEOUT_MS = 5e3;
-function jsonHeaders(headers2) {
-  return { ...headers2, "Content-Type": "application/json" };
-}
-async function getJson(url, headers2, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const response = await fetch(url, { headers: headers2, signal: AbortSignal.timeout(timeoutMs) });
-  if (!response.ok) return null;
-  const parsed = await response.json();
-  return isRecord(parsed) ? parsed : null;
-}
-async function postJson(url, headers2, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  return fetch(url, {
-    method: "POST",
-    headers: jsonHeaders(headers2),
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
-  });
-}
 
 // src/domain/recipe/adapter/http.recipe.scan.job.adapter.ts
 var ACTIVE_STATUSES = /* @__PURE__ */ new Set([JOB_STATUS.pending, JOB_STATUS.running]);
@@ -3286,6 +3333,22 @@ var RefreshRecipeCacheUsecase = class {
   }
 };
 
+// src/domain/recipe/application/report.recipe.outcome.usecase.ts
+var ReportRecipeOutcomeUsecase = class {
+  constructor(reports) {
+    this.reports = reports;
+  }
+  reports;
+  async execute(input) {
+    if (input.recipeId === "" || input.taskId === "") return false;
+    try {
+      return await this.reports.report(input);
+    } catch {
+      return false;
+    }
+  }
+};
+
 // src/domain/recipe/model/scan.command.model.ts
 var RECIPE_COMMAND = /^(?:\/(?:[\w-]+:)?recipe|\$recipe)(?:\s|$)/i;
 function hasRecipeScanCommand(prompt) {
@@ -3332,7 +3395,7 @@ function sessionStartedEvent(taskId, sessionId, input) {
       ...input.parentSessionId ? { parentSessionId: input.parentSessionId } : {},
       ...input.taskKind ? { taskKind: input.taskKind } : {},
       ...input.origin ? { origin: input.origin } : {},
-      ...input.resume === false ? { resume: false } : {}
+      ...input.resume !== void 0 ? { resume: input.resume } : {}
     }
   };
 }
@@ -3397,12 +3460,14 @@ var EnsureSessionUsecase = class {
     let created;
     let existing;
     let retitled = false;
+    let resumedFromPrior;
     try {
       const store = this.bindings.read();
       existing = store[key];
       if (!existing) {
+        resumedFromPrior = input.resumedFrom ? store[bindingKey(input.runtimeSource, input.resumedFrom)] : void 0;
         created = {
-          taskId: input.taskId?.trim() || this.ids.next(),
+          taskId: resumedFromPrior?.taskId ?? (input.taskId?.trim() || this.ids.next()),
           sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
@@ -3425,8 +3490,11 @@ var EnsureSessionUsecase = class {
       return restored(existing);
     }
     if (!created) throw new Error("session binding was not created");
-    await this.append(sessionStartedEvent(created.taskId, created.sessionId, input));
-    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: true };
+    await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
+      ...input,
+      ...resumedFromPrior ? { parentSessionId: resumedFromPrior.sessionId, resume: true } : {}
+    }));
+    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: !resumedFromPrior };
   }
   async append(event) {
     await this.sink.append([toRunIngestEvent(
@@ -3547,6 +3615,50 @@ var OpenTurnUsecase = class {
   }
 };
 
+// src/agent/claude-code/transcript/transcript.resume.ts
+import * as fs11 from "node:fs";
+import * as readline from "node:readline";
+var RESUME_SCAN_MAX_LINES = 2e4;
+function findResumedSessionId(transcriptPath, currentSessionId, maxLines = RESUME_SCAN_MAX_LINES) {
+  if (!transcriptPath || !fs11.existsSync(transcriptPath)) return Promise.resolve(void 0);
+  return new Promise((resolve2) => {
+    let resumedFrom;
+    let lineCount = 0;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve2(value);
+    };
+    const stream = fs11.createReadStream(transcriptPath, { encoding: "utf8" });
+    stream.on("error", () => finish(void 0));
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    rl.on("error", () => finish(void 0));
+    rl.on("line", (line) => {
+      lineCount += 1;
+      if (lineCount > maxLines) {
+        rl.close();
+        stream.destroy();
+        return;
+      }
+      const trimmed2 = line.trim();
+      if (!trimmed2) return;
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed2);
+      } catch {
+        return;
+      }
+      if (!isRecord(parsed)) return;
+      const sessionId = parsed["session_id"];
+      if (typeof sessionId === "string" && sessionId && sessionId !== currentSessionId) {
+        resumedFrom = sessionId;
+      }
+    });
+    rl.on("close", () => finish(resumedFrom));
+  });
+}
+
 // src/agent/claude-code/runtime.ts
 var transport = resolveMonitorTransportConfig();
 var headers = monitorUserHeaders(resolveMonitorIdentity());
@@ -3589,7 +3701,8 @@ var binding = {
 var recipe = {
   refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
   buildContext: new BuildRecipeContextUsecase(recipeCache),
-  requestScan: new RequestRecipeScanUsecase(recipeJobs)
+  requestScan: new RequestRecipeScanUsecase(recipeJobs),
+  reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers))
 };
 var logger = createHookLogger({
   logFile: path11.join(projectDir, ".claude", "hooks.log"),
@@ -3630,8 +3743,15 @@ async function runHook(name, script) {
     });
   }
 }
-function ensureClaudeSession(runtimeSessionId, title, options = {}) {
+async function resolveResumedFrom(runtimeSessionId, transcriptPath) {
+  if (!transcriptPath) return void 0;
+  const key = bindingKey(CLAUDE_RUNTIME_SOURCE, runtimeSessionId);
+  if (bindings.read()[key]) return void 0;
+  return findResumedSessionId(transcriptPath, runtimeSessionId);
+}
+async function ensureClaudeSession(runtimeSessionId, title, options = {}) {
   const explicitTitle = transport.taskTitleOverride ?? title;
+  const resumedFrom = await resolveResumedFrom(runtimeSessionId, options.transcriptPath);
   return onSessionStart(session, {
     runtimeSource: CLAUDE_RUNTIME_SOURCE,
     runtimeSessionId,
@@ -3643,7 +3763,8 @@ function ensureClaudeSession(runtimeSessionId, title, options = {}) {
     ...options.parentTaskId !== void 0 ? { parentTaskId: options.parentTaskId } : {},
     ...options.parentSessionId !== void 0 ? { parentSessionId: options.parentSessionId } : {},
     ...options.taskKind !== void 0 ? { taskKind: options.taskKind } : {},
-    ...options.resume === false ? { resume: false } : {}
+    ...options.resume === false ? { resume: false } : {},
+    ...resumedFrom !== void 0 ? { resumedFrom } : {}
   });
 }
 function messageOf(error) {
@@ -3651,11 +3772,11 @@ function messageOf(error) {
 }
 
 // src/agent/claude-code/transcript/transcript.commentary.ts
-import * as fs13 from "node:fs";
+import * as fs14 from "node:fs";
 
 // src/agent/claude-code/transcript/transcript.cursor.ts
 import * as crypto3 from "node:crypto";
-import * as fs11 from "node:fs";
+import * as fs12 from "node:fs";
 import * as path12 from "node:path";
 var HEAD_FINGERPRINT_BYTES = 4096;
 function resolveTranscriptCursorDir(env = process.env) {
@@ -3704,13 +3825,13 @@ function cursorPath(sourceSessionId, cursorDir) {
 }
 function hashFileHead(transcriptPath, length) {
   if (length === 0) return crypto3.createHash("sha256").digest("hex");
-  const fd = fs11.openSync(transcriptPath, "r");
+  const fd = fs12.openSync(transcriptPath, "r");
   try {
     const buffer = Buffer.alloc(length);
-    const bytesRead = fs11.readSync(fd, buffer, 0, length, 0);
+    const bytesRead = fs12.readSync(fd, buffer, 0, length, 0);
     return crypto3.createHash("sha256").update(buffer.subarray(0, bytesRead)).digest("hex");
   } finally {
-    fs11.closeSync(fd);
+    fs12.closeSync(fd);
   }
 }
 
@@ -3904,7 +4025,7 @@ function toTranscriptEvents(entries, sourceSessionId, target) {
 }
 
 // src/agent/claude-code/transcript/transcript.reader.ts
-import * as fs12 from "node:fs";
+import * as fs13 from "node:fs";
 var NEWLINE = 10;
 var TRANSCRIPT_READ_MAX_BYTES = 1024 * 1024;
 function entriesAfterLatestUserPrompt(entries) {
@@ -3919,10 +4040,10 @@ function entriesAfterLatestUserPrompt(entries) {
 function readTranscriptEntries(transcriptPath, startOffset, fileSize) {
   if (startOffset >= fileSize) return { entries: [], byteOffset: startOffset };
   const readStart = Math.max(startOffset, fileSize - TRANSCRIPT_READ_MAX_BYTES);
-  const fd = fs12.openSync(transcriptPath, "r");
+  const fd = fs13.openSync(transcriptPath, "r");
   try {
     const buffer = Buffer.alloc(fileSize - readStart);
-    const bytesRead = fs12.readSync(fd, buffer, 0, buffer.length, readStart);
+    const bytesRead = fs13.readSync(fd, buffer, 0, buffer.length, readStart);
     const content = buffer.subarray(0, bytesRead);
     let parseStart = 0;
     if (readStart > startOffset) {
@@ -3947,7 +4068,7 @@ function readTranscriptEntries(transcriptPath, startOffset, fileSize) {
     }
     return { entries, byteOffset: readStart + consumed };
   } finally {
-    fs12.closeSync(fd);
+    fs13.closeSync(fd);
   }
 }
 function parseJsonLine(line) {
@@ -3965,7 +4086,7 @@ function parseJsonLine(line) {
 function tailTranscriptCommentary(sourceSessionId, transcriptPath, target, cursorDir = resolveTranscriptCursorDir()) {
   let fileSize;
   try {
-    const stat = fs13.statSync(transcriptPath);
+    const stat = fs14.statSync(transcriptPath);
     if (!stat.isFile()) return null;
     fileSize = stat.size;
   } catch {
@@ -4035,7 +4156,9 @@ await runHook("SubagentStop", {
   handler: async (payload) => {
     const agentId = payload.agentId;
     if (agentId === void 0) return;
-    const parent = await ensureClaudeSession(payload.sessionId);
+    const parent = await ensureClaudeSession(payload.sessionId, void 0, {
+      transcriptPath: payload.transcriptPath
+    });
     const virtualId = subagentSessionId(agentId);
     const child = onBindingLookup(claudeRuntime.binding, claudeRuntime.runtimeSource, virtualId);
     if (child !== void 0) {

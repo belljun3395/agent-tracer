@@ -8,6 +8,8 @@ const hooksDir = path.join(runtimeRoot, "src/agent/claude-code/hooks");
 const hooksOutdir = path.join(runtimeRoot, "dist/agent/claude-code/hooks");
 const daemonEntry = path.join(runtimeRoot, "src/daemon/main.ts");
 const daemonOutdir = path.join(runtimeRoot, "dist/daemon");
+const mcpEntry = path.join(runtimeRoot, "src/agent/claude-code/mcp/server.ts");
+const mcpOutdir = path.join(runtimeRoot, "dist/agent/claude-code/mcp");
 
 const common: BuildOptions = {
     bundle: true,
@@ -45,3 +47,7 @@ process.stdout.write(`[runtime-build] hooks: ${entryPoints.length} entries -> ${
 await emptyDir(daemonOutdir);
 await build({...common, entryPoints: [daemonEntry], outbase: path.dirname(daemonEntry), outdir: daemonOutdir});
 process.stdout.write(`[runtime-build] daemon: 1 entry -> ${daemonOutdir}\n`);
+
+await emptyDir(mcpOutdir);
+await build({...common, entryPoints: [mcpEntry], outbase: path.dirname(mcpEntry), outdir: mcpOutdir});
+process.stdout.write(`[runtime-build] mcp: 1 entry -> ${mcpOutdir}\n`);

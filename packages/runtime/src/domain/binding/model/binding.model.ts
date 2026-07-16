@@ -1,3 +1,5 @@
+import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
+
 const MAX_BINDINGS = 1000;
 
 /** 런타임 세션 하나가 붙잡고 있는 태스크와 세션과 진행 중인 턴이다. */
@@ -53,4 +55,33 @@ export function turnStateOf(binding: BindingRecord | undefined): TurnState | und
         ...(binding.previousTurnId ? {previousTurnId: binding.previousTurnId} : {}),
         ...(binding.turnPrompt ? {prompt: binding.turnPrompt} : {}),
     };
+}
+
+/** 런타임 세션이 붙잡고 있는 태스크와 세션과 열린 턴이다. */
+export interface BoundSession extends IngestTarget {
+    readonly startedAt: string;
+    readonly turn?: TurnState;
+}
+
+export function toBoundSession(binding: BindingRecord): BoundSession {
+    const turn = turnStateOf(binding);
+    return {
+        taskId: binding.taskId,
+        sessionId: binding.sessionId,
+        startedAt: binding.createdAt,
+        ...(turn ? {turnId: turn.turnId, turn} : {}),
+    };
+}
+
+function activityTimestamp(binding: BindingRecord): number {
+    return Date.parse(binding.turnStartedAt ?? binding.createdAt);
+}
+
+/** MCP 브리지는 자기 세션을 알 방법이 없으므로 가장 최근에 턴이 열린 바인딩을 현재 작업으로 추정한다. */
+export function mostRecentActiveBinding(bindings: BindingStore): BindingRecord | undefined {
+    const entries = Object.values(bindings);
+    if (entries.length === 0) return undefined;
+    return entries.reduce((latest, candidate) => (
+        activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest
+    ));
 }

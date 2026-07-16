@@ -26,6 +26,9 @@ export class RecipeApplicationEntity {
     @Column({ type: "text", nullable: true })
     outcome!: RecipeOutcome | null;
 
+    @Column({ type: "text", nullable: true })
+    note!: string | null;
+
     @Column({ name: "created_at", type: "timestamptz" })
     createdAt!: Date;
 

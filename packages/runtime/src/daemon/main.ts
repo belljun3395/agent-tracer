@@ -197,8 +197,11 @@ const servers = createDaemonServers({
         interventions,
         guardrail: hooks.guardrail,
         hint: hooks.hint,
+        recipe: hooks.recipe,
         readRules: () => cachedRules,
         readDelivery: currentDelivery,
+        findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,
+        setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
         refreshHistory: () => spoolSender.feedHistory(),
         onHookVersion: (hookVersion) => {
             lastHookVersion = hookVersion;

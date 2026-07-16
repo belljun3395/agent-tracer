@@ -26,9 +26,11 @@ import type {IngestHook} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {defaultTaskTitle} from "~runtime/domain/ingest/model/workspace.path.model.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
+import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {BuildRecipeContextUsecase} from "~runtime/domain/recipe/application/build.recipe.context.usecase.js";
 import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
+import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {EndSessionUsecase} from "~runtime/domain/session/application/end.session.usecase.js";
@@ -95,6 +97,7 @@ const recipe: RecipeHook = {
     refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
     buildContext: new BuildRecipeContextUsecase(recipeCache),
     requestScan: new RequestRecipeScanUsecase(recipeJobs),
+    reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
 };
 
 const logger: HookLogger = createHookLogger({

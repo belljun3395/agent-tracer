@@ -7,12 +7,15 @@ import type {
     RecipeScanRequest,
     RequestRecipeScanUsecase,
 } from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
+import type {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
+import type {RecipeOutcomeReportInput} from "~runtime/domain/recipe/port/recipe.outcome.report.port.js";
 
 /** 레시피 도메인이 어댑터에 제공하는 진입점 묶음이다. */
 export interface RecipeHook {
     readonly refreshCache: RefreshRecipeCacheUsecase;
     readonly buildContext: BuildRecipeContextUsecase;
     readonly requestScan: RequestRecipeScanUsecase;
+    readonly reportOutcome: ReportRecipeOutcomeUsecase;
 }
 
 export function onRecipeCacheRefresh(hook: RecipeHook): Promise<boolean> {
@@ -25,4 +28,8 @@ export function onPromptRecipes(hook: RecipeHook, prompt: string, limit?: number
 
 export function onRecipeScanRequested(hook: RecipeHook, request: RecipeScanRequest): Promise<boolean> {
     return hook.requestScan.execute(request);
+}
+
+export function onRecipeOutcomeReported(hook: RecipeHook, input: RecipeOutcomeReportInput): Promise<boolean> {
+    return hook.reportOutcome.execute(input);
 }

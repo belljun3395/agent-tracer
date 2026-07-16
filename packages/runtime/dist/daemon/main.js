@@ -5074,7 +5074,7 @@ function aJ($, Q, J) {
 function xs() {
   return process.env.CLAUDE_CODE_DIAGNOSTICS_FILE;
 }
-function fs5($) {
+function fs6($) {
   let { buffer: Q, bytesRead: J } = m$().readSync($, { length: 4096 });
   if (J === 0) return "utf8";
   if (J >= 2) {
@@ -5093,7 +5093,7 @@ function ys($) {
 function gs($) {
   let Q = m$(), { resolvedPath: J, isSymlink: Y } = N5(Q, $);
   if (Y) X$(`Reading through symlink: ${$} -> ${J}`);
-  let X = fs5(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
+  let X = fs6(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
   return { content: W.replaceAll(`\r
 `, `
 `), encoding: X, lineEndings: G };
@@ -29779,8 +29779,117 @@ var ComputeHintsUsecase = class {
   }
 };
 
-// src/domain/recipe/adapter/http.recipe.cache.adapter.ts
+// src/domain/binding/adapter/file.binding.store.adapter.ts
 import * as fs4 from "node:fs";
+var LOCK_TIMEOUT_MS = 1e3;
+var LOCK_STALE_MS = 1e4;
+var LOCK_RETRY_MS = 20;
+function delay(ms2) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms2));
+}
+var FileBindingStoreAdapter = class {
+  constructor(paths2 = resolveAgentTracerPaths()) {
+    this.paths = paths2;
+    ensureAgentTracerHome(this.paths);
+  }
+  paths;
+  read() {
+    try {
+      const parsed = JSON.parse(fs4.readFileSync(this.paths.bindingsPath, "utf8"));
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  write(store) {
+    ensureAgentTracerHome(this.paths);
+    const tmp = `${this.paths.bindingsPath}.tmp`;
+    fs4.writeFileSync(tmp, JSON.stringify(store));
+    fs4.renameSync(tmp, this.paths.bindingsPath);
+  }
+  async acquireLock() {
+    const deadline = Date.now() + LOCK_TIMEOUT_MS;
+    for (; ; ) {
+      try {
+        fs4.mkdirSync(this.paths.bindingsLockPath);
+        return true;
+      } catch (error2) {
+        if (error2.code !== "EEXIST") return false;
+        if (this.clearStaleLock()) continue;
+        if (Date.now() >= deadline) return false;
+        await delay(LOCK_RETRY_MS);
+      }
+    }
+  }
+  releaseLock() {
+    try {
+      fs4.rmdirSync(this.paths.bindingsLockPath);
+    } catch {
+      return;
+    }
+  }
+  clearStaleLock() {
+    try {
+      const stat = fs4.statSync(this.paths.bindingsLockPath);
+      if (Date.now() - stat.mtimeMs <= LOCK_STALE_MS) return false;
+      fs4.rmdirSync(this.paths.bindingsLockPath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// src/domain/binding/model/binding.model.ts
+function turnStateOf(binding) {
+  if (!binding?.currentTurnId) return void 0;
+  return {
+    turnId: binding.currentTurnId,
+    startedAt: binding.turnStartedAt ?? binding.createdAt,
+    ...binding.previousTurnId ? { previousTurnId: binding.previousTurnId } : {},
+    ...binding.turnPrompt ? { prompt: binding.turnPrompt } : {}
+  };
+}
+function toBoundSession(binding) {
+  const turn = turnStateOf(binding);
+  return {
+    taskId: binding.taskId,
+    sessionId: binding.sessionId,
+    startedAt: binding.createdAt,
+    ...turn ? { turnId: turn.turnId, turn } : {}
+  };
+}
+function activityTimestamp(binding) {
+  return Date.parse(binding.turnStartedAt ?? binding.createdAt);
+}
+function mostRecentActiveBinding(bindings) {
+  const entries = Object.values(bindings);
+  if (entries.length === 0) return void 0;
+  return entries.reduce((latest, candidate) => activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest);
+}
+
+// src/domain/binding/application/find.active.binding.usecase.ts
+var FindActiveBindingUsecase = class {
+  constructor(bindings) {
+    this.bindings = bindings;
+  }
+  bindings;
+  execute() {
+    const binding = mostRecentActiveBinding(this.bindings.read());
+    return binding ? toBoundSession(binding) : void 0;
+  }
+};
+
+// src/domain/ingest/adapter/spool.event.sink.adapter.ts
+var SpoolEventSinkAdapter = class {
+  append(events) {
+    if (events.length > 0) appendSpoolLines(events.map((event) => JSON.stringify(event)));
+    return Promise.resolve();
+  }
+};
+
+// src/domain/recipe/adapter/http.recipe.cache.adapter.ts
+import * as fs5 from "node:fs";
 var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
 var REQUEST_TIMEOUT_MS = 5e3;
 var HttpRecipeCacheAdapter = class {
@@ -29794,7 +29903,7 @@ var HttpRecipeCacheAdapter = class {
   paths;
   load() {
     try {
-      return extractRecipes(JSON.parse(fs4.readFileSync(this.paths.recipesCachePath, "utf8")));
+      return extractRecipes(JSON.parse(fs5.readFileSync(this.paths.recipesCachePath, "utf8")));
     } catch {
       return [];
     }
@@ -29809,8 +29918,8 @@ var HttpRecipeCacheAdapter = class {
     const recipes = extractRecipes(text ? JSON.parse(text) : []);
     ensureCacheDir(this.paths);
     const tmp = `${this.paths.recipesCachePath}.tmp`;
-    fs4.writeFileSync(tmp, JSON.stringify({ recipes }));
-    fs4.renameSync(tmp, this.paths.recipesCachePath);
+    fs5.writeFileSync(tmp, JSON.stringify({ recipes }));
+    fs5.renameSync(tmp, this.paths.recipesCachePath);
     return true;
   }
 };
@@ -29843,6 +29952,25 @@ function readString(source, key) {
   const value = source[key];
   return typeof value === "string" ? value : "";
 }
+
+// src/domain/recipe/adapter/http.recipe.outcome.report.adapter.ts
+var HttpRecipeOutcomeReportAdapter = class {
+  constructor(baseUrl, headers) {
+    this.baseUrl = baseUrl;
+    this.headers = headers;
+  }
+  baseUrl;
+  headers;
+  async report(input) {
+    const url = `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(input.recipeId)}/outcome`;
+    const response = await postJson(url, this.headers, {
+      taskId: input.taskId,
+      outcome: input.outcome,
+      ...input.note !== void 0 ? { note: input.note } : {}
+    });
+    return response.ok;
+  }
+};
 
 // ../kernel/src/job/job.const.ts
 var JOB_KIND = {
@@ -30036,6 +30164,22 @@ var RefreshRecipeCacheUsecase = class {
   async execute() {
     try {
       return await this.cache.refresh();
+    } catch {
+      return false;
+    }
+  }
+};
+
+// src/domain/recipe/application/report.recipe.outcome.usecase.ts
+var ReportRecipeOutcomeUsecase = class {
+  constructor(reports) {
+    this.reports = reports;
+  }
+  reports;
+  async execute(input) {
+    if (input.recipeId === "" || input.taskId === "") return false;
+    try {
+      return await this.reports.report(input);
     } catch {
       return false;
     }
@@ -31491,6 +31635,47 @@ var RunRuleJobUsecase = class {
   }
 };
 
+// src/domain/ingest/model/ingest.event.model.ts
+var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
+function toRunIngestEvent(input, occurredAt, nextId) {
+  return {
+    id: input.id ?? nextId(),
+    kind: input.kind,
+    taskId: input.taskId,
+    ...input.sessionId ? { sessionId: input.sessionId } : {},
+    ...input.turnId ? { turnId: input.turnId } : {},
+    occurredAt,
+    payload: input.payload
+  };
+}
+
+// src/domain/session/model/session.event.model.ts
+function taskLinkedEvent(taskId, title) {
+  return { kind: KIND.taskLinked, taskId, payload: { title } };
+}
+
+// src/domain/session/application/set.task.title.usecase.ts
+var SetTaskTitleUsecase = class {
+  constructor(sink, ids, clock) {
+    this.sink = sink;
+    this.ids = ids;
+    this.clock = clock;
+  }
+  sink;
+  ids;
+  clock;
+  async execute(taskId, title) {
+    const trimmed2 = title.trim();
+    if (taskId === "" || trimmed2 === "") return false;
+    await this.sink.append([toRunIngestEvent(
+      taskLinkedEvent(taskId, trimmed2),
+      new Date(this.clock.now()).toISOString(),
+      () => this.ids.next()
+    )]);
+    return true;
+  }
+};
+
 // src/daemon/composition.ts
 function composeDaemonHooks(leaseOwner) {
   const identity = resolveMonitorIdentity();
@@ -31514,8 +31699,12 @@ function composeDaemonHooks(leaseOwner) {
   const recipe = {
     refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
     buildContext: new BuildRecipeContextUsecase(recipeCache),
-    requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers))
+    requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
+    reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers))
   };
+  const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
+  const ids = { next: generateUlid };
+  const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
   const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
   const runRuleJob = new RunRuleJobUsecase(
     new HttpRuleEvidenceAdapter(baseUrl, headers),
@@ -31536,7 +31725,7 @@ function composeDaemonHooks(leaseOwner) {
     ),
     enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache)
   };
-  return { guardrail, hint, recipe, rulegen, recipeCache };
+  return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle };
 }
 
 // src/daemon/delivery/ingest.retry.ts
@@ -31561,13 +31750,13 @@ function parseRetryAfterMs(header, maxMs) {
 }
 
 // src/daemon/control/control.state.ts
-import * as fs7 from "node:fs";
+import * as fs8 from "node:fs";
 
 // src/config/dead.letter.ts
-import * as fs6 from "node:fs";
+import * as fs7 from "node:fs";
 function readLines(paths2) {
   try {
-    return fs6.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    return fs7.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   } catch {
     return [];
   }
@@ -31589,13 +31778,13 @@ function parseEntry(line) {
 }
 function deadLetterBytes(paths2) {
   try {
-    return fs6.statSync(paths2.deadPath).size;
+    return fs7.statSync(paths2.deadPath).size;
   } catch {
     return 0;
   }
 }
 function writeDeadLetter(lines, paths2) {
-  fs6.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
+  fs7.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
 `).join(""));
 }
 function readDeadLetter(limit, paths2 = resolveAgentTracerPaths()) {
@@ -31666,7 +31855,7 @@ function resolvePipelineStatus(state, pendingSegments) {
 }
 function fileBytes(filePath) {
   try {
-    return fs7.statSync(filePath).size;
+    return fs8.statSync(filePath).size;
   } catch {
     return 0;
   }
@@ -32638,7 +32827,7 @@ function writeJson2(response, status, body) {
 }
 
 // src/daemon/control/resume.token.ts
-import * as fs8 from "node:fs";
+import * as fs9 from "node:fs";
 import { randomBytes as randomBytes2 } from "node:crypto";
 var TOKEN_FILE_MODE = 384;
 var TOKEN_BYTES = 24;
@@ -32646,24 +32835,21 @@ function ensureResumeToken(paths2) {
   const existing = readExistingToken(paths2.resumeTokenPath);
   if (existing !== null) return existing;
   const token = randomBytes2(TOKEN_BYTES).toString("base64url");
-  fs8.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
+  fs9.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
   try {
-    fs8.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
+    fs9.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
   } catch {
   }
   return token;
 }
 function readExistingToken(tokenPath) {
   try {
-    const content = fs8.readFileSync(tokenPath, "utf8").trim();
+    const content = fs9.readFileSync(tokenPath, "utf8").trim();
     return content.length > 0 ? content : null;
   } catch {
     return null;
   }
 }
-
-// src/domain/ingest/model/ingest.event.model.ts
-var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
 
 // src/daemon/delivery/ingest.client.ts
 var SEND_TIMEOUT_MS = 5e3;
@@ -32758,11 +32944,11 @@ function eventIdOfSpoolLine(line) {
 }
 
 // src/daemon/lifecycle/daemon.pid.ts
-import * as fs9 from "node:fs";
+import * as fs10 from "node:fs";
 var PID_FILE_MODE = 384;
 function writeDaemonPid(paths2, pid = process.pid) {
   try {
-    fs9.writeFileSync(paths2.pidPath, `${pid}
+    fs10.writeFileSync(paths2.pidPath, `${pid}
 `, { mode: PID_FILE_MODE });
   } catch {
     return;
@@ -32774,7 +32960,7 @@ function ownsDaemonPid(paths2) {
 function removeDaemonPid(paths2) {
   if (!ownsDaemonPid(paths2)) return;
   try {
-    fs9.unlinkSync(paths2.pidPath);
+    fs10.unlinkSync(paths2.pidPath);
   } catch {
     return;
   }
@@ -32782,7 +32968,7 @@ function removeDaemonPid(paths2) {
 function readPidFile(paths2) {
   let raw;
   try {
-    raw = fs9.readFileSync(paths2.pidPath, "utf8");
+    raw = fs10.readFileSync(paths2.pidPath, "utf8");
   } catch {
     return void 0;
   }
@@ -33003,6 +33189,57 @@ var SpoolSender = class {
   }
 };
 
+// ../kernel/src/recipe/recipe.const.ts
+var RECIPE_STATUS = {
+  candidate: "candidate",
+  active: "active",
+  dismissed: "dismissed",
+  superseded: "superseded",
+  retired: "retired"
+};
+var RECIPE_STATUSES = [
+  RECIPE_STATUS.candidate,
+  RECIPE_STATUS.active,
+  RECIPE_STATUS.dismissed,
+  RECIPE_STATUS.superseded,
+  RECIPE_STATUS.retired
+];
+var RECIPE_OUTCOME = {
+  completed: "completed",
+  abandoned: "abandoned",
+  superseded: "superseded"
+};
+var RECIPE_OUTCOMES = [
+  RECIPE_OUTCOME.completed,
+  RECIPE_OUTCOME.abandoned,
+  RECIPE_OUTCOME.superseded
+];
+
+// src/daemon/port/mcp.socket.port.ts
+function parseMcpSocketRequest(type, value) {
+  switch (type) {
+    case "recipe-search":
+      return typeof value["query"] === "string" ? {
+        type: "recipe-search",
+        query: value["query"],
+        ...typeof value["limit"] === "number" ? { limit: value["limit"] } : {}
+      } : null;
+    case "recipe-outcome":
+      return typeof value["recipeId"] === "string" && typeof value["outcome"] === "string" && RECIPE_OUTCOMES.includes(value["outcome"]) ? {
+        type: "recipe-outcome",
+        recipeId: value["recipeId"],
+        outcome: value["outcome"],
+        ...typeof value["note"] === "string" ? { note: value["note"] } : {}
+      } : null;
+    case "recipe-scan-request":
+      return { type: "recipe-scan-request" };
+    case "set-task-title":
+      return typeof value["title"] === "string" ? { type: "set-task-title", title: value["title"] } : null;
+    default:
+      return null;
+  }
+}
+
 // src/daemon/port/daemon.socket.port.ts
 function parseDaemonRequest(value) {
   if (!isRecord(value) || typeof value["type"] !== "string") return null;
@@ -33042,7 +33279,7 @@ function parseDaemonRequest(value) {
         ...typeof value["candidateAssistantText"] === "string" ? { candidateAssistantText: value["candidateAssistantText"] } : {}
       } : null;
     default:
-      return null;
+      return parseMcpSocketRequest(value["type"], value);
   }
 }
 
@@ -33059,7 +33296,22 @@ function onHintsRequested(hook, recent, request) {
   return hook.computeHints.execute(recent, request);
 }
 
+// src/domain/recipe/inbound/recipe.hook.ts
+function onRecipeCacheRefresh(hook) {
+  return hook.refreshCache.execute();
+}
+function onPromptRecipes(hook, prompt, limit) {
+  return hook.buildContext.execute(prompt, limit);
+}
+function onRecipeScanRequested(hook, request) {
+  return hook.requestScan.execute(request);
+}
+function onRecipeOutcomeReported(hook, input) {
+  return hook.reportOutcome.execute(input);
+}
+
 // src/daemon/ipc/socket.server.ts
+var MCP_RECIPE_SCAN_PROMPT = "/recipe";
 function createDaemonConnectionHandler(context) {
   return (socket) => {
     context.onConnectionOpened();
@@ -33070,13 +33322,13 @@ function createDaemonConnectionHandler(context) {
       const index = buffer.indexOf("\n");
       if (index === -1) return;
       const line = buffer.slice(0, index).trim();
-      if (line) handleMessage(socket, line, context);
+      if (line) void handleMessage(socket, line, context);
     });
     socket.on("close", context.onConnectionClosed);
     socket.on("error", () => void 0);
   };
 }
-function handleMessage(socket, line, context) {
+async function handleMessage(socket, line, context) {
   try {
     const request = parseDaemonRequest(JSON.parse(line));
     if (request === null) {
@@ -33147,6 +33399,50 @@ function handleMessage(socket, line, context) {
         send(socket, { verdicts: blocking });
         return;
       }
+      case "recipe-search": {
+        const { matches } = onPromptRecipes(context.recipe, request.query, request.limit);
+        send(socket, { matches });
+        return;
+      }
+      case "recipe-outcome": {
+        const taskId = context.findActiveTaskId();
+        if (taskId === void 0) {
+          send(socket, { ok: false, reason: "no_active_task" });
+          return;
+        }
+        const ok2 = await onRecipeOutcomeReported(context.recipe, {
+          recipeId: request.recipeId,
+          taskId,
+          outcome: request.outcome,
+          ...request.note !== void 0 ? { note: request.note } : {}
+        });
+        send(socket, { ok: ok2 });
+        return;
+      }
+      case "recipe-scan-request": {
+        const taskId = context.findActiveTaskId();
+        if (taskId === void 0) {
+          send(socket, { queued: false, reason: "no_active_task" });
+          return;
+        }
+        const queued = await onRecipeScanRequested(context.recipe, {
+          taskId,
+          eventId: generateUlid(),
+          prompt: MCP_RECIPE_SCAN_PROMPT
+        });
+        send(socket, { queued });
+        return;
+      }
+      case "set-task-title": {
+        const taskId = context.findActiveTaskId();
+        if (taskId === void 0) {
+          send(socket, { ok: false, reason: "no_active_task" });
+          return;
+        }
+        const ok2 = await context.setTaskTitle(taskId, request.title);
+        send(socket, { ok: ok2 });
+        return;
+      }
     }
   } catch {
     context.recordSwallowedError();
@@ -33162,12 +33458,12 @@ function send(socket, response) {
 var DAEMON_HEALTH_LAST_DEAD_REASONS_MAX = 10;
 
 // src/config/runtime.root.ts
-import * as fs10 from "node:fs";
+import * as fs11 from "node:fs";
 import * as path5 from "node:path";
 import { fileURLToPath } from "node:url";
 var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
-  return ROOT_MANIFESTS.some((manifest) => fs10.existsSync(path5.join(dir, manifest)));
+  return ROOT_MANIFESTS.some((manifest) => fs11.existsSync(path5.join(dir, manifest)));
 }
 function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))) {
   const start = path5.resolve(from);
@@ -33182,7 +33478,7 @@ function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))
 function readRuntimeManifestVersion(root = resolveRuntimeRoot()) {
   for (const manifest of ROOT_MANIFESTS) {
     try {
-      const parsed = JSON.parse(fs10.readFileSync(path5.join(root, manifest), "utf8"));
+      const parsed = JSON.parse(fs11.readFileSync(path5.join(root, manifest), "utf8"));
       const version2 = isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"].trim() : "";
       if (version2) return version2;
     } catch {
@@ -33226,7 +33522,7 @@ var DaemonHealthTracker = class {
 };
 
 // src/daemon/lifecycle/servers.ts
-import * as fs11 from "node:fs";
+import * as fs12 from "node:fs";
 import * as http from "node:http";
 import * as net2 from "node:net";
 
@@ -33267,7 +33563,7 @@ function createDaemonServers(options) {
   };
   socketServer.on("listening", () => {
     try {
-      fs11.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
+      fs12.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
     } catch {
     }
     writeDaemonPid(options.paths);
@@ -33322,7 +33618,7 @@ async function reclaimSocket(options, listenOnSocket) {
     process.exit(0);
   }
   try {
-    fs11.unlinkSync(options.paths.socketPath);
+    fs12.unlinkSync(options.paths.socketPath);
   } catch {
   }
   listenOnSocket();
@@ -33541,14 +33837,6 @@ function readFilePaths(payload) {
   return items.length > 0 ? { filePaths: items } : {};
 }
 
-// src/domain/recipe/inbound/recipe.hook.ts
-function onRecipeCacheRefresh(hook) {
-  return hook.refreshCache.execute();
-}
-function onRecipeScanRequested(hook, request) {
-  return hook.requestScan.execute(request);
-}
-
 // src/domain/rulegen/inbound/rulegen.hook.ts
 function onRuleGenerationPoll(hook) {
   return hook.pollJobs.execute();
@@ -33721,8 +34009,11 @@ var servers = createDaemonServers({
     interventions,
     guardrail: hooks.guardrail,
     hint: hooks.hint,
+    recipe: hooks.recipe,
     readRules: () => cachedRules,
     readDelivery: currentDelivery,
+    findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,
+    setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
     refreshHistory: () => spoolSender.feedHistory(),
     onHookVersion: (hookVersion) => {
       lastHookVersion = hookVersion;

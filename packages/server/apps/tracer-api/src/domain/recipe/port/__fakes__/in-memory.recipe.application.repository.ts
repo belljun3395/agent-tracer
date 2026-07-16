@@ -19,4 +19,14 @@ export class InMemoryRecipeApplicationRepository implements RecipeApplicationRep
             .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
         return Promise.resolve(rows);
     }
+
+    findOpenByTask(taskId: string): Promise<RecipeApplicationEntity[]> {
+        const rows = this.all().filter((application) => application.taskId === taskId && application.outcome === null);
+        return Promise.resolve(rows);
+    }
+
+    upsert(application: RecipeApplicationEntity): Promise<void> {
+        this.rows.set(application.id, application);
+        return Promise.resolve();
+    }
 }

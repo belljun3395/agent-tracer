@@ -54,6 +54,7 @@ export function mapRecipeApplication(application: RecipeApplicationEntity): Reci
         injectedVia: application.injectedVia,
         score: application.score,
         outcome: application.outcome,
+        note: application.note,
         createdAt: application.createdAt.toISOString(),
         resolvedAt: application.resolvedAt !== null ? application.resolvedAt.toISOString() : null,
     };

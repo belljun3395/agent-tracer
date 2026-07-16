@@ -10,11 +10,26 @@ import {
     type DaemonRulesResponse,
     type DaemonVersionResponse,
 } from "~runtime/daemon/port/daemon.socket.port.js";
+import type {
+    DaemonRecipeOutcomeResponse,
+    DaemonRecipeScanResponse,
+    DaemonRecipeSearchResponse,
+    DaemonSetTaskTitleResponse,
+} from "~runtime/daemon/port/mcp.socket.port.js";
 import {onTurnStop, type GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {formatGuardrailLog} from "~runtime/domain/guardrail/model/enforce.model.js";
 import {isEnforceableRule, type GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {onHintsRequested, type HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
 import type {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
+import {
+    onPromptRecipes,
+    onRecipeOutcomeReported,
+    onRecipeScanRequested,
+    type RecipeHook,
+} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import {generateUlid} from "~runtime/support/ulid.js";
+
+const MCP_RECIPE_SCAN_PROMPT = "/recipe";
 
 /** 데몬이 소켓 요청을 처리하는 데 필요한 도메인 진입점과 상태다. */
 export interface DaemonSocketContext {
@@ -23,8 +38,12 @@ export interface DaemonSocketContext {
     readonly interventions: InterventionLog;
     readonly guardrail: GuardrailHook;
     readonly hint: HintHook;
+    readonly recipe: RecipeHook;
     readonly readRules: () => readonly GuardrailRule[];
     readonly readDelivery: () => DaemonDeliveryResponse;
+    /** MCP 도구처럼 자기 세션을 모르는 호출자를 위해 가장 최근 활성 태스크를 추정한다. */
+    readonly findActiveTaskId: () => string | undefined;
+    readonly setTaskTitle: (taskId: string, title: string) => Promise<boolean>;
     readonly refreshHistory: () => void;
     readonly onHookVersion: (version: string) => void;
     readonly onActivity: () => void;
@@ -45,14 +64,14 @@ export function createDaemonConnectionHandler(context: DaemonSocketContext): (so
             const index = buffer.indexOf("\n");
             if (index === -1) return;
             const line = buffer.slice(0, index).trim();
-            if (line) handleMessage(socket, line, context);
+            if (line) void handleMessage(socket, line, context);
         });
         socket.on("close", context.onConnectionClosed);
         socket.on("error", () => undefined);
     };
 }
 
-function handleMessage(socket: net.Socket, line: string, context: DaemonSocketContext): void {
+async function handleMessage(socket: net.Socket, line: string, context: DaemonSocketContext): Promise<void> {
     try {
         const request = parseDaemonRequest(JSON.parse(line) as unknown);
         if (request === null) {
@@ -121,6 +140,51 @@ function handleMessage(socket: net.Socket, line: string, context: DaemonSocketCo
                     process.stderr.write(`${formatGuardrailLog(request.taskId, verdicts)}\n`);
                 }
                 send(socket, {verdicts: blocking} satisfies DaemonGuardrailResponse);
+                return;
+            }
+            case "recipe-search": {
+                const {matches} = onPromptRecipes(context.recipe, request.query, request.limit);
+                send(socket, {matches} satisfies DaemonRecipeSearchResponse);
+                return;
+            }
+            case "recipe-outcome": {
+                const taskId = context.findActiveTaskId();
+                if (taskId === undefined) {
+                    send(socket, {ok: false, reason: "no_active_task"} satisfies DaemonRecipeOutcomeResponse);
+                    return;
+                }
+                const ok = await onRecipeOutcomeReported(context.recipe, {
+                    recipeId: request.recipeId,
+                    taskId,
+                    outcome: request.outcome,
+                    ...(request.note !== undefined ? {note: request.note} : {}),
+                });
+                send(socket, {ok} satisfies DaemonRecipeOutcomeResponse);
+                return;
+            }
+            case "recipe-scan-request": {
+                const taskId = context.findActiveTaskId();
+                if (taskId === undefined) {
+                    send(socket, {queued: false, reason: "no_active_task"} satisfies DaemonRecipeScanResponse);
+                    return;
+                }
+                // 기존 /recipe 슬래시 명령 경로를 그대로 타도록 같은 명령 접두사를 합성한다.
+                const queued = await onRecipeScanRequested(context.recipe, {
+                    taskId,
+                    eventId: generateUlid(),
+                    prompt: MCP_RECIPE_SCAN_PROMPT,
+                });
+                send(socket, {queued} satisfies DaemonRecipeScanResponse);
+                return;
+            }
+            case "set-task-title": {
+                const taskId = context.findActiveTaskId();
+                if (taskId === undefined) {
+                    send(socket, {ok: false, reason: "no_active_task"} satisfies DaemonSetTaskTitleResponse);
+                    return;
+                }
+                const ok = await context.setTaskTitle(taskId, request.title);
+                send(socket, {ok} satisfies DaemonSetTaskTitleResponse);
                 return;
             }
         }

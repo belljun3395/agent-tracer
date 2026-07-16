@@ -19,8 +19,21 @@
 - `agent/claude-code/`: 훅 엔트리와 페이로드 리더. 와이어 포맷만 알고 도메인의
   응용 계층만 부른다. 도구 호출을 어떤 이벤트로 만들지는 어댑터가 아니라
   `domain/ingest/model/`이 정한다.
+- `agent/claude-code/mcp/`: Claude Code가 세션마다 띄우는 stdio MCP 서버. JSON-RPC
+  줄바꿈 프레이밍(`rpc.ts`)과 도구 디스패치(`tool.dispatch.ts`)만 알고, 실제 처리는
+  전부 데몬 소켓으로 위임한다. 훅과 마찬가지로 얇은 어댑터이며 의존 없이 직접
+  구현했다 — 프로토콜이 `initialize`·`tools/list`·`tools/call` 세 메서드뿐이라
+  SDK를 들이는 비용이 자립 번들 원칙에 비해 더 크다.
 - `daemon/`: 조립 근원과 제어 화면. `daemon/port/`가 훅과 데몬 사이 소켓 계약을
-  단독 소유하고 클라이언트와 서버가 같은 타입을 쓴다.
+  단독 소유하고 클라이언트와 서버가 같은 타입을 쓴다. `daemon/port/mcp.socket.port.ts`가
+  MCP 브리지 전용 메시지(레시피 검색·성과 보고·스캔 요청·제목 갱신)를 얹어 쓰며
+  `daemon.socket.port.ts`의 `parseDaemonRequest`가 못 찾은 타입을 이쪽에 넘긴다.
+
+MCP 도구가 묻는 "지금 태스크가 뭔가"는 훅과 달리 답이 없다 — Claude Code는 MCP 서버
+호출에 세션 식별자를 싣지 않는다. 데몬은 바인딩 저장소에서 턴이 가장 최근에 열린
+바인딩을 그 태스크로 추정한다(`domain/binding/application/find.active.binding.usecase.ts`).
+같은 워크스페이스에 세션이 여럿 활성 상태면 엉뚱한 태스크를 짚을 수 있고, 그 한계는
+`set_task_title` 도구 설명에 그대로 적어 에이전트가 알게 한다.
 
 훅과 데몬은 별개 프로세스이므로 서버를 부를 신원과 주소를 각자 해석하면 갈라진다.
 `config/monitor.identity.ts`가 그 해석을 단독 소유하고 두 프로세스가 그것만 부른다.
@@ -29,26 +42,31 @@
 ## 플러그인 패키징
 
 이 디렉터리가 곧 플러그인 루트다. `.claude-plugin/plugin.json`이 배포 버전을 소유하고,
-`hooks/hooks.json`이 모든 훅 이벤트를 `bin/run-hook-claude.sh` 하나로 모은다. 훅 이름은
+`hooks/hooks.json`이 모든 훅 이벤트를 `bin/run-hook-claude.sh` 하나로 모으며, 같은
+매니페스트의 `mcpServers`가 MCP 서버를 `bin/run-mcp-server.sh`로 띄운다. 훅 이름은
 `src/agent/claude-code/hooks/`의 파일 이름과 같다.
 
 ```bash
 npm run build --workspace @monitor/runtime
 ```
 
-`dist/agent/claude-code/hooks/<훅이름>.js`와 `dist/daemon/main.js`가 나오며 둘 다 커널까지
-인라인한 단일 파일이다. 훅 진입 스크립트는 번들이 있으면 node로 실행하고 없으면 소스를
-로더로 띄운다. 설치본에는 `node_modules`가 없으므로 번들을 빼고 배포하면 훅이 죽는다.
-자세한 사용법은 README.md에 있다.
+`dist/agent/claude-code/hooks/<훅이름>.js`, `dist/agent/claude-code/mcp/server.js`,
+`dist/daemon/main.js`가 나오며 셋 다 커널까지 인라인한 단일 파일이다. 진입 스크립트는
+번들이 있으면 node로 실행하고 없으면 소스를 로더로 띄운다. 설치본에는 `node_modules`가
+없으므로 번들을 빼고 배포하면 훅과 MCP 서버가 죽는다. 자세한 사용법은 README.md에 있다.
 
 ## 이 패키지만의 제약
 
-- 훅 번들은 자립해야 한다. `@monitor/kernel`의 `*.schema.ts`를 값으로 import하지 못하고
-  타입으로만 쓴다. zod 인스턴스를 훅 프로세스에 실어 보내지 않는다.
+- 훅과 MCP 서버 번들은 자립해야 한다. `@monitor/kernel`의 `*.schema.ts`를 값으로
+  import하지 못하고 타입으로만 쓴다. zod 인스턴스를 그 프로세스들에 실어 보내지 않는다.
 - 어댑터가 하나(Claude Code)뿐이어도 `agent/` 경계는 유지한다. 와이어 파싱과 제품 규칙이
   섞이면 두 번째 런타임을 붙일 때 다시 갈라야 한다.
 - 데몬은 재기동해도 스풀과 데드레터를 잃지 않아야 한다. 소켓 계약을 바꾸면 클라이언트와
   서버 타입을 함께 고친다.
+- MCP 도구의 이름·설명·입력 스키마는 제품 지식이므로 도메인 `model/`이 소유한다
+  (레시피 도구는 `domain/recipe/model/`, 제목 도구는 `domain/session/model/`). 도구
+  설명 문구에 언제 불러야 하는지를 못박는 것이 그 자체로 설계물이다 — 프롬프트 주입이
+  아니라 에이전트가 설명만 보고 스스로 판단해 부르는 통로이기 때문이다.
 
 ## 검증
 

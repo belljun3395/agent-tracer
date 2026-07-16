@@ -8,6 +8,7 @@ import { EditRecipeUseCase } from "~tracer-api/domain/recipe/application/command
 import { RetireRecipeUseCase } from "~tracer-api/domain/recipe/application/command/retire.recipe.usecase.js";
 import { DeleteRecipeUseCase } from "~tracer-api/domain/recipe/application/command/delete.recipe.usecase.js";
 import { ListRecipeApplicationsUseCase } from "~tracer-api/domain/recipe/application/query/list.recipe.applications.usecase.js";
+import { ReportRecipeOutcomeUseCase } from "~tracer-api/domain/recipe/application/command/report.recipe.outcome.usecase.js";
 import { SchemaValidationPipe } from "~tracer-api/support/schema.validation.pipe.js";
 import { pathParamPipe } from "~tracer-api/support/path-param.pipe.js";
 import { resolveUserId } from "~tracer-api/support/request-user.js";
@@ -15,9 +16,11 @@ import {
     applicationsQuerySchema,
     editBodySchema,
     listQuerySchema,
+    outcomeBodySchema,
     type ApplicationsQuery,
     type EditBody,
     type ListQuery,
+    type OutcomeBody,
 } from "./recipe.schema.js";
 
 @Controller("api/v1")
@@ -31,6 +34,7 @@ export class RecipeController {
         private readonly retireRecipe: RetireRecipeUseCase,
         private readonly deleteRecipe: DeleteRecipeUseCase,
         private readonly listApplications: ListRecipeApplicationsUseCase,
+        private readonly reportOutcome: ReportRecipeOutcomeUseCase,
     ) {}
 
     @Get("recipes")
@@ -72,6 +76,16 @@ export class RecipeController {
         @Param("id", pathParamPipe) id: string,
     ) {
         return this.dismissRecipe.execute(resolveUserId(user), id);
+    }
+
+    @Post("recipes/:id/outcome")
+    @HttpCode(HttpStatus.OK)
+    async reportOutcomeFor(
+        @Headers(MONITOR_USER_HEADER) user: string | undefined,
+        @Param("id", pathParamPipe) id: string,
+        @Body(new SchemaValidationPipe(outcomeBodySchema)) body: OutcomeBody,
+    ) {
+        return this.reportOutcome.execute(resolveUserId(user), id, body.taskId, body.outcome, body.note);
     }
 
     @Patch("recipes/:id")
