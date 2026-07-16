@@ -16,7 +16,6 @@ import {ownsDaemonPid} from "~runtime/daemon/lifecycle/daemon.pid.js";
 
 const FLUSH_IDLE_MS = 1000;
 const INITIAL_BACKOFF_MS = 1000;
-const POISON_ATTEMPTS = 3;
 const SEGMENT_BATCH_MAX = 50;
 const FINAL_FLUSH_MAX_ITERATIONS = 2000;
 const HEALTH_REPORT_MIN_INTERVAL_MS = 60_000;
@@ -44,6 +43,8 @@ interface SpoolSenderOptions {
     readonly history: SpoolHistory;
     readonly health: DaemonHealthTracker;
     readonly daemonVersion: string;
+    readonly spoolMaxBytes: number;
+    readonly poisonAttempts: number;
     readonly onActivity: () => void;
     readonly onOwnershipLost: () => void;
 }
@@ -111,7 +112,7 @@ export class SpoolSender {
             lastDeadReason: this.#lastDeadReason,
             poisonSegment: this.#poisonSegment,
             poisonAttempts: this.#poisonAttempts,
-            poisonThreshold: POISON_ATTEMPTS,
+            poisonThreshold: this.#options.poisonAttempts,
         };
     }
 
@@ -213,7 +214,7 @@ export class SpoolSender {
             this.#poisonAttempts = 0;
         }
         this.#poisonAttempts += 1;
-        if (this.#poisonAttempts < POISON_ATTEMPTS) {
+        if (this.#poisonAttempts < this.#options.poisonAttempts) {
             this.#increaseBackoff();
             this.#scheduleFlush(this.#backoffMs);
             return;
@@ -226,8 +227,11 @@ export class SpoolSender {
             return;
         }
         appendDeadLetter(batch.lines, this.#options.paths);
-        this.#options.health.recordDeadLetter(`poison after ${POISON_ATTEMPTS} server errors`, batch.lines.length);
-        daemonLog(`poison segment parked after ${POISON_ATTEMPTS} server errors`);
+        this.#options.health.recordDeadLetter(
+            `poison after ${this.#options.poisonAttempts} server errors`,
+            batch.lines.length,
+        );
+        daemonLog(`poison segment parked after ${this.#options.poisonAttempts} server errors`);
         this.#removeSegments(batch.segments);
         this.#resetPoisonState();
         this.#backoffMs = 0;
@@ -241,7 +245,7 @@ export class SpoolSender {
     }
 
     #enforceCap(): void {
-        const cap = enforceSpoolSizeCap(this.#options.paths);
+        const cap = enforceSpoolSizeCap(this.#options.paths, this.#options.spoolMaxBytes);
         if (cap.droppedSegments.length === 0) return;
         this.#options.history.forget(cap.droppedSegments);
         daemonLog(`spool over cap — dropped ${cap.droppedSegments.length} segment(s), ${cap.droppedBytes} byte(s)`);

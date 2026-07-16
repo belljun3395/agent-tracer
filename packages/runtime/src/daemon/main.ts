@@ -1,10 +1,13 @@
-import {resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
+import {readMonitorConfigFile, resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {ensureAgentTracerHome, resolveAgentTracerPaths} from "~runtime/config/home.paths.js";
 import {listSpoolSegments} from "~runtime/config/spool.js";
+import {writeAgentTracerConfig} from "~runtime/config/config.store.js";
+import {resolveDaemonSettings} from "~runtime/config/daemon.settings.js";
 import {composeDaemonHooks} from "~runtime/daemon/composition.js";
 import {daemonLog} from "~runtime/daemon/daemon.log.js";
 import {isServerReachable} from "~runtime/daemon/delivery/ingest.retry.js";
 import {buildControlSnapshot, type DaemonRuntimeState} from "~runtime/daemon/control/control.state.js";
+import type {ConfigUpdateInput, ConfigUpdateResult} from "~runtime/daemon/control/control.actions.js";
 import {createControlHttpHandler, type ControlActions} from "~runtime/daemon/control/control.http.js";
 import {createResumeHttpHandler} from "~runtime/daemon/control/resume.http.js";
 import {ensureResumeToken} from "~runtime/daemon/control/resume.token.js";
@@ -30,17 +33,10 @@ import {
 import {onRulesRefresh} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {onRecipeCacheRefresh} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 
-const RECIPE_REFRESH_MS = 5 * 60 * 1000;
-const RULES_REFRESH_MS = 10 * 1000;
-const RULE_GEN_POLL_MS = 10 * 1000;
-const IDLE_SHUTDOWN_MS = 5 * 60 * 1000;
-const IDLE_CHECK_MS = 30_000;
-const CONTROL_REBIND_RETRY_MS = 2000;
-const DEFAULT_CONTROL_PORT = 3848;
-
 const paths = resolveAgentTracerPaths();
 const version = resolveDaemonVersion();
-const controlPort = resolveControlPort(process.env.AGENT_TRACER_RESUME_PORT);
+const bootSettings = resolveDaemonSettings(process.env, paths);
+const controlPort = bootSettings.controlPort;
 const startedAt = Date.now();
 
 const hooks = composeDaemonHooks(`daemon-${process.pid}`);
@@ -79,13 +75,18 @@ const spoolSender = new SpoolSender({
     history: spoolHistory,
     health,
     daemonVersion: version,
+    spoolMaxBytes: bootSettings.spoolMaxBytes,
+    poisonAttempts: bootSettings.poisonAttempts,
     onActivity: touch,
     onOwnershipLost: () => void shutdown("ownership-lost"),
 });
 
-function resolveControlPort(value: string | undefined): number {
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed > 0 && parsed <= 65535 ? parsed : DEFAULT_CONTROL_PORT;
+function applyConfigUpdate(input: ConfigUpdateInput): ConfigUpdateResult {
+    writeAgentTracerConfig({userId: input.userId, baseUrl: input.baseUrl, daemon: input.daemon}, paths);
+    return {
+        identity: resolveMonitorIdentity(process.env, readMonitorConfigFile(paths)),
+        daemon: resolveDaemonSettings(process.env, paths),
+    };
 }
 
 function touch(): void {
@@ -129,25 +130,26 @@ function currentState(): DaemonRuntimeState {
         identity: resolveMonitorIdentity(),
         activeConnections,
         lastActivityAt,
-        idleShutdownMs: IDLE_SHUTDOWN_MS,
+        idleShutdownMs: bootSettings.idleShutdownMs,
         swallowedErrors: health.swallowedErrorCount,
         rules: cachedRules,
         caches: {
             rules: {
                 lastRefreshAt: rulesRefreshedAt,
                 lastFailureAt: rulesFailedAt,
-                intervalMs: RULES_REFRESH_MS,
+                intervalMs: bootSettings.rulesRefreshMs,
                 entries: cachedRules.length,
             },
             recipes: {
                 lastRefreshAt: recipesRefreshedAt,
                 lastFailureAt: recipesFailedAt,
-                intervalMs: RECIPE_REFRESH_MS,
+                intervalMs: bootSettings.recipeRefreshMs,
                 entries: hooks.recipeCache.load().length,
             },
         },
         ring: ring.stats(),
         interventions: interventions.snapshot(),
+        settings: bootSettings,
     };
 }
 
@@ -184,6 +186,7 @@ const controlActions: ControlActions = {
     refreshCaches: refreshAll,
     restart: () => void shutdown("control-restart"),
     stop: () => void shutdown("control-stop"),
+    updateConfig: applyConfigUpdate,
 };
 
 ensureAgentTracerHome(paths);
@@ -191,7 +194,7 @@ const controlToken = ensureResumeToken(paths);
 const servers = createDaemonServers({
     paths,
     controlPort,
-    rebindRetryMs: CONTROL_REBIND_RETRY_MS,
+    rebindRetryMs: bootSettings.controlRebindRetryMs,
     onConnection: createDaemonConnectionHandler({
         version,
         ring,
@@ -233,15 +236,15 @@ servers.start();
 const timers = [
     setInterval(() => {
         if (!shuttingDown) void refreshRecipes();
-    }, RECIPE_REFRESH_MS),
+    }, bootSettings.recipeRefreshMs),
     setInterval(() => {
         if (shuttingDown) return;
         void refreshRules();
         void refreshRuleSetting();
-    }, RULES_REFRESH_MS),
+    }, bootSettings.rulesRefreshMs),
     setInterval(() => {
         if (!shuttingDown) void onRuleGenerationPoll(hooks.rulegen);
-    }, RULE_GEN_POLL_MS),
+    }, bootSettings.ruleGenPollMs),
     setInterval(() => {
         if (shuttingDown) return;
         if (
@@ -253,10 +256,10 @@ const timers = [
             touch();
             return;
         }
-        if (Date.now() - lastActivityAt < IDLE_SHUTDOWN_MS) return;
-        daemonLog(`idle ${IDLE_SHUTDOWN_MS}ms — exiting`);
+        if (Date.now() - lastActivityAt < bootSettings.idleShutdownMs) return;
+        daemonLog(`idle ${bootSettings.idleShutdownMs}ms — exiting`);
         void shutdown("idle-timeout");
-    }, IDLE_CHECK_MS),
+    }, bootSettings.idleCheckMs),
 ];
 for (const timer of timers) timer.unref();
 

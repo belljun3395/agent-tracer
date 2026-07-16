@@ -11,6 +11,7 @@ import {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.j
 import {createControlHttpHandler, type ControlActions} from "~runtime/daemon/control/control.http.js";
 import {buildControlSnapshot, type DaemonRuntimeState} from "~runtime/daemon/control/control.state.js";
 import {CONTROL_ACTIONS} from "~runtime/daemon/control/control.actions.js";
+import {DEFAULT_DAEMON_SETTINGS} from "~runtime/config/daemon.settings.js";
 import {CONTROL_TOKEN_HEADER} from "~runtime/daemon/control/loopback.http.js";
 
 const TOKEN = "test-token-0123456789";
@@ -53,6 +54,7 @@ function state(): DaemonRuntimeState {
         },
         ring: new RecentEventRing().stats(),
         interventions: new InterventionLog().snapshot(),
+        settings: DEFAULT_DAEMON_SETTINGS,
     };
 }
 
@@ -89,6 +91,15 @@ beforeEach(async () => {
         refreshCaches: vi.fn(),
         restart: vi.fn(),
         stop: vi.fn(),
+        updateConfig: vi.fn((input) => ({
+            identity: {
+                userId: input.userId,
+                baseUrl: input.baseUrl,
+                userIdOrigin: "file" as const,
+                baseUrlOrigin: "file" as const,
+            },
+            daemon: input.daemon,
+        })),
     };
     server = http.createServer(createControlHttpHandler({token: TOKEN, actions, paths}));
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

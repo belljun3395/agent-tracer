@@ -1,9 +1,25 @@
 import type {AgentTracerPaths} from "~runtime/config/home.paths.js";
 import {purgeDeadLetter, requeueDeadLetter} from "~runtime/config/dead.letter.js";
+import type {DaemonSettings} from "~runtime/config/daemon.settings.js";
+import type {MonitorIdentity} from "~runtime/config/monitor.identity.js";
 import {isRecord} from "~runtime/support/json.js";
 import type {ControlSnapshot} from "~runtime/daemon/control/control.state.js";
 
-/** 제어 화면이 호출하는 데몬 조작 포트다. */
+/** 검증을 마친 폼 값이며 http 계층이 이미 범위를 확인했다. */
+export interface ConfigUpdateInput {
+    readonly userId: string;
+    readonly baseUrl: string;
+    readonly daemon: DaemonSettings;
+}
+
+/** 파일에 쓴 뒤 다시 해석한 값이며 화면이 저장 직후 보여줄 실제 값이다. */
+export interface ConfigUpdateResult {
+    readonly identity: MonitorIdentity;
+    readonly daemon: DaemonSettings;
+}
+
+/** 제어 화면이 호출하는 데몬 조작 포트다. `updateConfig`는 카탈로그(`CONTROL_ACTIONS`) 밖의
+ * 전용 dispatch 분기로만 호출되며 자동으로 버튼이 되지 않는다. */
 export interface ControlActions {
     readonly snapshot: () => ControlSnapshot;
     readonly flush: () => void;
@@ -11,6 +27,7 @@ export interface ControlActions {
     readonly refreshCaches: () => void;
     readonly restart: () => void;
     readonly stop: () => void;
+    readonly updateConfig: (input: ConfigUpdateInput) => ConfigUpdateResult;
 }
 
 /** 카탈로그 핸들러가 요청을 처리하는 데 필요한 데몬 자원이다. */

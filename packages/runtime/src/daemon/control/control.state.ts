@@ -1,8 +1,14 @@
 import * as fs from "node:fs";
 import {RULE_REVIEW_STATE, type RuleReviewState} from "@monitor/kernel/rule/definition/rule.review.js";
 import {resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
-import type {IdentityOrigin, MonitorIdentity} from "~runtime/config/monitor.identity.js";
-import {listSpoolSegments, SPOOL_MAX_BYTES} from "~runtime/config/spool.js";
+import {
+    readMonitorConfigFile,
+    resolveMonitorIdentity,
+    type IdentityOrigin,
+    type MonitorIdentity,
+} from "~runtime/config/monitor.identity.js";
+import {DEFAULT_DAEMON_SETTINGS, resolveDaemonSettings, type DaemonSettings} from "~runtime/config/daemon.settings.js";
+import {listSpoolSegments} from "~runtime/config/spool.js";
 import {readDeadLetter, type DeadLetterReport} from "~runtime/config/dead.letter.js";
 import type {SendOutcome} from "~runtime/daemon/delivery/ingest.retry.js";
 import type {SpoolSenderState} from "~runtime/daemon/delivery/spool.sender.js";
@@ -42,6 +48,13 @@ export interface DaemonRuntimeState extends SpoolSenderState {
     readonly caches: DaemonCaches;
     readonly ring: RecentEventStats;
     readonly interventions: InterventionSnapshot;
+    readonly settings: DaemonSettings;
+}
+
+/** 폼 하나가 신원 2개와 튜닝 9개를 같이 다루므로 스냅샷도 둘을 한 뷰로 합친다. */
+export interface DaemonSettingsView extends DaemonSettings {
+    readonly userId: string;
+    readonly baseUrl: string;
 }
 
 export interface SpoolView {
@@ -103,9 +116,23 @@ export interface ControlSnapshot {
     readonly ring: RecentEventStats;
     readonly interventions: InterventionSnapshot;
     readonly rules: readonly RuleView[];
+    readonly settings: {
+        readonly running: DaemonSettingsView;
+        readonly saved: DaemonSettingsView;
+    };
+    readonly settingsDrift: boolean;
 }
 
 const DEAD_LETTER_PAGE = 100;
+const SETTINGS_FIELDS = [
+    ...Object.keys(DEFAULT_DAEMON_SETTINGS),
+    "userId",
+    "baseUrl",
+] as (keyof DaemonSettingsView)[];
+
+function settingsDiffer(running: DaemonSettingsView, saved: DaemonSettingsView): boolean {
+    return SETTINGS_FIELDS.some((field) => running[field] !== saved[field]);
+}
 
 export function resolvePipelineStatus(state: DaemonRuntimeState, pendingSegments: number): PipelineStatus {
     if (state.retryStatusSince !== null) return "retrying";
@@ -179,6 +206,17 @@ export function buildControlSnapshot(
 ): ControlSnapshot {
     const segments = listSpoolSegments(paths);
     const backlogBytes = segments.reduce((total, segment) => total + segment.size, 0);
+    const running: DaemonSettingsView = {
+        ...state.settings,
+        userId: state.identity.userId,
+        baseUrl: state.identity.baseUrl,
+    };
+    const savedIdentity = resolveMonitorIdentity(process.env, readMonitorConfigFile(paths));
+    const saved: DaemonSettingsView = {
+        ...resolveDaemonSettings(process.env, paths),
+        userId: savedIdentity.userId,
+        baseUrl: savedIdentity.baseUrl,
+    };
     return {
         now,
         status: resolvePipelineStatus(state, segments.length),
@@ -209,7 +247,7 @@ export function buildControlSnapshot(
         spool: {
             segments: segments.length,
             backlogBytes,
-            capBytes: SPOOL_MAX_BYTES,
+            capBytes: state.settings.spoolMaxBytes,
             poisonSegment: state.poisonSegment,
             poisonAttempts: state.poisonAttempts,
             poisonThreshold: state.poisonThreshold,
@@ -220,5 +258,7 @@ export function buildControlSnapshot(
         ring: state.ring,
         interventions: state.interventions,
         rules: joinRules(state.rules, state.interventions.ruleActivity),
+        settings: {running, saved},
+        settingsDrift: settingsDiffer(running, saved),
     };
 }

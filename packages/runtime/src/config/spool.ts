@@ -100,13 +100,16 @@ export interface SpoolCapResult {
     readonly droppedSegments: readonly string[];
 }
 
-export function enforceSpoolSizeCap(paths: AgentTracerPaths = resolveAgentTracerPaths()): SpoolCapResult {
+export function enforceSpoolSizeCap(
+    paths: AgentTracerPaths = resolveAgentTracerPaths(),
+    maxBytes: number = SPOOL_MAX_BYTES,
+): SpoolCapResult {
     const segments = listSpoolSegments(paths);
     let total = segments.reduce((sum, segment) => sum + segment.size, 0);
     const droppedSegments: string[] = [];
     let droppedBytes = 0;
     for (const segment of segments) {
-        if (total <= SPOOL_MAX_BYTES) break;
+        if (total <= maxBytes) break;
         removeSpoolSegment(segment.path);
         total -= segment.size;
         droppedBytes += segment.size;
