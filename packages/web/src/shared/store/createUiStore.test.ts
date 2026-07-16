@@ -52,6 +52,16 @@ describe("createUiStore", () => {
     expect(restored.getState().guidanceLocale).toBe("ko");
   });
 
+  it("검색 히트 종류의 기본값은 tasks이고 store 재생성 뒤에도 선택이 유지된다", () => {
+    const store = createUiStore();
+    expect(store.getState().searchType).toBe("tasks");
+
+    store.getState().setSearchType("events");
+
+    const restored = createUiStore();
+    expect(restored.getState().searchType).toBe("events");
+  });
+
   it("잘못된 locale만 영어로 복구하고 나머지 저장 상태는 보존한다", () => {
     localStorage.setItem(
       "agent-tracer:ui:v1",

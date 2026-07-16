@@ -1,6 +1,6 @@
 import { KIND } from "@monitor/kernel";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { EventId, TaskId } from "~web/shared/identity.js";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
 import type { TaskVerification } from "~web/entities/task/model/timeline/verification.js";
@@ -8,6 +8,10 @@ import { createUiStore, UiStoreProvider } from "~web/shared/store/index.js";
 import { laneThemeForKey } from "~web/entities/task/model/lane-theme.js";
 import { GraphNode } from "~web/widgets/feed/graph/plot/GraphNode.js";
 import type { PositionedNode } from "~web/widgets/feed/graph/model/node-layout.js";
+
+vi.mock("~web/entities/memo/lib/use-event-memo-counts-for-task.js", () => ({
+  useEventMemoCountsForTask: () => new Map(),
+}));
 
 describe("GraphNode", () => {
   it("원본 이벤트 ID를 선택하고 연결된 검증 개수를 배지로 표시한다", () => {

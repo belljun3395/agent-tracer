@@ -146,6 +146,30 @@ export function ExternalLinkIcon({ size = 12, className }: IconProps) {
 
 /** 체크 표시가 달린 짧은 선 두 줄. */
 
+/** 가로줄 셋을 담은 메모지. */
+
+export function NoteIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M4 4h16v12l-4 4H4z" />
+      <path d="M16 20v-4h4" />
+      <line x1="7.5" y1="9" x2="16.5" y2="9" />
+      <line x1="7.5" y1="13" x2="13" y2="13" />
+    </svg>
+  );
+}
+
 export function ChecklistIcon({ size = 14, className }: IconProps) {
   return (
     <svg

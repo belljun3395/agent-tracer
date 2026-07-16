@@ -4,6 +4,8 @@ import type { TaskId } from "~web/shared/identity.js";
 export const SIDEBAR_FILTERS = ["all", "live", "attn", "done"] as const;
 export type SidebarFilter = (typeof SIDEBAR_FILTERS)[number];
 export type SearchScope = "all" | "this-task";
+/** 검색 결과에서 태스크 히트만 볼지 이벤트 히트만 볼지 고르며 searchScope와는 독립이다. */
+export type SearchType = "tasks" | "events";
 /**
  * 태스크 목록의 최상위 구분.
  *   - "tasks"     : 사용자가 시작한 런타임 세션(기본값)
@@ -26,6 +28,8 @@ export interface SidebarSlice {
    * 같은 방식으로 저장한다).
    */
   readonly searchScope: SearchScope;
+  /** 검색 결과에서 보여줄 히트 종류이며 새로고침 후에도 유지되고 기본값은 "tasks"다. */
+  readonly searchType: SearchType;
   /** 태스크별 "마지막으로 본" 시각(ms). 태스크의 가장 최근 이벤트 시각과 비교해 unread pulse와 "+N events" 배지를 렌더링한다. */
   readonly lastSeenAt: Readonly<Record<string, number>>;
   /** 사이드바 트리에서 서브에이전트 자식이 현재 접혀 있는 부모 태스크 id 목록. */
@@ -36,6 +40,7 @@ export interface SidebarSlice {
   readonly setFilter: (filter: SidebarFilter) => void;
   readonly setSearchQuery: (query: string) => void;
   readonly setSearchScope: (scope: SearchScope) => void;
+  readonly setSearchType: (type: SearchType) => void;
   readonly markTaskRead: (taskId: TaskId, atMs?: number) => void;
   readonly toggleCollapsedParent: (taskId: TaskId) => void;
   readonly setShowArchived: (value: boolean) => void;
@@ -53,6 +58,7 @@ export function createSidebarSlice(set: SetState): SidebarSlice {
     filter: "all",
     searchQuery: "",
     searchScope: "all",
+    searchType: "tasks",
     lastSeenAt: {},
     collapsedParents: [],
     showArchived: false,
@@ -61,6 +67,7 @@ export function createSidebarSlice(set: SetState): SidebarSlice {
     setShowArchived: (value) => set({ showArchived: value }),
     setSearchQuery: (searchQuery) => set({ searchQuery }),
     setSearchScope: (searchScope) => set({ searchScope }),
+    setSearchType: (searchType) => set({ searchType }),
     markTaskRead: (taskId, atMs) =>
       set((state) => ({
         lastSeenAt: {

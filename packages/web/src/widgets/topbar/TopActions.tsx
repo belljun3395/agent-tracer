@@ -1,7 +1,8 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ActivityIcon, BookIcon, ChecklistIcon, GearIcon, Tooltip } from "~web/shared/ui/index.js";
+import { ActivityIcon, BookIcon, ChecklistIcon, GearIcon, NoteIcon, Tooltip } from "~web/shared/ui/index.js";
 import { useRecipesQuery } from "~web/entities/recipe/api/queries.js";
 import { useRulesQuery } from "~web/entities/rule/api/queries.js";
+import { useMemosQuery } from "~web/entities/memo/api/queries.js";
 import { ThemeToggle } from "~web/widgets/topbar/ThemeToggle.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
 
@@ -11,6 +12,7 @@ export function TopActions() {
     <div className="flex items-center gap-2">
       <RecipesButton />
       <RulesButton />
+      <MemosButton />
       <JobsButton />
       <SettingsButton />
       <span aria-hidden className="w-px h-[18px] bg-hair" />
@@ -79,6 +81,46 @@ function RecipesButton() {
   );
 }
 
+
+function MemosButton() {
+  const { data, isLoading } = useMemosQuery();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const count = data?.memos.length ?? 0;
+  const active = location.pathname === "/memos";
+
+  const onClick = () => {
+    void navigate("/memos");
+  };
+
+  return (
+    <Tooltip content="Browse memos" side="bottom">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Browse memos"
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "h-7 px-2.5 inline-flex items-center gap-1.5 rounded-sm hover:bg-s1 transition-colors",
+          active ? "text-ink bg-s1" : "text-ink-muted bg-transparent",
+        )}
+      >
+        <NoteIcon />
+        <span className="text-xs font-medium tracking-[-0.05px]">
+          Memos
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center justify-center rounded-pill font-mono text-[10px] font-semibold px-1.5 min-w-5 leading-4",
+            count > 0 ? "bg-ink-tertiary text-white" : "bg-s1 text-ink-tertiary",
+          )}
+        >
+          {isLoading ? "…" : count}
+        </span>
+      </button>
+    </Tooltip>
+  );
+}
 
 function SettingsButton() {
   const navigate = useNavigate();

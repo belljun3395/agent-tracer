@@ -30,12 +30,13 @@ export const monitorQueryKeys = {
   rules: () => ["monitor", "rules"] as const,
   taskRules: (taskId: TaskId) => ["monitor", "task", taskId, "rules"] as const,
   taskUserInputs: (taskId: TaskId) => ["monitor", "task", taskId, "user-inputs"] as const,
-  search: (query: string, taskId?: TaskId) =>
+  search: (searchType: "tasks" | "events", query: string, taskId?: TaskId) =>
     (taskId
-      ? ["monitor", "search", query, taskId]
-      : ["monitor", "search", query]) as readonly [
+      ? ["monitor", "search", searchType, query, taskId]
+      : ["monitor", "search", searchType, query]) as readonly [
       "monitor",
       "search",
+      "tasks" | "events",
       string,
       ...(readonly TaskId[]),
     ],
@@ -43,6 +44,11 @@ export const monitorQueryKeys = {
   settings: () => ["monitor", "settings"] as const,
   ruleEvidence: (taskId: TaskId, ruleId: string) =>
     ["monitor", "task", taskId, "rule", ruleId, "evidence"] as const,
+  memos: () => ["monitor", "memos"] as const,
+  taskMemos: (taskId: TaskId) => ["monitor", "task", taskId, "memos"] as const,
+  eventMemos: (taskId: TaskId, eventId: string) =>
+    ["monitor", "task", taskId, "event", eventId, "memos"] as const,
+  memosPrefix: () => ["monitor", "memos"] as const,
   taskVerifications: (taskId: TaskId) =>
     ["monitor", "task", taskId, "verifications"] as const,
   taskCleanupSuggestions: (status: "pending" | "all" = "pending") =>

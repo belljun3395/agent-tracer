@@ -1,11 +1,15 @@
 import { KIND } from "@monitor/kernel";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventId, TaskId } from "~web/shared/identity.js";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
 import { createUiStore, UiStoreProvider } from "~web/shared/store/index.js";
 import { TooltipProvider } from "~web/shared/ui/index.js";
 import { GraphView } from "~web/widgets/feed/graph/GraphView.js";
+
+vi.mock("~web/entities/memo/lib/use-event-memo-counts-for-task.js", () => ({
+  useEventMemoCountsForTask: () => new Map(),
+}));
 
 afterEach(cleanup);
 

@@ -5,14 +5,15 @@ import { fetchSearch } from "~web/features/search/api/api-search.js";
 import { monitorQueryKeys } from "~web/shared/api/query-keys.js";
 
 export function useSearchQuery(
+  searchType: "tasks" | "events",
   query: string,
   options?: { readonly taskId?: TaskId; readonly limit?: number },
 ): UseQueryResult<SearchResponse> {
   const trimmed = query.trim();
   return useQuery({
-    queryKey: monitorQueryKeys.search(trimmed, options?.taskId),
+    queryKey: monitorQueryKeys.search(searchType, trimmed, options?.taskId),
     queryFn: () =>
-      fetchSearch(trimmed, {
+      fetchSearch(searchType, trimmed, {
         ...(options?.taskId ? { taskId: options.taskId } : {}),
         ...(options?.limit !== undefined ? { limit: options.limit } : {}),
       }),

@@ -4,6 +4,7 @@ import { mergeSearchResults } from "~web/features/search/model/search.js";
 import { getJson } from "~web/shared/api/client/json-methods.js";
 
 export async function fetchSearch(
+  searchType: "tasks" | "events",
   query: string,
   options?: { readonly taskId?: TaskId; readonly limit?: number },
 ): Promise<SearchResponse> {
@@ -12,10 +13,15 @@ export async function fetchSearch(
   if (options?.taskId) params.set("taskId", options.taskId);
   if (options?.limit !== undefined) params.set("limit", String(options.limit));
   const qs = params.toString();
-  // 컨텍스트가 각각 소유한 두 엔드포인트(timeline events + work tasks)에 병렬로 요청하고 병합한다.
-  const [eventsRes, tasksRes] = await Promise.all([
-    getJson<{ readonly items: SearchResponse["events"] }>(`/api/v1/events/search?${qs}`),
-    getJson<{ readonly items: SearchResponse["tasks"] }>(`/api/v1/tasks/search?${qs}`),
-  ]);
-  return mergeSearchResults(tasksRes.items, eventsRes.items);
+  // 선택된 히트 종류의 엔드포인트 하나만 호출하며, 메모 히트는 서버가 각 엔드포인트에 이미 접어 준다.
+  if (searchType === "events") {
+    const eventsRes = await getJson<{ readonly items: SearchResponse["events"] }>(
+      `/api/v1/events/search?${qs}`,
+    );
+    return mergeSearchResults([], eventsRes.items);
+  }
+  const tasksRes = await getJson<{ readonly items: SearchResponse["tasks"] }>(
+    `/api/v1/tasks/search?${qs}`,
+  );
+  return mergeSearchResults(tasksRes.items, []);
 }

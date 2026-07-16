@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type {
   EventSearchHit,
+  MemoSearchHit,
   TaskSearchHit,
 } from "~web/features/search/model/search.js";
 import { TaskId, EventId } from "~web/shared/identity.js";
@@ -100,6 +101,37 @@ export function EventHitRow({ hit }: EventHitRowProps) {
           {hit.snippet}
         </p>
       )}
+    </Link>
+  );
+}
+
+interface MemoHitRowProps {
+  readonly hit: MemoSearchHit;
+}
+
+/** 메모 검색 결과 한 행이며, 이벤트에 매달린 메모면 그 이벤트를 선택하며 이동한다. */
+export function MemoHitRow({ hit }: MemoHitRowProps) {
+  const setSelectedEventId = useSetSelectedEventId();
+  const onClick = () => {
+    // 이동은 <Link>가 처리한다.
+    if (hit.eventId) setSelectedEventId(EventId(hit.eventId));
+  };
+
+  return (
+    <Link
+      to={`/tasks/${TaskId(hit.taskId)}`}
+      onClick={onClick}
+      className="block px-2.5 py-2 mb-px rounded-sm border border-transparent hover:bg-s1"
+    >
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] font-semibold tracking-[0.08em] text-ink-tertiary">
+          MEMO
+        </span>
+        <span className="font-mono text-[10.5px] text-ink-tertiary">{hit.author}</span>
+      </div>
+      <p className="mt-0.5 mb-0 line-clamp-2 text-[12.5px] text-ink tracking-[-0.05px] leading-[1.45]">
+        {hit.body}
+      </p>
     </Link>
   );
 }

@@ -1,12 +1,19 @@
+import { isMemoHit } from "~web/features/search/model/search.js";
 import { useSearchQuery } from "~web/features/search/api/queries.js";
 import {
   useSelectedTaskId,
   useSetSidebarSearchScope,
+  useSetSidebarSearchType,
   useSidebarSearchScope,
+  useSidebarSearchType,
 } from "~web/shared/store/index.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
 import { useNowMs } from "~web/shared/lib/hooks/use-now-ms.js";
-import { TaskHitRow, EventHitRow } from "~web/widgets/task-list/search/SearchResultRow.js";
+import {
+  EventHitRow,
+  MemoHitRow,
+  TaskHitRow,
+} from "~web/widgets/task-list/search/SearchResultRow.js";
 
 interface SearchResultsPanelProps {
   /** 이미 디바운스된 검색어. */
@@ -16,12 +23,15 @@ interface SearchResultsPanelProps {
 /** 검색이 활성화된 동안 그룹화된 태스크 목록을 대체한다. */
 export function SearchResultsPanel({ query }: SearchResultsPanelProps) {
   const nowMs = useNowMs(15_000);
+  const searchType = useSidebarSearchType();
+  const setSearchType = useSetSidebarSearchType();
   const scope = useSidebarSearchScope();
   const setScope = useSetSidebarSearchScope();
   const selectedTaskId = useSelectedTaskId();
   const effectiveScopeIsTask = scope === "this-task" && selectedTaskId !== null;
 
   const { data, isLoading, isError, isFetching } = useSearchQuery(
+    searchType,
     query,
     effectiveScopeIsTask ? { taskId: selectedTaskId } : undefined,
   );
@@ -32,6 +42,7 @@ export function SearchResultsPanel({ query }: SearchResultsPanelProps) {
 
   return (
     <div className="px-2 pt-1.5 pb-3.5">
+      <TypeToggle type={searchType} onChange={setSearchType} />
       <ScopeToggle
         scope={scope}
         onChange={setScope}
@@ -52,20 +63,47 @@ export function SearchResultsPanel({ query }: SearchResultsPanelProps) {
           )}
           {data.tasks.length > 0 && (
             <Section title="Tasks" count={data.tasks.length}>
-              {data.tasks.map((hit) => (
-                <TaskHitRow key={hit.id} hit={hit} nowMs={nowMs} />
-              ))}
+              {data.tasks.map((hit) =>
+                isMemoHit(hit) ? (
+                  <MemoHitRow key={hit.id} hit={hit} />
+                ) : (
+                  <TaskHitRow key={hit.id} hit={hit} nowMs={nowMs} />
+                ),
+              )}
             </Section>
           )}
           {data.events.length > 0 && (
             <Section title="Events" count={data.events.length}>
-              {data.events.map((hit) => (
-                <EventHitRow key={hit.id} hit={hit} />
-              ))}
+              {data.events.map((hit) =>
+                isMemoHit(hit) ? (
+                  <MemoHitRow key={hit.id} hit={hit} />
+                ) : (
+                  <EventHitRow key={hit.id} hit={hit} />
+                ),
+              )}
             </Section>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+interface TypeToggleProps {
+  readonly type: "tasks" | "events";
+  readonly onChange: (type: "tasks" | "events") => void;
+}
+
+/** 히트 종류 하나만 골라 그 엔드포인트만 조회하게 하는 1차 토글이며, scope 토글과 독립이다. */
+function TypeToggle({ type, onChange }: TypeToggleProps) {
+  return (
+    <div className="inline-flex p-0.5 mb-1.5 mx-1 rounded-sm bg-s1 border border-hair">
+      <ScopeButton active={type === "tasks"} onClick={() => onChange("tasks")}>
+        Tasks
+      </ScopeButton>
+      <ScopeButton active={type === "events"} onClick={() => onChange("events")}>
+        Events
+      </ScopeButton>
     </div>
   );
 }

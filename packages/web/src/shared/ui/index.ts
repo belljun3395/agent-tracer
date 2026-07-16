@@ -32,6 +32,7 @@ export {
   HamburgerIcon,
   MonitorIcon,
   MoonIcon,
+  NoteIcon,
   PanelRightIcon,
   PencilIcon,
   PencilSimpleIcon,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
 import type { ResumeTargetDto } from "@monitor/kernel";
@@ -8,6 +9,7 @@ import {
   type MainView,
 } from "~web/shared/store/index.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
+import { ChevronDownIcon, ChevronRightIcon } from "~web/shared/ui/index.js";
 import { formatDuration } from "~web/shared/lib/formatting/time.js";
 import { formatHHmm } from "~web/shared/lib/formatting/time.js";
 import { extractLatestModel } from "~web/widgets/feed/lib/extraction/extract-model.js";
@@ -16,6 +18,7 @@ import { SessionIdPill } from "~web/widgets/feed/header/SessionIdPill.js";
 import { EditableTitle } from "~web/widgets/feed/header/title/EditableTitle.js";
 import { StatusPill } from "~web/widgets/feed/header/StatusPill.js";
 import { LaneFilter } from "~web/widgets/feed/LaneFilter.js";
+import { TaskMemoThread } from "~web/widgets/feed/header/memo/TaskMemoThread.js";
 
 interface TaskHeaderProps {
   readonly task: MonitoringTask;
@@ -25,6 +28,7 @@ interface TaskHeaderProps {
 
 /** 피드 본문 위 고정 헤더. */
 export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const nowMs = useNowMs(60_000);
   const startMs = Date.parse(task.lastSessionStartedAt ?? task.createdAt);
   const elapsed = formatDuration(Math.max(0, nowMs - startMs));
@@ -95,6 +99,38 @@ export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
           <LaneFilter />
         </div>
       )}
+
+      <div className="mt-2.5">
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((open) => !open)}
+          aria-expanded={detailsOpen}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-subtle hover:text-ink"
+        >
+          {detailsOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          Details &amp; Memo
+        </button>
+        {detailsOpen && (
+          <div className="mt-2 flex flex-col gap-2.5 rounded-sm border border-hair bg-s1 px-3 py-2.5">
+            <div className="flex flex-col gap-1.5">
+              <ByItem label="Cwd" value={task.workspacePath ?? "—"} mono />
+              {resumeTarget ? (
+                <span className="inline-flex items-baseline gap-1.5">
+                  <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-tertiary">
+                    Session
+                  </span>
+                  <SessionIdPill resumeTarget={resumeTarget} />
+                </span>
+              ) : (
+                <ByItem label="Session" value="—" mono />
+              )}
+              <ByItem label="Agent" value={task.runtimeSource ?? "—"} mono />
+              <ByItem label="Status" value={task.status} mono />
+            </div>
+            <TaskMemoThread taskId={task.id} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

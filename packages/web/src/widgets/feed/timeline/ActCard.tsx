@@ -4,6 +4,8 @@ import {
   useSetSelectedEventId,
 } from "~web/shared/store/index.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
+import { NoteIcon } from "~web/shared/ui/index.js";
+import { useEventMemoCountsForTask } from "~web/entities/memo/lib/use-event-memo-counts-for-task.js";
 import type { ActVm } from "~web/widgets/feed/lib/timeline/act-classification.js";
 import { ActHeader } from "~web/widgets/feed/timeline/ActHeader.js";
 import { ActMeta } from "~web/widgets/feed/timeline/ActMeta.js";
@@ -18,6 +20,7 @@ export function ActCard({ vm }: ActCardProps) {
   const setSelectedEventId = useSetSelectedEventId();
   const active = selectedEventId === vm.event.id;
   const ref = useRef<HTMLElement>(null);
+  const memoCount = useEventMemoCountsForTask(vm.event.taskId).get(vm.event.id) ?? 0;
 
   useEffect(() => {
     if (!active) return;
@@ -54,6 +57,15 @@ export function ActCard({ vm }: ActCardProps) {
             className="absolute left-0 top-0 bottom-0 w-[3px] opacity-85"
             style={{ background: vm.lane.cssColor }}
           />
+          {memoCount > 0 && (
+            <span
+              className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-pill bg-s2 border border-hair px-1.5 py-px font-mono text-[9.5px] text-ink-tertiary"
+              title={`${memoCount} memo${memoCount === 1 ? "" : "s"} on this event`}
+            >
+              <NoteIcon size={9} />
+              {memoCount}
+            </span>
+          )}
           <ActHeader vm={vm} />
           {vm.bodyText && (
             <div className="mt-1 text-[13.5px] leading-[1.5] text-ink tracking-[-0.1px]">

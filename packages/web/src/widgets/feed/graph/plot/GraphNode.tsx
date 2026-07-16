@@ -3,6 +3,7 @@ import {
   useSelectedEventId,
   useSetSelectedEventId,
 } from "~web/shared/store/index.js";
+import { useEventMemoCountsForTask } from "~web/entities/memo/lib/use-event-memo-counts-for-task.js";
 import type { PositionedNode } from "~web/widgets/feed/graph/model/node-layout.js";
 import { LANE_HEIGHT, trackLeftCss } from "~web/widgets/feed/graph/model/track-geometry.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
@@ -22,6 +23,7 @@ export function GraphNode({ node }: GraphNodeProps) {
   const focused = selectedEventId === node.vm.event.id;
   const top = node.laneIdx * LANE_HEIGHT + LANE_HEIGHT / 2 + node.yOffset;
   const verificationCount = node.verification?.verifications.length ?? 0;
+  const memoCount = useEventMemoCountsForTask(node.vm.event.taskId).get(node.vm.event.id) ?? 0;
 
   // 성긴 노드는 라벨을 항상 보여주고, 밀집 노드는 hover/focus에서만 보여준다(그렇지 않으면 이웃 라벨끼리 심하게 겹친다).
   const showLabel = hovered || focused || !node.dense;
@@ -79,6 +81,14 @@ export function GraphNode({ node }: GraphNodeProps) {
           className="absolute -bottom-2 -right-2 inline-flex items-center justify-center rounded-full min-w-3.5 h-3.5 px-0.5 bg-ph-veri text-white font-mono text-[8px] font-bold"
         >
           {verificationCount === 1 ? "✓" : `✓${verificationCount}`}
+        </span>
+      )}
+      {memoCount > 0 && (
+        <span
+          aria-hidden
+          className="absolute -bottom-2 -left-2 inline-flex items-center justify-center rounded-full min-w-3.5 h-3.5 px-0.5 bg-primary text-white font-mono text-[8px] font-bold"
+        >
+          {memoCount}
         </span>
       )}
       {showLabel && (

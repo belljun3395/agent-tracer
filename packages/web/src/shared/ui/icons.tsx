@@ -32,4 +32,5 @@ export {
   GearIcon,
   ChecklistIcon,
   ExternalLinkIcon,
+  NoteIcon,
 } from "~web/shared/ui/icons/chrome.js";

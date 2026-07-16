@@ -75,6 +75,7 @@ export function createUiStore(options?: CreateUiStoreOptions): UiStoreApi {
           view: state.view,
           filter: state.filter,
           searchScope: state.searchScope,
+          searchType: state.searchType,
           lastSeenAt: state.lastSeenAt,
           collapsedParents: state.collapsedParents,
           showArchived: state.showArchived,

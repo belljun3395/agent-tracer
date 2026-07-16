@@ -41,6 +41,16 @@ vi.mock("~web/entities/task/api/detail-queries.js", () => ({
   useTaskChildrenQuery: () => ({ data: { tasks: [] } }),
 }));
 
+vi.mock("~web/entities/memo/api/queries.js", () => ({
+  useEventMemosQuery: () => ({ data: { memos: [] } }),
+}));
+
+vi.mock("~web/entities/memo/api/mutations.js", () => ({
+  useCreateMemoMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdateMemoMutation: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
+  useDeleteMemoMutation: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
+}));
+
 vi.mock("~web/shared/store/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof UiStateModule>();
   return {

@@ -6,6 +6,7 @@ import type {
 } from "~web/shared/store/slices/viewSlice.js";
 import type {
   SearchScope,
+  SearchType,
   SidebarFilter,
   SidebarView,
 } from "~web/shared/store/slices/sidebarSlice.js";
@@ -92,12 +93,16 @@ export const useToggleCollapsedParent = () =>
 
 export const useSidebarSearchScope = (): SearchScope =>
   useUiStore((s) => s.searchScope);
+export const useSidebarSearchType = (): SearchType =>
+  useUiStore((s) => s.searchType);
 
 export const useSetSidebarFilter = () => useUiStore((s) => s.setFilter);
 export const useSetSidebarSearchQuery = () =>
   useUiStore((s) => s.setSearchQuery);
 export const useSetSidebarSearchScope = () =>
   useUiStore((s) => s.setSearchScope);
+export const useSetSidebarSearchType = () =>
+  useUiStore((s) => s.setSearchType);
 export const useMarkTaskRead = () => useUiStore((s) => s.markTaskRead);
 export const useShowArchived = (): boolean => useUiStore((s) => s.showArchived);
 export const useSetShowArchived = () => useUiStore((s) => s.setShowArchived);

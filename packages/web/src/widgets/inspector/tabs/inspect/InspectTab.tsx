@@ -20,6 +20,7 @@ import { EventBodySection } from "~web/widgets/inspector/tabs/inspect/EventBodyS
 import { EventTags } from "~web/widgets/inspector/tabs/inspect/EventTags.js";
 import { SubagentInsightSection } from "~web/widgets/inspector/tabs/inspect/SubagentInsightSection.js";
 import { EventVerificationSection } from "~web/widgets/inspector/tabs/inspect/EventVerificationSection.js";
+import { EventMemoSection } from "~web/widgets/inspector/tabs/inspect/EventMemoSection.js";
 
 /** Inspect 탭 본문. */
 export function InspectTab() {
@@ -63,6 +64,7 @@ export function InspectTab() {
       <EventTitle event={event} />
       <TurnContextSection turn={turn} />
       <EventVerificationSection entry={verificationEntry} />
+      {taskId && <EventMemoSection taskId={taskId} eventId={event.id} />}
       <EventKvGrid event={event} />
       <EventBodySection event={event} />
       <EventTags event={event} />
