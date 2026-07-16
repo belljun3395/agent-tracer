@@ -64,6 +64,10 @@ export * from "./search/search.outbox.const.js";
 export * from "./search/search.outbox.entity.js";
 export * from "./search/search.outbox.repository.js";
 
+// memo
+export * from "./memo/memo.entity.js";
+export * from "./memo/memo.repository.js";
+
 // daemon
 export * from "./daemon/daemon.health.entity.js";
 export * from "./daemon/daemon.health.repository.js";

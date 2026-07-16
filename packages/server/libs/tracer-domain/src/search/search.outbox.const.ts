@@ -2,7 +2,12 @@
 export const SEARCH_OUTBOX_TARGET = {
     recipe: "recipe",
     task: "task",
+    memo: "memo",
 } as const;
 
-export const SEARCH_OUTBOX_TARGETS = [SEARCH_OUTBOX_TARGET.recipe, SEARCH_OUTBOX_TARGET.task] as const;
+export const SEARCH_OUTBOX_TARGETS = [
+    SEARCH_OUTBOX_TARGET.recipe,
+    SEARCH_OUTBOX_TARGET.task,
+    SEARCH_OUTBOX_TARGET.memo,
+] as const;
 export type SearchOutboxTarget = (typeof SEARCH_OUTBOX_TARGETS)[number];

@@ -23,6 +23,7 @@ export const OWNED_TABLES = [
     "task_cleanup_suggestions",
     "search_outbox",
     "daemon_health",
+    "memos",
 ] as const;
 
 export type RebuildableTable = (typeof REBUILDABLE_TABLES)[number];

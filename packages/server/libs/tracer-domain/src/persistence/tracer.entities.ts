@@ -3,6 +3,7 @@ import { DaemonHealthEntity } from "../daemon/daemon.health.entity.js";
 import { AiJobEntity } from "../job/ai.job.entity.js";
 import { AiJobStepEntity } from "../job/ai.job.step.entity.js";
 import { AgentCompletionInboxEntity } from "../job/agent.completion.inbox.entity.js";
+import { MemoEntity } from "../memo/memo.entity.js";
 import { RecipeApplicationEntity } from "../recipe/application/recipe.application.entity.js";
 import { RecipeEntity } from "../recipe/recipe.entity.js";
 import { RuleEntity } from "../rule/rule.entity.js";
@@ -35,4 +36,5 @@ export const TRACER_ENTITIES = [
     AppSettingEntity,
     SearchOutboxEntity,
     DaemonHealthEntity,
+    MemoEntity,
 ];

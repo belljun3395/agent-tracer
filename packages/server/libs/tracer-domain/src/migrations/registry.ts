@@ -9,6 +9,7 @@ import { DropFileAffinity1784150000000 } from "./0008-DropFileAffinity.js";
 import { RecipeApplicationNote1784160000000 } from "./0009-RecipeApplicationNote.js";
 import { VerdictHighWaterMark1784170000000 } from "./0010-VerdictHighWaterMark.js";
 import { SettingsScope1784211758198 } from "./0011-SettingsScope.js";
+import { Memo1784211741081 } from "./0012-Memo.js";
 
 /** 읽기 모델 스키마의 마이그레이션 순서다. */
 export const TRACER_MIGRATIONS = [
@@ -23,4 +24,5 @@ export const TRACER_MIGRATIONS = [
     RecipeApplicationNote1784160000000,
     VerdictHighWaterMark1784170000000,
     SettingsScope1784211758198,
+    Memo1784211741081,
 ] as const;

@@ -49,4 +49,8 @@ export class SearchOutboxEntity {
     isRecipe(): boolean {
         return this.target === SEARCH_OUTBOX_TARGET.recipe;
     }
+
+    isMemo(): boolean {
+        return this.target === SEARCH_OUTBOX_TARGET.memo;
+    }
 }
