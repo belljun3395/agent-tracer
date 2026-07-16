@@ -15,45 +15,31 @@ export function buildSemanticMetadata(input: EventSemanticMetadata): EventSemant
     };
 }
 
-/** 탐색 도구 이름을 시맨틱 subtype과 group으로 매핑한다. */
+/** 탐색 도구 이름을 시맨틱 subtype과 group으로 정확 일치로 매핑한다. */
 export function inferExploreSemantic(
     toolName: string,
     options: {readonly entityName?: string; readonly queryOrUrl?: string} = {},
 ): EventSemanticMetadata {
-    const normalized = toolName.trim().toLowerCase();
     const {entityName, queryOrUrl} = options;
-
-    if (normalized === "read" || normalized.includes("view") || normalized.includes("open")) {
-        return exploreSemantic("read_file", "Read file", "files", "read", "file", toolName, entityName);
+    switch (toolName) {
+        case "Read":
+            return exploreSemantic("read_file", "Read file", "files", "read", "file", toolName, entityName);
+        case "Glob":
+            return exploreSemantic("glob_files", "Glob files", "search", "search", "file", toolName, entityName);
+        case "Grep":
+            return exploreSemantic("grep_code", "Grep code", "search", "search", "file", toolName, entityName);
+        case "WebFetch":
+            return exploreSemantic("web_fetch", "Web fetch", "web", "fetch", "url", toolName, queryOrUrl);
+        case "WebSearch":
+            return exploreSemantic("web_search", "Web search", "web", "search", "query", toolName, queryOrUrl);
+        default:
+            return exploreSemantic("list_files", "List files", "search", "list", "file", toolName, entityName);
     }
-    if (normalized.includes("glob")) {
-        return exploreSemantic("glob_files", "Glob files", "search", "search", "file", toolName, entityName);
-    }
-    if (normalized.includes("grep")) {
-        return exploreSemantic("grep_code", "Grep code", "search", "search", "file", toolName, entityName);
-    }
-    if (normalized.includes("webfetch")) {
-        return exploreSemantic("web_fetch", "Web fetch", "web", "fetch", "url", toolName, queryOrUrl);
-    }
-    if (normalized.includes("websearch")) {
-        return exploreSemantic("web_search", "Web search", "web", "search", "query", toolName, queryOrUrl);
-    }
-    return exploreSemantic("list_files", "List files", "search", "list", "file", toolName, entityName);
 }
 
-/** 파일 도구 이름을 파일 작업 시맨틱으로 분류한다. */
+/** 파일 도구 이름을 파일 작업 시맨틱으로 정확 일치로 분류한다. */
 export function inferFileToolSemantic(toolName: string, entityName?: string): EventSemanticMetadata {
-    const normalized = toolName.trim().toLowerCase();
-    if (normalized.includes("patch")) return fileSemantic("apply_patch", "Apply patch", "patch", toolName, entityName);
-    if (normalized.includes("delete") || normalized.includes("remove")) {
-        return fileSemantic("delete_file", "Delete file", "delete", toolName, entityName);
-    }
-    if (normalized.includes("rename") || normalized.includes("move")) {
-        return fileSemantic("rename_file", "Rename file", "rename", toolName, entityName);
-    }
-    if (normalized.includes("write") || normalized.includes("create")) {
-        return fileSemantic("create_file", "Create file", "create", toolName, entityName);
-    }
+    if (toolName === "Write") return fileSemantic("create_file", "Create file", "create", toolName, entityName);
     return fileSemantic("modify_file", "Modify file", "modify", toolName, entityName);
 }
 

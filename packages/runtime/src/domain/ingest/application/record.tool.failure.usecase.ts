@@ -1,6 +1,7 @@
 import {toIngestEvents} from "~runtime/domain/ingest/model/event.envelope.model.js";
 import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
-import type {ShapedToolEvent, ToolFailure, ToolShapeContext} from "~runtime/domain/ingest/model/tool.call.model.js";
+import type {ToolFailure, ToolShapeContext} from "~runtime/domain/ingest/model/tool.call.model.js";
+import {withToolDuration} from "~runtime/domain/ingest/model/tool.duration.model.js";
 import {shapeToolFailure} from "~runtime/domain/ingest/model/tool.failure.model.js";
 import type {ClockPort} from "~runtime/domain/ingest/port/clock.port.js";
 import type {EventSinkPort} from "~runtime/domain/ingest/port/event.sink.port.js";
@@ -22,22 +23,17 @@ export class RecordToolFailureUsecase {
     async execute(failure: ToolFailure, target: IngestTarget): Promise<void> {
         const shaped = shapeToolFailure(failure, this.context);
         if (shaped === null) return;
-        const timed = this.withDuration(shaped, failure, target);
+        const timed = withToolDuration(shaped, {
+            ...(failure.toolUseId ? {toolUseId: failure.toolUseId} : {}),
+            sessionId: target.sessionId,
+            takeStart: (sessionId, toolUseId) => this.timing.takeStart(sessionId, toolUseId),
+            now: this.clock.now(),
+        });
         await this.sink.append(toIngestEvents(
             [toRuntimeEvent(timed, target)],
             this.runtimeSource,
             () => this.ids.next(),
             new Date(this.clock.now()).toISOString(),
         ));
-    }
-
-    /** PreToolUse가 남긴 시작 시각을 소거하며 읽어 소요 시간을 계산하고, 유한한 음이 아닌 값일 때만 싣는다. */
-    private withDuration(shaped: ShapedToolEvent, failure: ToolFailure, target: IngestTarget): ShapedToolEvent {
-        if (!failure.toolUseId) return shaped;
-        const startedAt = this.timing.takeStart(target.sessionId, failure.toolUseId);
-        if (startedAt === undefined) return shaped;
-        const durationMs = this.clock.now() - startedAt;
-        if (!Number.isFinite(durationMs) || durationMs < 0) return shaped;
-        return {...shaped, metadata: {...shaped.metadata, durationMs}};
     }
 }

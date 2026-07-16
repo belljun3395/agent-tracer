@@ -1,14 +1,13 @@
 import {inferCommandSemantic} from "~runtime/domain/ingest/model/command.semantic.model.js";
+import {SELF_MCP_SERVER} from "~runtime/domain/ingest/model/coordination.tool.model.js";
 import {classifyToolError} from "~runtime/domain/ingest/model/error.taxonomy.model.js";
 import {
     KIND,
     LANE,
-    POWERSHELL_TOOL_NAME,
-    TERMINAL_COMMAND_TOOL_NAME,
     provenEvidence,
     type EventLane,
 } from "~runtime/domain/ingest/model/event.model.js";
-import {FILE_TOOLS} from "~runtime/domain/ingest/model/file.tool.model.js";
+import {toolCategoryOf} from "~runtime/domain/ingest/model/tool.catalog.model.js";
 import {
     toolUseIdOf,
     type ShapedToolEvent,
@@ -29,10 +28,6 @@ import {
 } from "~runtime/domain/ingest/model/tool.semantic.model.js";
 import {relativeProjectPath} from "~runtime/domain/ingest/model/workspace.path.model.js";
 import {toTrimmedString} from "~runtime/support/text.js";
-
-const SELF_MCP_SERVER = "agent-tracer";
-const TERMINAL_TOOLS: ReadonlySet<string> = new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
-const FILE_TOOL_NAMES: ReadonlySet<string> = new Set(FILE_TOOLS);
 
 /** 실패한 도구 호출을 성공 이벤트와 같은 어휘로 조형한다. */
 export function shapeToolFailure(failure: ToolFailure, context: ToolShapeContext): ShapedToolEvent | null {
@@ -66,7 +61,7 @@ export function shapeToolFailure(failure: ToolFailure, context: ToolShapeContext
         };
     }
 
-    const isTerminal = TERMINAL_TOOLS.has(failure.toolName);
+    const isTerminal = toolCategoryOf(failure.toolName) === "terminal";
     const command = isTerminal ? toTrimmedString(failure.toolInput["command"]) : "";
     const description = isTerminal ? toTrimmedString(failure.toolInput["description"]) : "";
     const classification = classify(failure, context, command);
@@ -91,11 +86,12 @@ function classify(
     context: ToolShapeContext,
     command: string,
 ): {readonly lane: EventLane; readonly semantic: EventSemanticMetadata} | null {
-    if (TERMINAL_TOOLS.has(failure.toolName) && command) {
+    const category = toolCategoryOf(failure.toolName);
+    if (category === "terminal" && command) {
         const {lane, metadata} = inferCommandSemantic(command);
         return {lane, semantic: metadata};
     }
-    if (FILE_TOOL_NAMES.has(failure.toolName)) {
+    if (category === "file") {
         const filePath = toTrimmedString(failure.toolInput["file_path"])
             || toTrimmedString(failure.toolInput["notebook_path"])
             || toTrimmedString(failure.toolInput["path"]);
@@ -105,11 +101,11 @@ function classify(
             semantic: inferFileToolSemantic(failure.toolName, relPath || undefined),
         };
     }
-    if (failure.toolName === "Skill") {
+    if (category === "skill") {
         const skillName = toTrimmedString(failure.toolInput["skill"]);
         return {lane: LANE.coordination, semantic: inferSkillSemantic(skillName || undefined)};
     }
-    if (failure.toolName === "Agent") {
+    if (category === "agent") {
         const agentName = toTrimmedString(failure.toolInput["subagent_type"]);
         return {lane: LANE.coordination, semantic: inferAgentSemantic(agentName || undefined)};
     }

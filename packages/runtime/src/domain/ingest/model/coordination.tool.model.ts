@@ -18,7 +18,7 @@ import {isRecord} from "~runtime/support/json.js";
 import {toBoolean, toTrimmedString, truncate} from "~runtime/support/text.js";
 
 /** 수집 자신을 다시 부르는 것을 막으려고 기록에서 제외하는 MCP 서버다. */
-const SELF_MCP_SERVER = "agent-tracer";
+export const SELF_MCP_SERVER = "agent-tracer";
 
 export const CRON_TOOLS = ["CronCreate", "CronDelete", "CronList"] as const;
 export const MODE_CHANGE_TOOLS = ["EnterPlanMode", "EnterWorktree", "ExitWorktree"] as const;

@@ -39,6 +39,15 @@ export const POWERSHELL_TOOL_NAME = "PowerShell";
 
 export const MONITOR_TOOL_NAME = "Monitor";
 
+export const AGENT_TOOL_NAME = "Agent";
+export const SKILL_TOOL_NAME = "Skill";
+export const LSP_TOOL_NAME = "LSP";
+export const TOOL_SEARCH_TOOL_NAME = "ToolSearch";
+export const EXIT_PLAN_MODE_TOOL_NAME = "ExitPlanMode";
+export const ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
+export const BASH_OUTPUT_TOOL_NAME = "BashOutput";
+export const KILL_SHELL_TOOL_NAME = "KillShell";
+
 /** 한 kind로 모인 execute_tool 호출을 도구 속성으로 구분하는 데 필요한 최소 입력이다. */
 export interface ToolEventIdentity {
     readonly toolName?: string | null;
