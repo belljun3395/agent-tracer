@@ -16,7 +16,6 @@ function makeRepositories() {
         events,
         turns,
         findEventById: (id: string) => Promise.resolve(eventsFake.all().find((e) => e.id === id) ?? null),
-        countFileTouches: () => Promise.resolve(0),
         findRunningAsyncAction: (taskId: string, asyncTaskId: string) =>
             Promise.resolve(
                 eventsFake

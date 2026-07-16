@@ -6,8 +6,6 @@ import {
     ASYNC_ACTION_STATUS,
     EventEntity,
     EventRepository,
-    FileAffinityEntity,
-    FileAffinityRepository,
     RecipeApplicationEntity,
     RecipeApplicationRepository,
     RecipeEntity,
@@ -60,19 +58,11 @@ export class TypeOrmTracerDatabaseAdapter implements TracerDatabase {
             sessions: new SessionRepository(manager.getRepository(SessionEntity)),
             events: new EventRepository(events),
             turns: new TurnRepository(manager.getRepository(TurnEntity)),
-            affinities: new FileAffinityRepository(manager.getRepository(FileAffinityEntity)),
             rules: new RuleRepository(manager.getRepository(RuleEntity)),
             verdicts: new VerdictRepository(manager.getRepository(VerdictEntity)),
             recipes: new RecipeRepository(manager.getRepository(RecipeEntity)),
             recipeApplications: new RecipeApplicationRepository(manager.getRepository(RecipeApplicationEntity)),
             findEventById: (id) => events.findOne({ where: { id } }),
-            countFileTouches: (taskId, filePath) =>
-                events
-                    .createQueryBuilder("e")
-                    .where("e.task_id = :taskId", { taskId })
-                    .andWhere("e.kind = :kind", { kind: KIND.fileChanged })
-                    .andWhere("jsonb_exists(e.file_paths, :path)", { path: filePath })
-                    .getCount(),
             findRunningAsyncAction: (taskId, asyncTaskId) =>
                 events
                     .createQueryBuilder("e")

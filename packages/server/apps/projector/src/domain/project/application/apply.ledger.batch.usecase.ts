@@ -7,7 +7,6 @@ import {
     TIMELINE_EVENT_KINDS,
     type NotificationEnvelope,
 } from "@monitor/kernel";
-import { AffinityProjection } from "~projector/domain/project/application/affinity.projection.js";
 import { ArrivalProjection, type ArrivalCoalesced } from "~projector/domain/project/application/arrival.projection.js";
 import { RecipeProjection } from "~projector/domain/project/application/recipe.projection.js";
 import { RuleEvaluationProjection } from "~projector/domain/project/application/rule.evaluation.projection.js";
@@ -37,7 +36,6 @@ export class ApplyLedgerBatchUseCase {
         private readonly timeline: TimelineProjection,
         private readonly ruleEvaluation: RuleEvaluationProjection,
         private readonly recipe: RecipeProjection,
-        private readonly affinity: AffinityProjection,
         private readonly arrival: ArrivalProjection,
         @Inject(NOTIFICATION_PUBLISHER) private readonly notifier: NotificationPublisherPort,
     ) {}
@@ -98,7 +96,6 @@ export class ApplyLedgerBatchUseCase {
         } else if (TIMELINE_KIND_SET.has(kind)) {
             const result = await this.timeline.project(repositories, record, true);
             notifications.push(...result.notifications);
-            if (kind === KIND.fileChanged) await this.affinity.project(repositories, record);
         } else {
             logError({ msg: "kind.unhandled", kind, taskId: record.taskId, eventId: record.id });
         }
