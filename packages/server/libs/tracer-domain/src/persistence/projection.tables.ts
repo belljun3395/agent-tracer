@@ -6,7 +6,6 @@ export const REBUILDABLE_TABLES = [
     "tasks",
     "sessions",
     "turns",
-    "file_affinity_summary",
     "verdicts",
     "recipe_applications",
 ] as const;
@@ -51,7 +50,6 @@ export function assertRebuildable(table: string): asserts table is RebuildableTa
 export const REBUILD_TRUNCATE_ORDER: readonly RebuildableTable[] = [
     "verdicts",
     "recipe_applications",
-    "file_affinity_summary",
     "turns",
     "events",
     "sessions",

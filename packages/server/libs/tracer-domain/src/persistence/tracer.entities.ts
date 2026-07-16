@@ -12,7 +12,6 @@ import { AppSettingEntity } from "../settings/app.setting.entity.js";
 import { SessionEntity } from "../task/session/session.entity.js";
 import { TaskEntity } from "../task/task.entity.js";
 import { TaskUserStateEntity } from "../task/user-state/task.user.state.entity.js";
-import { FileAffinityEntity } from "../timeline/affinity/file.affinity.entity.js";
 import { EventEntity } from "../timeline/event/event.entity.js";
 import { TurnEntity } from "../timeline/turn/turn.entity.js";
 import { UserEntity } from "../user/user.entity.js";
@@ -24,7 +23,6 @@ export const TRACER_ENTITIES = [
     SessionEntity,
     EventEntity,
     TurnEntity,
-    FileAffinityEntity,
     RuleEntity,
     VerdictEntity,
     RecipeEntity,

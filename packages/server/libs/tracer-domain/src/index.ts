@@ -15,15 +15,12 @@ export * from "./task/session/session.repository.js";
 // timeline
 export * from "./timeline/event/event.const.js";
 export * from "./timeline/turn/turn.const.js";
-export * from "./timeline/affinity/file.affinity.const.js";
 export * from "./timeline/event/event.entity.js";
 export * from "./timeline/turn/turn.entity.js";
-export * from "./timeline/affinity/file.affinity.entity.js";
 export * from "./timeline/turn/turn.assembly.domain.js";
 export * from "./timeline/event/event.presentation.domain.js";
 export * from "./timeline/event/event.repository.js";
 export * from "./timeline/turn/turn.repository.js";
-export * from "./timeline/affinity/file.affinity.repository.js";
 
 // rule
 export * from "./rule/rule.entity.js";

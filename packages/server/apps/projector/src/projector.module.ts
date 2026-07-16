@@ -1,7 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { KafkaConsumer, KafkaProducer } from "@monitor/platform";
 import { ApplyLedgerBatchUseCase } from "~projector/domain/project/application/apply.ledger.batch.usecase.js";
-import { AffinityProjection } from "~projector/domain/project/application/affinity.projection.js";
 import { ArrivalProjection } from "~projector/domain/project/application/arrival.projection.js";
 import { RecipeProjection } from "~projector/domain/project/application/recipe.projection.js";
 import { RuleEvaluationProjection } from "~projector/domain/project/application/rule.evaluation.projection.js";
@@ -80,7 +79,6 @@ export class ProjectorModule {
                 TimelineProjection,
                 RuleEvaluationProjection,
                 RecipeProjection,
-                AffinityProjection,
                 ApplyLedgerBatchUseCase,
                 DbConsumer,
                 { provide: TRACER_DATABASE, useValue: deps.database },
