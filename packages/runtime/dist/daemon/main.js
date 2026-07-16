@@ -24259,8 +24259,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path6, errorMaps, issueData } = params;
-      const fullPath = [...path6, ...issueData.path || []];
+      const { data, path: path7, errorMaps, issueData } = params;
+      const fullPath = [...path7, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -24571,11 +24571,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path6, key) {
+      constructor(parent, value, path7, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path6;
+        this._path = path7;
         this._key = key;
       }
       get path() {
@@ -28429,6 +28429,8 @@ var KIND = {
   recipeInjected: "agent_tracer.recipe.injected"
 };
 var TERMINAL_COMMAND_TOOL_NAME = "Bash";
+var POWERSHELL_TOOL_NAME = "PowerShell";
+var ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
 function toolNameOf(event) {
   const fromMetadata = event.metadata[SEMCONV_ATTR.toolName];
   if (typeof fromMetadata === "string" && fromMetadata.trim()) return fromMetadata;
@@ -28862,8 +28864,11 @@ var DEFAULT_TIMEOUT_MS = 5e3;
 function jsonHeaders(headers) {
   return { ...headers, "Content-Type": "application/json" };
 }
+function resolveTimeoutSignal(timeoutMs = DEFAULT_TIMEOUT_MS, signal) {
+  return signal ?? AbortSignal.timeout(timeoutMs);
+}
 async function getJson(url, headers, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const response = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+  const response = await fetch(url, { headers, signal: resolveTimeoutSignal(timeoutMs) });
   if (!response.ok) return null;
   const parsed = await response.json();
   return isRecord(parsed) ? parsed : null;
@@ -28873,7 +28878,7 @@ async function postJson(url, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
     method: "POST",
     headers: jsonHeaders(headers),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
+    signal: resolveTimeoutSignal(timeoutMs)
   });
 }
 
@@ -29184,68 +29189,6 @@ function hasForceFlag(args) {
   return args.some((arg) => arg === "--force" || arg === "--force-with-lease" || arg === "--force-if-includes" || /^-[a-z]*f/.test(arg));
 }
 
-// src/domain/ingest/model/command.package.model.ts
-function analyzePackageManager(base, args) {
-  const workspace = extractWorkspace(args);
-  const scriptName = extractScriptName(base.commandName, args);
-  const operation = scriptOperation(scriptName, args);
-  const effect = packageManagerEffect(operation, args);
-  const targets = workspace ? [{ type: "workspace", value: workspace }] : [];
-  return withStep(base, {
-    operation,
-    effect,
-    targets,
-    confidence: operation === "run_command" ? "medium" : "high",
-    ...workspace ? { workspace } : {},
-    ...scriptName ? { scriptName } : {}
-  });
-}
-function extractWorkspace(args) {
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (arg === "--workspace" || arg === "-w") return args[index + 1];
-    const equalsMatch = arg.match(/^--workspace=(.+)$/);
-    if (equalsMatch) return equalsMatch[1];
-  }
-  return void 0;
-}
-function extractScriptName(commandName, args) {
-  const filtered = stripPackageManagerOptions(args);
-  if (commandName === "yarn" && filtered[0] && filtered[0] !== "run") return filtered[0];
-  if (filtered[0] === "run" || filtered[0] === "run-script") return filtered[1];
-  return filtered[0];
-}
-function scriptOperation(scriptName, args) {
-  const normalizedArgs = args.join(" ").toLowerCase();
-  const name = (scriptName ?? "").toLowerCase();
-  if (name.includes("test") || normalizedArgs.includes("vitest") || normalizedArgs.includes("jest")) return "run_test";
-  if (name.includes("lint") || name.includes("format") || normalizedArgs.includes("eslint")) return "run_lint";
-  if (name.includes("build") || normalizedArgs.includes("tsc")) return "run_build";
-  if (["install", "add", "i"].includes(name)) return "install_dependency";
-  if (name === "publish") return "publish";
-  return "run_command";
-}
-function packageManagerEffect(operation, args) {
-  if (operation === "install_dependency" || operation === "publish") return "network";
-  if (["run_test", "run_lint", "run_build"].includes(operation)) return "execute_check";
-  if (args.some((arg) => arg === "install" || arg === "add" || arg === "i")) return "network";
-  return "unknown";
-}
-function stripPackageManagerOptions(args) {
-  const result = [];
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (arg === "--workspace" || arg === "-w" || arg === "--prefix") {
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("--workspace=") || arg.startsWith("--prefix=")) continue;
-    if (arg.startsWith("-")) continue;
-    result.push(arg);
-  }
-  return result;
-}
-
 // src/domain/ingest/model/command.runner.model.ts
 var COMMAND_WRAPPERS = [
   { name: "npx" },
@@ -29338,6 +29281,80 @@ function matchRunner(commandName, firstArg) {
   );
   if (withSubcommand) return withSubcommand;
   return RUNNER_SPECS.find((spec) => spec.command === commandName && spec.subcommand === void 0);
+}
+function runnerOperationFromArgs(args) {
+  const found = /* @__PURE__ */ new Set();
+  for (let index = 0; index < args.length; index += 1) {
+    const spec = matchRunner(args[index] ?? "", args[index + 1]);
+    if (spec) found.add(spec.operation);
+  }
+  if (found.has("run_test")) return "run_test";
+  if (found.has("run_lint")) return "run_lint";
+  if (found.has("run_build")) return "run_build";
+  return void 0;
+}
+
+// src/domain/ingest/model/command.package.model.ts
+function analyzePackageManager(base, args) {
+  const workspace = extractWorkspace(args);
+  const scriptName = extractScriptName(base.commandName, args);
+  const operation = scriptOperation(scriptName, args);
+  const effect = packageManagerEffect(operation, args);
+  const targets = workspace ? [{ type: "workspace", value: workspace }] : [];
+  return withStep(base, {
+    operation,
+    effect,
+    targets,
+    confidence: operation === "run_command" ? "medium" : "high",
+    ...workspace ? { workspace } : {},
+    ...scriptName ? { scriptName } : {}
+  });
+}
+function extractWorkspace(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index] ?? "";
+    if (arg === "--workspace" || arg === "-w") return args[index + 1];
+    const equalsMatch = arg.match(/^--workspace=(.+)$/);
+    if (equalsMatch) return equalsMatch[1];
+  }
+  return void 0;
+}
+function extractScriptName(commandName, args) {
+  const filtered = stripPackageManagerOptions(args);
+  if (commandName === "yarn" && filtered[0] && filtered[0] !== "run") return filtered[0];
+  if (filtered[0] === "run" || filtered[0] === "run-script") return filtered[1];
+  return filtered[0];
+}
+function scriptOperation(scriptName, args) {
+  const name = (scriptName ?? "").toLowerCase();
+  if (name.includes("test")) return "run_test";
+  if (name.includes("lint") || name.includes("format")) return "run_lint";
+  if (name.includes("build")) return "run_build";
+  const runnerOperation = runnerOperationFromArgs(args);
+  if (runnerOperation) return runnerOperation;
+  if (["install", "add", "i"].includes(name)) return "install_dependency";
+  if (name === "publish") return "publish";
+  return "run_command";
+}
+function packageManagerEffect(operation, args) {
+  if (operation === "install_dependency" || operation === "publish") return "network";
+  if (["run_test", "run_lint", "run_build"].includes(operation)) return "execute_check";
+  if (args.some((arg) => arg === "install" || arg === "add" || arg === "i")) return "network";
+  return "unknown";
+}
+function stripPackageManagerOptions(args) {
+  const result = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index] ?? "";
+    if (arg === "--workspace" || arg === "-w" || arg === "--prefix") {
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--workspace=") || arg.startsWith("--prefix=")) continue;
+    if (arg.startsWith("-")) continue;
+    result.push(arg);
+  }
+  return result;
 }
 
 // src/domain/ingest/model/command.parser.model.ts
@@ -29758,7 +29775,7 @@ function formatRelativeTime(ms2) {
 }
 
 // src/domain/hint/application/compute.hints.usecase.ts
-var COMMAND_TOOLS = /* @__PURE__ */ new Set(["Bash", "PowerShell"]);
+var COMMAND_TOOLS = /* @__PURE__ */ new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
 var ComputeHintsUsecase = class {
   constructor(clock) {
     this.clock = clock;
@@ -29769,7 +29786,7 @@ var ComputeHintsUsecase = class {
     const hints = [...detectContextPressure(recent, now)];
     if (request.trigger !== "pre_tool") return hints;
     const toolName = request.toolName ?? "";
-    if (toolName === "AskUserQuestion" && request.questions && request.questions.length > 0) {
+    if (toolName === ASK_USER_QUESTION_TOOL_NAME && request.questions && request.questions.length > 0) {
       hints.push(...detectDuplicateQuestion(recent, request.questions, now));
     }
     if (COMMAND_TOOLS.has(toolName) && request.command) {
@@ -29888,8 +29905,38 @@ var SpoolEventSinkAdapter = class {
   }
 };
 
-// src/domain/recipe/adapter/http.recipe.cache.adapter.ts
+// src/support/json.file.store.ts
+import * as crypto from "node:crypto";
 import * as fs5 from "node:fs";
+import * as path3 from "node:path";
+function readJsonFile(filePath, validate) {
+  try {
+    const parsed = JSON.parse(fs5.readFileSync(filePath, "utf-8"));
+    return validate(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+function writeJsonFile(filePath, value, spacing) {
+  const directory = path3.dirname(filePath);
+  const tempFilePath = path3.join(
+    directory,
+    `.${path3.basename(filePath)}.${process.pid}.${crypto.randomUUID()}.tmp`
+  );
+  try {
+    fs5.mkdirSync(directory, { recursive: true });
+    fs5.writeFileSync(tempFilePath, JSON.stringify(value, null, spacing));
+    fs5.renameSync(tempFilePath, filePath);
+  } catch {
+    try {
+      fs5.unlinkSync(tempFilePath);
+    } catch {
+      return;
+    }
+  }
+}
+
+// src/domain/recipe/adapter/http.recipe.cache.adapter.ts
 var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
 var REQUEST_TIMEOUT_MS = 5e3;
 var HttpRecipeCacheAdapter = class {
@@ -29902,24 +29949,19 @@ var HttpRecipeCacheAdapter = class {
   headers;
   paths;
   load() {
-    try {
-      return extractRecipes(JSON.parse(fs5.readFileSync(this.paths.recipesCachePath, "utf8")));
-    } catch {
-      return [];
-    }
+    const parsed = readJsonFile(this.paths.recipesCachePath, isRecord);
+    return parsed === null ? [] : extractRecipes(parsed);
   }
   async refresh() {
-    const response = await fetch(`${this.baseUrl}${RECIPES_ENDPOINT}`, {
-      headers: this.headers,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-    });
-    if (!response.ok) return false;
-    const text = await response.text();
-    const recipes = extractRecipes(text ? JSON.parse(text) : []);
+    const body = await getJson(
+      `${this.baseUrl}${RECIPES_ENDPOINT}`,
+      this.headers,
+      REQUEST_TIMEOUT_MS
+    );
+    if (body === null) return false;
+    const recipes = extractRecipes(body);
     ensureCacheDir(this.paths);
-    const tmp = `${this.paths.recipesCachePath}.tmp`;
-    fs5.writeFileSync(tmp, JSON.stringify({ recipes }));
-    fs5.renameSync(tmp, this.paths.recipesCachePath);
+    writeJsonFile(this.paths.recipesCachePath, { recipes });
     return true;
   }
 };
@@ -30528,9 +30570,9 @@ function outcome2(totals, steps, rest) {
 }
 
 // src/domain/rulegen/adapter/claude.rule.agent.runner.adapter.ts
-init_rulegen_tool_model();
 import { accessSync, constants } from "node:fs";
-import * as path3 from "node:path";
+import * as path4 from "node:path";
+init_rulegen_tool_model();
 var SAFE_ENV_KEYS = [
   "PATH",
   "HOME",
@@ -30557,9 +30599,9 @@ function resolveClaudeExecutablePath(env = process.env) {
   const pathEnv = env["PATH"];
   if (pathEnv === void 0) return void 0;
   const exeName = process.platform === "win32" ? "claude.exe" : "claude";
-  for (const dir of pathEnv.split(path3.delimiter)) {
+  for (const dir of pathEnv.split(path4.delimiter)) {
     if (dir.length === 0) continue;
-    const candidate = path3.join(dir, exeName);
+    const candidate = path4.join(dir, exeName);
     try {
       accessSync(candidate, constants.X_OK);
       return candidate;
@@ -30633,8 +30675,8 @@ function* normalize(message) {
     yield {
       type: "result",
       subtype: message.subtype,
-      structuredOutput: message.subtype === "success" ? message.structured_output : null,
-      errors: message.subtype === "success" ? [] : message.errors,
+      structuredOutput: message.subtype === RULE_AGENT_RESULT_SUCCESS ? message.structured_output : null,
+      errors: message.subtype === RULE_AGENT_RESULT_SUCCESS ? [] : message.errors,
       costUsd: message.total_cost_usd,
       numTurns: message.num_turns,
       usage: toUsage(message.usage)
@@ -30805,12 +30847,19 @@ var HttpRuleEvidenceAdapter = class {
   async envelope(url, resource, signal) {
     const response = await fetch(url, {
       headers: this.headers,
-      signal: signal ?? AbortSignal.timeout(EVIDENCE_TIMEOUT_MS)
+      signal: resolveTimeoutSignal(EVIDENCE_TIMEOUT_MS, signal)
     });
     if (!response.ok) throw new RuleEvidenceHttpError(resource, response.status);
     return await response.json();
   }
 };
+
+// src/domain/rulegen/model/rulegen.log.model.ts
+var RULE_GEN_LOG_PREFIX = "[rule-gen]";
+function ruleGenLogLine(message) {
+  return `${RULE_GEN_LOG_PREFIX} ${message}
+`;
+}
 
 // src/domain/rulegen/adapter/http.rule.job.adapter.ts
 var ACTIVE_STATUSES2 = /* @__PURE__ */ new Set([JOB_STATUS.pending, JOB_STATUS.running]);
@@ -30863,8 +30912,7 @@ var HttpRuleJobAdapter = class {
         throw new Error(`HTTP ${response.status}`);
       } catch (error2) {
         if (attempt === REPORT_MAX_ATTEMPTS) {
-          process.stderr.write(`[rule-gen] result report failed for job ${jobId}: ${String(error2)}
-`);
+          process.stderr.write(ruleGenLogLine(`result report failed for job ${jobId}: ${String(error2)}`));
           return false;
         }
         await sleep(REPORT_BACKOFF_MS * attempt);
@@ -30975,8 +31023,7 @@ var EnqueueRuleJobUsecase = class {
       if (await this.jobs.hasActiveJob(taskId)) return;
       await this.jobs.enqueue(taskId, eventId, this.cache.snapshot());
     } catch (error2) {
-      process.stderr.write(`[rule-gen] enqueue failed for task ${taskId}: ${String(error2)}
-`);
+      process.stderr.write(ruleGenLogLine(`enqueue failed for task ${taskId}: ${String(error2)}`));
     }
   }
 };
@@ -31041,8 +31088,7 @@ function toRuleGenerationRequest(job, taskId, context) {
 // src/domain/rulegen/application/poll.rule.jobs.usecase.ts
 var MAX_CONCURRENT_JOBS = 2;
 function log(message) {
-  process.stderr.write(`[rule-gen] ${message}
-`);
+  process.stderr.write(ruleGenLogLine(message));
 }
 var PollRuleJobsUsecase = class {
   constructor(jobs, runner, scheduler, maxConcurrent = MAX_CONCURRENT_JOBS) {
@@ -31575,8 +31621,7 @@ var RunRuleJobUsecase = class {
     if (isRulegenCanceled(signal.reason) || outcome3.error !== null) return { outcome: outcome3, proposals: [] };
     const screened = this.screen(outcome3.candidates, ledger);
     for (const error2 of screened.errors) {
-      process.stderr.write(`[rule-gen] dropped proposal after repair: ${error2}
-`);
+      process.stderr.write(ruleGenLogLine(`dropped proposal after repair: ${error2}`));
     }
     return { outcome: outcome3, proposals: screened.proposals };
   }
@@ -31728,6 +31773,13 @@ function composeDaemonHooks(leaseOwner) {
   return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle };
 }
 
+// src/daemon/daemon.log.ts
+var DAEMON_LOG_PREFIX = "[agent-tracer-daemon]";
+function daemonLog(message) {
+  process.stderr.write(`${DAEMON_LOG_PREFIX} ${message}
+`);
+}
+
 // src/daemon/delivery/ingest.retry.ts
 var DEAD_LETTER_STATUSES = /* @__PURE__ */ new Set([400, 413, 422]);
 var MAX_INGEST_BACKOFF_MS = 6e4;
@@ -31876,7 +31928,7 @@ function joinRules(rules, activity) {
       ruleName: rule.name,
       taskId: rule.taskId,
       severity: rule.severity,
-      reviewState: rule.reviewState,
+      reviewState: rule.reviewState === RULE_REVIEW_STATE.pendingReview ? RULE_REVIEW_STATE.pendingReview : RULE_REVIEW_STATE.active,
       expectation: describeRuleExpectation(rule),
       cached: true,
       evaluated: sum(stats, (stat) => stat.evaluated),
@@ -31892,7 +31944,7 @@ function joinRules(rules, activity) {
     views.push({
       ...orphan,
       severity: "unknown",
-      reviewState: "unknown",
+      reviewState: RULE_REVIEW_STATE.active,
       expectation: "unknown",
       cached: false
     });
@@ -31947,141 +31999,10 @@ function buildControlSnapshot(state, paths2 = resolveAgentTracerPaths(), now = D
   };
 }
 
-// src/daemon/control/resume.http.ts
+// src/daemon/control/loopback.http.ts
 import { timingSafeEqual } from "node:crypto";
-
-// src/daemon/control/resume.command.ts
-import { spawn as spawnProcess } from "node:child_process";
-
-// src/domain/session/model/resume.command.model.ts
-import * as path4 from "node:path";
-
-// ../kernel/src/ingest/runtime.source.const.ts
-var RUNTIME_SOURCE = {
-  claudePlugin: "claude-plugin",
-  claudeCode: "claude-code"
-};
-var RUNTIME_SOURCE_SET = new Set(Object.values(RUNTIME_SOURCE));
-function isClaudeRuntimeSource(value) {
-  return value === RUNTIME_SOURCE.claudePlugin || value === RUNTIME_SOURCE.claudeCode;
-}
-
-// src/domain/session/model/resume.command.model.ts
-var ResumeCommandError = class extends Error {
-  constructor(message, code) {
-    super(message);
-    this.code = code;
-  }
-  code;
-};
-function buildResumeShellCommand(request) {
-  const invocation = buildInvocation(
-    request.runtimeSource,
-    normalizeRequired("runtimeSessionId", request.runtimeSessionId)
-  );
-  const workspacePath = normalizeWorkspacePath(request.workspacePath);
-  return workspacePath ? `cd ${shellQuote(workspacePath)} && ${invocation}` : invocation;
-}
-function buildTerminalAppleScript(shellCommand) {
-  return [
-    'tell application "Terminal"',
-    "activate",
-    `do script ${appleScriptString(shellCommand)}`,
-    "end tell"
-  ].join("\n");
-}
-function buildInvocation(runtimeSource, runtimeSessionId) {
-  if (!isClaudeRuntimeSource(runtimeSource)) {
-    throw new ResumeCommandError(`unsupported runtimeSource: ${runtimeSource}`, "unsupported_runtime");
-  }
-  return `claude --resume ${shellQuote(runtimeSessionId)}`;
-}
-function normalizeRequired(field, value) {
-  const trimmed2 = value.trim();
-  if (trimmed2.length === 0 || hasControlCharacter(trimmed2)) {
-    throw new ResumeCommandError(`${field} is invalid`, "invalid_request");
-  }
-  return trimmed2;
-}
-function normalizeWorkspacePath(value) {
-  if (value === void 0) return void 0;
-  const trimmed2 = value.trim();
-  if (trimmed2.length === 0) return void 0;
-  if (hasControlCharacter(trimmed2) || !path4.isAbsolute(trimmed2)) {
-    throw new ResumeCommandError("workspacePath is invalid", "invalid_request");
-  }
-  return trimmed2;
-}
-function hasControlCharacter(value) {
-  return value.includes("\0") || /[\r\n]/.test(value);
-}
-function shellQuote(value) {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-function appleScriptString(value) {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-// src/daemon/control/resume.command.ts
-var OSASCRIPT_PATH = "/usr/bin/osascript";
-var ResumeLaunchError = class extends Error {
-  constructor(message, code, status) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
-  code;
-  status;
-};
-async function launchResumeInTerminal(request, options = {}) {
-  const command = resolveCommand(request);
-  const platform = options.platform ?? process.platform;
-  if (platform !== "darwin") {
-    throw new ResumeLaunchError("resume helper supports macOS Terminal only", "unsupported_platform", 501);
-  }
-  await runProcess(options.spawn ?? spawnProcess, OSASCRIPT_PATH, ["-e", buildTerminalAppleScript(command)]);
-  return { command };
-}
-function resolveCommand(request) {
-  try {
-    return buildResumeShellCommand(request);
-  } catch (error2) {
-    if (error2 instanceof ResumeCommandError) {
-      throw new ResumeLaunchError(error2.message, error2.code, 400);
-    }
-    throw error2;
-  }
-}
-function runProcess(spawn, command, args) {
-  return new Promise((resolve2, reject) => {
-    const child = spawn(command, args, { detached: true, stdio: "ignore" });
-    child.once("error", (error2) => {
-      reject(new ResumeLaunchError(error2.message, "launch_failed", 500));
-    });
-    child.once("exit", (code, signal) => {
-      if (code === 0) {
-        resolve2();
-        return;
-      }
-      reject(new ResumeLaunchError(
-        `osascript exited with ${code ?? signal ?? "unknown"}`,
-        "launch_failed",
-        500
-      ));
-    });
-  });
-}
-
-// src/daemon/control/resume.http.ts
-var MAX_BODY_BYTES = 8 * 1024;
-var RESUME_PATH = "/api/v1/resume";
-var RESUME_TOKEN_HEADER = "x-agent-tracer-resume-token";
-function createResumeHttpHandler(expectedToken, launcher = launchResumeInTerminal) {
-  return (request, response) => {
-    void handleResumeHttpRequest(request, response, launcher, expectedToken);
-  };
-}
-function isAllowedResumeOrigin(origin) {
+var CONTROL_TOKEN_HEADER = "x-agent-tracer-resume-token";
+function isAllowedLoopbackOrigin(origin) {
   if (origin === void 0) return true;
   try {
     const url = new URL(origin);
@@ -32092,13 +32013,13 @@ function isAllowedResumeOrigin(origin) {
 }
 function writeLoopbackCorsHeaders(request, response, methods) {
   const origin = request.headers.origin;
-  if (!isAllowedResumeOrigin(origin)) return false;
+  if (!isAllowedLoopbackOrigin(origin)) return false;
   if (origin !== void 0) {
     response.setHeader("access-control-allow-origin", origin);
     response.setHeader("vary", "origin");
   }
   response.setHeader("access-control-allow-methods", methods);
-  response.setHeader("access-control-allow-headers", `content-type, ${RESUME_TOKEN_HEADER}`);
+  response.setHeader("access-control-allow-headers", `content-type, ${CONTROL_TOKEN_HEADER}`);
   return true;
 }
 function isMatchingToken(presented, expected) {
@@ -32108,109 +32029,120 @@ function isMatchingToken(presented, expected) {
   return timingSafeEqual(presentedBuf, expectedBuf);
 }
 function readPresentedToken(request) {
-  const header = request.headers[RESUME_TOKEN_HEADER];
+  const header = request.headers[CONTROL_TOKEN_HEADER];
   const value = Array.isArray(header) ? header[0] : header;
   return value !== void 0 && value.length > 0 ? value : void 0;
 }
-async function handleResumeHttpRequest(request, response, launcher, expectedToken) {
-  if (!writeLoopbackCorsHeaders(request, response, "POST, OPTIONS")) {
-    writeJson(response, 403, { ok: false, error: { code: "forbidden_origin", message: "Forbidden origin" } });
-    return;
-  }
-  if (request.method === "OPTIONS") {
-    response.writeHead(204);
-    response.end();
-    return;
-  }
-  if (request.method !== "POST" || request.url !== RESUME_PATH) {
-    writeJson(response, 404, { ok: false, error: { code: "not_found", message: "Not found" } });
-    return;
-  }
-  const presentedToken = readPresentedToken(request);
-  if (presentedToken === void 0) {
-    writeJson(response, 401, { ok: false, error: { code: "missing_token", message: "Resume token is required" } });
-    return;
-  }
-  if (!isMatchingToken(presentedToken, expectedToken)) {
-    writeJson(response, 401, { ok: false, error: { code: "invalid_token", message: "Resume token is invalid" } });
-    return;
-  }
-  try {
-    const body = parseResumeRequest(JSON.parse(await readBody(request)));
-    const result = await launcher(body);
-    writeJson(response, 200, { ok: true, command: result.command });
-  } catch (error2) {
-    const normalized = normalizeError(error2);
-    writeJson(response, normalized.status, {
-      ok: false,
-      error: { code: normalized.code, message: normalized.message }
-    });
-  }
+function isAuthorized(request, expected) {
+  const presented = readPresentedToken(request);
+  if (presented === void 0) return false;
+  return isMatchingToken(presented, expected);
 }
-function parseResumeRequest(value) {
-  if (!isRecord(value)) throw new ResumeLaunchError("request body is invalid", "invalid_request", 400);
-  const runtimeSource = readString3(value, "runtimeSource");
-  const runtimeSessionId = readString3(value, "runtimeSessionId");
-  if (runtimeSource === void 0 || runtimeSessionId === void 0) {
-    throw new ResumeLaunchError("runtimeSource and runtimeSessionId are required", "invalid_request", 400);
-  }
-  const taskId = readString3(value, "taskId");
-  const workspacePath = readString3(value, "workspacePath");
-  return {
-    runtimeSource,
-    runtimeSessionId,
-    ...taskId !== void 0 ? { taskId } : {},
-    ...workspacePath !== void 0 ? { workspacePath } : {}
-  };
-}
-async function readBody(request) {
+async function readBody(request, maxBytes, onTooLarge = () => new Error("request body is too large")) {
   let body = "";
   for await (const chunk of request) {
     body += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
-    if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) {
-      throw new ResumeLaunchError("request body is too large", "invalid_request", 413);
-    }
+    if (Buffer.byteLength(body, "utf8") > maxBytes) throw onTooLarge();
   }
   return body;
 }
-function readString3(record, key) {
-  const value = record[key];
-  if (typeof value !== "string") return void 0;
-  const trimmed2 = value.trim();
-  return trimmed2.length > 0 ? trimmed2 : void 0;
-}
-function normalizeError(error2) {
-  if (error2 instanceof ResumeLaunchError) return error2;
-  if (error2 instanceof SyntaxError) {
-    return new ResumeLaunchError("request body is not valid JSON", "invalid_request", 400);
-  }
-  return new ResumeLaunchError(
-    error2 instanceof Error ? error2.message : "resume launch failed",
-    "launch_failed",
-    500
-  );
-}
 function writeJson(response, status, body) {
-  response.writeHead(status, { "content-type": "application/json" });
+  response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
   response.end(JSON.stringify(body));
+}
+
+// src/daemon/control/control.actions.ts
+function parseRequeueFilter(body) {
+  if (body.trim().length === 0) return {};
+  const parsed = JSON.parse(body);
+  if (!isRecord(parsed)) return {};
+  const kinds = parsed["kinds"];
+  if (!Array.isArray(kinds)) return {};
+  const selected = kinds.filter((kind) => typeof kind === "string" && kind.length > 0);
+  return selected.length > 0 ? { kinds: selected } : {};
+}
+var CONTROL_ACTIONS = {
+  "flush": {
+    label: "Flush now",
+    tab: "spool",
+    tone: "primary",
+    toast: "Flushing now",
+    run: ({ actions }) => {
+      actions.flush();
+      return { ok: true };
+    }
+  },
+  "reset-backoff": {
+    label: "Clear backoff",
+    tab: "spool",
+    tone: "",
+    toast: "Backoff cleared",
+    run: ({ actions }) => {
+      actions.resetBackoff();
+      return { ok: true };
+    }
+  },
+  "dead-letter/requeue": {
+    label: "Requeue all",
+    tab: "dead",
+    tone: "",
+    toast: "Requeued",
+    run: async ({ actions, paths: paths2, readBody: readBody2 }) => {
+      const result = requeueDeadLetter(parseRequeueFilter(await readBody2()), paths2);
+      actions.flush();
+      return { ok: true, data: result };
+    }
+  },
+  "dead-letter/purge": {
+    label: "Purge all",
+    tab: "dead",
+    tone: "danger",
+    confirm: "Delete every dead-lettered event? This cannot be undone.",
+    toast: "Purged",
+    run: ({ paths: paths2 }) => ({ ok: true, data: purgeDeadLetter(paths2) })
+  },
+  "refresh-caches": {
+    label: "Refresh now",
+    tab: "caches",
+    tone: "",
+    toast: "Refreshing caches",
+    run: ({ actions }) => {
+      actions.refreshCaches();
+      return { ok: true };
+    }
+  },
+  "restart": {
+    label: "Restart daemon",
+    tab: "lifecycle",
+    tone: "primary",
+    toast: "Restarting, a hook call will bring it back",
+    run: ({ actions, defer: defer2 }) => {
+      defer2(() => actions.restart());
+      return { ok: true };
+    }
+  },
+  "stop": {
+    label: "Stop daemon",
+    tab: "lifecycle",
+    tone: "danger",
+    confirm: "Stop the daemon? Hooks will respawn it on the next call.",
+    toast: "Stopping",
+    run: ({ actions, defer: defer2 }) => {
+      defer2(() => actions.stop());
+      return { ok: true };
+    }
+  }
+};
+function findControlAction(key) {
+  return CONTROL_ACTIONS[key];
 }
 
 // src/daemon/control/control.page.render.ts
 var CONTROL_PAGE_RENDER_SCRIPT = String.raw`
-const STATUS_TONE = {ok: "ok", idle: "", retrying: "warn", rejecting: "err", unreachable: "err"};
-const STATUS_TEXT = {
-  ok: "Shipping events",
-  idle: "Idle, nothing queued",
-  retrying: "Retrying, events held",
-  rejecting: "Server rejecting events",
-  unreachable: "Server unreachable",
-};
-const IV_TAG = {stop_blocked: "block", hints_injected: "hint", recipe_injected: "recipe"};
-const IV_LABEL = {
-  stop_blocked: "stop blocked",
-  hints_injected: "hints injected",
-  recipe_injected: "recipe injected",
-};
+const STATUS_TONE = CFG.statusTone;
+const STATUS_TEXT = CFG.statusText;
+const IV_TAG = CFG.ivTag;
+const IV_LABEL = CFG.ivLabel;
 
 function renderStatus(s) {
   const d = s.daemon, t = s.transport;
@@ -32285,7 +32217,7 @@ function renderRules(s) {
   $("rule-rows").innerHTML = table(
     ["Rule", "Scope / task", "Severity", "Trigger", "Evaluated", "Verified", "Contradicted", "Blocked", "Last fired"],
     s.rules.map((r) => {
-      const pending = r.reviewState === "pendingReview";
+      const pending = r.reviewState === CFG.reviewPending;
       const dead = r.cached && !pending && r.evaluated === 0 && r.blocked === 0;
       return "<tr><td>" + esc(r.ruleName)
         + (pending ? ' <span class="tag warn">awaiting approval, not enforced</span>' : "")
@@ -32446,22 +32378,15 @@ document.addEventListener("click", (event) => {
   const kind = event.target.dataset?.requeue;
   if (kind) {
     void act("dead-letter/requeue", {kinds: [kind]}, (d) => "Requeued " + d.moved + " event(s)");
+    return;
+  }
+  const actionKey = event.target.dataset?.action;
+  const spec = actionKey ? CFG.actions[actionKey] : null;
+  if (spec) {
+    if (spec.confirm && !confirm(spec.confirm)) return;
+    void act(actionKey, {}, (d) => spec.toast + (d && typeof d.moved === "number" ? " " + d.moved + " event(s)" : ""));
   }
 });
-
-$("a-flush").onclick = () => act("flush", {}, () => "Flushing now");
-$("a-backoff").onclick = () => act("reset-backoff", {}, () => "Backoff cleared");
-$("a-refresh").onclick = () => act("refresh-caches", {}, () => "Refreshing caches");
-$("a-requeue-all").onclick = () => act("dead-letter/requeue", {}, (d) => "Requeued " + d.moved + " event(s)");
-$("a-purge").onclick = () => {
-  if (!confirm("Delete every dead-lettered event? This cannot be undone.")) return;
-  return act("dead-letter/purge", {}, (d) => "Purged " + d.moved + " event(s)");
-};
-$("a-restart").onclick = () => act("restart", {}, () => "Restarting, a hook call will bring it back");
-$("a-stop").onclick = () => {
-  if (!confirm("Stop the daemon? Hooks will respawn it on the next call.")) return;
-  return act("stop", {}, () => "Stopping");
-};
 
 void poll();
 setInterval(() => void poll(), POLL_MS);
@@ -32586,22 +32511,64 @@ button.act:disabled { opacity: 0.45; cursor: not-allowed; }
 `;
 
 // src/daemon/control/control.page.ts
+var STATUS_TONE = {
+  ok: "ok",
+  idle: "",
+  retrying: "warn",
+  rejecting: "err",
+  unreachable: "err"
+};
+var STATUS_TEXT = {
+  ok: "Shipping events",
+  idle: "Idle, nothing queued",
+  retrying: "Retrying, events held",
+  rejecting: "Server rejecting events",
+  unreachable: "Server unreachable"
+};
+var IV_TAG = {
+  stop_blocked: "block",
+  hints_injected: "hint",
+  recipe_injected: "recipe"
+};
+var IV_LABEL = {
+  stop_blocked: "stop blocked",
+  hints_injected: "hints injected",
+  recipe_injected: "recipe injected"
+};
+var ACTION_ENTRIES = Object.entries(CONTROL_ACTIONS);
 var TABS = [
-  ["status", "Status"],
-  ["interventions", "Interventions"],
-  ["rules", "Rules"],
-  ["spool", "Spool"],
-  ["dead", "Dead-letter"],
-  ["caches", "Caches"],
-  ["ring", "Ring buffer"],
-  ["lifecycle", "Lifecycle"]
+  { id: "status", label: "Status" },
+  { id: "interventions", label: "Interventions", count: "iv" },
+  { id: "rules", label: "Rules" },
+  { id: "spool", label: "Spool" },
+  { id: "dead", label: "Dead-letter", count: "dead" },
+  { id: "caches", label: "Caches" },
+  { id: "ring", label: "Ring buffer" },
+  { id: "lifecycle", label: "Lifecycle" }
 ];
-var COUNTED = /* @__PURE__ */ new Set(["dead", "interventions"]);
+function pageConfig() {
+  const actions = {};
+  for (const [key, action] of ACTION_ENTRIES) {
+    actions[key] = { toast: action.toast, ...action.confirm !== void 0 ? { confirm: action.confirm } : {} };
+  }
+  return {
+    statusTone: STATUS_TONE,
+    statusText: STATUS_TEXT,
+    ivTag: IV_TAG,
+    ivLabel: IV_LABEL,
+    reviewPending: RULE_REVIEW_STATE.pendingReview,
+    actions
+  };
+}
 function renderTabs() {
-  return TABS.map(([id, label], index) => {
-    const counter = COUNTED.has(id) ? `<span class="count" id="c-${id === "interventions" ? "iv" : id}"></span>` : "";
-    return `<button data-tab="${id}" role="tab" aria-selected="${index === 0}">${label}${counter}</button>`;
+  return TABS.map((tab, index) => {
+    const counter = tab.count ? `<span class="count" id="c-${tab.count}"></span>` : "";
+    return `<button data-tab="${tab.id}" role="tab" aria-selected="${index === 0}">${tab.label}${counter}</button>`;
   }).join("");
+}
+function actionButtons(tab) {
+  const buttons = ACTION_ENTRIES.filter(([, action]) => action.tab === tab).map(([key, action]) => `<button class="act${action.tone ? ` ${action.tone}` : ""}" data-action="${key}">${action.label}</button>`).join("");
+  return buttons ? `<div class="actions">${buttons}</div>` : "";
 }
 function section(id, body) {
   return `<section id="s-${id}" role="tabpanel"${id === "status" ? "" : " hidden"}>${body}</section>`;
@@ -32620,18 +32587,12 @@ function renderSections() {
         A rule that never fires is dead. A rule that fires every turn is noise.</p>
       <div id="rule-rows"></div>`),
     section("spool", `
-      <div class="actions">
-        <button class="act primary" id="a-flush">Flush now</button>
-        <button class="act" id="a-backoff">Clear backoff</button>
-      </div>
+      ${actionButtons("spool")}
       <div class="grid" id="spool-cards"></div>`),
     section("dead", `
       <p class="note">Events the server refused for good. They are already lost from the dashboard.
         Requeue what a fix made shippable again, and only then purge the rest.</p>
-      <div class="actions">
-        <button class="act" id="a-requeue-all">Requeue all</button>
-        <button class="act danger" id="a-purge">Purge all</button>
-      </div>
+      ${actionButtons("dead")}
       <div class="grid" id="dead-cards"></div>
       <h2 style="margin-top:18px">By kind</h2>
       <div id="dead-kinds"></div>
@@ -32640,7 +32601,7 @@ function renderSections() {
     section("caches", `
       <p class="note">The daemon pulls these from the server. If the pipeline stalls they freeze,
         and the daemon keeps enforcing rules the server no longer has.</p>
-      <div class="actions"><button class="act" id="a-refresh">Refresh now</button></div>
+      ${actionButtons("caches")}
       <div class="grid" id="cache-cards"></div>`),
     section("ring", `
       <p class="note">Events the daemon holds in memory. Hints and the guardrail judge from this and
@@ -32651,10 +32612,7 @@ function renderSections() {
       <h2 style="margin-top:18px">By task</h2>
       <div id="ring-tasks"></div>`),
     section("lifecycle", `
-      <div class="actions">
-        <button class="act primary" id="a-restart">Restart daemon</button>
-        <button class="act danger" id="a-stop">Stop daemon</button>
-      </div>
+      ${actionButtons("lifecycle")}
       <div class="grid" id="life-cards"></div>`)
   ].join("");
 }
@@ -32681,13 +32639,14 @@ function renderControlPage(token) {
   ${renderSections()}
 </div>
 <div class="toast" id="toast"></div>
-<script data-token="${token}">${CONTROL_PAGE_SCRIPT}</script>
+<script data-token="${token}">const CFG=${JSON.stringify(pageConfig())};
+${CONTROL_PAGE_SCRIPT}</script>
 </body>
 </html>`;
 }
 
 // src/daemon/control/control.http.ts
-var MAX_BODY_BYTES2 = 16 * 1024;
+var MAX_BODY_BYTES = 16 * 1024;
 var ACTION_DELAY_MS = 50;
 var CONTROL_PAGE_PATH = "/";
 var CONTROL_API_PREFIX = "/api/v1/control/";
@@ -32699,7 +32658,7 @@ function createControlHttpHandler(deps) {
 }
 async function route(request, response, deps, paths2) {
   if (!writeLoopbackCorsHeaders(request, response, "GET, POST, OPTIONS")) {
-    writeJson2(response, 403, error("forbidden_origin", "Forbidden origin"));
+    writeJson(response, 403, error("forbidden_origin", "Forbidden origin"));
     return;
   }
   if (request.method === "OPTIONS") {
@@ -32713,101 +32672,47 @@ async function route(request, response, deps, paths2) {
     return;
   }
   if (!url.startsWith(CONTROL_API_PREFIX)) {
-    writeJson2(response, 404, error("not_found", "Not found"));
+    writeJson(response, 404, error("not_found", "Not found"));
     return;
   }
   if (!isAuthorized(request, deps.token)) {
-    writeJson2(response, 401, error("invalid_token", "Control token is invalid"));
+    writeJson(response, 401, error("invalid_token", "Control token is invalid"));
     return;
   }
   try {
     await dispatch(request, response, deps, paths2, url);
   } catch (err) {
-    writeJson2(response, 500, error("control_failed", err instanceof Error ? err.message : "control action failed"));
+    writeJson(response, 500, error("control_failed", err instanceof Error ? err.message : "control action failed"));
   }
 }
-var ACTION_PATHS = /* @__PURE__ */ new Set([
-  "/api/v1/control/flush",
-  "/api/v1/control/reset-backoff",
-  "/api/v1/control/refresh-caches",
-  "/api/v1/control/dead-letter/requeue",
-  "/api/v1/control/dead-letter/purge",
-  "/api/v1/control/restart",
-  "/api/v1/control/stop"
-]);
 async function dispatch(request, response, deps, paths2, url) {
-  const isSnapshot = url === "/api/v1/control/snapshot";
-  if (!isSnapshot && !ACTION_PATHS.has(url)) {
-    writeJson2(response, 404, error("not_found", "Not found"));
-    return;
-  }
-  const allowed = isSnapshot ? "GET" : "POST";
-  if (request.method !== allowed) {
-    writeJson2(response, 405, error("method_not_allowed", "Method not allowed"));
-    return;
-  }
-  if (isSnapshot) {
-    writeJson2(response, 200, { ok: true, data: deps.actions.snapshot() });
-    return;
-  }
-  switch (url) {
-    case "/api/v1/control/flush":
-      deps.actions.flush();
-      writeJson2(response, 200, { ok: true });
-      return;
-    case "/api/v1/control/reset-backoff":
-      deps.actions.resetBackoff();
-      writeJson2(response, 200, { ok: true });
-      return;
-    case "/api/v1/control/refresh-caches":
-      deps.actions.refreshCaches();
-      writeJson2(response, 200, { ok: true });
-      return;
-    case "/api/v1/control/dead-letter/requeue": {
-      const result = requeueDeadLetter(parseRequeueFilter(await readBody2(request)), paths2);
-      deps.actions.flush();
-      writeJson2(response, 200, { ok: true, data: result });
+  const key = url.slice(CONTROL_API_PREFIX.length);
+  if (key === "snapshot") {
+    if (request.method !== "GET") {
+      writeJson(response, 405, error("method_not_allowed", "Method not allowed"));
       return;
     }
-    case "/api/v1/control/dead-letter/purge":
-      writeJson2(response, 200, { ok: true, data: purgeDeadLetter(paths2) });
-      return;
-    case "/api/v1/control/restart":
-      writeJson2(response, 200, { ok: true });
-      defer(() => deps.actions.restart());
-      return;
-    case "/api/v1/control/stop":
-      writeJson2(response, 200, { ok: true });
-      defer(() => deps.actions.stop());
-      return;
-    default:
-      writeJson2(response, 404, error("not_found", "Not found"));
+    writeJson(response, 200, { ok: true, data: deps.actions.snapshot() });
+    return;
   }
+  const action = findControlAction(key);
+  if (action === void 0) {
+    writeJson(response, 404, error("not_found", "Not found"));
+    return;
+  }
+  if (request.method !== "POST") {
+    writeJson(response, 405, error("method_not_allowed", "Method not allowed"));
+    return;
+  }
+  writeJson(response, 200, await action.run({
+    actions: deps.actions,
+    paths: paths2,
+    readBody: () => readBody(request, MAX_BODY_BYTES),
+    defer
+  }));
 }
 function defer(action) {
   setTimeout(action, ACTION_DELAY_MS);
-}
-function parseRequeueFilter(body) {
-  if (body.trim().length === 0) return {};
-  const parsed = JSON.parse(body);
-  if (!isRecord(parsed)) return {};
-  const kinds = parsed["kinds"];
-  if (!Array.isArray(kinds)) return {};
-  const selected = kinds.filter((kind) => typeof kind === "string" && kind.length > 0);
-  return selected.length > 0 ? { kinds: selected } : {};
-}
-async function readBody2(request) {
-  let body = "";
-  for await (const chunk of request) {
-    body += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
-    if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES2) throw new Error("request body is too large");
-  }
-  return body;
-}
-function isAuthorized(request, expected) {
-  const presented = readPresentedToken(request);
-  if (presented === void 0) return false;
-  return isMatchingToken(presented, expected);
 }
 function error(code, message) {
   return { ok: false, error: { code, message } };
@@ -32821,9 +32726,211 @@ function writePage(response, html) {
   });
   response.end(html);
 }
-function writeJson2(response, status, body) {
-  response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
-  response.end(JSON.stringify(body));
+
+// src/daemon/control/resume.command.ts
+import { spawn as spawnProcess } from "node:child_process";
+
+// src/domain/session/model/resume.command.model.ts
+import * as path5 from "node:path";
+
+// ../kernel/src/ingest/runtime.source.const.ts
+var RUNTIME_SOURCE = {
+  claudePlugin: "claude-plugin",
+  claudeCode: "claude-code"
+};
+var RUNTIME_SOURCE_SET = new Set(Object.values(RUNTIME_SOURCE));
+function isClaudeRuntimeSource(value) {
+  return value === RUNTIME_SOURCE.claudePlugin || value === RUNTIME_SOURCE.claudeCode;
+}
+
+// src/domain/session/model/resume.command.model.ts
+var ResumeCommandError = class extends Error {
+  constructor(message, code) {
+    super(message);
+    this.code = code;
+  }
+  code;
+};
+function buildResumeShellCommand(request) {
+  const invocation = buildInvocation(
+    request.runtimeSource,
+    normalizeRequired("runtimeSessionId", request.runtimeSessionId)
+  );
+  const workspacePath = normalizeWorkspacePath(request.workspacePath);
+  return workspacePath ? `cd ${shellQuote(workspacePath)} && ${invocation}` : invocation;
+}
+function buildTerminalAppleScript(shellCommand) {
+  return [
+    'tell application "Terminal"',
+    "activate",
+    `do script ${appleScriptString(shellCommand)}`,
+    "end tell"
+  ].join("\n");
+}
+function buildInvocation(runtimeSource, runtimeSessionId) {
+  if (!isClaudeRuntimeSource(runtimeSource)) {
+    throw new ResumeCommandError(`unsupported runtimeSource: ${runtimeSource}`, "unsupported_runtime");
+  }
+  return `claude --resume ${shellQuote(runtimeSessionId)}`;
+}
+function normalizeRequired(field, value) {
+  const trimmed2 = value.trim();
+  if (trimmed2.length === 0 || hasControlCharacter(trimmed2)) {
+    throw new ResumeCommandError(`${field} is invalid`, "invalid_request");
+  }
+  return trimmed2;
+}
+function normalizeWorkspacePath(value) {
+  if (value === void 0) return void 0;
+  const trimmed2 = value.trim();
+  if (trimmed2.length === 0) return void 0;
+  if (hasControlCharacter(trimmed2) || !path5.isAbsolute(trimmed2)) {
+    throw new ResumeCommandError("workspacePath is invalid", "invalid_request");
+  }
+  return trimmed2;
+}
+function hasControlCharacter(value) {
+  return value.includes("\0") || /[\r\n]/.test(value);
+}
+function shellQuote(value) {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+function appleScriptString(value) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+// src/daemon/control/resume.command.ts
+var OSASCRIPT_PATH = "/usr/bin/osascript";
+var ResumeLaunchError = class extends Error {
+  constructor(message, code, status) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+  code;
+  status;
+};
+async function launchResumeInTerminal(request, options = {}) {
+  const command = resolveCommand(request);
+  const platform = options.platform ?? process.platform;
+  if (platform !== "darwin") {
+    throw new ResumeLaunchError("resume helper supports macOS Terminal only", "unsupported_platform", 501);
+  }
+  await runProcess(options.spawn ?? spawnProcess, OSASCRIPT_PATH, ["-e", buildTerminalAppleScript(command)]);
+  return { command };
+}
+function resolveCommand(request) {
+  try {
+    return buildResumeShellCommand(request);
+  } catch (error2) {
+    if (error2 instanceof ResumeCommandError) {
+      throw new ResumeLaunchError(error2.message, error2.code, 400);
+    }
+    throw error2;
+  }
+}
+function runProcess(spawn, command, args) {
+  return new Promise((resolve2, reject) => {
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.once("error", (error2) => {
+      reject(new ResumeLaunchError(error2.message, "launch_failed", 500));
+    });
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolve2();
+        return;
+      }
+      reject(new ResumeLaunchError(
+        `osascript exited with ${code ?? signal ?? "unknown"}`,
+        "launch_failed",
+        500
+      ));
+    });
+  });
+}
+
+// src/daemon/control/resume.http.ts
+var MAX_BODY_BYTES2 = 8 * 1024;
+var RESUME_PATH = "/api/v1/resume";
+function createResumeHttpHandler(expectedToken, launcher = launchResumeInTerminal) {
+  return (request, response) => {
+    void handleResumeHttpRequest(request, response, launcher, expectedToken);
+  };
+}
+async function handleResumeHttpRequest(request, response, launcher, expectedToken) {
+  if (!writeLoopbackCorsHeaders(request, response, "POST, OPTIONS")) {
+    writeJson(response, 403, { ok: false, error: { code: "forbidden_origin", message: "Forbidden origin" } });
+    return;
+  }
+  if (request.method === "OPTIONS") {
+    response.writeHead(204);
+    response.end();
+    return;
+  }
+  if (request.method !== "POST" || request.url !== RESUME_PATH) {
+    writeJson(response, 404, { ok: false, error: { code: "not_found", message: "Not found" } });
+    return;
+  }
+  const presentedToken = readPresentedToken(request);
+  if (presentedToken === void 0) {
+    writeJson(response, 401, { ok: false, error: { code: "missing_token", message: "Resume token is required" } });
+    return;
+  }
+  if (!isMatchingToken(presentedToken, expectedToken)) {
+    writeJson(response, 401, { ok: false, error: { code: "invalid_token", message: "Resume token is invalid" } });
+    return;
+  }
+  try {
+    const body = parseResumeRequest(JSON.parse(await readResumeBody(request)));
+    const result = await launcher(body);
+    writeJson(response, 200, { ok: true, command: result.command });
+  } catch (error2) {
+    const normalized = normalizeError(error2);
+    writeJson(response, normalized.status, {
+      ok: false,
+      error: { code: normalized.code, message: normalized.message }
+    });
+  }
+}
+function readResumeBody(request) {
+  return readBody(
+    request,
+    MAX_BODY_BYTES2,
+    () => new ResumeLaunchError("request body is too large", "invalid_request", 413)
+  );
+}
+function parseResumeRequest(value) {
+  if (!isRecord(value)) throw new ResumeLaunchError("request body is invalid", "invalid_request", 400);
+  const runtimeSource = readString3(value, "runtimeSource");
+  const runtimeSessionId = readString3(value, "runtimeSessionId");
+  if (runtimeSource === void 0 || runtimeSessionId === void 0) {
+    throw new ResumeLaunchError("runtimeSource and runtimeSessionId are required", "invalid_request", 400);
+  }
+  const taskId = readString3(value, "taskId");
+  const workspacePath = readString3(value, "workspacePath");
+  return {
+    runtimeSource,
+    runtimeSessionId,
+    ...taskId !== void 0 ? { taskId } : {},
+    ...workspacePath !== void 0 ? { workspacePath } : {}
+  };
+}
+function readString3(record, key) {
+  const value = record[key];
+  if (typeof value !== "string") return void 0;
+  const trimmed2 = value.trim();
+  return trimmed2.length > 0 ? trimmed2 : void 0;
+}
+function normalizeError(error2) {
+  if (error2 instanceof ResumeLaunchError) return error2;
+  if (error2 instanceof SyntaxError) {
+    return new ResumeLaunchError("request body is not valid JSON", "invalid_request", 400);
+  }
+  return new ResumeLaunchError(
+    error2 instanceof Error ? error2.message : "resume launch failed",
+    "launch_failed",
+    500
+  );
 }
 
 // src/daemon/control/resume.token.ts
@@ -33059,7 +33166,7 @@ var SpoolSender = class {
   async #flushTick() {
     if (this.#stopped) return;
     if (!ownsDaemonPid(this.#options.paths)) {
-      process.stderr.write("[agent-tracer-daemon] socket ownership lost \u2014 exiting\n");
+      daemonLog("socket ownership lost \u2014 exiting");
       this.#options.onOwnershipLost();
       return;
     }
@@ -33075,8 +33182,7 @@ var SpoolSender = class {
       this.#options.onActivity();
       await this.#sendBatch(batch);
     } catch (error2) {
-      process.stderr.write(`[agent-tracer-daemon] flush error: ${String(error2)}
-`);
+      daemonLog(`flush error: ${String(error2)}`);
       this.#options.health.recordSwallowedError();
       this.#scheduleFlush(FLUSH_IDLE_MS);
     }
@@ -33105,10 +33211,7 @@ var SpoolSender = class {
       this.#lastDeadReason = result.reason;
       appendDeadLetter(batch.lines, this.#options.paths);
       this.#options.health.recordDeadLetter(result.reason, batch.lines.length);
-      process.stderr.write(
-        `[agent-tracer-daemon] batch rejected (${result.reason}) \u2014 ${batch.lines.length} event(s) to dead-letter
-`
-      );
+      daemonLog(`batch rejected (${result.reason}) \u2014 ${batch.lines.length} event(s) to dead-letter`);
     } else {
       this.#parkRejected(batch, result.rejectedIds, "rejected by id");
     }
@@ -33125,8 +33228,7 @@ var SpoolSender = class {
       this.#options.paths
     );
     this.#options.health.recordDeadLetter(reason, rejected.size);
-    process.stderr.write(`[agent-tracer-daemon] ${rejected.size} event(s) rejected \u2014 moved to dead-letter
-`);
+    daemonLog(`${rejected.size} event(s) rejected \u2014 moved to dead-letter`);
   }
   #handleServerError(batch) {
     const first = batch.segments[0]?.name ?? "";
@@ -33149,8 +33251,7 @@ var SpoolSender = class {
     }
     appendDeadLetter(batch.lines, this.#options.paths);
     this.#options.health.recordDeadLetter(`poison after ${POISON_ATTEMPTS} server errors`, batch.lines.length);
-    process.stderr.write(`[agent-tracer-daemon] poison segment parked after ${POISON_ATTEMPTS} server errors
-`);
+    daemonLog(`poison segment parked after ${POISON_ATTEMPTS} server errors`);
     this.#removeSegments(batch.segments);
     this.#resetPoisonState();
     this.#backoffMs = 0;
@@ -33163,10 +33264,7 @@ var SpoolSender = class {
     const cap = enforceSpoolSizeCap(this.#options.paths);
     if (cap.droppedSegments.length === 0) return;
     this.#options.history.forget(cap.droppedSegments);
-    process.stderr.write(
-      `[agent-tracer-daemon] spool over cap \u2014 dropped ${cap.droppedSegments.length} segment(s), ${cap.droppedBytes} byte(s)
-`
-    );
+    daemonLog(`spool over cap \u2014 dropped ${cap.droppedSegments.length} segment(s), ${cap.droppedBytes} byte(s)`);
   }
   #removeSegments(segments) {
     for (const segment of segments) removeSpoolSegment(segment.path);
@@ -33188,6 +33286,17 @@ var SpoolSender = class {
     }));
   }
 };
+
+// src/daemon/ipc/socket.framing.ts
+function createLineFramer() {
+  let buffer = "";
+  return (chunk) => {
+    buffer += chunk.toString("utf8");
+    const index = buffer.indexOf("\n");
+    if (index === -1) return null;
+    return buffer.slice(0, index).trim();
+  };
+}
 
 // ../kernel/src/recipe/recipe.const.ts
 var RECIPE_STATUS = {
@@ -33316,12 +33425,9 @@ function createDaemonConnectionHandler(context) {
   return (socket) => {
     context.onConnectionOpened();
     context.onActivity();
-    let buffer = "";
+    const frame = createLineFramer();
     socket.on("data", (chunk) => {
-      buffer += chunk.toString("utf8");
-      const index = buffer.indexOf("\n");
-      if (index === -1) return;
-      const line = buffer.slice(0, index).trim();
+      const line = frame(chunk);
       if (line) void handleMessage(socket, line, context);
     });
     socket.on("close", context.onConnectionClosed);
@@ -33343,8 +33449,7 @@ async function handleMessage(socket, line, context) {
       case "shutdown": {
         const reason = request.reason ?? "requested";
         send(socket, { ok: true });
-        process.stderr.write(`[agent-tracer-daemon] shutdown requested via socket (${reason})
-`);
+        daemonLog(`shutdown requested via socket (${reason})`);
         context.shutdown(`socket-shutdown: ${reason}`);
         return;
       }
@@ -33459,18 +33564,18 @@ var DAEMON_HEALTH_LAST_DEAD_REASONS_MAX = 10;
 
 // src/config/runtime.root.ts
 import * as fs11 from "node:fs";
-import * as path5 from "node:path";
+import * as path6 from "node:path";
 import { fileURLToPath } from "node:url";
 var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
-  return ROOT_MANIFESTS.some((manifest) => fs11.existsSync(path5.join(dir, manifest)));
+  return ROOT_MANIFESTS.some((manifest) => fs11.existsSync(path6.join(dir, manifest)));
 }
-function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))) {
-  const start = path5.resolve(from);
+function resolveRuntimeRoot(from = path6.dirname(fileURLToPath(import.meta.url))) {
+  const start = path6.resolve(from);
   let current = start;
   for (; ; ) {
     if (manifestDir(current)) return current;
-    const parent = path5.dirname(current);
+    const parent = path6.dirname(current);
     if (parent === current) return start;
     current = parent;
   }
@@ -33478,7 +33583,7 @@ function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))
 function readRuntimeManifestVersion(root = resolveRuntimeRoot()) {
   for (const manifest of ROOT_MANIFESTS) {
     try {
-      const parsed = JSON.parse(fs11.readFileSync(path5.join(root, manifest), "utf8"));
+      const parsed = JSON.parse(fs11.readFileSync(path6.join(root, manifest), "utf8"));
       const version2 = isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"].trim() : "";
       if (version2) return version2;
     } catch {
@@ -33547,12 +33652,11 @@ function probeSocket(socketPath, timeoutMs = SOCKET_CONNECT_TIMEOUT_MS) {
 }
 
 // src/daemon/lifecycle/servers.ts
-var RESUME_PATH_PREFIX = "/api/v1/resume";
 function createDaemonServers(options) {
   const socketServer = net2.createServer(options.onConnection);
   const httpServer = http.createServer((request, response) => {
     options.onActivity();
-    if ((request.url ?? "").startsWith(RESUME_PATH_PREFIX)) options.resumeHandler(request, response);
+    if ((request.url ?? "").startsWith(RESUME_PATH)) options.resumeHandler(request, response);
     else options.controlHandler(request, response);
   });
   const listenOnSocket = () => {
@@ -33567,10 +33671,7 @@ function createDaemonServers(options) {
     } catch {
     }
     writeDaemonPid(options.paths);
-    process.stderr.write(
-      `[agent-tracer-daemon] listening at ${options.paths.socketPath} (pid=${process.pid})
-`
-    );
+    daemonLog(`listening at ${options.paths.socketPath} (pid=${process.pid})`);
     options.onSocketReady();
     listenOnControl();
   });
@@ -33581,19 +33682,16 @@ function createDaemonServers(options) {
       void reclaimSocket(options, listenOnSocket);
       return;
     }
-    process.stderr.write(`[agent-tracer-daemon] server error: ${String(error2)}
-`);
+    daemonLog(`server error: ${String(error2)}`);
     process.exit(1);
   });
   httpServer.on("listening", () => {
     httpServer.unref();
-    process.stderr.write(`[agent-tracer-daemon] control page at http://127.0.0.1:${options.controlPort}/
-`);
+    daemonLog(`control page at http://127.0.0.1:${options.controlPort}/`);
   });
   httpServer.on("error", (error2) => {
     if (error2.code !== "EADDRINUSE" || options.isShuttingDown()) {
-      process.stderr.write(`[agent-tracer-daemon] control server error: ${String(error2)}
-`);
+      daemonLog(`control server error: ${String(error2)}`);
       return;
     }
     const retry = setTimeout(() => {
@@ -33611,10 +33709,7 @@ function createDaemonServers(options) {
 }
 async function reclaimSocket(options, listenOnSocket) {
   if (await probeSocket(options.paths.socketPath, 100)) {
-    process.stderr.write(
-      `[agent-tracer-daemon] already running at ${options.paths.socketPath} \u2014 exiting
-`
-    );
+    daemonLog(`already running at ${options.paths.socketPath} \u2014 exiting`);
     process.exit(0);
   }
   try {
@@ -33976,8 +34071,7 @@ async function shutdown(reason) {
   if (shuttingDown) return;
   shuttingDown = true;
   spoolSender.stop();
-  process.stderr.write(`[agent-tracer-daemon] ${reason} \u2014 final flush
-`);
+  daemonLog(`${reason} \u2014 final flush`);
   servers.close();
   await releaseRunningRuleGenerationJobs(hooks.rulegen);
   await spoolSender.finalFlush();
@@ -34058,8 +34152,7 @@ var timers = [
       return;
     }
     if (Date.now() - lastActivityAt < IDLE_SHUTDOWN_MS) return;
-    process.stderr.write(`[agent-tracer-daemon] idle ${IDLE_SHUTDOWN_MS}ms \u2014 exiting
-`);
+    daemonLog(`idle ${IDLE_SHUTDOWN_MS}ms \u2014 exiting`);
     void shutdown("idle-timeout");
   }, IDLE_CHECK_MS)
 ];

@@ -82,6 +82,19 @@ function ensureAgentTracerHome(paths = resolveAgentTracerPaths()) {
 
 // src/daemon/ipc/socket.client.ts
 import * as net from "node:net";
+
+// src/daemon/ipc/socket.framing.ts
+function createLineFramer() {
+  let buffer = "";
+  return (chunk) => {
+    buffer += chunk.toString("utf8");
+    const index = buffer.indexOf("\n");
+    if (index === -1) return null;
+    return buffer.slice(0, index).trim();
+  };
+}
+
+// src/daemon/ipc/socket.client.ts
 var SOCKET_CONNECT_TIMEOUT_MS = 200;
 function probeSocket(socketPath, timeoutMs = SOCKET_CONNECT_TIMEOUT_MS) {
   return new Promise((resolve2) => {
@@ -101,7 +114,7 @@ function probeSocket(socketPath, timeoutMs = SOCKET_CONNECT_TIMEOUT_MS) {
 function requestDaemon(socketPath, message, timeoutMs, parse, empty) {
   return new Promise((resolve2, reject) => {
     const socket = net.createConnection(socketPath);
-    let buffer = "";
+    const frame = createLineFramer();
     let settled = false;
     const finish = (value, error) => {
       if (settled) return;
@@ -121,10 +134,8 @@ function requestDaemon(socketPath, message, timeoutMs, parse, empty) {
 `);
     });
     socket.on("data", (chunk) => {
-      buffer += chunk.toString("utf8");
-      const index = buffer.indexOf("\n");
-      if (index === -1) return;
-      const line = buffer.slice(0, index).trim();
+      const line = frame(chunk);
+      if (line === null) return;
       try {
         finish(parse(JSON.parse(line)));
       } catch {
@@ -490,7 +501,7 @@ function parseSearchRecipesArgs(value) {
 // src/domain/session/model/set.task.title.tool.model.ts
 var SET_TASK_TITLE_TOOL = {
   name: "set_task_title",
-  description: "Rename the current task in Agent Tracer's dashboard. The task starts with a crude placeholder title (the first 120 characters of the user's initial prompt). Call this once you understand what the task is actually about and can give it a short, specific, human-readable title \u2014 typically right after the first exchange, and again later if the scope shifts substantially. Best-effort: this tool cannot see which chat session it is attached to, so it retitles whichever task in this workspace was most recently active. Avoid calling it if you suspect multiple sessions in this workspace could be active at once.",
+  description: `Rename the current task in Agent Tracer's dashboard. A task opens with a crude placeholder title \u2014 for a user session, the first 120 characters of the initial prompt; for a subagent, "Subagent: <type>". Set a real title once you understand what the work is actually about AND it is a meaningful, trackable task worth its own name: as the primary agent, right after the first exchange; as a subagent, right after you grasp the delegated task you are starting. Judge first \u2014 if the request is trivial, throwaway, or a one-off question where the placeholder already reads fine, skip it. Give a short, specific, human-readable title (a few words to a short sentence). Best-effort: this tool cannot see which session it is attached to, so it retitles whichever task in this workspace was most recently active \u2014 normally your own if you call early, at the start of your work. Title once, promptly, and re-title only if the scope later shifts substantially. If several sessions or subagents may be active at once, expect it to occasionally land on the wrong task.`,
   inputSchema: {
     type: "object",
     properties: {
