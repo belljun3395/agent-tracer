@@ -29,7 +29,6 @@ export function createDaemonServers(options: DaemonServerOptions): DaemonServers
     const socketServer = net.createServer(options.onConnection);
     const httpServer = http.createServer((request, response) => {
         options.onActivity();
-        // 라우팅은 접두어로 갈라 재개 핸들러에 OPTIONS까지 넘기고, 정확한 경로 판정은 그 핸들러가 한다.
         if ((request.url ?? "").startsWith(RESUME_PATH)) options.resumeHandler(request, response);
         else options.controlHandler(request, response);
     });

@@ -1,10 +1,7 @@
 import type {McpToolSpec} from "~runtime/support/mcp.tool.js";
 import {isRecord} from "~runtime/support/json.js";
 
-/**
- * 조악한 초기 제목을 고치는 도구이며, 설명 문구가 두 호출 시점(메인 첫 교환·서브에이전트 작업 시작)과
- * '의미 있는 작업일 때만'이라는 판단 기준, 그리고 세션 해석의 한계를 함께 못박는다.
- */
+/** 조악한 초기 제목을 고치는 도구이며, 설명 문구 자체가 에이전트의 호출 판단을 좌우하는 설계물이다. */
 export const SET_TASK_TITLE_TOOL: McpToolSpec = {
     name: "set_task_title",
     description:

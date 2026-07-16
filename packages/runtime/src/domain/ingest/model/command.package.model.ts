@@ -42,11 +42,9 @@ function extractScriptName(commandName: string, args: readonly string[]): string
 
 function scriptOperation(scriptName: string | undefined, args: readonly string[]): string {
     const name = (scriptName ?? "").toLowerCase();
-    // 스크립트 이름 자체가 조작을 드러내면 그 이름으로 판정한다.
     if (name.includes("test")) return "run_test";
     if (name.includes("lint") || name.includes("format")) return "run_lint";
     if (name.includes("build")) return "run_build";
-    // 러너 인자 판정은 RUNNER_SPECS 테이블이 단독으로 소유한다.
     const runnerOperation = runnerOperationFromArgs(args);
     if (runnerOperation) return runnerOperation;
     if (["install", "add", "i"].includes(name)) return "install_dependency";

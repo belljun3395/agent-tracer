@@ -84,7 +84,7 @@ export function readTranscriptEntries(
     }
 }
 
-/** JSONL 한 줄을 안전하게 파싱하며 빈 줄과 깨진 줄은 null로 버린다. */
+/** JSONL 한 줄을 던지지 않고 레코드로 파싱한다. */
 export function parseJsonLine(line: string): Record<string, unknown> | null {
     const trimmed = line.trim();
     if (!trimmed) return null;

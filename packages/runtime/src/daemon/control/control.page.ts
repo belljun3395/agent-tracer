@@ -5,7 +5,6 @@ import type {InterventionKind} from "~runtime/daemon/observation/intervention.lo
 import {CONTROL_PAGE_SCRIPT} from "~runtime/daemon/control/control.page.script.js";
 import {CONTROL_PAGE_STYLE} from "~runtime/daemon/control/control.page.style.js";
 
-// 브라우저 문자열 맵이 유니언과 갈라지지 않도록 상태·개입 어휘에 값이 추가되면 satisfies가 컴파일을 멈춘다.
 const STATUS_TONE = {
     ok: "ok",
     idle: "",
@@ -34,7 +33,6 @@ const IV_LABEL = {
     recipe_injected: "recipe injected",
 } satisfies Record<InterventionKind, string>;
 
-// satisfies가 좁힌 리터럴 타입이 아니라 넓힌 계약으로 순회해 옵션 필드(confirm)에 닿는다.
 const ACTION_ENTRIES = Object.entries(CONTROL_ACTIONS) as readonly (readonly [string, ControlAction])[];
 
 const TABS: readonly {readonly id: string; readonly label: string; readonly count?: string}[] = [
@@ -48,7 +46,7 @@ const TABS: readonly {readonly id: string; readonly label: string; readonly coun
     {id: "lifecycle", label: "Lifecycle"},
 ];
 
-/** 서버가 페이지 스크립트에 심는 설정이며, 브라우저 문자열 맵과 액션 배선이 전부 여기서 나온다. */
+/** 서버가 페이지 스크립트에 심는 설정이다. */
 function pageConfig(): unknown {
     const actions: Record<string, {toast: string; confirm?: string}> = {};
     for (const [key, action] of ACTION_ENTRIES) {
@@ -71,7 +69,6 @@ function renderTabs(): string {
     }).join("");
 }
 
-/** 카탈로그에 액션을 더하면 해당 탭에 버튼이 자동으로 붙는다. */
 function actionButtons(tab: string): string {
     const buttons = ACTION_ENTRIES
         .filter(([, action]) => action.tab === tab)

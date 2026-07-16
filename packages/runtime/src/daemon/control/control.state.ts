@@ -162,7 +162,6 @@ function joinRules(rules: readonly GuardrailRule[], activity: readonly RuleActiv
         views.push({
             ...orphan,
             severity: "unknown",
-            // 이행되지 않은 규칙은 집행되지 않으므로, 발동 기록만 남은 규칙은 활성이었던 것이다.
             reviewState: RULE_REVIEW_STATE.active,
             expectation: "unknown",
             cached: false,

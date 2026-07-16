@@ -27,7 +27,7 @@ export interface ControlAction {
     readonly tab: string;
     readonly tone: "" | "primary" | "danger";
     readonly confirm?: string;
-    /** 성공 토스트의 접두어이며 응답에 moved가 있으면 브라우저가 건수를 덧붙인다. */
+    /** 성공 토스트 문구다. */
     readonly toast: string;
     readonly run: (context: ControlActionContext) => unknown;
 }
@@ -42,7 +42,7 @@ function parseRequeueFilter(body: string): {kinds?: readonly string[]} {
     return selected.length > 0 ? {kinds: selected} : {};
 }
 
-/** 키가 곧 `/api/v1/control/<키>` 경로이며 서버 라우팅과 제어 화면 버튼이 모두 이 표에서 파생되므로 기능 추가는 행 하나로 끝난다. */
+/** 각 키가 곧 `/api/v1/control/<키>` 경로다. */
 export const CONTROL_ACTIONS = {
     "flush": {
         label: "Flush now",

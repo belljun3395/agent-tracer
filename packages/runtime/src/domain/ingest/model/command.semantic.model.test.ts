@@ -75,7 +75,6 @@ describe("inferCommandSemantic", () => {
     });
 
     it("패키지 매니저 경로와 직접 경로가 같은 러너에 같은 조작을 낸다", () => {
-        // RUNNER_SPECS에는 있으나 옛 substring 목록에는 없어 두 경로가 갈리던 러너다.
         expect(inferCommandSemantic("npm run biome").metadata.subtypeKey).toBe("run_lint");
         expect(inferCommandSemantic("biome").metadata.subtypeKey).toBe("run_lint");
         expect(inferCommandSemantic("npx biome").metadata.subtypeKey).toBe("run_lint");
@@ -83,7 +82,7 @@ describe("inferCommandSemantic", () => {
         expect(inferCommandSemantic("npm run mypy").metadata.subtypeKey).toBe("run_build");
     });
 
-    it("스크립트 이름 자체가 조작을 드러내는 옛 판정을 지킨다", () => {
+    it("스크립트 이름이 조작을 드러내면 그 이름으로 판정한다", () => {
         expect(inferCommandSemantic("npm run test:unit").metadata.subtypeKey).toBe("run_test");
         expect(inferCommandSemantic("npm run eslint").metadata.subtypeKey).toBe("run_lint");
         expect(inferCommandSemantic("npm run build:prod").metadata.subtypeKey).toBe("run_build");

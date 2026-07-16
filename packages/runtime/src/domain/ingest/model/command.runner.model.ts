@@ -129,7 +129,7 @@ function matchRunner(commandName: string, firstArg: string | undefined): RunnerS
     return RUNNER_SPECS.find((spec) => spec.command === commandName && spec.subcommand === undefined);
 }
 
-/** 러너 인자 판정은 이 테이블이 단독 소유하며 여럿이 걸리면 test·lint·build 순으로 고른다. */
+/** 인자에서 러너 조작을 판정하며, 그 값 공간은 RUNNER_SPECS가 단독 소유한다. */
 export function runnerOperationFromArgs(args: readonly string[]): RunnerOperation | undefined {
     const found = new Set<RunnerOperation>();
     for (let index = 0; index < args.length; index += 1) {

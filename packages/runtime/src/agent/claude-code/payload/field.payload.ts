@@ -9,12 +9,12 @@ export type ReaderResult<T> =
 /** 리더가 어떤 필수 필드도 없을 때 내는 실패 결과다. */
 export type ReaderRejection = {readonly ok: false; readonly reason: string};
 
-/** 세션 식별자가 없으면 리더 실패를, 있으면 통과(null)를 반환한다. */
+/** session_id 필드를 필수로 강제하는 리더 가드다. */
 export function requireSessionId(raw: Record<string, unknown>): ReaderRejection | null {
     return readString(raw, "session_id") ? null : {ok: false, reason: "missing session_id"};
 }
 
-/** 도구 이름이 없으면 리더 실패를, 있으면 통과(null)를 반환한다. */
+/** tool_name 필드를 필수로 강제하는 리더 가드다. */
 export function requireToolName(raw: Record<string, unknown>): ReaderRejection | null {
     return readString(raw, "tool_name") ? null : {ok: false, reason: "missing tool_name"};
 }

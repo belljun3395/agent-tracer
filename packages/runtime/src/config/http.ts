@@ -13,7 +13,6 @@ export function jsonHeaders(headers: Record<string, string>): Record<string, str
     return {...headers, "Content-Type": "application/json"};
 }
 
-/** 호출자가 준 signal이 있으면 그대로 쓰고 없으면 타임아웃으로 새 signal을 만든다. */
 export function resolveTimeoutSignal(timeoutMs: number = DEFAULT_TIMEOUT_MS, signal?: AbortSignal): AbortSignal {
     return signal ?? AbortSignal.timeout(timeoutMs);
 }

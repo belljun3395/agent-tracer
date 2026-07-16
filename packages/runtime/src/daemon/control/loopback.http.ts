@@ -19,7 +19,7 @@ export function isAllowedLoopbackOrigin(origin: string | undefined): boolean {
     }
 }
 
-/** 루프백 origin에만 CORS를 열고 그 밖의 요청은 거절한다. */
+/** 루프백 origin에만 CORS를 여는 보안 게이트다. */
 export function writeLoopbackCorsHeaders(
     request: IncomingMessage,
     response: ServerResponse,
@@ -56,7 +56,7 @@ export function isAuthorized(request: IncomingMessage, expected: string): boolea
     return isMatchingToken(presented, expected);
 }
 
-/** 개행 종결 요청 본문을 상한까지만 읽고, 넘치면 호출자가 준 오류를 던진다. */
+/** 요청 본문을 바이트 상한까지만 읽으며, 상한을 넘으면 거절한다. */
 export async function readBody(
     request: IncomingMessage,
     maxBytes: number,
