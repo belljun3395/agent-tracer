@@ -129,6 +129,8 @@ export interface RuntimeIngestEvent {
     readonly filePaths?: readonly string[];
     readonly toolName?: string;
     readonly command?: string;
+    /** userMessage kind에서만 쓰며, 시스템이 주입한 알림 텍스트를 사용자 발화와 가른다. */
+    readonly promptOrigin?: "system_notification";
     readonly taskEffects?: {readonly taskStatus?: string};
 }
 

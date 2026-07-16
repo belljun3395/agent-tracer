@@ -72,4 +72,12 @@ describe("parseStoredEventPayload", () => {
 
         expect(result.taskEffects).toBeUndefined();
     });
+
+    it("promptOrigin은 허용된 값만 읽고 그 밖은 undefined로 떨어뜨린다", () => {
+        const systemNotification = parseStoredEventPayload({ promptOrigin: "system_notification" });
+        const bogus = parseStoredEventPayload({ promptOrigin: "not-a-real-origin" });
+
+        expect(systemNotification.promptOrigin).toBe("system_notification");
+        expect(bogus.promptOrigin).toBeUndefined();
+    });
 });

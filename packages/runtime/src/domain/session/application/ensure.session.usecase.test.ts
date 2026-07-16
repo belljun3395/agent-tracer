@@ -76,6 +76,41 @@ describe("EnsureSessionUsecase", () => {
         expect(linked[0]?.payload["title"]).toBe("실제 제목");
     });
 
+    it("resumedFrom 바인딩이 있으면 같은 태스크에 잇고 parentSessionId와 resume을 남긴다", async () => {
+        const bindings = new InMemoryBindingStore();
+        const sink = new InMemoryEventSink();
+        const usecase = new EnsureSessionUsecase(bindings, sink, new SequentialIdGenerator(), new FixedClock(NOW));
+
+        const first = await usecase.execute(INPUT);
+        const second = await usecase.execute({
+            runtimeSource: "claude-plugin",
+            runtimeSessionId: "cc-2",
+            title: "요약 뒤 이어지는 태스크",
+            resumedFrom: "cc-1",
+        });
+
+        expect(second.taskCreated).toBe(false);
+        expect(second.taskId).toBe(first.taskId);
+        const started = sink.events.find(
+            (event) => event.kind === KIND.sessionStarted && event.payload["runtimeSessionId"] === "cc-2",
+        );
+        expect(started?.payload["parentSessionId"]).toBe(first.sessionId);
+        expect(started?.payload["resume"]).toBe(true);
+    });
+
+    it("resumedFrom에 해당하는 바인딩이 없으면 지금처럼 새 태스크를 만든다", async () => {
+        const bindings = new InMemoryBindingStore();
+        const sink = new InMemoryEventSink();
+        const usecase = new EnsureSessionUsecase(bindings, sink, new SequentialIdGenerator(), new FixedClock(NOW));
+
+        const ensured = await usecase.execute({...INPUT, resumedFrom: "never-seen-session"});
+
+        expect(ensured.taskCreated).toBe(true);
+        const started = sink.events.find((event) => event.kind === KIND.sessionStarted);
+        expect(started?.payload).not.toHaveProperty("resume");
+        expect(started?.payload).not.toHaveProperty("parentSessionId");
+    });
+
     it("잠금을 못 잡고 기존 바인딩도 없으면 쓰지 않고 예외를 던진다", async () => {
         const bindings = new InMemoryBindingStore();
         bindings.jamLock();

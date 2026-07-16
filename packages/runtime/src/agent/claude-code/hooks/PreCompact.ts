@@ -8,7 +8,9 @@ import {toTrimmedString} from "~runtime/support/text.js";
 await runHook("PreCompact", {
     parse: readPreCompact,
     handler: async (payload) => {
-        const target = await ensureClaudeSession(payload.sessionId);
+        const target = await ensureClaudeSession(payload.sessionId, undefined, {
+            transcriptPath: payload.transcriptPath,
+        });
         // custom_instructions는 공식 훅 스키마에 없지만 실제 페이로드로 내려온다.
         const instructions = toTrimmedString(payload.payload["custom_instructions"]);
         await onLifecycleEvent(claudeRuntime.ingest, [

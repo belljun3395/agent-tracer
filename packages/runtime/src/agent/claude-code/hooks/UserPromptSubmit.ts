@@ -11,6 +11,7 @@ import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
 import {userMessageEvent} from "~runtime/domain/ingest/model/message.event.model.js";
 import {recipeInjectedEvent} from "~runtime/domain/ingest/model/recipe.injection.event.model.js";
+import {isSystemNotificationPrompt} from "~runtime/domain/ingest/model/system.notification.model.js";
 import {onPromptRecipes, onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {onTurnOpen} from "~runtime/domain/turn/inbound/turn.hook.js";
 import {ellipsize} from "~runtime/support/text.js";
@@ -25,13 +26,17 @@ await runHook("UserPromptSubmit", {
     handler: async (payload) => {
         if (EXIT_PROMPTS.has(payload.prompt.toLowerCase())) return;
         if (!payload.prompt) {
-            await ensureClaudeSession(payload.sessionId);
+            await ensureClaudeSession(payload.sessionId, undefined, {
+                transcriptPath: payload.transcriptPath,
+            });
             return;
         }
 
+        const systemNotification = isSystemNotificationPrompt(payload.prompt);
         const target = await ensureClaudeSession(
             payload.sessionId,
-            ellipsize(payload.prompt, TASK_TITLE_MAX),
+            systemNotification ? undefined : ellipsize(payload.prompt, TASK_TITLE_MAX),
+            {transcriptPath: payload.transcriptPath},
         );
         const messageId = createMessageId();
         // Claude 훅 페이로드에는 턴 식별자가 없으므로 세션과 메시지에서 결정적으로 만든다.
@@ -57,6 +62,7 @@ await runHook("UserPromptSubmit", {
                 prompt: payload.prompt,
                 phase: target.taskCreated ? "initial" : "follow_up",
                 runtimeSource: claudeRuntime.runtimeSource,
+                systemNotification,
             }),
         ]);
 
@@ -70,13 +76,14 @@ await runHook("UserPromptSubmit", {
             queryDaemonRules(target.taskId),
             queryDaemonHints(target.taskId, {trigger: "user_prompt"}),
         ]);
-        const recipes = onPromptRecipes(claudeRuntime.recipe, payload.prompt);
+        // 알림 텍스트를 레시피와 매칭하면 소음이라 시스템 알림에는 레시피 컨텍스트를 비운다.
+        const recipes = systemNotification ? undefined : onPromptRecipes(claudeRuntime.recipe, payload.prompt);
         const emission = emitAgentContext("UserPromptSubmit", {
             rules,
             hints,
-            recipeContext: recipes.context,
+            recipeContext: recipes?.context ?? "",
         });
-        if (!emission.emitted || recipes.matches.length === 0) return;
+        if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
 
         await reportRecipeInjection(target.taskId, recipes.titles, emission.recipeBytes);
         await onLifecycleEvent(

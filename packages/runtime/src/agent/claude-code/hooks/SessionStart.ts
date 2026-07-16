@@ -10,7 +10,9 @@ import {onRecipeCacheRefresh} from "~runtime/domain/recipe/inbound/recipe.hook.j
 await runHook("SessionStart", {
     parse: readSessionStart,
     handler: async (payload) => {
-        const target = await ensureClaudeSession(payload.sessionId);
+        const target = await ensureClaudeSession(payload.sessionId, undefined, {
+            transcriptPath: payload.transcriptPath,
+        });
         const event = sessionTriggerEvent(target, payload.source.toLowerCase());
         if (event !== null) await onLifecycleEvent(claudeRuntime.ingest, [event]);
         await onRecipeCacheRefresh(claudeRuntime.recipe);

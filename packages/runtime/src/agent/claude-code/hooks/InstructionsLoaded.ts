@@ -7,7 +7,7 @@ import {instructionsLoadedEvent} from "~runtime/domain/ingest/model/workspace.ev
 await runHook("InstructionsLoaded", {
     parse: readInstructionsLoaded,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             instructionsLoadedEvent(target, {
                 projectDir: claudeRuntime.projectDir,

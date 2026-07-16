@@ -17,7 +17,7 @@ await runHook("Stop", {
     parse: readStop,
     handler: async (payload) => {
         const stopReason = payload.stopReason ?? "end_turn";
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await captureTranscriptCommentary(payload, target, (events) =>
             onLifecycleEvent(claudeRuntime.ingest, events));
 

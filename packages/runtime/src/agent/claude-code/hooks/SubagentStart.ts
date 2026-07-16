@@ -15,7 +15,9 @@ await runHook("SubagentStart", {
         const agentId = payload.agentId;
         if (agentId === undefined) return;
 
-        const parent = await ensureClaudeSession(payload.sessionId);
+        const parent = await ensureClaudeSession(payload.sessionId, undefined, {
+            transcriptPath: payload.transcriptPath,
+        });
         const child = await ensureSubagentSession(
             payload.sessionId,
             agentId,

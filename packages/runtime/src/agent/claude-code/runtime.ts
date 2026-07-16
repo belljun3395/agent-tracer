@@ -13,6 +13,7 @@ import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.bind
 import {ReadBindingUsecase} from "~runtime/domain/binding/application/read.binding.usecase.js";
 import {ReleaseBindingUsecase} from "~runtime/domain/binding/application/release.binding.usecase.js";
 import type {BindingHook} from "~runtime/domain/binding/inbound/binding.hook.js";
+import {bindingKey} from "~runtime/domain/binding/model/binding.model.js";
 import {FileTodoSnapshotAdapter} from "~runtime/domain/ingest/adapter/file.todo.snapshot.adapter.js";
 import {FileToolTimingAdapter} from "~runtime/domain/ingest/adapter/file.tool.timing.adapter.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
@@ -44,6 +45,7 @@ import type {TurnHook} from "~runtime/domain/turn/inbound/turn.hook.js";
 import type {JsonObject} from "~runtime/support/json.js";
 import {generateUlid} from "~runtime/support/ulid.js";
 import type {ReaderResult} from "~runtime/agent/claude-code/payload/field.payload.js";
+import {findResumedSessionId} from "~runtime/agent/claude-code/transcript/transcript.resume.js";
 
 const transport = resolveMonitorTransportConfig();
 const headers = monitorUserHeaders(resolveMonitorIdentity());
@@ -154,15 +156,28 @@ export interface EnsureSessionOptions {
     readonly parentSessionId?: string;
     readonly taskKind?: TaskKind;
     readonly resume?: boolean;
+    readonly transcriptPath?: string | undefined;
+}
+
+/** 바인딩이 없을 때만 트랜스크립트를 훑어 직전 런타임 세션 ID를 찾는다. */
+async function resolveResumedFrom(
+    runtimeSessionId: string,
+    transcriptPath: string | undefined,
+): Promise<string | undefined> {
+    if (!transcriptPath) return undefined;
+    const key = bindingKey(CLAUDE_RUNTIME_SOURCE, runtimeSessionId);
+    if (bindings.read()[key]) return undefined;
+    return findResumedSessionId(transcriptPath, runtimeSessionId);
 }
 
 /** 환경변수 강제값을 얹어 런타임 세션을 확보한다. */
-export function ensureClaudeSession(
+export async function ensureClaudeSession(
     runtimeSessionId: string,
     title?: string,
     options: EnsureSessionOptions = {},
 ): Promise<EnsuredSession> {
     const explicitTitle = transport.taskTitleOverride ?? title;
+    const resumedFrom = await resolveResumedFrom(runtimeSessionId, options.transcriptPath);
     return onSessionStart(session, {
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId,
@@ -175,6 +190,7 @@ export function ensureClaudeSession(
         ...(options.parentSessionId !== undefined ? {parentSessionId: options.parentSessionId} : {}),
         ...(options.taskKind !== undefined ? {taskKind: options.taskKind} : {}),
         ...(options.resume === false ? {resume: false} : {}),
+        ...(resumedFrom !== undefined ? {resumedFrom} : {}),
     });
 }
 
@@ -184,8 +200,9 @@ export async function ensureSubagentSession(
     agentId: string,
     agentType?: string,
     parent?: EnsuredSession,
+    transcriptPath?: string,
 ): Promise<EnsuredSession> {
-    const parentIds = parent ?? await ensureClaudeSession(parentSessionId);
+    const parentIds = parent ?? await ensureClaudeSession(parentSessionId, undefined, {transcriptPath});
     return ensureBackgroundSession(
         parentIds,
         subagentSessionId(agentId),
@@ -211,9 +228,12 @@ export function resolveEventSession(
     sessionId: string,
     agentId?: string,
     agentType?: string,
+    transcriptPath?: string,
 ): Promise<EnsuredSession> {
-    if (agentId !== undefined) return ensureSubagentSession(sessionId, agentId, agentType);
-    return ensureClaudeSession(sessionId);
+    if (agentId !== undefined) {
+        return ensureSubagentSession(sessionId, agentId, agentType, undefined, transcriptPath);
+    }
+    return ensureClaudeSession(sessionId, undefined, {transcriptPath});
 }
 
 function messageOf(error: unknown): string {

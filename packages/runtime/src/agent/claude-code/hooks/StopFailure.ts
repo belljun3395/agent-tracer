@@ -8,7 +8,7 @@ import {createMessageId} from "~runtime/support/ulid.js";
 await runHook("StopFailure", {
     parse: readStopFailure,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             turnFailedEvent(target, {
                 messageId: createMessageId(),

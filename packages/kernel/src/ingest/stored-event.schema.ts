@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EVENT_LANES } from "./event.lane.const.js";
-import { RECIPE_INJECTED_VIA } from "./event.kind.const.js";
+import { RECIPE_INJECTED_VIA, USER_MESSAGE_PROMPT_ORIGINS } from "./event.kind.const.js";
 import {
     MONITORING_TASK_KINDS,
     TASK_COMPLETION_REASONS,
@@ -45,6 +45,7 @@ export const storedEventPayloadSchema = z.object({
     applicationId: optionalNonEmptyString,
     recipeId: optionalNonEmptyString,
     score: optionalFiniteNumber,
+    promptOrigin: z.enum(USER_MESSAGE_PROMPT_ORIGINS).optional().catch(undefined),
 });
 
 export type StoredEventPayload = z.infer<typeof storedEventPayloadSchema>;

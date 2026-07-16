@@ -7,7 +7,7 @@ import {worktreeRemovedEvent} from "~runtime/domain/ingest/model/workspace.event
 await runHook("WorktreeRemove", {
     parse: readWorktree,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             worktreeRemovedEvent(target, claudeRuntime.projectDir, payload.worktreePath),
         ]);
