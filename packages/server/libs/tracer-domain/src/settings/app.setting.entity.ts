@@ -4,6 +4,9 @@ import { isLlmKeySettingKey } from "./settings.const.js";
 @Entity({ name: "app_settings" })
 export class AppSettingEntity {
     @PrimaryColumn({ type: "text" })
+    scope!: string;
+
+    @PrimaryColumn({ type: "text" })
     key!: string;
 
     @Column({ type: "text" })

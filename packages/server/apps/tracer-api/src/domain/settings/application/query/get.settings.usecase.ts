@@ -12,8 +12,8 @@ export class GetSettingsUseCase {
         private readonly settings: AppSettingRepositoryPort,
     ) {}
 
-    async execute(): Promise<{ readonly items: readonly SettingDto[] }> {
-        const entities = await this.settings.findAll();
+    async execute(scope: string): Promise<{ readonly items: readonly SettingDto[] }> {
+        const entities = await this.settings.findAllByScope(scope);
         return {
             items: entities.map((entity) => ({
                 key: entity.key,

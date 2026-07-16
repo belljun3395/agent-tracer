@@ -15,13 +15,14 @@ export class PutSettingUseCase {
         @Inject(CLOCK) private readonly clock: ClockPort,
     ) {}
 
-    async execute(key: string, value: string): Promise<{ readonly setting: SettingDto }> {
+    async execute(scope: string, key: string, value: string): Promise<{ readonly setting: SettingDto }> {
         if (!isSettingKeySupported(key)) throw new BadRequestException(`Unsupported setting key: ${key}`);
         const trimmed = value.trim();
         if (trimmed.length === 0) throw new BadRequestException("Setting value must not be empty");
 
         const now = this.clock.now();
         const entity = new AppSettingEntity();
+        entity.scope = scope;
         entity.key = key;
         entity.value = trimmed;
         entity.updatedAt = now;

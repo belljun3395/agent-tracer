@@ -40,7 +40,7 @@ export class InMemoryCleanupRepository implements CleanupRepositoryPort {
         return Promise.resolve(true);
     }
 
-    readSetting(key: string): Promise<string | null> {
+    readSetting(_scope: string, key: string): Promise<string | null> {
         return Promise.resolve(this.settings.get(key) ?? null);
     }
 

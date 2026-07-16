@@ -43,7 +43,7 @@ export interface RecipeRepositoryPort {
     findJob(jobId: string): Promise<RecipeJobSnapshot | null>;
     startJob(jobId: string, now: Date): Promise<boolean>;
     findAnchor(userId: string, taskId: string): Promise<RecipeAnchorSnapshot | null>;
-    readSetting(key: string): Promise<string | null>;
+    readSetting(scope: string, key: string): Promise<string | null>;
     findOwnedTaskIds(userId: string, taskIds: readonly string[]): Promise<readonly string[]>;
     recordFailedAttempt(input: RecipeFailedAttempt): Promise<void>;
     foldSuccessAttempt(

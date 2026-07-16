@@ -15,7 +15,7 @@ export class InMemorySettingReader implements SettingReaderPort {
         this.rows.set(key, value);
     }
 
-    findAll(): Promise<AppSettingEntity[]> {
+    findAllByScope(_scope: string): Promise<AppSettingEntity[]> {
         return Promise.resolve([...this.rows].map(([key, value]) => {
             const setting = new AppSettingEntity();
             setting.key = key;

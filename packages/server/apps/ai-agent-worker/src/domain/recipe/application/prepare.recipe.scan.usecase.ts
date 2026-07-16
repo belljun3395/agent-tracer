@@ -1,4 +1,4 @@
-import { APP_SETTING_KEYS, JOB_STATUS, RECIPE_SCAN_TRIGGER } from "@monitor/kernel";
+import { APP_SETTING_KEYS, DEFAULT_USER_ID, JOB_STATUS, RECIPE_SCAN_TRIGGER } from "@monitor/kernel";
 import type { IClock } from "@monitor/platform";
 import { normalizeAgentBackend, type AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
 import { normalizeOutputLanguage } from "~ai-agent-worker/support/output.language.js";
@@ -50,10 +50,10 @@ export class PrepareRecipeScanUsecase {
         });
 
         if (agent.requiresLocalApiKey()) {
-            const apiKey = await this.repository.readSetting(APP_SETTING_KEYS.anthropicApiKey);
+            const apiKey = await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.anthropicApiKey);
             if (apiKey === null) throw new MissingApiKeyError(APP_SETTING_KEYS.anthropicApiKey);
         }
-        const model = await this.repository.readSetting(APP_SETTING_KEYS.anthropicModel);
+        const model = await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.anthropicModel);
 
         return {
             jobId: job.id,

@@ -12,9 +12,9 @@ export class DeleteSettingUseCase {
         private readonly settings: AppSettingRepositoryPort,
     ) {}
 
-    async execute(key: string): Promise<{ readonly deleted: true; readonly key: string }> {
+    async execute(scope: string, key: string): Promise<{ readonly deleted: true; readonly key: string }> {
         if (!isSettingKeySupported(key)) throw new BadRequestException(`Unsupported setting key: ${key}`);
-        const deleted = await this.settings.delete(key);
+        const deleted = await this.settings.delete(scope, key);
         if (!deleted) throw new NotFoundException(`Setting not set: ${key}`);
         return { deleted: true, key };
     }

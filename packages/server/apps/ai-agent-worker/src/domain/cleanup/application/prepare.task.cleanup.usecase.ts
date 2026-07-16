@@ -1,4 +1,4 @@
-import { APP_SETTING_KEYS, JOB_STATUS } from "@monitor/kernel";
+import { APP_SETTING_KEYS, DEFAULT_USER_ID, JOB_STATUS } from "@monitor/kernel";
 import type { IClock } from "@monitor/platform";
 import { clampInt } from "~ai-agent-worker/support/clamp.js";
 import { normalizeAgentBackend, type AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
@@ -42,12 +42,12 @@ export class PrepareTaskCleanupUsecase {
         await this.notification.jobUpdated(job.userId, { jobId: job.id, status: JOB_STATUS.running });
 
         if (agent.requiresLocalApiKey()) {
-            const apiKey = await this.repository.readSetting(APP_SETTING_KEYS.anthropicApiKey);
+            const apiKey = await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.anthropicApiKey);
             if (apiKey === null) throw new MissingApiKeyError(APP_SETTING_KEYS.anthropicApiKey);
         }
-        const model = await this.repository.readSetting(APP_SETTING_KEYS.anthropicModel);
+        const model = await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.anthropicModel);
         const language = normalizeOutputLanguage(
-            await this.repository.readSetting(APP_SETTING_KEYS.claudeOutputLanguage),
+            await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.claudeOutputLanguage),
         );
         const maxSuggestions = await this.resolveMaxSuggestions(input.maxSuggestions);
 
@@ -73,7 +73,7 @@ export class PrepareTaskCleanupUsecase {
 
     private async resolveMaxSuggestions(requested: number | undefined): Promise<number> {
         if (requested !== undefined) return clampInt(requested, DEFAULT_MAX_SUGGESTIONS, 1, MAX_SUGGESTIONS_CAP);
-        const raw = await this.repository.readSetting(APP_SETTING_KEYS.taskCleanupMaxSuggestions);
+        const raw = await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.taskCleanupMaxSuggestions);
         const parsed = raw !== null ? Number.parseInt(raw, 10) : Number.NaN;
         return clampInt(parsed, DEFAULT_MAX_SUGGESTIONS, 1, MAX_SUGGESTIONS_CAP);
     }

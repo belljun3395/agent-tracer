@@ -44,7 +44,7 @@ export interface CleanupCommit {
 export interface CleanupRepositoryPort {
     findJob(jobId: string): Promise<CleanupJobSnapshot | null>;
     startJob(jobId: string, now: Date): Promise<boolean>;
-    readSetting(key: string): Promise<string | null>;
+    readSetting(scope: string, key: string): Promise<string | null>;
     /** 사용자에게 보이는 태스크만 골라 후보 판정 입력을 만든다. */
     loadScanBatch(userId: string): Promise<CleanupScanBatch>;
     recordFailedAttempt(input: CleanupFailedAttempt): Promise<void>;

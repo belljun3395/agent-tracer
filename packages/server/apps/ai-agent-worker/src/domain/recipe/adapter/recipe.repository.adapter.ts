@@ -60,8 +60,8 @@ export class RecipeRepositoryAdapter implements RecipeRepositoryPort {
         };
     }
 
-    async readSetting(key: string): Promise<string | null> {
-        const setting = await this.settings.findByKey(key);
+    async readSetting(scope: string, key: string): Promise<string | null> {
+        const setting = await this.settings.findByScopeAndKey(scope, key);
         return setting !== null && setting.value.length > 0 ? setting.value : null;
     }
 

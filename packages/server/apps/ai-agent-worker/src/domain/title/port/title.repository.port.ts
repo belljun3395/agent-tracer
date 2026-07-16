@@ -41,7 +41,7 @@ export interface TitleRepositoryPort {
     findJob(jobId: string): Promise<TitleJobSnapshot | null>;
     startJob(jobId: string, now: Date): Promise<boolean>;
     findTaskContext(userId: string, taskId: string): Promise<TitleTaskContext | null>;
-    readSetting(key: string): Promise<string | null>;
+    readSetting(scope: string, key: string): Promise<string | null>;
     recordFailedAttempt(input: TitleFailedAttempt): Promise<void>;
     foldSuccessAttempt(
         jobId: string,

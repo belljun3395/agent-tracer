@@ -37,7 +37,7 @@ export class InMemoryTitleRepository implements TitleRepositoryPort {
         return Promise.resolve(this.contexts.get(taskId) ?? null);
     }
 
-    readSetting(key: string): Promise<string | null> {
+    readSetting(_scope: string, key: string): Promise<string | null> {
         return Promise.resolve(this.settings.get(key) ?? null);
     }
 

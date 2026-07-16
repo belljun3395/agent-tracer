@@ -38,7 +38,7 @@ export class InMemoryRecipeRepository implements RecipeRepositoryPort {
         return Promise.resolve(this.anchors.get(taskId) ?? null);
     }
 
-    readSetting(key: string): Promise<string | null> {
+    readSetting(_scope: string, key: string): Promise<string | null> {
         return Promise.resolve(this.settings.get(key) ?? null);
     }
 

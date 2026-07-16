@@ -1,4 +1,4 @@
-import { APP_SETTING_KEYS } from "@monitor/kernel";
+import { APP_SETTING_KEYS, DEFAULT_USER_ID } from "@monitor/kernel";
 import { generateUlid, type IClock } from "@monitor/platform";
 import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
 import {
@@ -25,7 +25,7 @@ export class SuggestCleanupUsecase {
     async execute(prep: TaskCleanupPrep, run: AgentAttemptRun): Promise<TaskCleanupGenerateOutput> {
         const agent = this.agents[prep.agentBackend];
         const apiKey = agent.requiresLocalApiKey()
-            ? await this.repository.readSetting(APP_SETTING_KEYS.anthropicApiKey)
+            ? await this.repository.readSetting(DEFAULT_USER_ID, APP_SETTING_KEYS.anthropicApiKey)
             : null;
 
         let output;

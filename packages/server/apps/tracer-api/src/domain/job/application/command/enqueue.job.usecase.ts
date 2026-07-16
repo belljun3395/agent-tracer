@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
+    DEFAULT_USER_ID,
     JOB_KIND,
     JOB_STATUS,
     type AiAgentBackend,
@@ -44,7 +45,7 @@ export class EnqueueJobUseCase {
             : options.agentBackend ?? this.defaultBackend;
         const jobInput = withAgentBackend(input, agentBackend);
         if (kind !== JOB_KIND.ruleGeneration) {
-            const catalog = new SettingsCatalog(await this.settings.findAll());
+            const catalog = new SettingsCatalog(await this.settings.findAllByScope(DEFAULT_USER_ID));
             if (!catalog.llmKeyPresent(LLM_KEY_SETTING)) throw new LlmKeyMissingError();
         }
 
