@@ -5,12 +5,15 @@ import {
 } from "@monitor/kernel/rule/definition/rule.vocabulary.js";
 import {CITATION_MAX} from "~runtime/domain/rulegen/model/proposal.validation.model.js";
 
+/** 구조화 출력과 파서가 함께 참조하는 최상위 키다. */
+export const RULE_OUTPUT_ROOT_KEY = "rules" as const;
+
 /** 구조화 출력으로 받는 규칙 제안의 유일한 JSON 스키마다. */
 export function buildRuleOutputSchema(): Record<string, unknown> {
     return {
         type: "object",
         properties: {
-            rules: {
+            [RULE_OUTPUT_ROOT_KEY]: {
                 type: "array",
                 items: {
                     type: "object",
@@ -64,6 +67,6 @@ export function buildRuleOutputSchema(): Record<string, unknown> {
                 },
             },
         },
-        required: ["rules"],
+        required: [RULE_OUTPUT_ROOT_KEY],
     };
 }

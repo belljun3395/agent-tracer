@@ -1,5 +1,6 @@
 import type {AiJobStepPayload} from "@monitor/kernel/job/job.step.const.js";
 import {RULE_AGENT_RESULT_SUCCESS} from "~runtime/domain/rulegen/model/agent.message.model.js";
+import {RULE_OUTPUT_ROOT_KEY} from "~runtime/domain/rulegen/model/output.schema.model.js";
 import type {
     RuleGenerationOutcome,
     RuleGenerationUsage,
@@ -13,9 +14,9 @@ import {isRecord} from "~runtime/support/json.js";
 
 const NO_RESULT = "no result message";
 
-function toCandidates(structured: unknown): readonly unknown[] {
+export function toCandidates(structured: unknown): readonly unknown[] {
     if (!isRecord(structured)) return [];
-    const rules = structured["rules"];
+    const rules = structured[RULE_OUTPUT_ROOT_KEY];
     return Array.isArray(rules) ? rules : [];
 }
 
