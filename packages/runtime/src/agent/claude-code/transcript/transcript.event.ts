@@ -1,5 +1,11 @@
 import type {TranscriptEntry} from "~runtime/agent/claude-code/transcript/transcript.reader.js";
 import {extractUsageTokens} from "~runtime/agent/claude-code/transcript/transcript.usage.js";
+import {
+    TRANSCRIPT_BLOCK_TYPE,
+    TRANSCRIPT_ENTRY_TYPE,
+    TRANSCRIPT_MESSAGE_ROLE,
+    TRANSCRIPT_STOP_REASON,
+} from "~runtime/agent/claude-code/transcript/transcript.wire.js";
 import {KIND, type IngestTarget, type RuntimeIngestEvent} from "~runtime/domain/ingest/model/event.model.js";
 import type {RunEventInput} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import {assistantCommentaryEvent} from "~runtime/domain/ingest/model/message.event.model.js";
@@ -58,19 +64,19 @@ export function toTranscriptEvents(
 
     for (const entry of entries) {
         const uuid = entry.uuid;
-        if (entry.type !== "assistant" || typeof uuid !== "string" || !isRecord(entry.message)) continue;
-        if (entry.message["role"] !== "assistant") continue;
+        if (entry.type !== TRANSCRIPT_ENTRY_TYPE.assistant || typeof uuid !== "string" || !isRecord(entry.message)) continue;
+        if (entry.message["role"] !== TRANSCRIPT_MESSAGE_ROLE.assistant) continue;
 
         const parentUuid = typeof entry.parentUuid === "string" ? entry.parentUuid : undefined;
         const requestId = typeof entry.requestId === "string" ? entry.requestId : undefined;
         const content = entry.message["content"];
 
         if (Array.isArray(content)) {
-            const isCommentaryTurn = entry.message["stop_reason"] === "tool_use";
+            const isCommentaryTurn = entry.message["stop_reason"] === TRANSCRIPT_STOP_REASON.toolUse;
             content.forEach((block, contentIndex) => {
                 if (!isRecord(block)) return;
 
-                if (isCommentaryTurn && block["type"] === "text") {
+                if (isCommentaryTurn && block["type"] === TRANSCRIPT_BLOCK_TYPE.text) {
                     const text = toTrimmedString(block["text"]);
                     if (!text) return;
                     const eventId = transcriptCommentaryId(sourceSessionId, uuid, contentIndex);
@@ -87,7 +93,7 @@ export function toTranscriptEvents(
                     return;
                 }
 
-                if (block["type"] === "thinking") {
+                if (block["type"] === TRANSCRIPT_BLOCK_TYPE.thinking) {
                     const thinking = toTrimmedString(block["thinking"]);
                     if (!thinking) return;
                     const eventId = transcriptThoughtId(sourceSessionId, uuid, contentIndex);

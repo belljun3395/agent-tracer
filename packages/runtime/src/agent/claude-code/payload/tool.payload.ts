@@ -1,5 +1,4 @@
 import {
-    hasSessionId,
     readSessionContext,
     readToolContext,
     type ClaudeSessionContext,
@@ -10,6 +9,8 @@ import {
     readRecord,
     readString,
     readStringArray,
+    requireSessionId,
+    requireToolName,
     type ReaderResult,
 } from "~runtime/agent/claude-code/payload/field.payload.js";
 import type {JsonObject} from "~runtime/support/json.js";
@@ -37,12 +38,14 @@ export interface PermissionRequestPayload extends ClaudeToolContext {
 }
 
 export function readPreToolUse(raw: JsonObject): ReaderResult<PreToolUsePayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {ok: true, value: {payload: raw, ...readToolContext(raw)}};
 }
 
 export function readPostToolUse(raw: JsonObject): ReaderResult<PostToolUsePayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw) ?? requireToolName(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {payload: raw, ...readToolContext(raw), toolResponse: raw["tool_response"]},
@@ -50,7 +53,8 @@ export function readPostToolUse(raw: JsonObject): ReaderResult<PostToolUsePayloa
 }
 
 export function readPostToolUseFailure(raw: JsonObject): ReaderResult<PostToolUseFailurePayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw) ?? requireToolName(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -63,7 +67,8 @@ export function readPostToolUseFailure(raw: JsonObject): ReaderResult<PostToolUs
 }
 
 export function readPostToolBatch(raw: JsonObject): ReaderResult<PostToolBatchPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     const rawCalls = Array.isArray(raw["tool_calls"]) ? raw["tool_calls"] : [];
     const toolCalls = rawCalls.flatMap((entry) => {
         if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return [];
@@ -84,12 +89,14 @@ export function readPostToolBatch(raw: JsonObject): ReaderResult<PostToolBatchPa
 }
 
 export function readPermissionDenied(raw: JsonObject): ReaderResult<PermissionDeniedPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw) ?? requireToolName(raw);
+    if (missing) return missing;
     return {ok: true, value: {payload: raw, ...readToolContext(raw)}};
 }
 
 export function readPermissionRequest(raw: JsonObject): ReaderResult<PermissionRequestPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     const suggestions = Array.isArray(raw["permission_suggestions"]) ? raw["permission_suggestions"] : [];
     return {
         ok: true,

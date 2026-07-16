@@ -1,5 +1,4 @@
 import {
-    hasSessionId,
     readSessionContext,
     type ClaudeSessionContext,
 } from "~runtime/agent/claude-code/payload/context.payload.js";
@@ -7,6 +6,7 @@ import {
     readOptionalString,
     readString,
     readStringArray,
+    requireSessionId,
     type ReaderResult,
 } from "~runtime/agent/claude-code/payload/field.payload.js";
 import type {JsonObject} from "~runtime/support/json.js";
@@ -53,7 +53,8 @@ export interface SetupPayload extends ClaudeSessionContext {
 }
 
 export function readInstructionsLoaded(raw: JsonObject): ReaderResult<InstructionsLoadedPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     const filePath = readString(raw, "file_path");
     if (!filePath) return {ok: false, reason: "missing file_path"};
     return {
@@ -70,7 +71,8 @@ export function readInstructionsLoaded(raw: JsonObject): ReaderResult<Instructio
 }
 
 export function readCwdChanged(raw: JsonObject): ReaderResult<CwdChangedPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -83,7 +85,8 @@ export function readCwdChanged(raw: JsonObject): ReaderResult<CwdChangedPayload>
 }
 
 export function readNotification(raw: JsonObject): ReaderResult<NotificationPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -96,7 +99,8 @@ export function readNotification(raw: JsonObject): ReaderResult<NotificationPayl
 }
 
 export function readConfigChange(raw: JsonObject): ReaderResult<ConfigChangePayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -108,7 +112,8 @@ export function readConfigChange(raw: JsonObject): ReaderResult<ConfigChangePayl
 }
 
 export function readUserPromptExpansion(raw: JsonObject): ReaderResult<UserPromptExpansionPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     const commandName = readString(raw, "command_name");
     if (!commandName) return {ok: false, reason: "missing command_name"};
     return {
@@ -126,21 +131,24 @@ export function readUserPromptExpansion(raw: JsonObject): ReaderResult<UserPromp
 }
 
 export function readFileChanged(raw: JsonObject): ReaderResult<FileChangedPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     const filePath = readString(raw, "file_path");
     if (!filePath) return {ok: false, reason: "missing file_path"};
     return {ok: true, value: {payload: raw, ...readSessionContext(raw), filePath}};
 }
 
 export function readWorktree(raw: JsonObject): ReaderResult<WorktreePayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     const worktreePath = readString(raw, "worktree_path");
     if (!worktreePath) return {ok: false, reason: "missing worktree_path"};
     return {ok: true, value: {payload: raw, ...readSessionContext(raw), worktreePath}};
 }
 
 export function readSetup(raw: JsonObject): ReaderResult<SetupPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {payload: raw, ...readSessionContext(raw), trigger: readString(raw, "trigger") || "init"},

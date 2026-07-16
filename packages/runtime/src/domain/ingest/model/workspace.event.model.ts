@@ -21,6 +21,9 @@ import {truncate} from "~runtime/support/text.js";
 
 const INPUT_SUMMARY_MAX = 400;
 
+/** 서브에이전트 마지막 발화를 자르는 최대 문자 수다. */
+export const LAST_MESSAGE_MAX = 400;
+
 /** 지침 파일이 컨텍스트에 로드된 사실의 입력이다. */
 export interface InstructionsLoadedInput {
     readonly projectDir: string;

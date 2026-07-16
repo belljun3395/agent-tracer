@@ -15,7 +15,8 @@ import type {
 } from "~runtime/domain/ingest/model/session.metadata.model.js";
 import {ellipsize, truncate} from "~runtime/support/text.js";
 
-const TITLE_MAX = 120;
+/** 이벤트와 태스크 제목을 자르는 최대 문자 수다. */
+export const TITLE_MAX = 120;
 const EXPANSION_TITLE_MAX = 200;
 const EXPANSION_SNIPPET_MAX = 2_000;
 

@@ -4,12 +4,13 @@ import {claudeRuntime, ensureClaudeSession, runHook} from "~runtime/agent/claude
 import {captureTranscriptCommentary} from "~runtime/agent/claude-code/transcript/transcript.commentary.js";
 import {onBindingLookup} from "~runtime/domain/binding/inbound/binding.hook.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
-import {subagentFinishedEvent} from "~runtime/domain/ingest/model/workspace.event.model.js";
+import {
+    LAST_MESSAGE_MAX,
+    subagentFinishedEvent,
+} from "~runtime/domain/ingest/model/workspace.event.model.js";
 import {onSessionEnd} from "~runtime/domain/session/inbound/session.hook.js";
 import {subagentSessionId} from "~runtime/domain/session/model/session.event.model.js";
 import {toTrimmedString} from "~runtime/support/text.js";
-
-const LAST_MESSAGE_MAX = 400;
 
 await runHook("SubagentStop", {
     parse: readSubagentStop,

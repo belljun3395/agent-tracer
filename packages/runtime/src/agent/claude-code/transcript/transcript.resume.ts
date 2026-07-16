@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as readline from "node:readline";
-import {isRecord} from "~runtime/support/json.js";
+import {parseJsonLine} from "~runtime/agent/claude-code/transcript/transcript.reader.js";
 
 /** 훅 한 번이 재개 판정을 위해 앞에서부터 읽는 최대 줄 수다. */
 export const RESUME_SCAN_MAX_LINES = 20_000;
@@ -40,15 +40,8 @@ export function findResumedSessionId(
                 return;
             }
 
-            const trimmed = line.trim();
-            if (!trimmed) return;
-            let parsed: unknown;
-            try {
-                parsed = JSON.parse(trimmed);
-            } catch {
-                return;
-            }
-            if (!isRecord(parsed)) return;
+            const parsed = parseJsonLine(line);
+            if (!parsed) return;
 
             const sessionId = parsed["session_id"];
             if (typeof sessionId === "string" && sessionId && sessionId !== currentSessionId) {

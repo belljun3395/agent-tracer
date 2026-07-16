@@ -24,10 +24,6 @@ export interface ClaudeToolContext extends ClaudeSessionContext {
     readonly toolUseId: string | undefined;
 }
 
-export function hasSessionId(raw: JsonObject): boolean {
-    return Boolean(readString(raw, "session_id"));
-}
-
 export function readSessionContext(raw: JsonObject): Omit<ClaudeSessionContext, "payload"> {
     return {
         sessionId: readString(raw, "session_id"),

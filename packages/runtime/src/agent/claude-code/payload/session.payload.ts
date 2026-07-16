@@ -1,14 +1,21 @@
 import {
-    hasSessionId,
     readSessionContext,
     type ClaudeSessionContext,
 } from "~runtime/agent/claude-code/payload/context.payload.js";
 import {
     readOptionalString,
     readString,
+    requireSessionId,
     type ReaderResult,
 } from "~runtime/agent/claude-code/payload/field.payload.js";
 import type {JsonObject} from "~runtime/support/json.js";
+
+/** Claude Code가 SessionEnd로 싣는 알려진 종료 사유 값이며 그 외 값은 런타임 종료로 본다. */
+export const SESSION_END_REASON = {
+    clear: "clear",
+    promptInputExit: "prompt_input_exit",
+} as const;
+export type SessionEndReason = (typeof SESSION_END_REASON)[keyof typeof SESSION_END_REASON];
 
 export interface SessionStartPayload extends ClaudeSessionContext {
     readonly source: string;
@@ -24,7 +31,8 @@ export interface UserPromptSubmitPayload extends ClaudeSessionContext {
 }
 
 export function readSessionStart(raw: JsonObject): ReaderResult<SessionStartPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -37,7 +45,8 @@ export function readSessionStart(raw: JsonObject): ReaderResult<SessionStartPayl
 }
 
 export function readSessionEnd(raw: JsonObject): ReaderResult<SessionEndPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {payload: raw, ...readSessionContext(raw), reason: readOptionalString(raw, "reason")},
@@ -45,7 +54,8 @@ export function readSessionEnd(raw: JsonObject): ReaderResult<SessionEndPayload>
 }
 
 export function readUserPromptSubmit(raw: JsonObject): ReaderResult<UserPromptSubmitPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {payload: raw, ...readSessionContext(raw), prompt: readString(raw, "prompt")},

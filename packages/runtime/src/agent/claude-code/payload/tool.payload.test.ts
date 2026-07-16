@@ -1,7 +1,9 @@
 import {describe, expect, it} from "vitest";
 import {
+    readPermissionDenied,
     readPermissionRequest,
     readPostToolBatch,
+    readPostToolUse,
     readPostToolUseFailure,
 } from "~runtime/agent/claude-code/payload/tool.payload.js";
 
@@ -39,6 +41,27 @@ describe("도구 페이로드 리더", () => {
                 toolUseIds: ["tool-1", "7"],
                 toolCalls: [{toolName: "Read", toolInput: {file_path: "/tmp/a"}}],
             }),
+        });
+    });
+
+    it("도구 이름이 없는 성공 훅은 건너뛴다", () => {
+        expect(readPostToolUse({session_id: "session-1", tool_input: {}})).toEqual({
+            ok: false,
+            reason: "missing tool_name",
+        });
+    });
+
+    it("도구 이름이 없는 실패 훅은 건너뛴다", () => {
+        expect(readPostToolUseFailure({session_id: "session-1"})).toEqual({
+            ok: false,
+            reason: "missing tool_name",
+        });
+    });
+
+    it("도구 이름이 없는 권한 거부 훅은 건너뛴다", () => {
+        expect(readPermissionDenied({session_id: "session-1"})).toEqual({
+            ok: false,
+            reason: "missing tool_name",
         });
     });
 

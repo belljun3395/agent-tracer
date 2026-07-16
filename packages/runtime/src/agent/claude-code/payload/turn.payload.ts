@@ -1,5 +1,4 @@
 import {
-    hasSessionId,
     readSessionContext,
     type ClaudeSessionContext,
 } from "~runtime/agent/claude-code/payload/context.payload.js";
@@ -7,6 +6,7 @@ import {
     readBoolean,
     readOptionalString,
     readString,
+    requireSessionId,
     type ReaderResult,
 } from "~runtime/agent/claude-code/payload/field.payload.js";
 import type {JsonObject} from "~runtime/support/json.js";
@@ -27,7 +27,8 @@ export interface CompactPayload extends ClaudeSessionContext {
 }
 
 export function readStop(raw: JsonObject): ReaderResult<StopPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -41,7 +42,8 @@ export function readStop(raw: JsonObject): ReaderResult<StopPayload> {
 }
 
 export function readStopFailure(raw: JsonObject): ReaderResult<StopFailurePayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {
@@ -54,7 +56,8 @@ export function readStopFailure(raw: JsonObject): ReaderResult<StopFailurePayloa
 }
 
 export function readPreCompact(raw: JsonObject): ReaderResult<CompactPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {payload: raw, ...readSessionContext(raw), trigger: readString(raw, "trigger") || "manual"},
@@ -62,7 +65,8 @@ export function readPreCompact(raw: JsonObject): ReaderResult<CompactPayload> {
 }
 
 export function readPostCompact(raw: JsonObject): ReaderResult<CompactPayload> {
-    if (!hasSessionId(raw)) return {ok: false, reason: "missing session_id"};
+    const missing = requireSessionId(raw);
+    if (missing) return missing;
     return {
         ok: true,
         value: {payload: raw, ...readSessionContext(raw), trigger: readString(raw, "trigger") || "manual"},

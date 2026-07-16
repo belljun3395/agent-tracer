@@ -12,6 +12,9 @@ import type {
     SetupMetadata,
 } from "~runtime/domain/ingest/model/session.metadata.model.js";
 
+/** 압축 요약 본문을 자르는 최대 문자 수다. */
+export const COMPACT_SUMMARY_MAX = 1_000;
+
 const SESSION_TRIGGER_TITLES: Record<string, string> = {
     startup: "Session started",
     resume: "Session resumed",

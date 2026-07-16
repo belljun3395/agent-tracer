@@ -20,13 +20,16 @@ import {toBoolean, toTrimmedString, truncate} from "~runtime/support/text.js";
 /** 수집 자신을 다시 부르는 것을 막으려고 기록에서 제외하는 MCP 서버다. */
 export const SELF_MCP_SERVER = "agent-tracer";
 
+/** Agent 위임 프롬프트에서 자식 태스크 제목을 만들 때 자르는 최대 문자 수다. */
+export const CHILD_TITLE_MAX = 400;
+
 export const CRON_TOOLS = ["CronCreate", "CronDelete", "CronList"] as const;
 export const MODE_CHANGE_TOOLS = ["EnterPlanMode", "EnterWorktree", "ExitWorktree"] as const;
 
 /** Agent 도구 위임을 coordination 이벤트로 만든다. */
 export function shapeAgentTool(call: ToolCall): ShapedToolEvent {
     const description = toTrimmedString(call.toolInput["description"]);
-    const prompt = toTrimmedString(call.toolInput["prompt"], 400);
+    const prompt = toTrimmedString(call.toolInput["prompt"], CHILD_TITLE_MAX);
     const agentName = toTrimmedString(call.toolInput["subagent_type"]);
     const agentModel = toTrimmedString(call.toolInput["model"]);
     const runInBackground = toBoolean(call.toolInput["run_in_background"]);

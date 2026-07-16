@@ -7,21 +7,19 @@ import {
     runHook,
 } from "~runtime/agent/claude-code/runtime.js";
 import {onTodoTool, onToolUse} from "~runtime/domain/ingest/inbound/tool.hook.js";
-import {readChildSessionId} from "~runtime/domain/ingest/model/coordination.tool.model.js";
+import {CHILD_TITLE_MAX, readChildSessionId} from "~runtime/domain/ingest/model/coordination.tool.model.js";
+import {AGENT_TOOL_NAME} from "~runtime/domain/ingest/model/event.model.js";
 import {TODO_TOOLS} from "~runtime/domain/ingest/model/todo.tool.model.js";
 import type {ToolCall} from "~runtime/domain/ingest/model/tool.call.model.js";
 import {defaultTaskTitle} from "~runtime/domain/ingest/model/workspace.path.model.js";
 import {subagentSessionId} from "~runtime/domain/session/model/session.event.model.js";
 import {toBoolean, toTrimmedString} from "~runtime/support/text.js";
 
-const AGENT_TOOL_NAME = "Agent";
 const TODO_TOOL_NAMES: ReadonlySet<string> = new Set(TODO_TOOLS);
-const CHILD_TITLE_MAX = 400;
 
 await runHook("PostToolUse", {
     parse: readPostToolUse,
     handler: async (payload) => {
-        if (!payload.toolName) return;
         const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         const call: ToolCall = {
             toolName: payload.toolName,

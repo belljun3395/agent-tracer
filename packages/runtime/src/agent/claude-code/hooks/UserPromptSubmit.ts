@@ -9,7 +9,7 @@ import {
 } from "~runtime/daemon/ipc/hook.client.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
-import {userMessageEvent} from "~runtime/domain/ingest/model/message.event.model.js";
+import {TITLE_MAX, userMessageEvent} from "~runtime/domain/ingest/model/message.event.model.js";
 import {recipeInjectedEvent} from "~runtime/domain/ingest/model/recipe.injection.event.model.js";
 import {isSystemNotificationPrompt} from "~runtime/domain/ingest/model/system.notification.model.js";
 import {onPromptRecipes, onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
@@ -18,7 +18,6 @@ import {ellipsize} from "~runtime/support/text.js";
 import {createMessageId, deterministicUlid, generateUlid} from "~runtime/support/ulid.js";
 
 const EXIT_PROMPTS: ReadonlySet<string> = new Set(["/exit", "exit"]);
-const TASK_TITLE_MAX = 120;
 const INJECTED_VIA_AUTO = "auto";
 
 await runHook("UserPromptSubmit", {
@@ -35,7 +34,7 @@ await runHook("UserPromptSubmit", {
         const systemNotification = isSystemNotificationPrompt(payload.prompt);
         const target = await ensureClaudeSession(
             payload.sessionId,
-            systemNotification ? undefined : ellipsize(payload.prompt, TASK_TITLE_MAX),
+            systemNotification ? undefined : ellipsize(payload.prompt, TITLE_MAX),
             {transcriptPath: payload.transcriptPath},
         );
         const messageId = createMessageId();

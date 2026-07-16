@@ -1,4 +1,8 @@
 import * as fs from "node:fs";
+import {
+    TRANSCRIPT_ENTRY_TYPE,
+    TRANSCRIPT_MESSAGE_ROLE,
+} from "~runtime/agent/claude-code/transcript/transcript.wire.js";
 import {isRecord} from "~runtime/support/json.js";
 
 const NEWLINE = 0x0a;
@@ -27,8 +31,8 @@ export function entriesAfterLatestUserPrompt(
 ): readonly TranscriptEntry[] {
     for (let index = entries.length - 1; index >= 0; index -= 1) {
         const entry = entries[index];
-        if (entry?.type !== "user" || entry.isMeta === true || !isRecord(entry.message)) continue;
-        if (entry.message["role"] !== "user" || typeof entry.message["content"] !== "string") continue;
+        if (entry?.type !== TRANSCRIPT_ENTRY_TYPE.user || entry.isMeta === true || !isRecord(entry.message)) continue;
+        if (entry.message["role"] !== TRANSCRIPT_MESSAGE_ROLE.user || typeof entry.message["content"] !== "string") continue;
         return entries.slice(index + 1);
     }
     return entries;
@@ -80,7 +84,8 @@ export function readTranscriptEntries(
     }
 }
 
-function parseJsonLine(line: string): TranscriptEntry | null {
+/** JSONL 한 줄을 안전하게 파싱하며 빈 줄과 깨진 줄은 null로 버린다. */
+export function parseJsonLine(line: string): Record<string, unknown> | null {
     const trimmed = line.trim();
     if (!trimmed) return null;
     try {

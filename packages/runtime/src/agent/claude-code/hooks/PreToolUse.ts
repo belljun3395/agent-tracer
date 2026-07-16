@@ -6,6 +6,7 @@ import {captureTranscriptCommentary} from "~runtime/agent/claude-code/transcript
 import {queryDaemonHints} from "~runtime/daemon/ipc/hook.client.js";
 import {onLifecycleEvent, onToolStart} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {
+    ASK_USER_QUESTION_TOOL_NAME,
     POWERSHELL_TOOL_NAME,
     TERMINAL_COMMAND_TOOL_NAME,
 } from "~runtime/domain/ingest/model/event.model.js";
@@ -28,7 +29,7 @@ await runHook("PreToolUse", {
         const command = SHELL_TOOLS.has(toolName)
             ? toTrimmedString(payload.toolInput["command"]) || undefined
             : undefined;
-        const questions = toolName === "AskUserQuestion" ? readQuestions(payload.toolInput) : [];
+        const questions = toolName === ASK_USER_QUESTION_TOOL_NAME ? readQuestions(payload.toolInput) : [];
         if (command === undefined && questions.length === 0) return;
 
         const hints = await queryDaemonHints(target.taskId, {

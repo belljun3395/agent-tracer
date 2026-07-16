@@ -7,7 +7,6 @@ import type {ToolFailure} from "~runtime/domain/ingest/model/tool.call.model.js"
 await runHook("PostToolUseFailure", {
     parse: readPostToolUseFailure,
     handler: async (payload) => {
-        if (!payload.toolName) return;
         const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         const failure: ToolFailure = {
             toolName: payload.toolName,
