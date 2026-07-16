@@ -70,7 +70,7 @@ export function buildAgentEnv(
     return {...base, ...overrides};
 }
 
-function toUsage(value: unknown): RuleGenerationUsage | null {
+export function toUsage(value: unknown): RuleGenerationUsage | null {
     if (!isRecord(value)) return null;
     const read = (key: string): number => (typeof value[key] === "number" ? value[key] : 0);
     return {
@@ -81,11 +81,11 @@ function toUsage(value: unknown): RuleGenerationUsage | null {
     };
 }
 
-function toToolArgs(input: unknown): Record<string, unknown> {
+export function toToolArgs(input: unknown): Record<string, unknown> {
     return isRecord(input) ? input : {};
 }
 
-function toolResultText(content: unknown): string {
+export function toolResultText(content: unknown): string {
     if (typeof content === "string") return content;
     if (!Array.isArray(content)) return "";
     let text = "";
@@ -97,7 +97,7 @@ function toolResultText(content: unknown): string {
     return text;
 }
 
-function* normalize(message: SDKMessage): Generator<RuleAgentMessage> {
+export function* normalize(message: SDKMessage): Generator<RuleAgentMessage> {
     if (message.type === "assistant") {
         let text = "";
         const toolCalls: AiJobStepToolCall[] = [];
