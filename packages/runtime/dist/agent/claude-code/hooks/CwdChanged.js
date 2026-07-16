@@ -86,7 +86,7 @@ function readCwdChanged(raw) {
 }
 
 // src/agent/claude-code/runtime.ts
-import * as path10 from "node:path";
+import * as path11 from "node:path";
 
 // src/config/monitor.identity.ts
 import * as fs2 from "node:fs";
@@ -727,9 +727,51 @@ var FileTodoSnapshotAdapter = class {
   }
 };
 
+// src/domain/ingest/adapter/file.tool.timing.adapter.ts
+import * as path6 from "node:path";
+var PRUNE_AGE_MS = 6 * 60 * 60 * 1e3;
+function isToolTimingFile(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const starts = value["starts"];
+  if (typeof starts !== "object" || starts === null || Array.isArray(starts)) return false;
+  return Object.values(starts).every((entry) => typeof entry === "number");
+}
+var FileToolTimingAdapter = class {
+  constructor(projectDir2 = resolveProjectDir()) {
+    this.projectDir = projectDir2;
+  }
+  projectDir;
+  markStart(sessionId, toolUseId, startedAtMs) {
+    const starts = { ...this.load(sessionId), [toolUseId]: startedAtMs };
+    this.save(sessionId, prune(starts, startedAtMs));
+  }
+  takeStart(sessionId, toolUseId) {
+    const starts = this.load(sessionId);
+    const startedAtMs = starts[toolUseId];
+    if (startedAtMs === void 0) return void 0;
+    const { [toolUseId]: _removed, ...rest } = starts;
+    this.save(sessionId, rest);
+    return startedAtMs;
+  }
+  load(sessionId) {
+    return readJsonFile(this.pathOf(sessionId), isToolTimingFile)?.starts ?? {};
+  }
+  save(sessionId, starts) {
+    writeJsonFile(this.pathOf(sessionId), { starts });
+  }
+  pathOf(sessionId) {
+    return path6.join(this.projectDir, ".claude", ".tool-timing", `${sessionId}.json`);
+  }
+};
+function prune(starts, nowMs) {
+  return Object.fromEntries(
+    Object.entries(starts).filter(([, startedAtMs]) => nowMs - startedAtMs < PRUNE_AGE_MS)
+  );
+}
+
 // src/config/spool.ts
 import * as fs9 from "node:fs";
-import * as path6 from "node:path";
+import * as path7 from "node:path";
 
 // src/support/ulid.ts
 import { createHash, randomBytes, randomUUID as randomUUID2 } from "node:crypto";
@@ -774,8 +816,8 @@ function appendSpoolLines(lines, paths = resolveAgentTracerPaths(), segmentId = 
   ensureSpoolDir(paths);
   const payload = lines.map((line) => `${line}
 `).join("");
-  const tmpPath = path6.join(paths.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
-  const finalPath = path6.join(paths.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
+  const tmpPath = path7.join(paths.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
+  const finalPath = path7.join(paths.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
   const fd = fs9.openSync(tmpPath, "w");
   try {
     fs9.writeSync(fd, payload);
@@ -882,6 +924,7 @@ var ATTRIBUTE_PROMOTION = {
   command: AGENT_TRACER_ATTR.command,
   costUsd: AGENT_TRACER_ATTR.costUsd,
   durationMs: AGENT_TRACER_ATTR.durationMs,
+  errorType: SEMCONV_ATTR.errorType,
   evidenceLevel: AGENT_TRACER_ATTR.evidenceLevel,
   evidenceReason: AGENT_TRACER_ATTR.evidenceReason,
   filePaths: AGENT_TRACER_ATTR.filePaths,
@@ -923,7 +966,7 @@ function toIngestEvent(event, occurredAt, nextId) {
 }
 function toRunIngestEvent(input, occurredAt, nextId) {
   return {
-    id: nextId(),
+    id: input.id ?? nextId(),
     kind: input.kind,
     taskId: input.taskId,
     ...input.sessionId ? { sessionId: input.sessionId } : {},
@@ -1036,6 +1079,19 @@ var AppendEventsUsecase = class {
 function isRuntimeEvent(event) {
   return "lane" in event;
 }
+
+// src/domain/ingest/application/mark.tool.start.usecase.ts
+var MarkToolStartUsecase = class {
+  constructor(timing, clock2) {
+    this.timing = timing;
+    this.clock = clock2;
+  }
+  timing;
+  clock;
+  execute(sessionId, toolUseId) {
+    this.timing.markStart(sessionId, toolUseId, this.clock.now());
+  }
+};
 
 // ../kernel/src/ingest/event.kind.const.ts
 var KIND = {
@@ -1343,6 +1399,10 @@ var STREAM_TRANSFORM_COMMANDS = /* @__PURE__ */ new Set(["head", "tail", "wc", "
 var DESTRUCTIVE_COMMANDS = /* @__PURE__ */ new Set(["rm", "rmdir"]);
 var WRITE_COMMANDS = /* @__PURE__ */ new Set(["mv", "cp", "chmod", "chown", "mkdir", "touch"]);
 var NETWORK_COMMANDS = /* @__PURE__ */ new Set(["curl", "wget"]);
+var DANGEROUS_ARG_PATTERNS = [/\bdrop\s+(table|database)\b/i];
+function hasDangerousArgs(raw) {
+  return DANGEROUS_ARG_PATTERNS.some((pattern) => pattern.test(raw));
+}
 function buildBaseStep(part, commandName, redirects) {
   return {
     raw: part.raw,
@@ -1367,68 +1427,22 @@ function analyzeSed(base, args) {
   const targets = pathTargets(
     args.filter((arg) => !arg.startsWith("-") && extractSedLineRange(arg) === void 0)
   );
+  const inPlace = args.some((arg) => arg === "--in-place" || arg.startsWith("--in-place=") || /^-i/.test(arg));
+  if (inPlace) {
+    return withStep(base, {
+      operation: "edit_in_place",
+      effect: "write",
+      targets,
+      confidence: targets.length > 0 ? "high" : "medium",
+      ...lineRange ? { selectors: { lineRange } } : {}
+    });
+  }
   return withStep(base, {
     operation: lineRange ? "read_range" : "read_file",
     effect: "read_only",
     targets,
     confidence: targets.length > 0 ? "high" : "medium",
     ...lineRange ? { selectors: { lineRange } } : {}
-  });
-}
-function analyzeGit(base, args) {
-  const subcommand = args[0];
-  if (!subcommand) return withStep(base, { operation: "unknown", effect: "unknown", confidence: "medium" });
-  if (["status", "log", "show"].includes(subcommand)) {
-    return withStep(base, {
-      subcommand,
-      operation: subcommand === "status" ? "inspect_status" : "inspect_history",
-      effect: "read_only",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  if (subcommand === "diff") {
-    return withStep(base, {
-      subcommand,
-      operation: "inspect_diff",
-      effect: "read_only",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  if (["add", "commit", "restore", "checkout", "switch", "merge", "rebase", "reset"].includes(subcommand)) {
-    return withStep(base, {
-      subcommand,
-      operation: "vcs_write",
-      effect: subcommand === "reset" ? "destructive" : "write",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  if (["push", "pull", "fetch", "clone"].includes(subcommand)) {
-    return withStep(base, {
-      subcommand,
-      operation: subcommand === "push" ? "publish" : "fetch_repo",
-      effect: subcommand === "push" ? "network" : "read_only",
-      targets: [],
-      confidence: "high"
-    });
-  }
-  return withStep(base, { subcommand, operation: "git_command", effect: "unknown", confidence: "medium" });
-}
-function analyzePackageManager(base, args) {
-  const workspace = extractWorkspace(args);
-  const scriptName = extractScriptName(base.commandName, args);
-  const operation = scriptOperation(scriptName, args);
-  const effect = packageManagerEffect(operation, args);
-  const targets = workspace ? [{ type: "workspace", value: workspace }] : [];
-  return withStep(base, {
-    operation,
-    effect,
-    targets,
-    confidence: operation === "run_command" ? "medium" : "high",
-    ...workspace ? { workspace } : {},
-    ...scriptName ? { scriptName } : {}
   });
 }
 function analyzeSearch(base, args) {
@@ -1448,12 +1462,24 @@ function analyzeFind(base, args) {
     if (arg.startsWith("-") || isFindExpressionValue(arg)) break;
     targets.push({ type: targetTypeForPath(arg), value: arg });
   }
-  return withStep(base, {
-    operation: "search",
-    effect: "read_only",
-    targets: targets.length > 0 ? targets : [{ type: "directory", value: "." }],
-    confidence: "high"
-  });
+  const resolvedTargets = targets.length > 0 ? targets : [{ type: "directory", value: "." }];
+  const action = findAction(args);
+  if (action) {
+    return withStep(base, { operation: action.operation, effect: action.effect, targets: resolvedTargets, confidence: "high" });
+  }
+  return withStep(base, { operation: "search", effect: "read_only", targets: resolvedTargets, confidence: "high" });
+}
+var FIND_EXEC_ACTIONS = /* @__PURE__ */ new Set(["-exec", "-execdir", "-ok", "-okdir"]);
+var FIND_DESTRUCTIVE_EXEC = /* @__PURE__ */ new Set(["rm", "rmdir", "unlink"]);
+function findAction(args) {
+  if (args.includes("-delete")) return { operation: "delete_file", effect: "destructive" };
+  const execIndex = args.findIndex((arg) => FIND_EXEC_ACTIONS.has(arg));
+  if (execIndex < 0) return null;
+  const execCommand = args[execIndex + 1];
+  if (execCommand !== void 0 && FIND_DESTRUCTIVE_EXEC.has(execCommand)) {
+    return { operation: "delete_file", effect: "destructive" };
+  }
+  return { operation: "execute", effect: "write" };
 }
 function analyzeRipgrep(base, args) {
   const filesMode = args.includes("--files");
@@ -1508,6 +1534,96 @@ function extractSedLineRange(arg) {
   if (!match) return void 0;
   return match[2] ? `${match[1]},${match[2]}` : match[1];
 }
+function stripOptionArguments(args, optionsWithValue) {
+  const result = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index] ?? "";
+    if (optionsWithValue.has(arg)) {
+      index += 1;
+      continue;
+    }
+    if ([...optionsWithValue].some((option) => arg.startsWith(`${option}=`))) continue;
+    result.push(arg);
+  }
+  return result;
+}
+function isFindExpressionValue(arg) {
+  return arg === "!" || arg === "(" || arg === ")" || arg === "{}" || arg === ";";
+}
+
+// src/domain/ingest/model/command.git.model.ts
+function analyzeGit(base, args) {
+  const subcommand = args[0];
+  if (!subcommand) return withStep(base, { operation: "unknown", effect: "unknown", confidence: "medium" });
+  if (["status", "log", "show"].includes(subcommand)) {
+    return withStep(base, {
+      subcommand,
+      operation: subcommand === "status" ? "inspect_status" : "inspect_history",
+      effect: "read_only",
+      targets: gitPathspecTargets(args.slice(1)),
+      confidence: "high"
+    });
+  }
+  if (subcommand === "diff") {
+    return withStep(base, {
+      subcommand,
+      operation: "inspect_diff",
+      effect: "read_only",
+      targets: gitPathspecTargets(args.slice(1)),
+      confidence: "high"
+    });
+  }
+  if (["add", "commit", "restore", "checkout", "switch", "merge", "rebase", "reset"].includes(subcommand)) {
+    return withStep(base, {
+      subcommand,
+      operation: "vcs_write",
+      effect: subcommand === "reset" ? "destructive" : "write",
+      targets: gitPathspecTargets(args.slice(1)),
+      confidence: "high"
+    });
+  }
+  if (["push", "pull", "fetch", "clone"].includes(subcommand)) {
+    const forcePush = subcommand === "push" && hasForceFlag(args.slice(1));
+    return withStep(base, {
+      subcommand,
+      operation: subcommand === "push" ? forcePush ? "force_publish" : "publish" : "fetch_repo",
+      effect: subcommand === "push" ? forcePush ? "destructive" : "network" : "read_only",
+      targets: [],
+      confidence: "high"
+    });
+  }
+  if (subcommand === "clean") {
+    const forced = hasForceFlag(args.slice(1));
+    return withStep(base, {
+      subcommand,
+      operation: forced ? "clean_worktree" : "inspect_clean",
+      effect: forced ? "destructive" : "read_only",
+      targets: gitPathspecTargets(args.slice(1)),
+      confidence: "high"
+    });
+  }
+  return withStep(base, { subcommand, operation: "git_command", effect: "unknown", confidence: "medium" });
+}
+function hasForceFlag(args) {
+  return args.some((arg) => arg === "--force" || arg === "--force-with-lease" || arg === "--force-if-includes" || /^-[a-z]*f/.test(arg));
+}
+
+// src/domain/ingest/model/command.package.model.ts
+function analyzePackageManager(base, args) {
+  const workspace = extractWorkspace(args);
+  const scriptName = extractScriptName(base.commandName, args);
+  const operation = scriptOperation(scriptName, args);
+  const effect = packageManagerEffect(operation, args);
+  const targets = workspace ? [{ type: "workspace", value: workspace }] : [];
+  return withStep(base, {
+    operation,
+    effect,
+    targets,
+    confidence: operation === "run_command" ? "medium" : "high",
+    ...workspace ? { workspace } : {},
+    ...scriptName ? { scriptName } : {}
+  });
+}
 function extractWorkspace(args) {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index] ?? "";
@@ -1553,21 +1669,99 @@ function stripPackageManagerOptions(args) {
   }
   return result;
 }
-function stripOptionArguments(args, optionsWithValue) {
-  const result = [];
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (optionsWithValue.has(arg)) {
-      index += 1;
-      continue;
-    }
-    if ([...optionsWithValue].some((option) => arg.startsWith(`${option}=`))) continue;
-    result.push(arg);
+
+// src/domain/ingest/model/command.runner.model.ts
+var COMMAND_WRAPPERS = [
+  { name: "npx" },
+  { name: "bunx" },
+  { name: "uv", subcommand: "run" },
+  { name: "uvx" },
+  { name: "poetry", subcommand: "run" },
+  { name: "pipenv", subcommand: "run" },
+  { name: "pnpm", subcommand: "dlx" },
+  { name: "yarn", subcommand: "dlx" },
+  { name: "bun", subcommand: "run" },
+  { name: "deno", subcommand: "run" },
+  { name: "python", subcommand: "-m" },
+  { name: "python3", subcommand: "-m" }
+];
+var WRAPPER_VALUE_FLAGS = /* @__PURE__ */ new Set(["-p", "--package", "-c", "--call"]);
+var RUNNER_SPECS = [
+  { command: "vitest", operation: "run_test", effect: "execute_check" },
+  { command: "jest", operation: "run_test", effect: "execute_check" },
+  { command: "mocha", operation: "run_test", effect: "execute_check" },
+  { command: "ava", operation: "run_test", effect: "execute_check" },
+  { command: "pytest", operation: "run_test", effect: "execute_check" },
+  { command: "phpunit", operation: "run_test", effect: "execute_check" },
+  { command: "rspec", operation: "run_test", effect: "execute_check" },
+  { command: "tsc", operation: "run_build", effect: "execute_check" },
+  { command: "eslint", operation: "run_lint", effect: "execute_check" },
+  { command: "prettier", operation: "run_lint", effect: "execute_check" },
+  { command: "biome", operation: "run_lint", effect: "execute_check" },
+  { command: "ruff", operation: "run_lint", effect: "execute_check" },
+  { command: "black", operation: "run_lint", effect: "execute_check" },
+  { command: "flake8", operation: "run_lint", effect: "execute_check" },
+  { command: "mypy", operation: "run_build", effect: "execute_check" },
+  { command: "go", subcommand: "test", operation: "run_test", effect: "execute_check" },
+  { command: "go", subcommand: "build", operation: "run_build", effect: "execute_check" },
+  { command: "go", subcommand: "vet", operation: "run_lint", effect: "execute_check" },
+  { command: "cargo", subcommand: "test", operation: "run_test", effect: "execute_check" },
+  { command: "cargo", subcommand: "build", operation: "run_build", effect: "execute_check" },
+  { command: "cargo", subcommand: "check", operation: "run_build", effect: "execute_check" },
+  { command: "cargo", subcommand: "clippy", operation: "run_lint", effect: "execute_check" },
+  { command: "gradle", subcommand: "test", operation: "run_test", effect: "execute_check" },
+  { command: "gradle", subcommand: "build", operation: "run_build", effect: "execute_check" },
+  { command: "mvn", subcommand: "test", operation: "run_test", effect: "execute_check" },
+  { command: "mvn", subcommand: "package", operation: "run_build", effect: "execute_check" },
+  { command: "mvn", subcommand: "install", operation: "run_build", effect: "execute_check" },
+  { command: "make", subcommand: "test", operation: "run_test", effect: "execute_check" },
+  { command: "make", subcommand: "build", operation: "run_build", effect: "execute_check" },
+  { command: "make", subcommand: "lint", operation: "run_lint", effect: "execute_check" },
+  { command: "make", subcommand: "check", operation: "run_test", effect: "execute_check" }
+];
+function unwrapCommand(tokens) {
+  let current = tokens;
+  for (; ; ) {
+    const stripped = stripWrapperOnce(current);
+    if (stripped === null) return current;
+    current = stripped;
   }
-  return result;
 }
-function isFindExpressionValue(arg) {
-  return arg === "!" || arg === "(" || arg === ")" || arg === "{}" || arg === ";";
+function stripWrapperOnce(tokens) {
+  const head = tokens[0];
+  if (head === void 0) return null;
+  const wrapper = COMMAND_WRAPPERS.find((entry) => entry.name === head);
+  if (!wrapper) return null;
+  if (wrapper.subcommand !== void 0 && tokens[1] !== wrapper.subcommand) return null;
+  const rest = tokens.slice(wrapper.subcommand !== void 0 ? 2 : 1);
+  const inner = skipLeadingFlags(rest);
+  return inner.length > 0 ? inner : null;
+}
+function skipLeadingFlags(tokens) {
+  let index = 0;
+  while (index < tokens.length) {
+    const token = tokens[index] ?? "";
+    if (!token.startsWith("-")) break;
+    index += WRAPPER_VALUE_FLAGS.has(token) ? 2 : 1;
+  }
+  return tokens.slice(index);
+}
+function runnerStepFrom(base, commandName, args) {
+  const spec = matchRunner(commandName, args[0]);
+  if (!spec) return null;
+  return withStep(base, {
+    operation: spec.operation,
+    effect: spec.effect,
+    confidence: "high",
+    ...spec.subcommand ? { subcommand: spec.subcommand } : {}
+  });
+}
+function matchRunner(commandName, firstArg) {
+  const withSubcommand = RUNNER_SPECS.find(
+    (spec) => spec.command === commandName && spec.subcommand === firstArg
+  );
+  if (withSubcommand) return withSubcommand;
+  return RUNNER_SPECS.find((spec) => spec.command === commandName && spec.subcommand === void 0);
 }
 
 // src/domain/ingest/model/command.parser.model.ts
@@ -1759,7 +1953,7 @@ function inferCommandSemantic(command, rulePatterns = []) {
       analysis
     };
   }
-  if (analysis.overallEffect === "read_only" || isExplorationProbe(normalized)) {
+  if (analysis.overallEffect === "read_only") {
     return {
       lane: "exploration",
       metadata: terminalSemantic(
@@ -1809,16 +2003,19 @@ function analyzeSequencePart(part) {
 }
 function analyzeSimpleCommand(part) {
   const { tokens: commandTokens, redirects } = extractRedirects(tokenizeShell(part.raw));
-  const usefulTokens = commandTokens.filter((token) => !isEnvAssignment(token));
+  const usefulTokens = unwrapCommand(commandTokens.filter((token) => !isEnvAssignment(token)));
   const commandName = usefulTokens[0] ?? "shell";
   const args = usefulTokens.slice(1);
   const base = buildBaseStep(part, commandName, redirects);
+  const step = dispatchSimpleCommand(base, commandName, args, redirects, part.raw);
+  return hasDangerousArgs(part.raw) ? withStep(step, { effect: "destructive" }) : step;
+}
+function dispatchSimpleCommand(base, commandName, args, redirects, raw) {
   if (commandName === "sed") return analyzeSed(base, args);
   if (commandName === "git") return analyzeGit(base, args);
   if (["npm", "pnpm", "yarn"].includes(commandName)) return analyzePackageManager(base, args);
-  if (commandName === "vitest") return withStep(base, { operation: "run_test", effect: "execute_check", confidence: "high" });
-  if (commandName === "tsc") return withStep(base, { operation: "run_build", effect: "execute_check", confidence: "high" });
-  if (commandName === "eslint") return withStep(base, { operation: "run_lint", effect: "execute_check", confidence: "high" });
+  const runner = runnerStepFrom(base, commandName, args);
+  if (runner) return runner;
   if (STREAM_TRANSFORM_COMMANDS.has(commandName)) return analyzeStreamTransform(base, args);
   if (commandName === "find") return analyzeFind(base, args);
   if (commandName === "rg") return analyzeRipgrep(base, args);
@@ -1837,7 +2034,7 @@ function analyzeSimpleCommand(part) {
   return withStep(base, {
     operation: "unknown",
     effect: redirects.some((redirect) => redirect.operator.includes(">")) ? "write" : "unknown",
-    confidence: containsComplexShell(part.raw) ? "low" : "medium"
+    confidence: containsComplexShell(raw) ? "low" : "medium"
   });
 }
 function resolveStructure(sequence, steps) {
@@ -1886,12 +2083,78 @@ function subtypeLabel(subtypeKey) {
       return "Verify";
   }
 }
-function isExplorationProbe(normalized) {
-  return /^(pwd|ls|tree|find|fd|rg|grep|cat|sed|head|tail|wc|stat|file|which|whereis)\b/.test(normalized) || /^git\s+(status|diff|show|log)\b/.test(normalized);
-}
 function firstCommandToken(command) {
   const [first = ""] = command.trim().split(/\s+/, 1);
   return first.replace(/^['"]+|['"]+$/g, "");
+}
+
+// src/domain/ingest/model/error.taxonomy.model.ts
+var ERROR_RULES = [
+  { pattern: /permission denied|not allowed|EACCES|EPERM|denied by (the )?user/i, type: "permission" },
+  { pattern: /timed? ?out|ETIMEDOUT|deadline exceeded/i, type: "timeout" },
+  { pattern: /no such file|command not found|not found|ENOENT|does not exist/i, type: "not_found" },
+  { pattern: /ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|socket hang up|fetch failed|network/i, type: "network" },
+  { pattern: /InputValidationError|invalid|must be|required (parameter|field)|\bexpected\b/i, type: "invalid_input" }
+];
+function classifyToolError(error, isInterrupt) {
+  if (isInterrupt) return "interrupt";
+  return ERROR_RULES.find((rule) => rule.pattern.test(error))?.type ?? "unknown";
+}
+
+// src/domain/ingest/model/file.tool.model.ts
+import * as path9 from "node:path";
+
+// src/domain/ingest/model/tool.capture.model.ts
+var TERMINAL_STDOUT_HEAD = 4096;
+var TERMINAL_STDOUT_TAIL = 4096;
+var TERMINAL_STDERR_HEAD = 2048;
+var TERMINAL_STDERR_TAIL = 2048;
+var TOOL_RESULT_HEAD = 2048;
+var TOOL_RESULT_TAIL = 2048;
+function captureTerminalToolResponse(value) {
+  if (typeof value === "string") {
+    const result2 = {};
+    captureText(result2, "stdout", value, TERMINAL_STDOUT_HEAD, TERMINAL_STDOUT_TAIL);
+    return result2;
+  }
+  if (!isRecord(value)) return {};
+  const result = {};
+  const exit = value["exit_code"] ?? value["exitCode"];
+  if (typeof exit === "number" && Number.isFinite(exit)) result["exitCode"] = exit;
+  const interrupted = value["interrupted"] ?? value["wasInterrupted"];
+  if (typeof interrupted === "boolean") result["interrupted"] = interrupted;
+  captureText(result, "stdout", value["stdout"] ?? value["output"], TERMINAL_STDOUT_HEAD, TERMINAL_STDOUT_TAIL);
+  captureText(result, "stderr", value["stderr"], TERMINAL_STDERR_HEAD, TERMINAL_STDERR_TAIL);
+  return result;
+}
+function captureToolResultBody(value, options = {}) {
+  const text = stringifyToolResult(value);
+  if (text === void 0) return {};
+  const matches = options.matchCounter?.(value, text);
+  const captured = truncateOutput(text, TOOL_RESULT_HEAD, TOOL_RESULT_TAIL);
+  return {
+    resultText: captured.body,
+    resultBytes: captured.bytes,
+    ...captured.truncated ? { resultTruncated: true } : {},
+    ...typeof matches === "number" && Number.isFinite(matches) ? { resultMatches: matches } : {}
+  };
+}
+function captureText(target, key, value, head, tail) {
+  if (typeof value !== "string" || value.length === 0) return;
+  const captured = truncateOutput(value, head, tail);
+  target[key] = captured.body;
+  target[`${key}Bytes`] = captured.bytes;
+  if (captured.truncated) target[`${key}Truncated`] = true;
+}
+function stringifyToolResult(value) {
+  if (value === void 0 || value === null) return void 0;
+  if (typeof value === "string") return value.length > 0 ? value : void 0;
+  try {
+    const json = JSON.stringify(value);
+    return json && json !== "{}" && json !== "[]" ? json : void 0;
+  } catch {
+    return void 0;
+  }
 }
 
 // src/domain/ingest/model/tool.semantic.model.ts
@@ -2016,21 +2279,53 @@ function humanizeSubtypeKey(value) {
 }
 
 // src/domain/ingest/model/workspace.path.model.ts
-import * as path7 from "node:path";
+import * as path8 from "node:path";
 function relativeProjectPath(projectDir2, filePath) {
   if (!filePath) return filePath;
-  const relative2 = path7.relative(projectDir2, filePath);
+  const relative2 = path8.relative(projectDir2, filePath);
   if (!relative2) return "";
-  const normalized = relative2.split(path7.sep).join("/");
-  if (normalized === ".." || normalized.startsWith("../") || path7.isAbsolute(relative2)) return filePath;
+  const normalized = relative2.split(path8.sep).join("/");
+  if (normalized === ".." || normalized.startsWith("../") || path8.isAbsolute(relative2)) return filePath;
   return normalized.replace(/^\/+/, "");
 }
 function defaultTaskTitle(projectDir2) {
-  return `Claude Code \u2014 ${path7.basename(projectDir2)}`;
+  return `Claude Code \u2014 ${path8.basename(projectDir2)}`;
+}
+
+// src/domain/ingest/model/file.tool.model.ts
+var FILE_TOOLS = ["Edit", "Write", "NotebookEdit"];
+function shapeFileTool(call, context) {
+  const toolName = call.toolName;
+  const filePath = readFilePath(call);
+  const relPath = filePath ? relativeProjectPath(context.projectDir, filePath) : "";
+  const semantic = inferFileToolSemantic(toolName, relPath || void 0);
+  const editReplaceAll = toolName === "Edit" && toBoolean(call.toolInput["replace_all"]);
+  const metadata = {
+    ...provenEvidence(`Observed directly by the ${toolName} PostToolUse hook.`),
+    ...buildSemanticMetadata(semantic),
+    toolName,
+    ...filePath ? { filePath, relPath } : {},
+    ...editReplaceAll ? { editReplaceAll: true } : {},
+    ...toolUseIdOf(call),
+    ...captureToolResultBody(call.toolResponse)
+  };
+  return {
+    kind: KIND.executeTool,
+    lane: LANE.implementation,
+    title: relPath ? `${toolName}: ${path9.basename(relPath)}` : toolName,
+    body: relPath ? `Modified ${relPath}` : `Used ${toolName}`,
+    ...filePath ? { filePaths: [filePath] } : {},
+    metadata
+  };
+}
+function readFilePath(call) {
+  return toTrimmedString(call.toolInput["file_path"]) || toTrimmedString(call.toolInput["notebook_path"]) || toTrimmedString(call.toolInput["path"]);
 }
 
 // src/domain/ingest/model/tool.failure.model.ts
 var SELF_MCP_SERVER = "agent-tracer";
+var TERMINAL_TOOLS = /* @__PURE__ */ new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
+var FILE_TOOL_NAMES = new Set(FILE_TOOLS);
 function shapeToolFailure(failure, context) {
   const mcp = parseMcpToolName(failure.toolName);
   if (mcp?.server === SELF_MCP_SERVER) return null;
@@ -2041,6 +2336,7 @@ function shapeToolFailure(failure, context) {
     failed: true,
     error: failure.error,
     isInterrupt: failure.isInterrupt,
+    errorType: classifyToolError(failure.error, failure.isInterrupt),
     ...toolUseIdOf(failure)
   };
   if (mcp) {
@@ -2058,8 +2354,9 @@ function shapeToolFailure(failure, context) {
       }
     };
   }
-  const command = failure.toolName === "Bash" ? toTrimmedString(failure.toolInput["command"]) : "";
-  const description = failure.toolName === "Bash" ? toTrimmedString(failure.toolInput["description"]) : "";
+  const isTerminal = TERMINAL_TOOLS.has(failure.toolName);
+  const command = isTerminal ? toTrimmedString(failure.toolInput["command"]) : "";
+  const description = isTerminal ? toTrimmedString(failure.toolInput["description"]) : "";
   const classification = classify(failure, context, command);
   return {
     kind: KIND.executeTool,
@@ -2076,12 +2373,12 @@ function shapeToolFailure(failure, context) {
   };
 }
 function classify(failure, context, command) {
-  if (failure.toolName === "Bash" && command) {
+  if (TERMINAL_TOOLS.has(failure.toolName) && command) {
     const { lane, metadata } = inferCommandSemantic(command);
     return { lane, semantic: metadata };
   }
-  if (failure.toolName === "Edit" || failure.toolName === "Write") {
-    const filePath = toTrimmedString(failure.toolInput["file_path"]) || toTrimmedString(failure.toolInput["path"]);
+  if (FILE_TOOL_NAMES.has(failure.toolName)) {
+    const filePath = toTrimmedString(failure.toolInput["file_path"]) || toTrimmedString(failure.toolInput["notebook_path"]) || toTrimmedString(failure.toolInput["path"]);
     const relPath = filePath ? relativeProjectPath(context.projectDir, filePath) : "";
     return {
       lane: LANE.implementation,
@@ -2101,14 +2398,16 @@ function classify(failure, context, command) {
 
 // src/domain/ingest/application/record.tool.failure.usecase.ts
 var RecordToolFailureUsecase = class {
-  constructor(sink2, ids2, clock2, runtimeSource, context) {
+  constructor(sink2, timing, ids2, clock2, runtimeSource, context) {
     this.sink = sink2;
+    this.timing = timing;
     this.ids = ids2;
     this.clock = clock2;
     this.runtimeSource = runtimeSource;
     this.context = context;
   }
   sink;
+  timing;
   ids;
   clock;
   runtimeSource;
@@ -2116,12 +2415,22 @@ var RecordToolFailureUsecase = class {
   async execute(failure, target) {
     const shaped = shapeToolFailure(failure, this.context);
     if (shaped === null) return;
+    const timed = this.withDuration(shaped, failure, target);
     await this.sink.append(toIngestEvents(
-      [toRuntimeEvent(shaped, target)],
+      [toRuntimeEvent(timed, target)],
       this.runtimeSource,
       () => this.ids.next(),
       new Date(this.clock.now()).toISOString()
     ));
+  }
+  /** PreToolUse가 남긴 시작 시각을 소거하며 읽어 소요 시간을 계산하고, 유한한 음이 아닌 값일 때만 싣는다. */
+  withDuration(shaped, failure, target) {
+    if (!failure.toolUseId) return shaped;
+    const startedAt = this.timing.takeStart(target.sessionId, failure.toolUseId);
+    if (startedAt === void 0) return shaped;
+    const durationMs = this.clock.now() - startedAt;
+    if (!Number.isFinite(durationMs) || durationMs < 0) return shaped;
+    return { ...shaped, metadata: { ...shaped.metadata, durationMs } };
   }
 };
 
@@ -2261,7 +2570,7 @@ function modeChangeBody(isPlanMode, isEnterWorktree, worktreePath) {
 }
 
 // src/domain/ingest/model/explore.tool.model.ts
-import * as path8 from "node:path";
+import * as path10 from "node:path";
 
 // src/domain/ingest/model/file.target.model.ts
 var MAX_FILE_TARGETS = 100;
@@ -2296,59 +2605,6 @@ function toOptionalNumber(value) {
     if (Number.isFinite(parsed)) return parsed;
   }
   return void 0;
-}
-
-// src/domain/ingest/model/tool.capture.model.ts
-var TERMINAL_STDOUT_HEAD = 4096;
-var TERMINAL_STDOUT_TAIL = 4096;
-var TERMINAL_STDERR_HEAD = 2048;
-var TERMINAL_STDERR_TAIL = 2048;
-var TOOL_RESULT_HEAD = 2048;
-var TOOL_RESULT_TAIL = 2048;
-function captureTerminalToolResponse(value) {
-  if (typeof value === "string") {
-    const result2 = {};
-    captureText(result2, "stdout", value, TERMINAL_STDOUT_HEAD, TERMINAL_STDOUT_TAIL);
-    return result2;
-  }
-  if (!isRecord(value)) return {};
-  const result = {};
-  const exit = value["exit_code"] ?? value["exitCode"];
-  if (typeof exit === "number" && Number.isFinite(exit)) result["exitCode"] = exit;
-  const interrupted = value["interrupted"] ?? value["wasInterrupted"];
-  if (typeof interrupted === "boolean") result["interrupted"] = interrupted;
-  captureText(result, "stdout", value["stdout"] ?? value["output"], TERMINAL_STDOUT_HEAD, TERMINAL_STDOUT_TAIL);
-  captureText(result, "stderr", value["stderr"], TERMINAL_STDERR_HEAD, TERMINAL_STDERR_TAIL);
-  return result;
-}
-function captureToolResultBody(value, options = {}) {
-  const text = stringifyToolResult(value);
-  if (text === void 0) return {};
-  const matches = options.matchCounter?.(value, text);
-  const captured = truncateOutput(text, TOOL_RESULT_HEAD, TOOL_RESULT_TAIL);
-  return {
-    resultText: captured.body,
-    resultBytes: captured.bytes,
-    ...captured.truncated ? { resultTruncated: true } : {},
-    ...typeof matches === "number" && Number.isFinite(matches) ? { resultMatches: matches } : {}
-  };
-}
-function captureText(target, key, value, head, tail) {
-  if (typeof value !== "string" || value.length === 0) return;
-  const captured = truncateOutput(value, head, tail);
-  target[key] = captured.body;
-  target[`${key}Bytes`] = captured.bytes;
-  if (captured.truncated) target[`${key}Truncated`] = true;
-}
-function stringifyToolResult(value) {
-  if (value === void 0 || value === null) return void 0;
-  if (typeof value === "string") return value.length > 0 ? value : void 0;
-  try {
-    const json = JSON.stringify(value);
-    return json && json !== "{}" && json !== "[]" ? json : void 0;
-  } catch {
-    return void 0;
-  }
 }
 
 // src/domain/ingest/model/explore.tool.model.ts
@@ -2456,7 +2712,7 @@ function shapeRead(call, context) {
   const limit = toOptionalNumber(call.toolInput["limit"]);
   const rangeSuffix = offset !== void 0 || limit !== void 0 ? ` (lines ${offset ?? 1}${limit ? `\u2013${(offset ?? 1) + limit - 1}` : "+"})` : "";
   return {
-    title: `Read: ${path8.basename(relPath)}${rangeSuffix}`,
+    title: `Read: ${path10.basename(relPath)}${rangeSuffix}`,
     body: `Reading ${relPath}${rangeSuffix}`,
     filePaths: filePath ? [filePath] : [],
     extras: {
@@ -2537,37 +2793,6 @@ function exploreMatchCount(toolName, raw, text) {
 function countLines(text) {
   if (!text.trim()) return 0;
   return text.split("\n").filter((line) => line.length > 0).length;
-}
-
-// src/domain/ingest/model/file.tool.model.ts
-import * as path9 from "node:path";
-var FILE_TOOLS = ["Edit", "Write", "NotebookEdit"];
-function shapeFileTool(call, context) {
-  const toolName = call.toolName;
-  const filePath = readFilePath(call);
-  const relPath = filePath ? relativeProjectPath(context.projectDir, filePath) : "";
-  const semantic = inferFileToolSemantic(toolName, relPath || void 0);
-  const editReplaceAll = toolName === "Edit" && toBoolean(call.toolInput["replace_all"]);
-  const metadata = {
-    ...provenEvidence(`Observed directly by the ${toolName} PostToolUse hook.`),
-    ...buildSemanticMetadata(semantic),
-    toolName,
-    ...filePath ? { filePath, relPath } : {},
-    ...editReplaceAll ? { editReplaceAll: true } : {},
-    ...toolUseIdOf(call),
-    ...captureToolResultBody(call.toolResponse)
-  };
-  return {
-    kind: KIND.executeTool,
-    lane: LANE.implementation,
-    title: relPath ? `${toolName}: ${path9.basename(relPath)}` : toolName,
-    body: relPath ? `Modified ${relPath}` : `Used ${toolName}`,
-    ...filePath ? { filePaths: [filePath] } : {},
-    metadata
-  };
-}
-function readFilePath(call) {
-  return toTrimmedString(call.toolInput["file_path"]) || toTrimmedString(call.toolInput["notebook_path"]) || toTrimmedString(call.toolInput["path"]);
 }
 
 // src/domain/ingest/model/interaction.tool.model.ts
@@ -2707,21 +2932,21 @@ $ ${script}` : script,
 }
 
 // src/domain/ingest/model/tool.shape.model.ts
-var TERMINAL_TOOLS = /* @__PURE__ */ new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
+var TERMINAL_TOOLS2 = /* @__PURE__ */ new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
 var BACKGROUND_SHELL_TOOLS = /* @__PURE__ */ new Set(["BashOutput", "KillShell"]);
 var EXPLORE_TOOL_NAMES = new Set(EXPLORE_TOOLS);
-var FILE_TOOL_NAMES = new Set(FILE_TOOLS);
+var FILE_TOOL_NAMES2 = new Set(FILE_TOOLS);
 var CRON_TOOL_NAMES = new Set(CRON_TOOLS);
 var MODE_CHANGE_TOOL_NAMES = new Set(MODE_CHANGE_TOOLS);
 function shapeToolEvent(call, context) {
   const toolName = call.toolName;
-  if (TERMINAL_TOOLS.has(toolName)) return shapeTerminalCommand(call);
+  if (TERMINAL_TOOLS2.has(toolName)) return shapeTerminalCommand(call);
   if (BACKGROUND_SHELL_TOOLS.has(toolName)) return shapeBackgroundShell(call);
   if (toolName === MONITOR_TOOL_NAME) return shapeMonitorCommand(call);
   if (EXPLORE_TOOL_NAMES.has(toolName)) return shapeExploreTool(call, context);
   if (toolName === "LSP") return shapeLspTool(call, context);
   if (toolName === "ToolSearch") return shapeToolSearch(call);
-  if (FILE_TOOL_NAMES.has(toolName)) return shapeFileTool(call, context);
+  if (FILE_TOOL_NAMES2.has(toolName)) return shapeFileTool(call, context);
   if (toolName === "Agent") return shapeAgentTool(call);
   if (toolName === "Skill") return shapeSkillTool(call);
   if (toolName.startsWith("mcp__")) return shapeMcpTool(call);
@@ -2734,14 +2959,16 @@ function shapeToolEvent(call, context) {
 
 // src/domain/ingest/application/record.tool.use.usecase.ts
 var RecordToolUseUsecase = class {
-  constructor(sink2, ids2, clock2, runtimeSource, context) {
+  constructor(sink2, timing, ids2, clock2, runtimeSource, context) {
     this.sink = sink2;
+    this.timing = timing;
     this.ids = ids2;
     this.clock = clock2;
     this.runtimeSource = runtimeSource;
     this.context = context;
   }
   sink;
+  timing;
   ids;
   clock;
   runtimeSource;
@@ -2749,13 +2976,23 @@ var RecordToolUseUsecase = class {
   async execute(call, target) {
     const shaped = shapeToolEvent(call, this.context);
     if (shaped === null) return null;
+    const timed = this.withDuration(shaped, call, target);
     await this.sink.append(toIngestEvents(
-      [toRuntimeEvent(shaped, target)],
+      [toRuntimeEvent(timed, target)],
       this.runtimeSource,
       () => this.ids.next(),
       new Date(this.clock.now()).toISOString()
     ));
-    return shaped;
+    return timed;
+  }
+  /** PreToolUse가 남긴 시작 시각을 소거하며 읽어 소요 시간을 계산하고, 유한한 음이 아닌 값일 때만 싣는다. */
+  withDuration(shaped, call, target) {
+    if (!call.toolUseId) return shaped;
+    const startedAt = this.timing.takeStart(target.sessionId, call.toolUseId);
+    if (startedAt === void 0) return shaped;
+    const durationMs = this.clock.now() - startedAt;
+    if (!Number.isFinite(durationMs) || durationMs < 0) return shaped;
+    return { ...shaped, metadata: { ...shaped.metadata, durationMs } };
   }
 };
 
@@ -3299,6 +3536,7 @@ var projectDir = resolveProjectDir();
 var sink = new SpoolEventSinkAdapter();
 var bindings = new FileBindingStoreAdapter();
 var todoSnapshots = new FileTodoSnapshotAdapter(projectDir);
+var toolTiming = new FileToolTimingAdapter(projectDir);
 var recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 var recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 var shapeContext = { projectDir };
@@ -3306,9 +3544,17 @@ var ids = { next: generateUlid };
 var clock = { now: () => Date.now() };
 var ingest = {
   appendEvents: new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE),
-  recordToolUse: new RecordToolUseUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
-  recordToolFailure: new RecordToolFailureUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
-  recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, clock, CLAUDE_RUNTIME_SOURCE)
+  recordToolUse: new RecordToolUseUsecase(sink, toolTiming, ids, clock, CLAUDE_RUNTIME_SOURCE, shapeContext),
+  recordToolFailure: new RecordToolFailureUsecase(
+    sink,
+    toolTiming,
+    ids,
+    clock,
+    CLAUDE_RUNTIME_SOURCE,
+    shapeContext
+  ),
+  recordTodo: new RecordTodoUsecase(sink, todoSnapshots, ids, clock, CLAUDE_RUNTIME_SOURCE),
+  markToolStart: new MarkToolStartUsecase(toolTiming, clock)
 };
 var session = {
   ensureSession: new EnsureSessionUsecase(bindings, sink, ids, clock),
@@ -3328,7 +3574,7 @@ var recipe = {
   requestScan: new RequestRecipeScanUsecase(recipeJobs)
 };
 var logger = createHookLogger({
-  logFile: path10.join(projectDir, ".claude", "hooks.log"),
+  logFile: path11.join(projectDir, ".claude", "hooks.log"),
   verbose: isVerboseLogging()
 });
 var claudeRuntime = {
