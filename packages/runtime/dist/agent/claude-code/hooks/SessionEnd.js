@@ -661,6 +661,14 @@ function toBoundSession(binding2) {
     ...turn2 ? { turnId: turn2.turnId, turn: turn2 } : {}
   };
 }
+function activityTimestamp(binding2) {
+  return Date.parse(binding2.turnStartedAt ?? binding2.createdAt);
+}
+function mostRecentBindingWhere(bindings2, predicate) {
+  const matches = Object.values(bindings2).filter(predicate);
+  if (matches.length === 0) return void 0;
+  return matches.reduce((latest, candidate) => activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest);
+}
 
 // src/domain/binding/application/read.binding.usecase.ts
 var ReadBindingUsecase = class {
@@ -3390,6 +3398,10 @@ function restored(binding2) {
 }
 
 // src/domain/session/model/session.event.model.ts
+var SUBAGENT_PREFIX = "sub--";
+function isSubagentSession(runtimeSessionId) {
+  return runtimeSessionId.startsWith(SUBAGENT_PREFIX);
+}
 function sessionStartedEvent(taskId, sessionId, input) {
   return {
     kind: KIND.sessionStarted,
@@ -3447,13 +3459,16 @@ var ClearSessionUsecase = class {
       throw new Error("bindings lock unavailable, cannot clear session binding");
     }
     let created;
+    let predecessor;
     try {
       const store = this.bindings.read();
+      predecessor = input.workspacePath ? mostRecentBindingWhere(store, (candidate) => candidate.workspacePath === input.workspacePath && bindingKey(candidate.runtimeSource, candidate.runtimeSessionId) !== key && !isSubagentSession(candidate.runtimeSessionId)) : void 0;
       created = {
         taskId: this.ids.next(),
         sessionId: this.ids.next(),
         runtimeSource: input.runtimeSource,
         runtimeSessionId: input.runtimeSessionId,
+        ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
         createdAt: new Date(this.clock.now()).toISOString(),
         titled: input.titled ?? true
       };
@@ -3461,6 +3476,17 @@ var ClearSessionUsecase = class {
       this.bindings.write(capBindingStore(store));
     } finally {
       this.bindings.releaseLock();
+    }
+    if (predecessor) {
+      await this.append(sessionEndedEvent({
+        taskId: predecessor.taskId,
+        sessionId: predecessor.sessionId,
+        runtimeSource: input.runtimeSource,
+        runtimeSessionId: predecessor.runtimeSessionId,
+        summary: "Claude Code conversation cleared (/clear)",
+        completionReason: "cleared",
+        completeTask: true
+      }));
     }
     await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
       runtimeSource: input.runtimeSource,
@@ -3532,6 +3558,7 @@ var EnsureSessionUsecase = class {
           sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
+          ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
           createdAt: new Date(this.clock.now()).toISOString(),
           titled
         };

@@ -5074,7 +5074,7 @@ function aJ($, Q, J) {
 function xs() {
   return process.env.CLAUDE_CODE_DIAGNOSTICS_FILE;
 }
-function fs6($) {
+function fs7($) {
   let { buffer: Q, bytesRead: J } = m$().readSync($, { length: 4096 });
   if (J === 0) return "utf8";
   if (J >= 2) {
@@ -5093,7 +5093,7 @@ function ys($) {
 function gs($) {
   let Q = m$(), { resolvedPath: J, isSymlink: Y } = N5(Q, $);
   if (Y) X$(`Reading through symlink: ${$} -> ${J}`);
-  let X = fs6(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
+  let X = fs7(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
   return { content: W.replaceAll(`\r
 `, `
 `), encoding: X, lineEndings: G };
@@ -28202,13 +28202,13 @@ function appendDeadLetter(lines, paths2 = resolveAgentTracerPaths()) {
   fs3.appendFileSync(paths2.deadPath, lines.map((line) => `${line}
 `).join(""));
 }
-function enforceSpoolSizeCap(paths2 = resolveAgentTracerPaths()) {
+function enforceSpoolSizeCap(paths2 = resolveAgentTracerPaths(), maxBytes = SPOOL_MAX_BYTES) {
   const segments = listSpoolSegments(paths2);
   let total = segments.reduce((sum2, segment) => sum2 + segment.size, 0);
   const droppedSegments = [];
   let droppedBytes = 0;
   for (const segment of segments) {
-    if (total <= SPOOL_MAX_BYTES) break;
+    if (total <= maxBytes) break;
     removeSpoolSegment(segment.path);
     total -= segment.size;
     droppedBytes += segment.size;
@@ -28216,6 +28216,88 @@ function enforceSpoolSizeCap(paths2 = resolveAgentTracerPaths()) {
   }
   return { droppedBytes, droppedSegments };
 }
+
+// src/config/config.store.ts
+import * as fs4 from "node:fs";
+function readAgentTracerConfig(paths2 = resolveAgentTracerPaths()) {
+  try {
+    const parsed = JSON.parse(fs4.readFileSync(paths2.configPath, "utf8"));
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+function writeAgentTracerConfig(next, paths2 = resolveAgentTracerPaths()) {
+  const merged = { ...readAgentTracerConfig(paths2), ...next };
+  fs4.writeFileSync(paths2.configPath, `${JSON.stringify(merged, null, 2)}
+`, { mode: 384 });
+}
+
+// src/config/daemon.settings.ts
+var DEFAULT_DAEMON_SETTINGS = {
+  recipeRefreshMs: 5 * 60 * 1e3,
+  rulesRefreshMs: 10 * 1e3,
+  ruleGenPollMs: 10 * 1e3,
+  idleShutdownMs: 5 * 60 * 1e3,
+  idleCheckMs: 30 * 1e3,
+  controlRebindRetryMs: 2e3,
+  controlPort: 3848,
+  spoolMaxBytes: 50 * 1024 * 1024,
+  poisonAttempts: 3
+};
+var DAEMON_SETTINGS_RANGE = {
+  recipeRefreshMs: { min: 1e4, max: 36e5 },
+  rulesRefreshMs: { min: 1e3, max: 6e5 },
+  ruleGenPollMs: { min: 1e3, max: 6e5 },
+  idleShutdownMs: { min: 1e4, max: 36e5 },
+  idleCheckMs: { min: 1e3, max: 6e5 },
+  controlRebindRetryMs: { min: 100, max: 6e4 },
+  controlPort: { min: 1, max: 65535 },
+  spoolMaxBytes: { min: 1048576, max: 1073741824 },
+  poisonAttempts: { min: 1, max: 20 }
+};
+var FIELDS = Object.keys(DEFAULT_DAEMON_SETTINGS);
+function inRange(field, value) {
+  const range = DAEMON_SETTINGS_RANGE[field];
+  return Number.isInteger(value) && value >= range.min && value <= range.max;
+}
+function toNumber(value) {
+  return typeof value === "number" ? value : Number(value);
+}
+function envControlPort(env) {
+  const parsed = Number(env.AGENT_TRACER_RESUME_PORT);
+  return inRange("controlPort", parsed) ? parsed : void 0;
+}
+function resolveDaemonSettings(env = process.env, paths2 = resolveAgentTracerPaths()) {
+  const record = readAgentTracerConfig(paths2);
+  const daemon = isRecord(record["daemon"]) ? record["daemon"] : {};
+  const resolved = {};
+  for (const field of FIELDS) {
+    const candidate = toNumber(daemon[field]);
+    resolved[field] = inRange(field, candidate) ? candidate : DEFAULT_DAEMON_SETTINGS[field];
+  }
+  resolved.controlPort = envControlPort(env) ?? resolved.controlPort;
+  return resolved;
+}
+function validateDaemonSettingsInput(raw) {
+  const record = isRecord(raw) ? raw : {};
+  const errors = {};
+  const value = {};
+  for (const field of FIELDS) {
+    const range = DAEMON_SETTINGS_RANGE[field];
+    const candidate = toNumber(record[field]);
+    if (!inRange(field, candidate)) {
+      errors[field] = `${field} must be an integer between ${range.min} and ${range.max}`;
+      continue;
+    }
+    value[field] = candidate;
+  }
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  return { ok: true, value };
+}
+
+// src/config/env.ts
+var CLAUDE_RUNTIME_SOURCE = "claude-plugin";
 
 // ../kernel/src/rule/definition/rule.vocabulary.ts
 var RULE_SEVERITY = {
@@ -29797,7 +29879,7 @@ var ComputeHintsUsecase = class {
 };
 
 // src/domain/binding/adapter/file.binding.store.adapter.ts
-import * as fs4 from "node:fs";
+import * as fs5 from "node:fs";
 var LOCK_TIMEOUT_MS = 1e3;
 var LOCK_STALE_MS = 1e4;
 var LOCK_RETRY_MS = 20;
@@ -29812,7 +29894,7 @@ var FileBindingStoreAdapter = class {
   paths;
   read() {
     try {
-      const parsed = JSON.parse(fs4.readFileSync(this.paths.bindingsPath, "utf8"));
+      const parsed = JSON.parse(fs5.readFileSync(this.paths.bindingsPath, "utf8"));
       return isRecord(parsed) ? parsed : {};
     } catch {
       return {};
@@ -29821,14 +29903,14 @@ var FileBindingStoreAdapter = class {
   write(store) {
     ensureAgentTracerHome(this.paths);
     const tmp = `${this.paths.bindingsPath}.tmp`;
-    fs4.writeFileSync(tmp, JSON.stringify(store));
-    fs4.renameSync(tmp, this.paths.bindingsPath);
+    fs5.writeFileSync(tmp, JSON.stringify(store));
+    fs5.renameSync(tmp, this.paths.bindingsPath);
   }
   async acquireLock() {
     const deadline = Date.now() + LOCK_TIMEOUT_MS;
     for (; ; ) {
       try {
-        fs4.mkdirSync(this.paths.bindingsLockPath);
+        fs5.mkdirSync(this.paths.bindingsLockPath);
         return true;
       } catch (error2) {
         if (error2.code !== "EEXIST") return false;
@@ -29840,16 +29922,16 @@ var FileBindingStoreAdapter = class {
   }
   releaseLock() {
     try {
-      fs4.rmdirSync(this.paths.bindingsLockPath);
+      fs5.rmdirSync(this.paths.bindingsLockPath);
     } catch {
       return;
     }
   }
   clearStaleLock() {
     try {
-      const stat = fs4.statSync(this.paths.bindingsLockPath);
+      const stat = fs5.statSync(this.paths.bindingsLockPath);
       if (Date.now() - stat.mtimeMs <= LOCK_STALE_MS) return false;
-      fs4.rmdirSync(this.paths.bindingsLockPath);
+      fs5.rmdirSync(this.paths.bindingsLockPath);
       return true;
     } catch {
       return false;
@@ -29858,6 +29940,9 @@ var FileBindingStoreAdapter = class {
 };
 
 // src/domain/binding/model/binding.model.ts
+function bindingKey(runtimeSource, runtimeSessionId) {
+  return `${runtimeSource}::${runtimeSessionId}`;
+}
 function turnStateOf(binding) {
   if (!binding?.currentTurnId) return void 0;
   return {
@@ -29880,9 +29965,12 @@ function activityTimestamp(binding) {
   return Date.parse(binding.turnStartedAt ?? binding.createdAt);
 }
 function mostRecentActiveBinding(bindings) {
-  const entries = Object.values(bindings);
-  if (entries.length === 0) return void 0;
-  return entries.reduce((latest, candidate) => activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest);
+  return mostRecentBindingWhere(bindings, () => true);
+}
+function mostRecentBindingWhere(bindings, predicate) {
+  const matches = Object.values(bindings).filter(predicate);
+  if (matches.length === 0) return void 0;
+  return matches.reduce((latest, candidate) => activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest);
 }
 
 // src/domain/binding/application/find.active.binding.usecase.ts
@@ -29893,6 +29981,18 @@ var FindActiveBindingUsecase = class {
   bindings;
   execute() {
     const binding = mostRecentActiveBinding(this.bindings.read());
+    return binding ? toBoundSession(binding) : void 0;
+  }
+};
+
+// src/domain/binding/application/read.binding.usecase.ts
+var ReadBindingUsecase = class {
+  constructor(bindings) {
+    this.bindings = bindings;
+  }
+  bindings;
+  execute(runtimeSource, runtimeSessionId) {
+    const binding = this.bindings.read()[bindingKey(runtimeSource, runtimeSessionId)];
     return binding ? toBoundSession(binding) : void 0;
   }
 };
@@ -30016,11 +30116,11 @@ function filterByQuery(items, query) {
 
 // src/support/json.file.store.ts
 import * as crypto from "node:crypto";
-import * as fs5 from "node:fs";
+import * as fs6 from "node:fs";
 import * as path3 from "node:path";
 function readJsonFile(filePath, validate) {
   try {
-    const parsed = JSON.parse(fs5.readFileSync(filePath, "utf-8"));
+    const parsed = JSON.parse(fs6.readFileSync(filePath, "utf-8"));
     return validate(parsed) ? parsed : null;
   } catch {
     return null;
@@ -30033,12 +30133,12 @@ function writeJsonFile(filePath, value, spacing) {
     `.${path3.basename(filePath)}.${process.pid}.${crypto.randomUUID()}.tmp`
   );
   try {
-    fs5.mkdirSync(directory, { recursive: true });
-    fs5.writeFileSync(tempFilePath, JSON.stringify(value, null, spacing));
-    fs5.renameSync(tempFilePath, filePath);
+    fs6.mkdirSync(directory, { recursive: true });
+    fs6.writeFileSync(tempFilePath, JSON.stringify(value, null, spacing));
+    fs6.renameSync(tempFilePath, filePath);
   } catch {
     try {
-      fs5.unlinkSync(tempFilePath);
+      fs6.unlinkSync(tempFilePath);
     } catch {
       return;
     }
@@ -31857,6 +31957,8 @@ function composeDaemonHooks(leaseOwner) {
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers))
   };
   const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
+  const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
+  const findTaskIdBySession = (sessionId) => readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId)?.taskId;
   const ids = { next: generateUlid };
   const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
   const memo = {
@@ -31883,7 +31985,7 @@ function composeDaemonHooks(leaseOwner) {
     ),
     enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache)
   };
-  return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle, memo };
+  return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, findTaskIdBySession, setTaskTitle, memo };
 }
 
 // src/daemon/daemon.log.ts
@@ -31915,13 +32017,13 @@ function parseRetryAfterMs(header, maxMs) {
 }
 
 // src/daemon/control/control.state.ts
-import * as fs8 from "node:fs";
+import * as fs9 from "node:fs";
 
 // src/config/dead.letter.ts
-import * as fs7 from "node:fs";
+import * as fs8 from "node:fs";
 function readLines(paths2) {
   try {
-    return fs7.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    return fs8.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   } catch {
     return [];
   }
@@ -31943,13 +32045,13 @@ function parseEntry(line) {
 }
 function deadLetterBytes(paths2) {
   try {
-    return fs7.statSync(paths2.deadPath).size;
+    return fs8.statSync(paths2.deadPath).size;
   } catch {
     return 0;
   }
 }
 function writeDeadLetter(lines, paths2) {
-  fs7.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
+  fs8.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
 `).join(""));
 }
 function readDeadLetter(limit, paths2 = resolveAgentTracerPaths()) {
@@ -32011,6 +32113,14 @@ function describeExpectation(expectation) {
 
 // src/daemon/control/control.state.ts
 var DEAD_LETTER_PAGE = 100;
+var SETTINGS_FIELDS = [
+  ...Object.keys(DEFAULT_DAEMON_SETTINGS),
+  "userId",
+  "baseUrl"
+];
+function settingsDiffer(running, saved) {
+  return SETTINGS_FIELDS.some((field) => running[field] !== saved[field]);
+}
 function resolvePipelineStatus(state, pendingSegments) {
   if (state.retryStatusSince !== null) return "retrying";
   if (state.lastSendOutcome === "unreachable") return "unreachable";
@@ -32020,7 +32130,7 @@ function resolvePipelineStatus(state, pendingSegments) {
 }
 function fileBytes(filePath) {
   try {
-    return fs8.statSync(filePath).size;
+    return fs9.statSync(filePath).size;
   } catch {
     return 0;
   }
@@ -32068,6 +32178,17 @@ function joinRules(rules, activity) {
 function buildControlSnapshot(state, paths2 = resolveAgentTracerPaths(), now = Date.now()) {
   const segments = listSpoolSegments(paths2);
   const backlogBytes = segments.reduce((total, segment) => total + segment.size, 0);
+  const running = {
+    ...state.settings,
+    userId: state.identity.userId,
+    baseUrl: state.identity.baseUrl
+  };
+  const savedIdentity = resolveMonitorIdentity(process.env, readMonitorConfigFile(paths2));
+  const saved = {
+    ...resolveDaemonSettings(process.env, paths2),
+    userId: savedIdentity.userId,
+    baseUrl: savedIdentity.baseUrl
+  };
   return {
     now,
     status: resolvePipelineStatus(state, segments.length),
@@ -32098,7 +32219,7 @@ function buildControlSnapshot(state, paths2 = resolveAgentTracerPaths(), now = D
     spool: {
       segments: segments.length,
       backlogBytes,
-      capBytes: SPOOL_MAX_BYTES,
+      capBytes: state.settings.spoolMaxBytes,
       poisonSegment: state.poisonSegment,
       poisonAttempts: state.poisonAttempts,
       poisonThreshold: state.poisonThreshold
@@ -32108,7 +32229,9 @@ function buildControlSnapshot(state, paths2 = resolveAgentTracerPaths(), now = D
     bindingsBytes: fileBytes(paths2.bindingsPath),
     ring: state.ring,
     interventions: state.interventions,
-    rules: joinRules(state.rules, state.interventions.ruleActivity)
+    rules: joinRules(state.rules, state.interventions.ruleActivity),
+    settings: { running, saved },
+    settingsDrift: settingsDiffer(running, saved)
   };
 }
 
@@ -32374,6 +32497,18 @@ function renderRing(s) {
     + '<td class="muted">' + esc(t.lastOccurredAt ?? "") + "</td></tr>"), "Ring is empty.");
 }
 
+const SETTINGS_FIELDS = CFG.settingsFields.identity.concat(CFG.settingsFields.daemon);
+
+function renderSettings(s) {
+  const saved = s.settings.saved, running = s.settings.running;
+  SETTINGS_FIELDS.forEach((field) => {
+    const input = $("set-" + field);
+    if (input && document.activeElement !== input) input.value = saved[field];
+    const hint = $("hint-" + field);
+    if (hint) hint.textContent = saved[field] === running[field] ? "" : "running: " + running[field];
+  });
+}
+
 function renderLifecycle(s) {
   const d = s.daemon;
   $("life-cards").innerHTML = [
@@ -32394,10 +32529,15 @@ function render(s) {
       + s.daemon.version + ", running from " + s.daemon.entryPath
       + ". Events it ships may be rejected. Restart the daemon below.";
   }
+  $("settings-drift").classList.toggle("hidden", !s.settingsDrift);
+  if (s.settingsDrift) {
+    $("settings-drift-body").textContent = "Saved settings differ from what this daemon is running on. "
+      + "Restart the daemon to apply them.";
+  }
   $("c-dead").textContent = s.deadLetter.count || "";
   $("c-iv").textContent = s.interventions.recent.length || "";
   renderStatus(s); renderSpool(s); renderDead(s); renderInterventions(s);
-  renderRules(s); renderCaches(s); renderRing(s); renderLifecycle(s);
+  renderRules(s); renderCaches(s); renderRing(s); renderLifecycle(s); renderSettings(s);
 }
 `;
 
@@ -32454,7 +32594,11 @@ async function call(path, body) {
     body: JSON.stringify(body ?? {}),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.ok === false) throw new Error(json?.error?.message ?? "request failed");
+  if (!res.ok || json.ok === false) {
+    const err = new Error(json?.error?.message ?? "request failed");
+    if (json?.errors) err.fieldErrors = json.errors;
+    throw err;
+  }
   return json.data;
 }
 
@@ -32498,6 +32642,43 @@ document.addEventListener("click", (event) => {
   if (spec) {
     if (spec.confirm && !confirm(spec.confirm)) return;
     void act(actionKey, {}, (d) => spec.toast + (d && typeof d.moved === "number" ? " " + d.moved + " event(s)" : ""));
+  }
+});
+
+function settingsFieldIds() {
+  return CFG.settingsFields.identity.concat(CFG.settingsFields.daemon);
+}
+
+function clearSettingsErrors() {
+  settingsFieldIds().concat(["body"]).forEach((field) => {
+    const el = $("err-" + field);
+    if (el) el.textContent = "";
+  });
+}
+
+function showSettingsErrors(errors) {
+  Object.entries(errors).forEach(([field, message]) => {
+    const el = $("err-" + field) || $("err-body");
+    if (el) el.textContent = message;
+  });
+}
+
+function collectSettingsBody() {
+  const daemon = {};
+  CFG.settingsFields.daemon.forEach((field) => { daemon[field] = Number($("set-" + field).value); });
+  return {userId: $("set-userId").value.trim(), baseUrl: $("set-baseUrl").value.trim(), daemon};
+}
+
+document.getElementById("settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearSettingsErrors();
+  try {
+    await call("config", collectSettingsBody());
+    toast("Settings saved — restart the daemon to apply them");
+    await poll();
+  } catch (err) {
+    if (err.fieldErrors) showSettingsErrors(err.fieldErrors);
+    else $("err-body").textContent = err.message;
   }
 });
 
@@ -32614,6 +32795,15 @@ button.act.danger { color: var(--err); border-color: var(--err); background: tra
 button.act.danger:hover { background: color-mix(in srgb, var(--err) 14%, var(--canvas)); }
 button.act:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field span:first-child { color: var(--ink-subtle); font-size: 11px; text-transform: uppercase;
+                           letter-spacing: 0.05em; }
+.field input { background: var(--s2); border: 1px solid var(--hair-strong); border-radius: 6px;
+               color: var(--ink); font: inherit; padding: 6px 10px; }
+.field input:focus { outline: none; border-color: var(--primary); }
+.field .hint { color: var(--ink-tertiary); font-size: 11px; }
+.field-err, #err-body { color: var(--err); font-size: 11px; }
+
 .empty { color: var(--ink-tertiary); padding: 22px; text-align: center; }
 .toast { position: fixed; right: 20px; bottom: 20px; background: var(--s3); color: var(--ink);
          border: 1px solid var(--hair-strong); border-radius: 8px; padding: 10px 14px;
@@ -32657,7 +32847,23 @@ var TABS = [
   { id: "dead", label: "Dead-letter", count: "dead" },
   { id: "caches", label: "Caches" },
   { id: "ring", label: "Ring buffer" },
-  { id: "lifecycle", label: "Lifecycle" }
+  { id: "lifecycle", label: "Lifecycle" },
+  { id: "settings", label: "Settings" }
+];
+var IDENTITY_FIELDS = [
+  { id: "userId", label: "User id" },
+  { id: "baseUrl", label: "Base URL" }
+];
+var DAEMON_FIELDS = [
+  { id: "recipeRefreshMs", label: "Recipe refresh (ms)" },
+  { id: "rulesRefreshMs", label: "Rules refresh (ms)" },
+  { id: "ruleGenPollMs", label: "Rule generation poll (ms)" },
+  { id: "idleShutdownMs", label: "Idle shutdown (ms)" },
+  { id: "idleCheckMs", label: "Idle check (ms)" },
+  { id: "controlRebindRetryMs", label: "Control rebind retry (ms)" },
+  { id: "controlPort", label: "Control port" },
+  { id: "spoolMaxBytes", label: "Spool max bytes" },
+  { id: "poisonAttempts", label: "Poison attempts" }
 ];
 function pageConfig() {
   const actions = {};
@@ -32670,7 +32876,11 @@ function pageConfig() {
     ivTag: IV_TAG,
     ivLabel: IV_LABEL,
     reviewPending: RULE_REVIEW_STATE.pendingReview,
-    actions
+    actions,
+    settingsFields: {
+      identity: IDENTITY_FIELDS.map((field) => field.id),
+      daemon: DAEMON_FIELDS.map((field) => field.id)
+    }
   };
 }
 function renderTabs() {
@@ -32685,6 +32895,23 @@ function actionButtons(tab) {
 }
 function section(id, body) {
   return `<section id="s-${id}" role="tabpanel"${id === "status" ? "" : " hidden"}>${body}</section>`;
+}
+function settingsField(field, type) {
+  return `<label class="field"><span>${field.label}</span><input id="set-${field.id}" name="${field.id}" type="${type}"><span class="hint" id="hint-${field.id}"></span><span class="field-err" id="err-${field.id}"></span></label>`;
+}
+function settingsForm() {
+  const identity = IDENTITY_FIELDS.map((field) => settingsField(field, "text")).join("");
+  const daemon = DAEMON_FIELDS.map((field) => settingsField(field, "number")).join("");
+  return `
+      <p class="note">Saving writes ~/.agent-tracer/config.json only. Restart the daemon for new values
+        to take effect.</p>
+      <form id="settings-form" class="field-grid">
+        <div class="grid">${identity}${daemon}</div>
+        <div class="actions">
+          <button type="submit" class="act primary">Save settings</button>
+          <span class="field-err" id="err-body"></span>
+        </div>
+      </form>`;
 }
 function renderSections() {
   return [
@@ -32726,7 +32953,8 @@ function renderSections() {
       <div id="ring-tasks"></div>`),
     section("lifecycle", `
       ${actionButtons("lifecycle")}
-      <div class="grid" id="life-cards"></div>`)
+      <div class="grid" id="life-cards"></div>`),
+    section("settings", settingsForm())
   ].join("");
 }
 function renderControlPage(token) {
@@ -32747,6 +32975,10 @@ function renderControlPage(token) {
   </header>
   <div class="banner hidden" id="skew">
     <div><strong>Version skew</strong><p id="skew-body"></p></div>
+  </div>
+  <div class="banner hidden" id="settings-drift">
+    <div><strong>Settings changed</strong><p id="settings-drift-body"></p></div>
+    <button class="act primary" data-action="restart">Restart daemon</button>
   </div>
   <nav role="tablist">${renderTabs()}</nav>
   ${renderSections()}
@@ -32798,6 +33030,26 @@ async function route(request, response, deps, paths2) {
     writeJson(response, 500, error("control_failed", err instanceof Error ? err.message : "control action failed"));
   }
 }
+function isHttpUrl(value) {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+function validateConfigInput(raw) {
+  const record = isRecord(raw) ? raw : {};
+  const errors = {};
+  const userId = typeof record["userId"] === "string" ? record["userId"].trim() : "";
+  if (!userId) errors["userId"] = "userId is required";
+  const baseUrl = typeof record["baseUrl"] === "string" ? record["baseUrl"].trim() : "";
+  if (!baseUrl) errors["baseUrl"] = "baseUrl is required";
+  else if (!isHttpUrl(baseUrl)) errors["baseUrl"] = "baseUrl must be a valid http(s) URL";
+  const daemonResult = validateDaemonSettingsInput(record["daemon"]);
+  if (!daemonResult.ok) Object.assign(errors, daemonResult.errors);
+  if (Object.keys(errors).length > 0 || !daemonResult.ok) return { ok: false, errors };
+  return { ok: true, value: { userId, baseUrl, daemon: daemonResult.value } };
+}
 async function dispatch(request, response, deps, paths2, url) {
   const key = url.slice(CONTROL_API_PREFIX.length);
   if (key === "snapshot") {
@@ -32806,6 +33058,27 @@ async function dispatch(request, response, deps, paths2, url) {
       return;
     }
     writeJson(response, 200, { ok: true, data: deps.actions.snapshot() });
+    return;
+  }
+  if (key === "config") {
+    if (request.method !== "POST") {
+      writeJson(response, 405, error("method_not_allowed", "Method not allowed"));
+      return;
+    }
+    const body = await readBody(request, MAX_BODY_BYTES);
+    let parsed;
+    try {
+      parsed = body.trim().length > 0 ? JSON.parse(body) : {};
+    } catch {
+      writeJson(response, 400, { ok: false, errors: { body: "body must be valid JSON" } });
+      return;
+    }
+    const validated = validateConfigInput(parsed);
+    if (!validated.ok) {
+      writeJson(response, 400, { ok: false, errors: validated.errors });
+      return;
+    }
+    writeJson(response, 200, { ok: true, data: deps.actions.updateConfig(validated.value) });
     return;
   }
   const action = findControlAction(key);
@@ -33047,7 +33320,7 @@ function normalizeError(error2) {
 }
 
 // src/daemon/control/resume.token.ts
-import * as fs9 from "node:fs";
+import * as fs10 from "node:fs";
 import { randomBytes as randomBytes2 } from "node:crypto";
 var TOKEN_FILE_MODE = 384;
 var TOKEN_BYTES = 24;
@@ -33055,16 +33328,16 @@ function ensureResumeToken(paths2) {
   const existing = readExistingToken(paths2.resumeTokenPath);
   if (existing !== null) return existing;
   const token = randomBytes2(TOKEN_BYTES).toString("base64url");
-  fs9.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
+  fs10.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
   try {
-    fs9.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
+    fs10.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
   } catch {
   }
   return token;
 }
 function readExistingToken(tokenPath) {
   try {
-    const content = fs9.readFileSync(tokenPath, "utf8").trim();
+    const content = fs10.readFileSync(tokenPath, "utf8").trim();
     return content.length > 0 ? content : null;
   } catch {
     return null;
@@ -33164,11 +33437,11 @@ function eventIdOfSpoolLine(line) {
 }
 
 // src/daemon/lifecycle/daemon.pid.ts
-import * as fs10 from "node:fs";
+import * as fs11 from "node:fs";
 var PID_FILE_MODE = 384;
 function writeDaemonPid(paths2, pid = process.pid) {
   try {
-    fs10.writeFileSync(paths2.pidPath, `${pid}
+    fs11.writeFileSync(paths2.pidPath, `${pid}
 `, { mode: PID_FILE_MODE });
   } catch {
     return;
@@ -33180,7 +33453,7 @@ function ownsDaemonPid(paths2) {
 function removeDaemonPid(paths2) {
   if (!ownsDaemonPid(paths2)) return;
   try {
-    fs10.unlinkSync(paths2.pidPath);
+    fs11.unlinkSync(paths2.pidPath);
   } catch {
     return;
   }
@@ -33188,7 +33461,7 @@ function removeDaemonPid(paths2) {
 function readPidFile(paths2) {
   let raw;
   try {
-    raw = fs10.readFileSync(paths2.pidPath, "utf8");
+    raw = fs11.readFileSync(paths2.pidPath, "utf8");
   } catch {
     return void 0;
   }
@@ -33199,7 +33472,6 @@ function readPidFile(paths2) {
 // src/daemon/delivery/spool.sender.ts
 var FLUSH_IDLE_MS = 1e3;
 var INITIAL_BACKOFF_MS = 1e3;
-var POISON_ATTEMPTS = 3;
 var SEGMENT_BATCH_MAX = 50;
 var FINAL_FLUSH_MAX_ITERATIONS = 2e3;
 var HEALTH_REPORT_MIN_INTERVAL_MS = 6e4;
@@ -33256,7 +33528,7 @@ var SpoolSender = class {
       lastDeadReason: this.#lastDeadReason,
       poisonSegment: this.#poisonSegment,
       poisonAttempts: this.#poisonAttempts,
-      poisonThreshold: POISON_ATTEMPTS
+      poisonThreshold: this.#options.poisonAttempts
     };
   }
   /** 종료 직전에 남은 세그먼트를 보내며 서버가 받지 못하면 다음 기동에 넘긴다. */
@@ -33350,7 +33622,7 @@ var SpoolSender = class {
       this.#poisonAttempts = 0;
     }
     this.#poisonAttempts += 1;
-    if (this.#poisonAttempts < POISON_ATTEMPTS) {
+    if (this.#poisonAttempts < this.#options.poisonAttempts) {
       this.#increaseBackoff();
       this.#scheduleFlush(this.#backoffMs);
       return;
@@ -33363,8 +33635,11 @@ var SpoolSender = class {
       return;
     }
     appendDeadLetter(batch.lines, this.#options.paths);
-    this.#options.health.recordDeadLetter(`poison after ${POISON_ATTEMPTS} server errors`, batch.lines.length);
-    daemonLog(`poison segment parked after ${POISON_ATTEMPTS} server errors`);
+    this.#options.health.recordDeadLetter(
+      `poison after ${this.#options.poisonAttempts} server errors`,
+      batch.lines.length
+    );
+    daemonLog(`poison segment parked after ${this.#options.poisonAttempts} server errors`);
     this.#removeSegments(batch.segments);
     this.#resetPoisonState();
     this.#backoffMs = 0;
@@ -33374,7 +33649,7 @@ var SpoolSender = class {
     this.#backoffMs = this.#backoffMs === 0 ? INITIAL_BACKOFF_MS : Math.min(this.#backoffMs * 2, MAX_INGEST_BACKOFF_MS);
   }
   #enforceCap() {
-    const cap = enforceSpoolSizeCap(this.#options.paths);
+    const cap = enforceSpoolSizeCap(this.#options.paths, this.#options.spoolMaxBytes);
     if (cap.droppedSegments.length === 0) return;
     this.#options.history.forget(cap.droppedSegments);
     daemonLog(`spool over cap \u2014 dropped ${cap.droppedSegments.length} segment(s), ${cap.droppedBytes} byte(s)`);
@@ -33456,7 +33731,7 @@ function parseMcpSocketRequest(type, value) {
     case "recipe-scan-request":
       return { type: "recipe-scan-request" };
     case "set-task-title":
-      return typeof value["title"] === "string" ? { type: "set-task-title", title: value["title"] } : null;
+      return typeof value["title"] === "string" && typeof value["sessionId"] === "string" ? { type: "set-task-title", title: value["title"], sessionId: value["sessionId"] } : null;
     case "memo-create":
       return typeof value["body"] === "string" ? {
         type: "memo-create",
@@ -33672,9 +33947,9 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "set-task-title": {
-        const taskId = context.findActiveTaskId();
+        const taskId = context.findTaskIdBySession(request.sessionId);
         if (taskId === void 0) {
-          send(socket, { ok: false, reason: "no_active_task" });
+          send(socket, { ok: false, reason: "unknown_session" });
           return;
         }
         const ok2 = await context.setTaskTitle(taskId, request.title);
@@ -33724,12 +33999,12 @@ function send(socket, response) {
 var DAEMON_HEALTH_LAST_DEAD_REASONS_MAX = 10;
 
 // src/config/runtime.root.ts
-import * as fs11 from "node:fs";
+import * as fs12 from "node:fs";
 import * as path6 from "node:path";
 import { fileURLToPath } from "node:url";
 var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
-  return ROOT_MANIFESTS.some((manifest) => fs11.existsSync(path6.join(dir, manifest)));
+  return ROOT_MANIFESTS.some((manifest) => fs12.existsSync(path6.join(dir, manifest)));
 }
 function resolveRuntimeRoot(from = path6.dirname(fileURLToPath(import.meta.url))) {
   const start = path6.resolve(from);
@@ -33744,7 +34019,7 @@ function resolveRuntimeRoot(from = path6.dirname(fileURLToPath(import.meta.url))
 function readRuntimeManifestVersion(root = resolveRuntimeRoot()) {
   for (const manifest of ROOT_MANIFESTS) {
     try {
-      const parsed = JSON.parse(fs11.readFileSync(path6.join(root, manifest), "utf8"));
+      const parsed = JSON.parse(fs12.readFileSync(path6.join(root, manifest), "utf8"));
       const version2 = isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"].trim() : "";
       if (version2) return version2;
     } catch {
@@ -33788,7 +34063,7 @@ var DaemonHealthTracker = class {
 };
 
 // src/daemon/lifecycle/servers.ts
-import * as fs12 from "node:fs";
+import * as fs13 from "node:fs";
 import * as http from "node:http";
 import * as net2 from "node:net";
 
@@ -33828,7 +34103,7 @@ function createDaemonServers(options) {
   };
   socketServer.on("listening", () => {
     try {
-      fs12.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
+      fs13.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
     } catch {
     }
     writeDaemonPid(options.paths);
@@ -33874,7 +34149,7 @@ async function reclaimSocket(options, listenOnSocket) {
     process.exit(0);
   }
   try {
-    fs12.unlinkSync(options.paths.socketPath);
+    fs13.unlinkSync(options.paths.socketPath);
   } catch {
   }
   listenOnSocket();
@@ -34111,16 +34386,10 @@ function onUserInputForRuleGeneration(hook, kind, taskId, eventId, prompt) {
 }
 
 // src/daemon/main.ts
-var RECIPE_REFRESH_MS = 5 * 60 * 1e3;
-var RULES_REFRESH_MS = 10 * 1e3;
-var RULE_GEN_POLL_MS = 10 * 1e3;
-var IDLE_SHUTDOWN_MS = 5 * 60 * 1e3;
-var IDLE_CHECK_MS = 3e4;
-var CONTROL_REBIND_RETRY_MS = 2e3;
-var DEFAULT_CONTROL_PORT = 3848;
 var paths = resolveAgentTracerPaths();
 var version = resolveDaemonVersion();
-var controlPort = resolveControlPort(process.env.AGENT_TRACER_RESUME_PORT);
+var bootSettings = resolveDaemonSettings(process.env, paths);
+var controlPort = bootSettings.controlPort;
 var startedAt = Date.now();
 var hooks = composeDaemonHooks(`daemon-${process.pid}`);
 var ring = new RecentEventRing();
@@ -34156,12 +34425,17 @@ var spoolSender = new SpoolSender({
   history: spoolHistory,
   health,
   daemonVersion: version,
+  spoolMaxBytes: bootSettings.spoolMaxBytes,
+  poisonAttempts: bootSettings.poisonAttempts,
   onActivity: touch,
   onOwnershipLost: () => void shutdown("ownership-lost")
 });
-function resolveControlPort(value) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 && parsed <= 65535 ? parsed : DEFAULT_CONTROL_PORT;
+function applyConfigUpdate(input) {
+  writeAgentTracerConfig({ userId: input.userId, baseUrl: input.baseUrl, daemon: input.daemon }, paths);
+  return {
+    identity: resolveMonitorIdentity(process.env, readMonitorConfigFile(paths)),
+    daemon: resolveDaemonSettings(process.env, paths)
+  };
 }
 function touch() {
   lastActivityAt = Date.now();
@@ -34200,25 +34474,26 @@ function currentState() {
     identity: resolveMonitorIdentity(),
     activeConnections,
     lastActivityAt,
-    idleShutdownMs: IDLE_SHUTDOWN_MS,
+    idleShutdownMs: bootSettings.idleShutdownMs,
     swallowedErrors: health.swallowedErrorCount,
     rules: cachedRules,
     caches: {
       rules: {
         lastRefreshAt: rulesRefreshedAt,
         lastFailureAt: rulesFailedAt,
-        intervalMs: RULES_REFRESH_MS,
+        intervalMs: bootSettings.rulesRefreshMs,
         entries: cachedRules.length
       },
       recipes: {
         lastRefreshAt: recipesRefreshedAt,
         lastFailureAt: recipesFailedAt,
-        intervalMs: RECIPE_REFRESH_MS,
+        intervalMs: bootSettings.recipeRefreshMs,
         entries: hooks.recipeCache.load().length
       }
     },
     ring: ring.stats(),
-    interventions: interventions.snapshot()
+    interventions: interventions.snapshot(),
+    settings: bootSettings
   };
 }
 function currentDelivery() {
@@ -34250,14 +34525,15 @@ var controlActions = {
   resetBackoff: () => spoolSender.resetBackoff(),
   refreshCaches: refreshAll,
   restart: () => void shutdown("control-restart"),
-  stop: () => void shutdown("control-stop")
+  stop: () => void shutdown("control-stop"),
+  updateConfig: applyConfigUpdate
 };
 ensureAgentTracerHome(paths);
 var controlToken = ensureResumeToken(paths);
 var servers = createDaemonServers({
   paths,
   controlPort,
-  rebindRetryMs: CONTROL_REBIND_RETRY_MS,
+  rebindRetryMs: bootSettings.controlRebindRetryMs,
   onConnection: createDaemonConnectionHandler({
     version,
     ring,
@@ -34269,6 +34545,7 @@ var servers = createDaemonServers({
     readRules: () => cachedRules,
     readDelivery: currentDelivery,
     findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,
+    findTaskIdBySession: hooks.findTaskIdBySession,
     setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
     refreshHistory: () => spoolSender.feedHistory(),
     onHookVersion: (hookVersion) => {
@@ -34298,25 +34575,25 @@ servers.start();
 var timers = [
   setInterval(() => {
     if (!shuttingDown) void refreshRecipes();
-  }, RECIPE_REFRESH_MS),
+  }, bootSettings.recipeRefreshMs),
   setInterval(() => {
     if (shuttingDown) return;
     void refreshRules();
     void refreshRuleSetting();
-  }, RULES_REFRESH_MS),
+  }, bootSettings.rulesRefreshMs),
   setInterval(() => {
     if (!shuttingDown) void onRuleGenerationPoll(hooks.rulegen);
-  }, RULE_GEN_POLL_MS),
+  }, bootSettings.ruleGenPollMs),
   setInterval(() => {
     if (shuttingDown) return;
     if (spoolSender.hasPendingSegments() || activeConnections > 0 || spoolSender.isBackingOff() || hasRunningRuleGenerationJobs(hooks.rulegen)) {
       touch();
       return;
     }
-    if (Date.now() - lastActivityAt < IDLE_SHUTDOWN_MS) return;
-    daemonLog(`idle ${IDLE_SHUTDOWN_MS}ms \u2014 exiting`);
+    if (Date.now() - lastActivityAt < bootSettings.idleShutdownMs) return;
+    daemonLog(`idle ${bootSettings.idleShutdownMs}ms \u2014 exiting`);
     void shutdown("idle-timeout");
-  }, IDLE_CHECK_MS)
+  }, bootSettings.idleCheckMs)
 ];
 for (const timer of timers) timer.unref();
 process.once("SIGTERM", () => void shutdown("SIGTERM"));

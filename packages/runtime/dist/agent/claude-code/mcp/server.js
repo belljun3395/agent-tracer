@@ -270,12 +270,12 @@ async function requestRecipeScanViaDaemon() {
     return NO_DAEMON_SCAN;
   }
 }
-async function setTaskTitleViaDaemon(title) {
+async function setTaskTitleViaDaemon(title, sessionId) {
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
       paths.socketPath,
-      { type: "set-task-title", title },
+      { type: "set-task-title", title, sessionId },
       REQUEST_TIMEOUT_MS,
       (parsed) => parseDaemonSetTaskTitleResponse(parsed) ?? NO_DAEMON_TITLE,
       NO_DAEMON_TITLE
@@ -603,19 +603,26 @@ function parseSearchRecipesArgs(value) {
 // src/domain/session/model/set.task.title.tool.model.ts
 var SET_TASK_TITLE_TOOL = {
   name: "set_task_title",
-  description: `Rename the current task in Agent Tracer's dashboard. A task opens with a crude placeholder title \u2014 for a user session, the first 120 characters of the initial prompt; for a subagent, "Subagent: <type>". Set a real title once you understand what the work is actually about AND it is a meaningful, trackable task worth its own name: as the primary agent, right after the first exchange; as a subagent, right after you grasp the delegated task you are starting. Judge first \u2014 if the request is trivial, throwaway, or a one-off question where the placeholder already reads fine, skip it. Give a short, specific, human-readable title (a few words to a short sentence). Best-effort: this tool cannot see which session it is attached to, so it retitles whichever task in this workspace was most recently active \u2014 normally your own if you call early, at the start of your work. Title once, promptly, and re-title only if the scope later shifts substantially. If several sessions or subagents may be active at once, expect it to occasionally land on the wrong task.`,
+  description: `Rename the current task in Agent Tracer's dashboard. A task opens with a crude placeholder title \u2014 for a user session, the first 120 characters of the initial prompt; for a subagent, "Subagent: <type>". Set a real title once you understand what the work is actually about AND it is a meaningful, trackable task worth its own name: as the primary agent, right after the first exchange; as a subagent, right after you grasp the delegated task you are starting. Judge first \u2014 if the request is trivial, throwaway, or a one-off question where the placeholder already reads fine, skip it. Give a short, specific, human-readable title (a few words to a short sentence). This tool cannot see which session it is attached to on its own \u2014 you must pass the sessionId given to you in the injected task-title context exactly as provided; do not invent one, and do not call this tool if you were not given that value. Title once, promptly, and re-title only if the scope later shifts substantially.`,
   inputSchema: {
     type: "object",
     properties: {
-      title: { type: "string", description: "Short, specific task title (a few words to a short sentence)." }
+      title: { type: "string", description: "Short, specific task title (a few words to a short sentence)." },
+      sessionId: {
+        type: "string",
+        description: "The sessionId provided to you in the injected task-title context. Pass it exactly; do not invent one."
+      }
     },
-    required: ["title"]
+    required: ["title", "sessionId"]
   }
 };
 function parseSetTaskTitleArgs(value) {
   if (!isRecord(value)) return null;
   const title = value["title"];
-  return typeof title === "string" && title.trim() !== "" ? { title: title.trim() } : null;
+  const sessionId = value["sessionId"];
+  if (typeof title !== "string" || title.trim() === "") return null;
+  if (typeof sessionId !== "string" || sessionId.trim() === "") return null;
+  return { title: title.trim(), sessionId };
 }
 
 // src/agent/claude-code/mcp/tool.dispatch.ts
@@ -665,7 +672,7 @@ async function callTool(name, args) {
     case SET_TASK_TITLE_TOOL.name: {
       const parsed = parseSetTaskTitleArgs(args);
       if (!parsed) return invalidArgs();
-      const result = await setTaskTitleViaDaemon(parsed.title);
+      const result = await setTaskTitleViaDaemon(parsed.title, parsed.sessionId);
       return result.ok ? { text: "Task title updated.", isError: false } : { text: `Could not update title${result.reason ? ` (${result.reason})` : ""}.`, isError: true };
     }
     case CREATE_MEMO_TOOL.name: {

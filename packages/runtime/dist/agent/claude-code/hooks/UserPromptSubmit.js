@@ -111,7 +111,8 @@ function emitAgentContext(hookEventName, input) {
   const sections = [
     formatRulesContext(input.rules),
     formatHintsContext(input.hints),
-    input.recipeContext
+    input.recipeContext,
+    input.titleNudge
   ].filter((section) => section !== "");
   if (sections.length === 0) return { emitted: false, recipeBytes: 0 };
   writeStdout({ hookSpecificOutput: { hookEventName, additionalContext: sections.join("\n") } });
@@ -835,6 +836,14 @@ function toBoundSession(binding2) {
     startedAt: binding2.createdAt,
     ...turn2 ? { turnId: turn2.turnId, turn: turn2 } : {}
   };
+}
+function activityTimestamp(binding2) {
+  return Date.parse(binding2.turnStartedAt ?? binding2.createdAt);
+}
+function mostRecentBindingWhere(bindings2, predicate) {
+  const matches = Object.values(bindings2).filter(predicate);
+  if (matches.length === 0) return void 0;
+  return matches.reduce((latest, candidate) => activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest);
 }
 
 // src/domain/binding/application/read.binding.usecase.ts
@@ -3569,6 +3578,10 @@ function restored(binding2) {
 }
 
 // src/domain/session/model/session.event.model.ts
+var SUBAGENT_PREFIX = "sub--";
+function isSubagentSession(runtimeSessionId) {
+  return runtimeSessionId.startsWith(SUBAGENT_PREFIX);
+}
 function sessionStartedEvent(taskId, sessionId, input) {
   return {
     kind: KIND.sessionStarted,
@@ -3626,13 +3639,16 @@ var ClearSessionUsecase = class {
       throw new Error("bindings lock unavailable, cannot clear session binding");
     }
     let created;
+    let predecessor;
     try {
       const store = this.bindings.read();
+      predecessor = input.workspacePath ? mostRecentBindingWhere(store, (candidate) => candidate.workspacePath === input.workspacePath && bindingKey(candidate.runtimeSource, candidate.runtimeSessionId) !== key && !isSubagentSession(candidate.runtimeSessionId)) : void 0;
       created = {
         taskId: this.ids.next(),
         sessionId: this.ids.next(),
         runtimeSource: input.runtimeSource,
         runtimeSessionId: input.runtimeSessionId,
+        ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
         createdAt: new Date(this.clock.now()).toISOString(),
         titled: input.titled ?? true
       };
@@ -3640,6 +3656,17 @@ var ClearSessionUsecase = class {
       this.bindings.write(capBindingStore(store));
     } finally {
       this.bindings.releaseLock();
+    }
+    if (predecessor) {
+      await this.append(sessionEndedEvent({
+        taskId: predecessor.taskId,
+        sessionId: predecessor.sessionId,
+        runtimeSource: input.runtimeSource,
+        runtimeSessionId: predecessor.runtimeSessionId,
+        summary: "Claude Code conversation cleared (/clear)",
+        completionReason: "cleared",
+        completeTask: true
+      }));
     }
     await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
       runtimeSource: input.runtimeSource,
@@ -3711,6 +3738,7 @@ var EnsureSessionUsecase = class {
           sessionId: this.ids.next(),
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
+          ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
           createdAt: new Date(this.clock.now()).toISOString(),
           titled
         };
@@ -4067,6 +4095,18 @@ function onRecipeScanRequested(hook, request) {
   return hook.requestScan.execute(request);
 }
 
+// src/domain/session/model/task.title.nudge.model.ts
+function formatTitleNudge(sessionId) {
+  return [
+    "<agent-tracer-task-title>",
+    "This task just opened with a crude placeholder title.",
+    `Your sessionId is ${sessionId}.`,
+    `If the work ahead is already scoped and worth tracking on its own, call the \`set_task_title\` tool now, before doing anything else, passing sessionId exactly as ${sessionId}.`,
+    "If this is a trivial, throwaway, or one-off question, skip it \u2014 that judgment call is yours.",
+    "</agent-tracer-task-title>"
+  ].join("\n");
+}
+
 // src/domain/turn/inbound/turn.hook.ts
 function onTurnOpen(hook, input) {
   return hook.openTurn.execute(input);
@@ -4129,7 +4169,8 @@ await runHook("UserPromptSubmit", {
     const emission = emitAgentContext("UserPromptSubmit", {
       rules,
       hints,
-      recipeContext: recipes?.context ?? ""
+      recipeContext: recipes?.context ?? "",
+      titleNudge: target.taskCreated && !systemNotification ? formatTitleNudge(payload.sessionId) : ""
     });
     if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
     await reportRecipeInjection(target.taskId, recipes.titles, emission.recipeBytes);
