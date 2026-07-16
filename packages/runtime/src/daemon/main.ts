@@ -202,6 +202,7 @@ const servers = createDaemonServers({
         guardrail: hooks.guardrail,
         hint: hooks.hint,
         recipe: hooks.recipe,
+        memo: hooks.memo,
         readRules: () => cachedRules,
         readDelivery: currentDelivery,
         findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,

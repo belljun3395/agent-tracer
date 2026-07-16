@@ -2,10 +2,16 @@ import type {RecipeOutcome} from "@monitor/kernel/recipe/recipe.const.js";
 import {resolveAgentTracerPaths} from "~runtime/config/home.paths.js";
 import {requestDaemon} from "~runtime/daemon/ipc/socket.client.js";
 import {
+    parseDaemonMemoCreateResponse,
+    parseDaemonMemoSearchResponse,
     parseDaemonRecipeOutcomeResponse,
     parseDaemonRecipeScanResponse,
     parseDaemonRecipeSearchResponse,
     parseDaemonSetTaskTitleResponse,
+    type DaemonMemoCreateRequest,
+    type DaemonMemoCreateResponse,
+    type DaemonMemoSearchRequest,
+    type DaemonMemoSearchResponse,
     type DaemonRecipeOutcomeRequest,
     type DaemonRecipeOutcomeResponse,
     type DaemonRecipeScanRequest,
@@ -21,6 +27,8 @@ const EMPTY_SEARCH: DaemonRecipeSearchResponse = {matches: []};
 const NO_DAEMON_OUTCOME: DaemonRecipeOutcomeResponse = {ok: false, reason: "daemon_unreachable"};
 const NO_DAEMON_SCAN: DaemonRecipeScanResponse = {queued: false, reason: "daemon_unreachable"};
 const NO_DAEMON_TITLE: DaemonSetTaskTitleResponse = {ok: false, reason: "daemon_unreachable"};
+const NO_DAEMON_MEMO_CREATE: DaemonMemoCreateResponse = {ok: false, reason: "daemon_unreachable"};
+const NO_DAEMON_MEMO_SEARCH: DaemonMemoSearchResponse = {items: [], reason: "daemon_unreachable"};
 
 /** MCP 브리지가 데몬에 캐시된 레시피 검색을 위임한다. */
 export async function searchRecipesViaDaemon(query: string, limit?: number): Promise<DaemonRecipeSearchResponse> {
@@ -96,5 +104,45 @@ export async function setTaskTitleViaDaemon(title: string): Promise<DaemonSetTas
         );
     } catch {
         return NO_DAEMON_TITLE;
+    }
+}
+
+/** MCP create_memo 도구가 데몬에 메모 쓰기를 위임한다. */
+export async function createMemoViaDaemon(body: string, eventId?: string): Promise<DaemonMemoCreateResponse> {
+    const paths = resolveAgentTracerPaths();
+    try {
+        return await requestDaemon(
+            paths.socketPath,
+            {
+                type: "memo-create",
+                body,
+                ...(eventId !== undefined ? {eventId} : {}),
+            } satisfies DaemonMemoCreateRequest,
+            REQUEST_TIMEOUT_MS,
+            (parsed) => parseDaemonMemoCreateResponse(parsed) ?? NO_DAEMON_MEMO_CREATE,
+            NO_DAEMON_MEMO_CREATE,
+        );
+    } catch {
+        return NO_DAEMON_MEMO_CREATE;
+    }
+}
+
+/** MCP search_memos 도구가 데몬에 메모 조회를 위임한다. */
+export async function searchMemosViaDaemon(query?: string, limit?: number): Promise<DaemonMemoSearchResponse> {
+    const paths = resolveAgentTracerPaths();
+    try {
+        return await requestDaemon(
+            paths.socketPath,
+            {
+                type: "memo-search",
+                ...(query !== undefined ? {query} : {}),
+                ...(limit !== undefined ? {limit} : {}),
+            } satisfies DaemonMemoSearchRequest,
+            REQUEST_TIMEOUT_MS,
+            (parsed) => parseDaemonMemoSearchResponse(parsed) ?? NO_DAEMON_MEMO_SEARCH,
+            NO_DAEMON_MEMO_SEARCH,
+        );
+    } catch {
+        return NO_DAEMON_MEMO_SEARCH;
     }
 }

@@ -9,6 +9,11 @@ import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.bind
 import {FindActiveBindingUsecase} from "~runtime/domain/binding/application/find.active.binding.usecase.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
+import {HttpMemoSearchAdapter} from "~runtime/domain/memo/adapter/http.memo.search.adapter.js";
+import {HttpMemoWriteAdapter} from "~runtime/domain/memo/adapter/http.memo.write.adapter.js";
+import {CreateMemoUsecase} from "~runtime/domain/memo/application/create.memo.usecase.js";
+import {SearchMemosUsecase} from "~runtime/domain/memo/application/search.memos.usecase.js";
+import type {MemoHook} from "~runtime/domain/memo/inbound/memo.hook.js";
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
@@ -42,6 +47,7 @@ export interface DaemonHooks {
     readonly recipeCache: RecipeCachePort;
     readonly findActiveBinding: FindActiveBindingUsecase;
     readonly setTaskTitle: SetTaskTitleUsecase;
+    readonly memo: MemoHook;
 }
 
 /** 데몬 프로세스가 쓰는 어댑터와 유스케이스를 한 곳에서 조립한다. */
@@ -80,6 +86,11 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const ids: IdGeneratorPort = {next: generateUlid};
     const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
 
+    const memo: MemoHook = {
+        createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
+        searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers)),
+    };
+
     const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
     const runRuleJob = new RunRuleJobUsecase(
         new HttpRuleEvidenceAdapter(baseUrl, headers),
@@ -101,5 +112,5 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache),
     };
 
-    return {guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle};
+    return {guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle, memo};
 }

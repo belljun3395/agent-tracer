@@ -196,6 +196,20 @@ function parseDaemonSetTaskTitleResponse(value) {
     ...typeof value["reason"] === "string" ? { reason: value["reason"] } : {}
   };
 }
+function parseDaemonMemoCreateResponse(value) {
+  if (!isRecord(value) || typeof value["ok"] !== "boolean") return null;
+  return {
+    ok: value["ok"],
+    ...typeof value["reason"] === "string" ? { reason: value["reason"] } : {}
+  };
+}
+function parseDaemonMemoSearchResponse(value) {
+  if (!isRecord(value) || !Array.isArray(value["items"])) return null;
+  return {
+    items: value["items"],
+    ...typeof value["reason"] === "string" ? { reason: value["reason"] } : {}
+  };
+}
 
 // src/daemon/ipc/mcp.client.ts
 var REQUEST_TIMEOUT_MS = 3e3;
@@ -203,6 +217,8 @@ var EMPTY_SEARCH = { matches: [] };
 var NO_DAEMON_OUTCOME = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_SCAN = { queued: false, reason: "daemon_unreachable" };
 var NO_DAEMON_TITLE = { ok: false, reason: "daemon_unreachable" };
+var NO_DAEMON_MEMO_CREATE = { ok: false, reason: "daemon_unreachable" };
+var NO_DAEMON_MEMO_SEARCH = { items: [], reason: "daemon_unreachable" };
 async function searchRecipesViaDaemon(query, limit) {
   const paths = resolveAgentTracerPaths();
   try {
@@ -266,6 +282,42 @@ async function setTaskTitleViaDaemon(title) {
     );
   } catch {
     return NO_DAEMON_TITLE;
+  }
+}
+async function createMemoViaDaemon(body, eventId) {
+  const paths = resolveAgentTracerPaths();
+  try {
+    return await requestDaemon(
+      paths.socketPath,
+      {
+        type: "memo-create",
+        body,
+        ...eventId !== void 0 ? { eventId } : {}
+      },
+      REQUEST_TIMEOUT_MS,
+      (parsed) => parseDaemonMemoCreateResponse(parsed) ?? NO_DAEMON_MEMO_CREATE,
+      NO_DAEMON_MEMO_CREATE
+    );
+  } catch {
+    return NO_DAEMON_MEMO_CREATE;
+  }
+}
+async function searchMemosViaDaemon(query, limit) {
+  const paths = resolveAgentTracerPaths();
+  try {
+    return await requestDaemon(
+      paths.socketPath,
+      {
+        type: "memo-search",
+        ...query !== void 0 ? { query } : {},
+        ...limit !== void 0 ? { limit } : {}
+      },
+      REQUEST_TIMEOUT_MS,
+      (parsed) => parseDaemonMemoSearchResponse(parsed) ?? NO_DAEMON_MEMO_SEARCH,
+      NO_DAEMON_MEMO_SEARCH
+    );
+  } catch {
+    return NO_DAEMON_MEMO_SEARCH;
   }
 }
 
@@ -434,6 +486,56 @@ async function ensureDaemonRunning(env = process.env) {
   if (await resolveDaemonAction(paths) === "spawn") spawnDaemon(paths);
 }
 
+// src/domain/memo/model/create.memo.tool.model.ts
+var CREATE_MEMO_TOOL = {
+  name: "create_memo",
+  description: "Leave a short note on the current task in Agent Tracer, visible to the human operator later. Call this when you notice something worth flagging for a human but that does not belong in your normal response \u2014 an assumption you made, a workaround you had to use, or a risk you could not resolve yourself. Best-effort: this tool cannot see which session it is attached to, so it attaches to whichever task in this workspace was most recently active. If several sessions or subagents may be active at once, expect it to occasionally land on the wrong task.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      body: { type: "string", description: "The note text." },
+      eventId: {
+        type: "string",
+        description: "Optional event id to attach the note to a specific event instead of the task overall."
+      }
+    },
+    required: ["body"]
+  }
+};
+function parseCreateMemoArgs(value) {
+  if (!isRecord(value)) return null;
+  const body = value["body"];
+  if (typeof body !== "string" || body.trim() === "") return null;
+  const eventId = value["eventId"];
+  return {
+    body,
+    ...typeof eventId === "string" && eventId.trim() !== "" ? { eventId } : {}
+  };
+}
+
+// src/domain/memo/model/search.memos.tool.model.ts
+var SEARCH_MEMOS_TOOL = {
+  name: "search_memos",
+  description: "Read notes left on the current task in Agent Tracer. Call this when you want to check what a human or a prior agent run already flagged before you repeat work or make a decision. Omit query to list every memo on the active task; pass query to narrow to memos whose text matches.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Optional text to filter memos by. Omit to list all." },
+      limit: { type: "number", description: "Max memos to return (default 20)." }
+    },
+    required: []
+  }
+};
+function parseSearchMemosArgs(value) {
+  if (!isRecord(value)) return null;
+  const query = value["query"];
+  const limit = value["limit"];
+  return {
+    ...typeof query === "string" && query.trim() !== "" ? { query } : {},
+    ...typeof limit === "number" && Number.isFinite(limit) ? { limit } : {}
+  };
+}
+
 // src/domain/recipe/model/report.recipe.outcome.tool.model.ts
 var REPORT_RECIPE_OUTCOME_TOOL = {
   name: "report_recipe_outcome",
@@ -521,7 +623,9 @@ var MCP_TOOLS = [
   SEARCH_RECIPES_TOOL,
   REPORT_RECIPE_OUTCOME_TOOL,
   REQUEST_RECIPE_SCAN_TOOL,
-  SET_TASK_TITLE_TOOL
+  SET_TASK_TITLE_TOOL,
+  CREATE_MEMO_TOOL,
+  SEARCH_MEMOS_TOOL
 ];
 function invalidArgs() {
   return { text: "Invalid arguments.", isError: true };
@@ -533,6 +637,11 @@ intent: ${match.intent}
 ${match.description}
 
 ${match.summaryMd}`).join("\n\n---\n\n");
+}
+function formatMemoSearchResult(items) {
+  if (items.length === 0) return "No memos found on the active task.";
+  return items.map((item) => `## memo ${item.id} (author: ${item.author}${item.eventId ? `, event: ${item.eventId}` : ""})
+${item.body}`).join("\n\n---\n\n");
 }
 async function callTool(name, args) {
   await ensureDaemonRunning();
@@ -558,6 +667,18 @@ async function callTool(name, args) {
       if (!parsed) return invalidArgs();
       const result = await setTaskTitleViaDaemon(parsed.title);
       return result.ok ? { text: "Task title updated.", isError: false } : { text: `Could not update title${result.reason ? ` (${result.reason})` : ""}.`, isError: true };
+    }
+    case CREATE_MEMO_TOOL.name: {
+      const parsed = parseCreateMemoArgs(args);
+      if (!parsed) return invalidArgs();
+      const result = await createMemoViaDaemon(parsed.body, parsed.eventId);
+      return result.ok ? { text: "Memo saved.", isError: false } : { text: `Could not save memo${result.reason ? ` (${result.reason})` : ""}.`, isError: true };
+    }
+    case SEARCH_MEMOS_TOOL.name: {
+      const parsed = parseSearchMemosArgs(args);
+      if (!parsed) return invalidArgs();
+      const result = await searchMemosViaDaemon(parsed.query, parsed.limit);
+      return { text: formatMemoSearchResult(result.items), isError: false };
     }
     default:
       return { text: `Unknown tool: ${name}`, isError: true };

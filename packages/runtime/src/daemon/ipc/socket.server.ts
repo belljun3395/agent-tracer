@@ -13,6 +13,8 @@ import {
     type DaemonVersionResponse,
 } from "~runtime/daemon/port/daemon.socket.port.js";
 import type {
+    DaemonMemoCreateResponse,
+    DaemonMemoSearchResponse,
     DaemonRecipeOutcomeResponse,
     DaemonRecipeScanResponse,
     DaemonRecipeSearchResponse,
@@ -23,6 +25,11 @@ import {formatGuardrailLog} from "~runtime/domain/guardrail/model/enforce.model.
 import {isEnforceableRule, type GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {onHintsRequested, type HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
 import type {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
+import {
+    onMemoCreateRequested,
+    onMemoSearchRequested,
+    type MemoHook,
+} from "~runtime/domain/memo/inbound/memo.hook.js";
 import {
     onPromptRecipes,
     onRecipeOutcomeReported,
@@ -41,6 +48,7 @@ export interface DaemonSocketContext {
     readonly guardrail: GuardrailHook;
     readonly hint: HintHook;
     readonly recipe: RecipeHook;
+    readonly memo: MemoHook;
     readonly readRules: () => readonly GuardrailRule[];
     readonly readDelivery: () => DaemonDeliveryResponse;
     /** MCP 도구처럼 자기 세션을 모르는 호출자를 위해 가장 최근 활성 태스크를 추정한다. */
@@ -184,6 +192,34 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 }
                 const ok = await context.setTaskTitle(taskId, request.title);
                 send(socket, {ok} satisfies DaemonSetTaskTitleResponse);
+                return;
+            }
+            case "memo-create": {
+                const taskId = context.findActiveTaskId();
+                if (taskId === undefined) {
+                    send(socket, {ok: false, reason: "no_active_task"} satisfies DaemonMemoCreateResponse);
+                    return;
+                }
+                const ok = await onMemoCreateRequested(context.memo, {
+                    taskId,
+                    body: request.body,
+                    ...(request.eventId !== undefined ? {eventId: request.eventId} : {}),
+                });
+                send(socket, {ok} satisfies DaemonMemoCreateResponse);
+                return;
+            }
+            case "memo-search": {
+                const taskId = context.findActiveTaskId();
+                if (taskId === undefined) {
+                    send(socket, {items: [], reason: "no_active_task"} satisfies DaemonMemoSearchResponse);
+                    return;
+                }
+                const items = await onMemoSearchRequested(context.memo, {
+                    taskId,
+                    ...(request.query !== undefined ? {query: request.query} : {}),
+                    ...(request.limit !== undefined ? {limit: request.limit} : {}),
+                });
+                send(socket, {items} satisfies DaemonMemoSearchResponse);
                 return;
             }
         }

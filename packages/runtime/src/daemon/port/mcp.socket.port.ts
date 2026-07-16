@@ -1,5 +1,6 @@
 import {RECIPE_OUTCOMES, type RecipeOutcome} from "@monitor/kernel/recipe/recipe.const.js";
 import type {RecipeMatch} from "~runtime/domain/recipe/model/recipe.model.js";
+import type {MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
 /** MCP 브리지가 데몬에 위임하는 도구 호출 전용 소켓 메시지이며 daemon.socket.port가 이 계약을 얹어 쓴다. */
@@ -30,11 +31,27 @@ export interface DaemonSetTaskTitleRequest {
     readonly title: string;
 }
 
+/** MCP create_memo 도구가 보내는 메모 요청이며 taskId는 데몬이 활성 바인딩으로 채운다. */
+export interface DaemonMemoCreateRequest {
+    readonly type: "memo-create";
+    readonly body: string;
+    readonly eventId?: string;
+}
+
+/** MCP search_memos 도구가 보내는 조회 요청이며 taskId는 데몬이 활성 바인딩으로 채운다. */
+export interface DaemonMemoSearchRequest {
+    readonly type: "memo-search";
+    readonly query?: string;
+    readonly limit?: number;
+}
+
 export type McpSocketRequest =
     | DaemonRecipeSearchRequest
     | DaemonRecipeOutcomeRequest
     | DaemonRecipeScanRequest
-    | DaemonSetTaskTitleRequest;
+    | DaemonSetTaskTitleRequest
+    | DaemonMemoCreateRequest
+    | DaemonMemoSearchRequest;
 
 export interface DaemonRecipeSearchResponse {
     readonly matches: readonly RecipeMatch[];
@@ -58,11 +75,25 @@ export interface DaemonSetTaskTitleResponse {
     readonly reason?: string;
 }
 
+/** 활성 태스크를 못 찾았거나 서버가 거절하면 ok가 false이고 reason에 이유가 담긴다. */
+export interface DaemonMemoCreateResponse {
+    readonly ok: boolean;
+    readonly reason?: string;
+}
+
+/** 활성 태스크를 못 찾았으면 items가 비고 reason에 이유가 담긴다. */
+export interface DaemonMemoSearchResponse {
+    readonly items: readonly MemoSearchResultItem[];
+    readonly reason?: string;
+}
+
 export type McpSocketResponse =
     | DaemonRecipeSearchResponse
     | DaemonRecipeOutcomeResponse
     | DaemonRecipeScanResponse
-    | DaemonSetTaskTitleResponse;
+    | DaemonSetTaskTitleResponse
+    | DaemonMemoCreateResponse
+    | DaemonMemoSearchResponse;
 
 /** daemon.socket.port의 parseDaemonRequest가 자기 타입을 못 찾을 때 넘기는 자리다. */
 export function parseMcpSocketRequest(type: string, value: Record<string, unknown>): McpSocketRequest | null {
@@ -92,6 +123,20 @@ export function parseMcpSocketRequest(type: string, value: Record<string, unknow
             return typeof value["title"] === "string"
                 ? {type: "set-task-title", title: value["title"]}
                 : null;
+        case "memo-create":
+            return typeof value["body"] === "string"
+                ? {
+                    type: "memo-create",
+                    body: value["body"],
+                    ...(typeof value["eventId"] === "string" ? {eventId: value["eventId"]} : {}),
+                }
+                : null;
+        case "memo-search":
+            return {
+                type: "memo-search",
+                ...(typeof value["query"] === "string" ? {query: value["query"]} : {}),
+                ...(typeof value["limit"] === "number" ? {limit: value["limit"]} : {}),
+            };
         default:
             return null;
     }
@@ -123,6 +168,22 @@ export function parseDaemonSetTaskTitleResponse(value: unknown): DaemonSetTaskTi
     if (!isRecord(value) || typeof value["ok"] !== "boolean") return null;
     return {
         ok: value["ok"],
+        ...(typeof value["reason"] === "string" ? {reason: value["reason"]} : {}),
+    };
+}
+
+export function parseDaemonMemoCreateResponse(value: unknown): DaemonMemoCreateResponse | null {
+    if (!isRecord(value) || typeof value["ok"] !== "boolean") return null;
+    return {
+        ok: value["ok"],
+        ...(typeof value["reason"] === "string" ? {reason: value["reason"]} : {}),
+    };
+}
+
+export function parseDaemonMemoSearchResponse(value: unknown): DaemonMemoSearchResponse | null {
+    if (!isRecord(value) || !Array.isArray(value["items"])) return null;
+    return {
+        items: value["items"] as MemoSearchResultItem[],
         ...(typeof value["reason"] === "string" ? {reason: value["reason"]} : {}),
     };
 }

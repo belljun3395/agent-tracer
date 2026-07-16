@@ -29905,6 +29905,115 @@ var SpoolEventSinkAdapter = class {
   }
 };
 
+// ../kernel/src/api/memo.query.const.ts
+var MEMOS_PATH = "/api/v1/memos";
+
+// src/domain/memo/adapter/http.memo.search.adapter.ts
+var FETCH_TIMEOUT_MS2 = 3e3;
+var HttpMemoSearchAdapter = class {
+  constructor(baseUrl, headers) {
+    this.baseUrl = baseUrl;
+    this.headers = headers;
+  }
+  baseUrl;
+  headers;
+  async listByTask(taskId) {
+    const body = await getJson(
+      `${this.baseUrl}${MEMOS_PATH}?taskId=${encodeURIComponent(taskId)}`,
+      this.headers,
+      FETCH_TIMEOUT_MS2
+    );
+    const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+    return items.map(parseMemoItem).filter((item) => item !== null);
+  }
+};
+function parseMemoItem(item) {
+  if (!isRecord(item)) return null;
+  const id = item["id"];
+  const taskId = item["taskId"];
+  const body = item["body"];
+  if (typeof id !== "string" || typeof taskId !== "string" || typeof body !== "string") return null;
+  const eventId = item["eventId"];
+  const author = item["author"];
+  const updatedAt = item["updatedAt"];
+  return {
+    id,
+    taskId,
+    eventId: typeof eventId === "string" ? eventId : null,
+    author: typeof author === "string" ? author : "",
+    body,
+    ...typeof updatedAt === "string" ? { updatedAt } : {}
+  };
+}
+
+// ../kernel/src/memo/memo.const.ts
+var MEMO_AUTHOR = {
+  human: "human",
+  agent: "agent"
+};
+var MEMO_AUTHORS = [MEMO_AUTHOR.human, MEMO_AUTHOR.agent];
+
+// src/domain/memo/adapter/http.memo.write.adapter.ts
+var HttpMemoWriteAdapter = class {
+  constructor(baseUrl, headers) {
+    this.baseUrl = baseUrl;
+    this.headers = headers;
+  }
+  baseUrl;
+  headers;
+  async create(input) {
+    const response = await postJson(`${this.baseUrl}${MEMOS_PATH}`, this.headers, {
+      taskId: input.taskId,
+      body: input.body,
+      author: MEMO_AUTHOR.agent,
+      ...input.eventId !== void 0 ? { eventId: input.eventId } : {}
+    });
+    return response.ok;
+  }
+};
+
+// src/domain/memo/application/create.memo.usecase.ts
+var CreateMemoUsecase = class {
+  constructor(writer) {
+    this.writer = writer;
+  }
+  writer;
+  async execute(input) {
+    if (input.taskId === "" || input.body.trim() === "") return false;
+    try {
+      return await this.writer.create(input);
+    } catch {
+      return false;
+    }
+  }
+};
+
+// src/domain/memo/application/search.memos.usecase.ts
+var DEFAULT_LIMIT = 20;
+var SearchMemosUsecase = class {
+  constructor(reader) {
+    this.reader = reader;
+  }
+  reader;
+  async execute(input) {
+    if (input.taskId === "") return [];
+    let items;
+    try {
+      items = await this.reader.listByTask(input.taskId);
+    } catch {
+      return [];
+    }
+    const filtered = filterByQuery(items, input.query);
+    const limit = input.limit ?? DEFAULT_LIMIT;
+    return filtered.slice(0, limit);
+  }
+};
+function filterByQuery(items, query) {
+  const trimmed2 = query?.trim().toLowerCase();
+  if (!trimmed2) return items;
+  return items.filter((item) => item.body.toLowerCase().includes(trimmed2));
+}
+
 // src/support/json.file.store.ts
 import * as crypto from "node:crypto";
 import * as fs5 from "node:fs";
@@ -30116,7 +30225,7 @@ var STOPWORDS = /* @__PURE__ */ new Set([
 ]);
 var MIN_TOKEN_LENGTH = 3;
 var MIN_SCORE = 0.5;
-var DEFAULT_LIMIT = 3;
+var DEFAULT_LIMIT2 = 3;
 var MAX_LIMIT = 10;
 var SUMMARY_SCAN_LENGTH = 600;
 function tokenize(text) {
@@ -30141,7 +30250,7 @@ function scoreRecipe(recipe, queryTokens) {
   return overlap / Math.sqrt(queryTokens.size * bag.size);
 }
 function clampRecipeMatchLimit(raw) {
-  if (raw === void 0 || !Number.isFinite(raw) || raw <= 0) return DEFAULT_LIMIT;
+  if (raw === void 0 || !Number.isFinite(raw) || raw <= 0) return DEFAULT_LIMIT2;
   return Math.min(Math.floor(raw), MAX_LIMIT);
 }
 function matchRecipes(prompt, recipes, limit) {
@@ -31750,6 +31859,10 @@ function composeDaemonHooks(leaseOwner) {
   const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
   const ids = { next: generateUlid };
   const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
+  const memo = {
+    createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
+    searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers))
+  };
   const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
   const runRuleJob = new RunRuleJobUsecase(
     new HttpRuleEvidenceAdapter(baseUrl, headers),
@@ -31770,7 +31883,7 @@ function composeDaemonHooks(leaseOwner) {
     ),
     enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache)
   };
-  return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle };
+  return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, setTaskTitle, memo };
 }
 
 // src/daemon/daemon.log.ts
@@ -33344,6 +33457,18 @@ function parseMcpSocketRequest(type, value) {
       return { type: "recipe-scan-request" };
     case "set-task-title":
       return typeof value["title"] === "string" ? { type: "set-task-title", title: value["title"] } : null;
+    case "memo-create":
+      return typeof value["body"] === "string" ? {
+        type: "memo-create",
+        body: value["body"],
+        ...typeof value["eventId"] === "string" ? { eventId: value["eventId"] } : {}
+      } : null;
+    case "memo-search":
+      return {
+        type: "memo-search",
+        ...typeof value["query"] === "string" ? { query: value["query"] } : {},
+        ...typeof value["limit"] === "number" ? { limit: value["limit"] } : {}
+      };
     default:
       return null;
   }
@@ -33403,6 +33528,14 @@ function onRulesRefresh(hook) {
 // src/domain/hint/inbound/hint.hook.ts
 function onHintsRequested(hook, recent, request) {
   return hook.computeHints.execute(recent, request);
+}
+
+// src/domain/memo/inbound/memo.hook.ts
+function onMemoCreateRequested(hook, input) {
+  return hook.createMemo.execute(input);
+}
+function onMemoSearchRequested(hook, input) {
+  return hook.searchMemos.execute(input);
 }
 
 // src/domain/recipe/inbound/recipe.hook.ts
@@ -33546,6 +33679,34 @@ async function handleMessage(socket, line, context) {
         }
         const ok2 = await context.setTaskTitle(taskId, request.title);
         send(socket, { ok: ok2 });
+        return;
+      }
+      case "memo-create": {
+        const taskId = context.findActiveTaskId();
+        if (taskId === void 0) {
+          send(socket, { ok: false, reason: "no_active_task" });
+          return;
+        }
+        const ok2 = await onMemoCreateRequested(context.memo, {
+          taskId,
+          body: request.body,
+          ...request.eventId !== void 0 ? { eventId: request.eventId } : {}
+        });
+        send(socket, { ok: ok2 });
+        return;
+      }
+      case "memo-search": {
+        const taskId = context.findActiveTaskId();
+        if (taskId === void 0) {
+          send(socket, { items: [], reason: "no_active_task" });
+          return;
+        }
+        const items = await onMemoSearchRequested(context.memo, {
+          taskId,
+          ...request.query !== void 0 ? { query: request.query } : {},
+          ...request.limit !== void 0 ? { limit: request.limit } : {}
+        });
+        send(socket, { items });
         return;
       }
     }
@@ -34104,6 +34265,7 @@ var servers = createDaemonServers({
     guardrail: hooks.guardrail,
     hint: hooks.hint,
     recipe: hooks.recipe,
+    memo: hooks.memo,
     readRules: () => cachedRules,
     readDelivery: currentDelivery,
     findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,
