@@ -37,7 +37,7 @@ export class VerdictEntity {
     @Column({ name: "evaluated_at", type: "timestamptz" })
     evaluatedAt!: Date;
 
-    /** 이 판정을 마지막으로 전진시킨 창의 최대 이벤트 seq이며, 그 뒤로 새 이벤트가 없으면 재평가를 건너뛴다. */
+    /** 이 판정을 마지막으로 전진시킨 창의 최대 이벤트 seq다. */
     @Column({ name: "last_evaluated_seq", type: "text", nullable: true })
     lastEvaluatedSeq!: string | null;
 
@@ -45,7 +45,7 @@ export class VerdictEntity {
         return !isTerminalVerdict(this.status);
     }
 
-    /** 재평가는 이 seq 뒤에 새 이벤트가 있을 때만 필요하다. */
+    /** lastEvaluatedSeq가 주어진 seq를 이미 포함하는지 판정한다. */
     hasSeenThrough(maxSeq: string): boolean {
         return this.lastEvaluatedSeq !== null && BigInt(this.lastEvaluatedSeq) >= BigInt(maxSeq);
     }
@@ -59,7 +59,6 @@ export class VerdictEntity {
     }
 
     advance(turnId: string, status: VerdictStatus, evidence: VerdictEvidence, at: Date): void {
-        // 종결된 판정은 다시 열리지 않는다.
         if (isTerminalVerdict(this.status)) return;
         this.turnId = turnId;
         this.status = status;

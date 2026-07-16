@@ -103,7 +103,7 @@ function ports(events: FakeEvents, verdicts: FakeVerdicts): RuleEvaluationPorts 
     return { events, turns: fakeTurns, verdicts };
 }
 
-/** 최적화 전 의미를 그대로 재현한다: 매 턴 전체 창을 읽고, 종결이면 entity가 얼린다. */
+/** 매 턴 전체 창을 다시 읽어 판정을 전진시키는 참조 구현이며, 증분 경로가 이 결과와 일치해야 한다. */
 function legacyRun(rule: RuleEntity, ledger: readonly EventEntity[][]): VerdictEntity | null {
     let current: VerdictEntity | null = null;
     const seen: EventEntity[] = [];

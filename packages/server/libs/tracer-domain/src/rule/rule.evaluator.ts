@@ -20,7 +20,6 @@ export class RuleEvaluator {
 
     async evaluate(rule: RuleEntity, turn: TurnEntity, now: Date): Promise<TurnEntity | null> {
         const current = await this.ports.verdicts.findByRule(rule.id);
-        // 종결된 판정은 다시 열리지 않으므로 창을 아예 읽지 않는다.
         if (current !== null && !current.isOpen()) return null;
         if ((await this.skipsUnchanged(rule, turn, current)) === true) return null;
 
@@ -38,7 +37,6 @@ export class RuleEvaluator {
         return turn;
     }
 
-    // 열린 판정이 마지막으로 본 창 끝 뒤로 새 이벤트가 없으면 창을 다시 읽어도 판정이 그대로다.
     private async skipsUnchanged(rule: RuleEntity, turn: TurnEntity, current: VerdictEntity | null): Promise<boolean> {
         if (current === null || current.lastEvaluatedSeq === null) return false;
         const maxSeq = await this.ports.events.maxSeqSinceEvent(turn.taskId, rule.anchorEventId);
