@@ -16,4 +16,9 @@ export class InMemoryVerdictReader implements VerdictReaderPort {
     findByTurn(turnId: string): Promise<VerdictEntity[]> {
         return Promise.resolve(this.rows.filter((verdict) => verdict.turnId === turnId));
     }
+
+    findByTurns(turnIds: readonly string[]): Promise<VerdictEntity[]> {
+        const ids = new Set(turnIds);
+        return Promise.resolve(this.rows.filter((verdict) => ids.has(verdict.turnId)));
+    }
 }

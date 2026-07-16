@@ -19,24 +19,28 @@ export class ListTurnsUseCase {
         // 남의 작업은 존재 여부도 드러내지 않는다.
         if (task === null || !task.isOwnedBy(userId)) return null;
         const turns = await this.turns.findByTask(taskId);
-        const items: TurnDto[] = [];
-        for (const turn of turns) {
-            const verdicts = await this.verdicts.findByTurn(turn.id);
-            items.push({
-                id: turn.id,
-                taskId: turn.taskId,
-                sessionId: turn.sessionId,
-                turnIndex: turn.turnIndex,
-                status: turn.status,
-                startedAt: turn.startedAt.toISOString(),
-                endedAt: turn.endedAt !== null ? turn.endedAt.toISOString() : null,
-                askedText: turn.askedText,
-                assistantText: turn.assistantText,
-                aggregateVerdict: turn.aggregateVerdict,
-                rulesEvaluatedCount: turn.rulesEvaluatedCount,
-                verdicts: verdicts.map((v) => ({ ruleId: v.ruleId, status: v.status })),
-            });
+        const verdicts = await this.verdicts.findByTurns(turns.map((turn) => turn.id));
+        const verdictsByTurn = new Map<string, TurnVerdictDto[]>();
+        for (const verdict of verdicts) {
+            const bucket = verdictsByTurn.get(verdict.turnId);
+            const dto = { ruleId: verdict.ruleId, status: verdict.status };
+            if (bucket === undefined) verdictsByTurn.set(verdict.turnId, [dto]);
+            else bucket.push(dto);
         }
+        const items: TurnDto[] = turns.map((turn) => ({
+            id: turn.id,
+            taskId: turn.taskId,
+            sessionId: turn.sessionId,
+            turnIndex: turn.turnIndex,
+            status: turn.status,
+            startedAt: turn.startedAt.toISOString(),
+            endedAt: turn.endedAt !== null ? turn.endedAt.toISOString() : null,
+            askedText: turn.askedText,
+            assistantText: turn.assistantText,
+            aggregateVerdict: turn.aggregateVerdict,
+            rulesEvaluatedCount: turn.rulesEvaluatedCount,
+            verdicts: verdictsByTurn.get(turn.id) ?? [],
+        }));
         return { items };
     }
 }
