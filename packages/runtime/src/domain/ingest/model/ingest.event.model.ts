@@ -34,8 +34,9 @@ export function toIngestEvent(
     };
 }
 
-/** payload를 고정해 보내는 원장 이벤트 입력이다. */
+/** payload를 고정해 보내는 원장 이벤트 입력이며 id를 지정하면 그 값이 멱등키가 된다. */
 export interface RunEventInput {
+    readonly id?: string;
     readonly kind: string;
     readonly taskId: string;
     readonly sessionId?: string;
@@ -49,7 +50,7 @@ export function toRunIngestEvent(
     nextId: () => string,
 ): IngestEvent {
     return {
-        id: nextId(),
+        id: input.id ?? nextId(),
         kind: input.kind,
         taskId: input.taskId,
         ...(input.sessionId ? {sessionId: input.sessionId} : {}),

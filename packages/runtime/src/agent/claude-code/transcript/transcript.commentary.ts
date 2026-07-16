@@ -7,15 +7,16 @@ import {
     saveTranscriptCursor,
     type TranscriptCursor,
 } from "~runtime/agent/claude-code/transcript/transcript.cursor.js";
-import {toCommentaryEvents} from "~runtime/agent/claude-code/transcript/transcript.event.js";
+import {toTranscriptEvents} from "~runtime/agent/claude-code/transcript/transcript.event.js";
 import {
     entriesAfterLatestUserPrompt,
     readTranscriptEntries,
 } from "~runtime/agent/claude-code/transcript/transcript.reader.js";
 import type {IngestTarget, RuntimeIngestEvent} from "~runtime/domain/ingest/model/event.model.js";
+import type {RunEventInput} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import {subagentSessionId} from "~runtime/domain/session/model/session.event.model.js";
 
-type PostEvents = (events: readonly RuntimeIngestEvent[]) => Promise<void>;
+type PostEvents = (events: readonly (RuntimeIngestEvent | RunEventInput)[]) => Promise<void>;
 
 /** 어느 트랜스크립트를 누구의 것으로 읽을지 정하는 훅 문맥이다. */
 export interface TranscriptContext {
@@ -26,7 +27,7 @@ export interface TranscriptContext {
 }
 
 export interface TranscriptTail {
-    readonly events: RuntimeIngestEvent[];
+    readonly events: (RuntimeIngestEvent | RunEventInput)[];
     readonly nextCursor: TranscriptCursor;
 }
 
@@ -52,7 +53,7 @@ export function tailTranscriptCommentary(
         const read = readTranscriptEntries(transcriptPath, startOffset, fileSize);
         const nextCursor = createTranscriptCursor(transcriptPath, read.byteOffset, fileSize);
         const entries = cursor ? read.entries : entriesAfterLatestUserPrompt(read.entries);
-        return {events: toCommentaryEvents(entries, sourceSessionId, target), nextCursor};
+        return {events: toTranscriptEvents(entries, sourceSessionId, target), nextCursor};
     } catch {
         return null;
     }

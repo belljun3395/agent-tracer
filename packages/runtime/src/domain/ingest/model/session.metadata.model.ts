@@ -31,6 +31,18 @@ export type AssistantCommentaryMetadata = RequiredEventMetadata & {
     readonly sourceId?: string;
 };
 
+export type ThoughtLoggedMetadata = RequiredEventMetadata & {
+    readonly messageId: string;
+    readonly source: string;
+    readonly contentIndex?: number;
+    readonly assistantUuid?: string;
+    readonly parentUuid?: string;
+    readonly requestId?: string;
+    // thinkingBytes는 자르기 전 전체 바이트 수이고 thinkingTruncated는 잘렸을 때만 true다.
+    readonly thinkingBytes?: number;
+    readonly thinkingTruncated?: boolean;
+};
+
 export type UserMessageMetadata = RequiredEventMetadata & {
     readonly messageId: string;
     readonly captureMode: UserMessageCaptureMode;
