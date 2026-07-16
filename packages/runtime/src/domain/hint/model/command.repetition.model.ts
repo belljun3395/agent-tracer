@@ -1,5 +1,6 @@
 import {isTerminalCommand} from "@monitor/kernel/ingest/event.kind.const.js";
 import {AGENT_TRACER_ATTR} from "@monitor/kernel/observability/semconv.const.js";
+import {analyzeCommand} from "~runtime/domain/ingest/model/command.semantic.model.js";
 import type {RecentEvent} from "~runtime/domain/ingest/model/recent.event.model.js";
 import type {PreprocessingHint} from "~runtime/domain/hint/model/hint.model.js";
 import {isRecord} from "~runtime/support/json.js";
@@ -59,7 +60,7 @@ export function detectCommandRepetition(
         break;
     }
 
-    if (isDestructiveCommand(normalized)) {
+    if (analyzeCommand(command).overallEffect === "destructive") {
         hints.push(destructiveCount > 0
             ? {
                 type: "destructive_risk",
@@ -108,10 +109,6 @@ function targetPath(target: unknown): string | undefined {
     if (typeof target["value"] !== "string") return undefined;
     const value = target["value"].trim();
     return value ? value : undefined;
-}
-
-function isDestructiveCommand(command: string): boolean {
-    return /\brm\s+-[rf]+\b|\brm\s+-r\b|\bgit\s+reset\s+--hard\b|\bgit\s+clean\s+-f\b|\bgit\s+push\s+--force\b|\bdrop\s+(table|database)\b/i.test(command);
 }
 
 function shortPath(target: string): string {

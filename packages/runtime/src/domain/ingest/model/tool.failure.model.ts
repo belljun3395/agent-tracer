@@ -1,6 +1,14 @@
 import {inferCommandSemantic} from "~runtime/domain/ingest/model/command.semantic.model.js";
 import {classifyToolError} from "~runtime/domain/ingest/model/error.taxonomy.model.js";
-import {KIND, LANE, provenEvidence, type EventLane} from "~runtime/domain/ingest/model/event.model.js";
+import {
+    KIND,
+    LANE,
+    POWERSHELL_TOOL_NAME,
+    TERMINAL_COMMAND_TOOL_NAME,
+    provenEvidence,
+    type EventLane,
+} from "~runtime/domain/ingest/model/event.model.js";
+import {FILE_TOOLS} from "~runtime/domain/ingest/model/file.tool.model.js";
 import {
     toolUseIdOf,
     type ShapedToolEvent,
@@ -23,6 +31,8 @@ import {relativeProjectPath} from "~runtime/domain/ingest/model/workspace.path.m
 import {toTrimmedString} from "~runtime/support/text.js";
 
 const SELF_MCP_SERVER = "agent-tracer";
+const TERMINAL_TOOLS: ReadonlySet<string> = new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
+const FILE_TOOL_NAMES: ReadonlySet<string> = new Set(FILE_TOOLS);
 
 /** 실패한 도구 호출을 성공 이벤트와 같은 어휘로 조형한다. */
 export function shapeToolFailure(failure: ToolFailure, context: ToolShapeContext): ShapedToolEvent | null {
@@ -56,8 +66,9 @@ export function shapeToolFailure(failure: ToolFailure, context: ToolShapeContext
         };
     }
 
-    const command = failure.toolName === "Bash" ? toTrimmedString(failure.toolInput["command"]) : "";
-    const description = failure.toolName === "Bash" ? toTrimmedString(failure.toolInput["description"]) : "";
+    const isTerminal = TERMINAL_TOOLS.has(failure.toolName);
+    const command = isTerminal ? toTrimmedString(failure.toolInput["command"]) : "";
+    const description = isTerminal ? toTrimmedString(failure.toolInput["description"]) : "";
     const classification = classify(failure, context, command);
 
     return {
@@ -80,12 +91,13 @@ function classify(
     context: ToolShapeContext,
     command: string,
 ): {readonly lane: EventLane; readonly semantic: EventSemanticMetadata} | null {
-    if (failure.toolName === "Bash" && command) {
+    if (TERMINAL_TOOLS.has(failure.toolName) && command) {
         const {lane, metadata} = inferCommandSemantic(command);
         return {lane, semantic: metadata};
     }
-    if (failure.toolName === "Edit" || failure.toolName === "Write") {
+    if (FILE_TOOL_NAMES.has(failure.toolName)) {
         const filePath = toTrimmedString(failure.toolInput["file_path"])
+            || toTrimmedString(failure.toolInput["notebook_path"])
             || toTrimmedString(failure.toolInput["path"]);
         const relPath = filePath ? relativeProjectPath(context.projectDir, filePath) : "";
         return {
