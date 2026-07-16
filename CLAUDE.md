@@ -42,6 +42,7 @@
 | `0027-local-agent-meets-the-server-bar` | 데몬이 로컬에서 도는 규칙 생성기를 만질 때 |
 | `0028-incremental-rule-evaluation` | 규칙 판정의 재조회·재평가 비용을 만질 때. 판정을 상태로 전진시킬 때 |
 | `0029-retention-and-archival-ownership` | 보존 기간·아카이브·삭제 책임을 정할 때. 어떤 데이터가 언제까지 남는지 판단할 때 |
+| `0030-projection-write-authorization-gap` | 인증을 도입할 때. 투영이 taskId 소유권을 강제하는지 판단할 때 |
 
 ## 놓치기 쉬운 규칙
 
