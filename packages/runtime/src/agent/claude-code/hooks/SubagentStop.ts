@@ -17,7 +17,9 @@ await runHook("SubagentStop", {
         const agentId = payload.agentId;
         if (agentId === undefined) return;
 
-        const parent = await ensureClaudeSession(payload.sessionId);
+        const parent = await ensureClaudeSession(payload.sessionId, undefined, {
+            transcriptPath: payload.transcriptPath,
+        });
         const virtualId = subagentSessionId(agentId);
         // Claude Code는 SubagentStart를 항상 발화하지 않으므로 이미 만들어진 바인딩만 종료한다.
         const child = onBindingLookup(claudeRuntime.binding, claudeRuntime.runtimeSource, virtualId);

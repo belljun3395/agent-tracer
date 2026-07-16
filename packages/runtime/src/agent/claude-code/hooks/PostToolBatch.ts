@@ -7,7 +7,7 @@ import {toolBatchEvent} from "~runtime/domain/ingest/model/lifecycle.event.model
 await runHook("PostToolBatch", {
     parse: readPostToolBatch,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             toolBatchEvent(target, payload.toolCalls.map((call) => call.toolName)),
         ]);

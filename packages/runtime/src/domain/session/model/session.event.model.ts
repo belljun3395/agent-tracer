@@ -21,6 +21,8 @@ export interface SessionBindingInput {
     readonly taskKind?: TaskKind;
     readonly resume?: boolean;
     readonly taskId?: string;
+    /** 트랜스크립트에서 찾은 직전 런타임 세션 ID이며, 그 세션의 바인딩이 있으면 같은 태스크로 잇는다. */
+    readonly resumedFrom?: string;
 }
 
 export function subagentSessionId(agentId: string): string {
@@ -49,7 +51,7 @@ export function sessionStartedEvent(
             ...(input.parentSessionId ? {parentSessionId: input.parentSessionId} : {}),
             ...(input.taskKind ? {taskKind: input.taskKind} : {}),
             ...(input.origin ? {origin: input.origin} : {}),
-            ...(input.resume === false ? {resume: false} : {}),
+            ...(input.resume !== undefined ? {resume: input.resume} : {}),
         },
     };
 }

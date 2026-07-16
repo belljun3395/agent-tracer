@@ -10,7 +10,10 @@ await runHook("SessionEnd", {
         // clear로 끝난 세션에는 곧바로 SessionStart(clear)가 뒤따른다.
         if (reason === "clear") return;
 
-        const target = await ensureClaudeSession(payload.sessionId, undefined, {resume: false});
+        const target = await ensureClaudeSession(payload.sessionId, undefined, {
+            resume: false,
+            transcriptPath: payload.transcriptPath,
+        });
         await onSessionEnd(claudeRuntime.session, {
             taskId: target.taskId,
             sessionId: target.sessionId,

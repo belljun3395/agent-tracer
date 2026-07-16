@@ -16,7 +16,7 @@ const SHELL_TOOLS: ReadonlySet<string> = new Set([TERMINAL_COMMAND_TOOL_NAME, PO
 await runHook("PreToolUse", {
     parse: readPreToolUse,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await captureTranscriptCommentary(payload, target, (events) =>
             onLifecycleEvent(claudeRuntime.ingest, events));
 

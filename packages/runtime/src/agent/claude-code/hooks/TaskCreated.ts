@@ -7,7 +7,7 @@ import {todoLifecycleEvent} from "~runtime/domain/ingest/model/todo.tool.model.j
 await runHook("TaskCreated", {
     parse: readTaskLifecycle,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             todoLifecycleEvent(target, {
                 taskName: payload.taskName,

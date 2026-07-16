@@ -43,12 +43,16 @@ export class EnsureSessionUsecase {
         let created: BindingRecord | undefined;
         let existing: BindingRecord | undefined;
         let retitled = false;
+        let resumedFromPrior: BindingRecord | undefined;
         try {
             const store = this.bindings.read();
             existing = store[key];
             if (!existing) {
+                resumedFromPrior = input.resumedFrom
+                    ? store[bindingKey(input.runtimeSource, input.resumedFrom)]
+                    : undefined;
                 created = {
-                    taskId: input.taskId?.trim() || this.ids.next(),
+                    taskId: resumedFromPrior?.taskId ?? (input.taskId?.trim() || this.ids.next()),
                     sessionId: this.ids.next(),
                     runtimeSource: input.runtimeSource,
                     runtimeSessionId: input.runtimeSessionId,
@@ -73,8 +77,13 @@ export class EnsureSessionUsecase {
         }
         if (!created) throw new Error("session binding was not created");
 
-        await this.append(sessionStartedEvent(created.taskId, created.sessionId, input));
-        return {taskId: created.taskId, sessionId: created.sessionId, taskCreated: true};
+        await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
+            ...input,
+            ...(resumedFromPrior
+                ? {parentSessionId: resumedFromPrior.sessionId, resume: true}
+                : {}),
+        }));
+        return {taskId: created.taskId, sessionId: created.sessionId, taskCreated: !resumedFromPrior};
     }
 
     private async append(event: Parameters<typeof toRunIngestEvent>[0]): Promise<void> {

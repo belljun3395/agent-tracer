@@ -7,7 +7,7 @@ import {cwdChangedEvent} from "~runtime/domain/ingest/model/lifecycle.event.mode
 await runHook("CwdChanged", {
     parse: readCwdChanged,
     handler: async (payload) => {
-        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
+        const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType, payload.transcriptPath);
         await onLifecycleEvent(claudeRuntime.ingest, [
             cwdChangedEvent(target, payload.oldCwd, payload.newCwd),
         ]);

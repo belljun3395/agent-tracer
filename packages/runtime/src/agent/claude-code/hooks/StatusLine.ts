@@ -12,6 +12,7 @@ await runHook("StatusLine", {
         if (statusText) process.stdout.write(`${statusText}\n`);
         if (!payload.hasTelemetry) return;
 
+        // StatusLine 페이로드에는 transcript_path가 없어 재개 판정을 못 한다.
         const target = await ensureClaudeSession(payload.sessionId, undefined, {resume: false});
         await onLifecycleEvent(claudeRuntime.ingest, [contextSnapshotEvent(target, payload.snapshot)]);
     },

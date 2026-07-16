@@ -25,13 +25,16 @@ await runHook("UserPromptSubmit", {
     handler: async (payload) => {
         if (EXIT_PROMPTS.has(payload.prompt.toLowerCase())) return;
         if (!payload.prompt) {
-            await ensureClaudeSession(payload.sessionId);
+            await ensureClaudeSession(payload.sessionId, undefined, {
+                transcriptPath: payload.transcriptPath,
+            });
             return;
         }
 
         const target = await ensureClaudeSession(
             payload.sessionId,
             ellipsize(payload.prompt, TASK_TITLE_MAX),
+            {transcriptPath: payload.transcriptPath},
         );
         const messageId = createMessageId();
         // Claude 훅 페이로드에는 턴 식별자가 없으므로 세션과 메시지에서 결정적으로 만든다.
