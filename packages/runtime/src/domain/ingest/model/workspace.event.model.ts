@@ -142,12 +142,14 @@ export function permissionDeniedEvent(
     target: IngestTarget,
     toolName: string,
     toolInput: Record<string, unknown>,
+    toolUseId?: string,
 ): RuntimeIngestEvent {
     const metadata: RuleLoggedMetadata = {
         ...provenEvidence("Emitted by the PermissionDenied hook."),
         ruleStatus: "denied",
         ruleOutcome: "auto_deny",
         rulePolicy: "auto_mode_classifier",
+        ...(toolUseId !== undefined ? {toolUseId} : {}),
     };
     return {
         kind: KIND.ruleLogged,

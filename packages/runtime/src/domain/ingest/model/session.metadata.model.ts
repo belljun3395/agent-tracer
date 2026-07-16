@@ -91,6 +91,8 @@ export type RuleLoggedMetadata = RequiredEventMetadata & {
     readonly ruleSeverity?: string;
     readonly expectedPattern?: string;
     readonly actualToolCallCount?: number;
+    // 권한 거부를 그 요청·실행과 잇는 상관 키이며, 요청·실행 이벤트도 같은 키로 싣는다.
+    readonly toolUseId?: string;
 };
 
 export type SetupMetadata = RequiredEventMetadata & {

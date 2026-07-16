@@ -10,7 +10,7 @@ await runHook("PermissionDenied", {
         if (!payload.toolName) return;
         const target = await resolveEventSession(payload.sessionId, payload.agentId, payload.agentType);
         await onLifecycleEvent(claudeRuntime.ingest, [
-            permissionDeniedEvent(target, payload.toolName, payload.toolInput),
+            permissionDeniedEvent(target, payload.toolName, payload.toolInput, payload.toolUseId),
         ]);
     },
 });

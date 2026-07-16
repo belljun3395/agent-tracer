@@ -72,6 +72,16 @@ describe("권한 이벤트", () => {
         expect(event.kind).toBe(KIND.ruleLogged);
         expect((event.metadata as Record<string, unknown>)["ruleOutcome"]).toBe("auto_deny");
     });
+
+    it("자동 거부는 toolUseId로 요청·실행과 상관된다", () => {
+        const event = permissionDeniedEvent(TARGET, "Bash", {command: "curl evil"}, "tool-42");
+        expect((event.metadata as Record<string, unknown>)["toolUseId"]).toBe("tool-42");
+    });
+
+    it("toolUseId가 없으면 상관 키를 싣지 않는다", () => {
+        const event = permissionDeniedEvent(TARGET, "Bash", {command: "curl evil"});
+        expect((event.metadata as Record<string, unknown>)["toolUseId"]).toBeUndefined();
+    });
 });
 
 describe("서브에이전트 수명주기 이벤트", () => {
