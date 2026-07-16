@@ -1,8 +1,9 @@
-import * as fs from "node:fs";
+import {getJson} from "~runtime/config/http.js";
 import {ensureCacheDir, resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
 import type {CachedRecipe} from "~runtime/domain/recipe/model/recipe.model.js";
 import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
 import {isRecord} from "~runtime/support/json.js";
+import {readJsonFile, writeJsonFile} from "~runtime/support/json.file.store.js";
 
 const RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
 const REQUEST_TIMEOUT_MS = 5000;
@@ -16,25 +17,20 @@ export class HttpRecipeCacheAdapter implements RecipeCachePort {
     ) {}
 
     load(): readonly CachedRecipe[] {
-        try {
-            return extractRecipes(JSON.parse(fs.readFileSync(this.paths.recipesCachePath, "utf8")) as unknown);
-        } catch {
-            return [];
-        }
+        const parsed = readJsonFile(this.paths.recipesCachePath, isRecord);
+        return parsed === null ? [] : extractRecipes(parsed);
     }
 
     async refresh(): Promise<boolean> {
-        const response = await fetch(`${this.baseUrl}${RECIPES_ENDPOINT}`, {
-            headers: this.headers,
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        });
-        if (!response.ok) return false;
-        const text = await response.text();
-        const recipes = extractRecipes(text ? (JSON.parse(text) as unknown) : []);
+        const body = await getJson<Record<string, unknown>>(
+            `${this.baseUrl}${RECIPES_ENDPOINT}`,
+            this.headers,
+            REQUEST_TIMEOUT_MS,
+        );
+        if (body === null) return false;
+        const recipes = extractRecipes(body);
         ensureCacheDir(this.paths);
-        const tmp = `${this.paths.recipesCachePath}.tmp`;
-        fs.writeFileSync(tmp, JSON.stringify({recipes}));
-        fs.renameSync(tmp, this.paths.recipesCachePath);
+        writeJsonFile(this.paths.recipesCachePath, {recipes});
         return true;
     }
 }

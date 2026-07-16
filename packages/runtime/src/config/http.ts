@@ -13,13 +13,18 @@ export function jsonHeaders(headers: Record<string, string>): Record<string, str
     return {...headers, "Content-Type": "application/json"};
 }
 
+/** 호출자가 준 signal이 있으면 그대로 쓰고 없으면 타임아웃으로 새 signal을 만든다. */
+export function resolveTimeoutSignal(timeoutMs: number = DEFAULT_TIMEOUT_MS, signal?: AbortSignal): AbortSignal {
+    return signal ?? AbortSignal.timeout(timeoutMs);
+}
+
 /** 봉투(`{data: ...}`)에서 데이터를 꺼내며 실패 응답은 null로 취급한다. */
 export async function getJson<T>(
     url: string,
     headers: Record<string, string>,
     timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<T | null> {
-    const response = await fetch(url, {headers, signal: AbortSignal.timeout(timeoutMs)});
+    const response = await fetch(url, {headers, signal: resolveTimeoutSignal(timeoutMs)});
     if (!response.ok) return null;
     const parsed: unknown = await response.json();
     return isRecord(parsed) ? (parsed as T) : null;
@@ -35,6 +40,6 @@ export async function postJson(
         method: "POST",
         headers: jsonHeaders(headers),
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: resolveTimeoutSignal(timeoutMs),
     });
 }

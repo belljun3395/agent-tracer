@@ -1,3 +1,8 @@
+import {
+    ASK_USER_QUESTION_TOOL_NAME,
+    POWERSHELL_TOOL_NAME,
+    TERMINAL_COMMAND_TOOL_NAME,
+} from "@monitor/kernel/ingest/event.kind.const.js";
 import {detectCommandRepetition} from "~runtime/domain/hint/model/command.repetition.model.js";
 import {detectContextPressure} from "~runtime/domain/hint/model/context.pressure.model.js";
 import {detectDuplicateQuestion} from "~runtime/domain/hint/model/duplicate.question.model.js";
@@ -5,7 +10,7 @@ import type {PreprocessingHint, PreprocessingHintsRequest} from "~runtime/domain
 import type {ClockPort} from "~runtime/domain/hint/port/clock.port.js";
 import type {RecentEvent} from "~runtime/domain/ingest/model/recent.event.model.js";
 
-const COMMAND_TOOLS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
+const COMMAND_TOOLS: ReadonlySet<string> = new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
 
 /** 최근 이벤트와 요청을 알맞은 감지기에 분배한다. */
 export class ComputeHintsUsecase {
@@ -17,7 +22,7 @@ export class ComputeHintsUsecase {
         if (request.trigger !== "pre_tool") return hints;
 
         const toolName = request.toolName ?? "";
-        if (toolName === "AskUserQuestion" && request.questions && request.questions.length > 0) {
+        if (toolName === ASK_USER_QUESTION_TOOL_NAME && request.questions && request.questions.length > 0) {
             hints.push(...detectDuplicateQuestion(recent, request.questions, now));
         }
         if (COMMAND_TOOLS.has(toolName) && request.command) {

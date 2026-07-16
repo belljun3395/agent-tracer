@@ -1,3 +1,4 @@
+import {resolveTimeoutSignal} from "~runtime/config/http.js";
 import {
     digestEvents,
     digestExistingRules,
@@ -56,7 +57,7 @@ export class HttpRuleEvidenceAdapter implements RuleEvidencePort {
     private async envelope(url: string, resource: string, signal?: AbortSignal): Promise<ItemsEnvelope> {
         const response = await fetch(url, {
             headers: this.headers,
-            signal: signal ?? AbortSignal.timeout(EVIDENCE_TIMEOUT_MS),
+            signal: resolveTimeoutSignal(EVIDENCE_TIMEOUT_MS, signal),
         });
         if (!response.ok) throw new RuleEvidenceHttpError(resource, response.status);
         return await response.json() as ItemsEnvelope;

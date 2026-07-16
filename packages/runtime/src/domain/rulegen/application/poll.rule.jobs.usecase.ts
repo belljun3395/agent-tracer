@@ -7,13 +7,14 @@ import {
     type PendingRuleJob,
     type RuleJobRunner,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
+import {ruleGenLogLine} from "~runtime/domain/rulegen/model/rulegen.log.model.js";
 import type {RuleJobPort} from "~runtime/domain/rulegen/port/rule.job.port.js";
 import type {SchedulerPort} from "~runtime/domain/rulegen/port/scheduler.port.js";
 
 const MAX_CONCURRENT_JOBS = 2;
 
 function log(message: string): void {
-    process.stderr.write(`[rule-gen] ${message}\n`);
+    process.stderr.write(ruleGenLogLine(message));
 }
 
 /** 대기 중인 규칙 생성 잡을 클레임해 로컬 실행기에 넘기고 리스를 살려 둔다. */

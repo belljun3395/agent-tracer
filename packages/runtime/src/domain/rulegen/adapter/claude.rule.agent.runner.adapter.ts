@@ -2,7 +2,7 @@ import {accessSync, constants} from "node:fs";
 import * as path from "node:path";
 import type {SDKMessage} from "@anthropic-ai/claude-agent-sdk";
 import type {AiJobStepToolCall} from "@monitor/kernel/job/job.step.const.js";
-import type {RuleAgentMessage} from "~runtime/domain/rulegen/model/agent.message.model.js";
+import {RULE_AGENT_RESULT_SUCCESS, type RuleAgentMessage} from "~runtime/domain/rulegen/model/agent.message.model.js";
 import type {RuleGenerationUsage} from "~runtime/domain/rulegen/model/rule.job.model.js";
 import {
     rulegenAllowedTools,
@@ -129,8 +129,8 @@ export function* normalize(message: SDKMessage): Generator<RuleAgentMessage> {
         yield {
             type: "result",
             subtype: message.subtype,
-            structuredOutput: message.subtype === "success" ? message.structured_output : null,
-            errors: message.subtype === "success" ? [] : message.errors,
+            structuredOutput: message.subtype === RULE_AGENT_RESULT_SUCCESS ? message.structured_output : null,
+            errors: message.subtype === RULE_AGENT_RESULT_SUCCESS ? [] : message.errors,
             costUsd: message.total_cost_usd,
             numTurns: message.num_turns,
             usage: toUsage(message.usage),

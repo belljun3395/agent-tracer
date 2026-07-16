@@ -9,6 +9,7 @@ import {
     type RuleGenerationOutcome,
     type RuleGenerationReport,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
+import {ruleGenLogLine} from "~runtime/domain/rulegen/model/rulegen.log.model.js";
 import {buildRulegenRepairPrompt} from "~runtime/domain/rulegen/model/rulegen.prompt.model.js";
 import {RulegenProvenanceLedger} from "~runtime/domain/rulegen/model/rulegen.provenance.model.js";
 import {
@@ -111,7 +112,7 @@ export class RunRuleJobUsecase {
 
         const screened = this.screen(outcome.candidates, ledger);
         for (const error of screened.errors) {
-            process.stderr.write(`[rule-gen] dropped proposal after repair: ${error}\n`);
+            process.stderr.write(ruleGenLogLine(`dropped proposal after repair: ${error}`));
         }
         return {outcome, proposals: screened.proposals};
     }

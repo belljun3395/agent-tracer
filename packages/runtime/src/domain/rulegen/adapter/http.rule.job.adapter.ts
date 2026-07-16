@@ -7,6 +7,7 @@ import type {
     RuleGenerationReport,
     RuleJobLeaseState,
 } from "~runtime/domain/rulegen/model/rule.job.model.js";
+import {ruleGenLogLine} from "~runtime/domain/rulegen/model/rulegen.log.model.js";
 import type {RuleJobPort} from "~runtime/domain/rulegen/port/rule.job.port.js";
 
 const ACTIVE_STATUSES: ReadonlySet<string> = new Set([JOB_STATUS.pending, JOB_STATUS.running]);
@@ -88,7 +89,7 @@ export class HttpRuleJobAdapter implements RuleJobPort {
                 throw new Error(`HTTP ${response.status}`);
             } catch (error) {
                 if (attempt === REPORT_MAX_ATTEMPTS) {
-                    process.stderr.write(`[rule-gen] result report failed for job ${jobId}: ${String(error)}\n`);
+                    process.stderr.write(ruleGenLogLine(`result report failed for job ${jobId}: ${String(error)}`));
                     return false;
                 }
                 await sleep(REPORT_BACKOFF_MS * attempt);
