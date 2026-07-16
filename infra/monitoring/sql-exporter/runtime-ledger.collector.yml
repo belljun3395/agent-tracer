@@ -34,17 +34,3 @@ metrics:
       SELECT COUNT(*) AS partition_count
       FROM pg_inherits
       WHERE inhparent = 'public.events'::regclass
-
-  # cold:tier가 보존기간 지난 파티션을 분리만 하고 아직 내보내지 않았으면 duckdb.partition.archive.adapter.ts의 DETACHED_PARTITIONS_SQL과 같은 조건으로 여기 걸린다.
-  - metric_name: runtime_ledger_detached_partitions_pending_export
-    type: gauge
-    help: "부모에서 분리됐지만 아직 콜드 티어로 내보내지지 않은 events_p* 파티션 수."
-    values: [pending_count]
-    query: |
-      SELECT COUNT(*) AS pending_count
-      FROM pg_class c
-      JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public'
-        AND c.relkind = 'r'
-        AND c.relname LIKE 'events\_p%'
-        AND NOT EXISTS (SELECT 1 FROM pg_inherits i WHERE i.inhrelid = c.oid)

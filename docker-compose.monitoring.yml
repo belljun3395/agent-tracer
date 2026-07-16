@@ -48,11 +48,6 @@ services:
     environment:
       PROMETHEUS_ENDPOINT: 0.0.0.0:9090
 
-  # MinIO Prometheus 엔드포인트는 로컬 관측 전용이라 OpenSearch와 같은 방침으로 공개 스크레이프를 켠다.
-  minio:
-    environment:
-      MINIO_PROMETHEUS_AUTH_TYPE: public
-
   # jmx_prometheus_javaagent를 Connect JVM에 얹어 별도 프로세스 없이 컨테이너 안에서 직접 노출한다.
   connect:
     image: agent-tracer/connect-jmx:2.7.3.Final

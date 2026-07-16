@@ -3,8 +3,6 @@
 //
 //   npm run e2e:failure                    재생 멱등성 + projector 재기동 (비파괴)
 //   npm run e2e:failure -- --rebuild       위 + 슬롯 재생성 리빌드 (투영을 통째로 재생성)
-//   npm run e2e:failure -- --cold-restore  위 + 콜드 티어 파티션 내보내기·복구 리허설
-//                                           (보존 기간을 넘긴 파티션 하나를 실제로 드롭)
 import { execFileSync } from "node:child_process";
 import process from "node:process";
 import { randomUUID } from "node:crypto";
@@ -132,113 +130,10 @@ async function slotRecreationRebuild() {
     return `원장의 타임라인 ${expected}건을 투영으로 재생성`;
 }
 
-// 파티션명(events_pYYYYMM01)에서 t일 뒤 시각을 만들며 partman 파티션 범위 안에 안전히 든다.
-function daysAfterPartitionStart(partitionName, days) {
-    const monthStart = partitionName.match(/events_p(\d{8})/)[1];
-    const year = Number(monthStart.slice(0, 4));
-    const month = Number(monthStart.slice(4, 6));
-    const date = new Date(Date.UTC(year, month - 1, 1 + days));
-    return date.toISOString();
-}
-
-// duckdb CLI(비대화형)는 stdin으로 받은 SQL을 세미콜론 단위로 실행한다.
-function runDuckdbSql(sql) {
-    execFileSync("docker", ["compose", "run", "--rm", "-T", "--entrypoint", "duckdb", "cold-tier", ":memory:"], {
-        input: sql,
-        stdio: ["pipe", "inherit", "inherit"],
-    });
-}
-
-// 4) 콜드 티어 복구 리허설은 보존 기간을 넘긴 파티션 하나를 실제로 내보내고 드롭한 뒤
-// MinIO에서 내려받아 임시 테이블로 복원해 표식 행 수가 일치하는지 대조하며, 콜드
-// 티어가 원장에서 행을 드롭하므로 이 백업이 사라진 파티션을 복구하는 유일한 경로다.
-async function coldTierRestoreRehearsal() {
-    const S3_ACCESS_KEY = process.env["MINIO_ROOT_USER"] ?? "monitor";
-    const S3_SECRET_KEY = process.env["MINIO_ROOT_PASSWORD"] ?? "monitor-secret";
-
-    // partman 보존 정책(part_config.retention) 기준으로 이미 보존 기간을 넘긴, 아직 붙어
-    // 있는 파티션을 찾되 없으면 이 환경에 아직 그만큼 오래된 데이터가 없다는 뜻이라 건너뛴다.
-    const eligible = psql(
-        "runtime-db",
-        "runtime",
-        `SELECT c.relname
-         FROM pg_inherits i
-         JOIN pg_class c ON c.oid = i.inhrelid
-         JOIN pg_class p ON p.oid = i.inhparent
-         WHERE p.relname = 'events'
-           AND to_date(substring(c.relname from 'events_p(\\d{8})'), 'YYYYMMDD') + interval '1 month'
-               <= now() - (SELECT retention::interval FROM partman.part_config WHERE parent_table = 'public.events')
-         ORDER BY c.relname ASC
-         LIMIT 1`,
-    );
-    if (!eligible) {
-        return "보존 기간을 넘긴 파티션이 없어 건너뜀 (이 환경에 그만큼 오래된 데이터가 아직 없다. 정책상 정상)";
-    }
-
-    const taskId = `e2e-cold-restore-${ulid().slice(0, 8)}`;
-    const markerIds = [0, 1, 2].map(() => ulid());
-    const values = markerIds
-        .map(
-            (id, i) =>
-                `('${id}','e2e-cold-restore','${taskId}','agent_tracer.thought.logged','${daysAfterPartitionStart(eligible, 9 + i)}','{"title":"cold-tier 복구 리허설"}'::jsonb,'${id}-trace','${id}-span')`,
-        )
-        .join(",");
-    psql(
-        "runtime-db",
-        "runtime",
-        `INSERT INTO events (id, user_id, task_id, kind, occurred_at, payload, trace_id, span_id) VALUES ${values}`,
-    );
-
-    process.stdout.write(`  [cold-restore] ${eligible}에 표식 행 ${markerIds.length}건을 심었다 (taskId=${taskId})\n`);
-    process.stdout.write("  [cold-restore] cold-tier 잡을 실행해 파티션을 내보내고 드롭한다\n");
-    compose(["run", "--rm", "cold-tier"]);
-
-    const stillAttached = count(
-        "runtime-db",
-        "runtime",
-        `SELECT count(*) FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid JOIN pg_class p ON p.oid = i.inhparent WHERE p.relname = 'events' AND c.relname = '${eligible}'`,
-    );
-    if (stillAttached !== 0) throw new Error(`${eligible}이 여전히 파티션으로 붙어 있다. cold-tier 잡이 드롭하지 못했다`);
-    const dropped = psql("runtime-db", "runtime", `SELECT to_regclass('public.${eligible}')`);
-    if (dropped) throw new Error(`${eligible} 테이블이 드롭되지 않았다. 콜드 티어 내보내기가 실패했을 수 있다`);
-
-    process.stdout.write("  [cold-restore] MinIO에서 내려받아 임시 테이블로 복원한다\n");
-    const restoreSql = [
-        "INSTALL postgres; LOAD postgres;",
-        "INSTALL httpfs; LOAD httpfs;",
-        "SET s3_endpoint='minio:9000';",
-        "SET s3_use_ssl=false;",
-        "SET s3_url_style='path';",
-        "SET s3_region='us-east-1';",
-        `SET s3_access_key_id='${S3_ACCESS_KEY}';`,
-        `SET s3_secret_access_key='${S3_SECRET_KEY}';`,
-        "ATTACH 'dbname=runtime host=runtime-db port=5432 user=monitor password=monitor' AS pg (TYPE postgres);",
-        "DROP TABLE IF EXISTS pg.public.cold_restore_rehearsal;",
-        `CREATE TABLE pg.public.cold_restore_rehearsal AS SELECT * FROM read_parquet('s3://agent-tracer-cold/events/${eligible}.parquet');`,
-    ].join("\n");
-
-    try {
-        runDuckdbSql(restoreSql);
-
-        const restoredCount = count(
-            "runtime-db",
-            "runtime",
-            `SELECT count(*) FROM cold_restore_rehearsal WHERE task_id = '${taskId}'`,
-        );
-        if (restoredCount !== markerIds.length) {
-            throw new Error(`복원된 표식 행이 ${restoredCount}건, 기대는 ${markerIds.length}건이다. 콜드 티어 복구가 실패했다`);
-        }
-        return `${eligible} 파티션을 내보내고 드롭한 뒤 MinIO에서 임시 테이블로 복원, 표식 행 ${markerIds.length}건 일치`;
-    } finally {
-        psql("runtime-db", "runtime", "DROP TABLE IF EXISTS cold_restore_rehearsal");
-    }
-}
-
 const SCENARIOS = [
     { name: "재생 멱등성", run: replayIdempotency, destructive: false },
     { name: "projector 배치 도중 종료", run: projectorMidBatchKill, destructive: false },
     { name: "슬롯 재생성 리빌드", run: slotRecreationRebuild, destructive: true, flag: "--rebuild" },
-    { name: "콜드 티어 복구 리허설", run: coldTierRestoreRehearsal, destructive: true, flag: "--cold-restore" },
 ];
 
 async function main() {

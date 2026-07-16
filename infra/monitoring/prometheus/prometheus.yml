@@ -82,12 +82,6 @@ scrape_configs:
     static_configs:
       - targets: ["connect:5556"]
 
-  # 콜드 티어 대상 S3 호환 스토리지. MINIO_PROMETHEUS_AUTH_TYPE=public으로 무인증 스크레이프.
-  - job_name: minio
-    metrics_path: /minio/v2/metrics/cluster
-    static_configs:
-      - targets: ["minio:9000"]
-
   # runtime-db 원장 seq/row 카운트(파이프라인 유실 갭 계산용).
   - job_name: sql-exporter
     static_configs:

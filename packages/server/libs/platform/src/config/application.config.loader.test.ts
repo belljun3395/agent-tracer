@@ -40,18 +40,15 @@ describe("loadApplicationConfig", () => {
                 profile: "prd",
                 runtimeApi: { port: 4101 },
                 kafka: { brokers: ["base:9092"] },
-                coldStore: { useSsl: true },
             },
             {
                 profile: "local",
                 runtimeApi: { port: 4201 },
                 kafka: { brokers: ["local:9092"] },
-                coldStore: { useSsl: false },
             },
         );
         vi.stubEnv("RUNTIME_API_PORT", "4301");
         vi.stubEnv("KAFKA_BROKERS", "env-a:9092, ,env-b:9092");
-        vi.stubEnv("COLD_S3_USE_SSL", "true");
         vi.stubEnv("AGENT_TOOL_CALLBACK_PORT", "9910");
 
         const loadApplicationConfig = await loadFreshConfig();
@@ -60,7 +57,6 @@ describe("loadApplicationConfig", () => {
         expect(config.profile).toBe("local");
         expect(config.runtimeApi.port).toBe(4301);
         expect(config.kafka.brokers).toEqual(["env-a:9092", "env-b:9092"]);
-        expect(config.coldStore.useSsl).toBe(true);
         expect(config.agentGraph).toMatchObject({
             toolCallbackPort: 9910,
             toolCallbackUrl: "http://pod-a:9910",
@@ -86,5 +82,20 @@ describe("loadApplicationConfig", () => {
         const loadApplicationConfig = await loadFreshConfig();
 
         expect(() => loadApplicationConfig()).toThrow();
+    });
+
+    it("콜드 스토리지와 티어링 설정을 애플리케이션 설정에 노출하지 않는다", async () => {
+        provideYaml({
+            coldStore: { endpoint: "minio:9000" },
+            tiering: { duckdbBin: "duckdb" },
+        });
+        vi.stubEnv("COLD_S3_ENDPOINT", "ignored:9000");
+        vi.stubEnv("DUCKDB_BIN", "/usr/local/bin/duckdb");
+
+        const loadApplicationConfig = await loadFreshConfig();
+        const config = loadApplicationConfig();
+
+        expect(config).not.toHaveProperty("coldStore");
+        expect(config).not.toHaveProperty("tiering");
     });
 });

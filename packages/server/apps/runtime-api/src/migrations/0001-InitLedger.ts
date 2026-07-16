@@ -37,13 +37,6 @@ export class InitLedger1783960000000 implements MigrationInterface {
                 p_interval := '1 month'
             )
         `);
-        // 만료 파티션은 드롭하지 않고 분리만 하며 콜드 티어가 내보낸 뒤 드롭한다.
-        await queryRunner.query(`
-            UPDATE partman.part_config
-            SET retention = '3 months', retention_keep_table = true, retention_keep_index = false
-            WHERE parent_table = 'public.events'
-        `);
-
         // Debezium이 파티션 루트에서 변경을 캡처하도록 퍼블리케이션을 루트 기준으로 만든다.
         await queryRunner.query(`DROP PUBLICATION IF EXISTS dbz_runtime`);
         await queryRunner.query(

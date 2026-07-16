@@ -44,16 +44,3 @@ temporal:
 # Python 에이전트 실행 백엔드이며 ai-agent-worker의 generate 활동이 HTTP로 호출한다.
 agentGraph:
   url: http://127.0.0.1:8800
-
-# 콜드 티어는 오래된 원장 파티션을 Parquet로 내보내는 S3 호환 저장소이며 로컬은 MinIO를 쓴다.
-coldStore:
-  endpoint: localhost:9000
-  region: us-east-1
-  bucket: agent-tracer-cold
-  prefix: events
-  accessKey: monitor
-  secretKey: monitor-secret
-  useSsl: false
-
-tiering:
-  duckdbBin: duckdb

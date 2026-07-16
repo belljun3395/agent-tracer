@@ -25,16 +25,6 @@ export const applicationConfigSchema = z.object({
         toolCallbackUrl: z.string().min(1),
         instanceId: z.string().min(1),
     }),
-    coldStore: z.object({
-        endpoint: z.string().min(1),
-        region: z.string().min(1),
-        bucket: z.string().min(1),
-        prefix: z.string(),
-        accessKey: z.string().min(1),
-        secretKey: z.string(),
-        useSsl: z.boolean(),
-    }),
-    tiering: z.object({ duckdbBin: z.string().min(1) }),
 });
 
 export type ApplicationConfig = z.infer<typeof applicationConfigSchema>;

@@ -58,25 +58,3 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "Kafka(Redpanda) 왕복 지연 p95 > 2s"
-
-      - alert: ColdTierExportBacklog
-        expr: runtime_ledger_detached_partitions_pending_export > 0
-        for: 24h
-        labels: { severity: warning }
-        annotations:
-          summary: "콜드 티어 내보내기 대기 파티션 {{ $value }}개. cold:tier 잡이 스케줄대로 안 돌고 있을 수 있다"
-          description: "partman.run_maintenance가 분리한 파티션이 24시간 넘게 MinIO로 내보내지지 않았다. `docker compose run --rm cold-tier`로 수동 실행 가능."
-
-      - alert: MinioClusterUnhealthy
-        expr: minio_cluster_health_status < 1
-        for: 2m
-        labels: { severity: critical }
-        annotations:
-          summary: "MinIO(콜드 스토리지) 클러스터 상태 저하"
-
-      - alert: MinioCapacityLow
-        expr: minio_cluster_capacity_usable_free_bytes / minio_cluster_capacity_usable_total_bytes < 0.1
-        for: 10m
-        labels: { severity: warning }
-        annotations:
-          summary: "MinIO 가용 용량 10% 미만"

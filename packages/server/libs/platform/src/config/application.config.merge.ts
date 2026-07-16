@@ -1,6 +1,5 @@
 import { buildAgentGraphConfig } from "./agent.graph.config.js";
 import { applicationConfigSchema, type ApplicationConfig } from "./application.config.schema.js";
-import { buildColdTierConfig } from "./cold.tier.config.js";
 
 function section(source: Record<string, unknown>, key: string): Record<string, unknown> {
     const value = source[key];
@@ -34,12 +33,6 @@ export function mergeApplicationConfig(
     const brokers = brokersEnv
         ? brokersEnv.split(",").map((broker) => broker.trim()).filter(Boolean)
         : ((kafka["brokers"] as string[] | undefined) ?? ["localhost:19092"]);
-    const coldTier = buildColdTierConfig(
-        section(merged, "coldStore"),
-        section(merged, "tiering"),
-        env,
-    );
-
     return applicationConfigSchema.parse({
         profile: (env["MONITOR_PROFILE"] as "local" | "prd" | undefined)
             ?? (merged["profile"] as "local" | "prd" | undefined)
@@ -71,6 +64,5 @@ export function mergeApplicationConfig(
             namespace: env["TEMPORAL_NAMESPACE"] ?? (temporal["namespace"] as string | undefined) ?? "default",
         },
         agentGraph: buildAgentGraphConfig(section(merged, "agentGraph"), env, hostname),
-        ...coldTier,
     });
 }

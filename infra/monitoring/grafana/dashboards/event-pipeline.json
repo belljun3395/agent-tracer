@@ -131,34 +131,6 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, task_queue) (rate(temporal_activity_schedule_to_start_latency_bucket[5m])))", "legendFormat": "{{task_queue}}" }],
       "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
-    },
-
-    { "type": "row", "title": "Cold tier — pg_partman / DuckDB / MinIO", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }, "id": 20 },
-    {
-      "id": 21, "type": "timeseries", "title": "Live vs. pending-export partitions",
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 41 },
-      "description": "pending>0가 오래 지속되면 cold:tier 잡이 스케줄대로 안 도는 것.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "runtime_ledger_partition_count", "legendFormat": "attached" },
-        { "expr": "runtime_ledger_detached_partitions_pending_export", "legendFormat": "pending export" }
-      ]
-    },
-    {
-      "id": 22, "type": "stat", "title": "MinIO cluster health",
-      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 41 },
-      "description": "MinIO cluster health status (the panel labels the healthy value as \"healthy\"). Any other value means the cold-tier archive target for pg_partman/DuckDB exports cannot durably accept writes.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "minio_cluster_health_status" }],
-      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "1": { "text": "healthy" } } }] }, "overrides": [] }
-    },
-    {
-      "id": 23, "type": "timeseries", "title": "MinIO usable capacity free",
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 41 },
-      "description": "Usable free byte capacity remaining across the MinIO cluster that backs cold-tier exports. Capacity approaching zero blocks pg_partman's detached-partition export job and it will start failing.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "minio_cluster_capacity_usable_free_bytes", "legendFormat": "free" }],
-      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
     }
   ]
 }

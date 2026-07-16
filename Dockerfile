@@ -43,23 +43,12 @@ COPY tsconfig.base.json tsconfig.paths.json ./
 COPY packages/kernel packages/kernel
 COPY packages/web packages/web
 
-# ---- duckdb CLI: cold.entry.ts가 execFile로 셸아웃하는 대상 바이너리 ----
-FROM node:24-slim AS duckdb-cli
-ARG DUCKDB_VERSION=1.5.4
-ARG TARGETARCH
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates \
-    && curl -sfL "https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/duckdb_cli-linux-${TARGETARCH}.gz" \
-        | gunzip > /usr/local/bin/duckdb \
-    && chmod +x /usr/local/bin/duckdb
-
 # ---- migrate: tracer·runtime DB 마이그레이션을 실행하고 종료하는 원샷 컨테이너 ----
 FROM runtime-deps AS migrate
 CMD ["npm", "run", "migrate:all"]
 
 # ---- runtime-api: swc-node 로더로 소스에서 직접 실행 ----
 FROM runtime-deps AS runtime-api
-COPY --from=duckdb-cli /usr/local/bin/duckdb /usr/local/bin/duckdb
 ENV SWC_NODE_PROJECT=packages/server/apps/runtime-api/tsconfig.json
 EXPOSE 3901
 CMD ["node", "--conditions=development", "--import", "file:///app/scripts/register-otel.mjs", "--import", "@swc-node/register/esm-register", "packages/server/apps/runtime-api/src/main.ts"]
