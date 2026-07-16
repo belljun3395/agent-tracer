@@ -4,3 +4,4 @@ export const OPENSEARCH_CLIENT = "OPENSEARCH_CLIENT";
 export const EVENTS_INDEX = "events";
 export const TASKS_INDEX = "tasks";
 export const RECIPES_INDEX = "recipes";
+export const MEMOS_INDEX = "memos";

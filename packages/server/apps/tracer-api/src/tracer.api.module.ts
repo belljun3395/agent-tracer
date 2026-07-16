@@ -5,6 +5,7 @@ import type { createDataSource, createKafka } from "@monitor/platform";
 import { cleanupFeature } from "~tracer-api/domain/cleanup/cleanup.feature.js";
 import { healthFeature } from "~tracer-api/domain/health/health.feature.js";
 import { jobFeature } from "~tracer-api/domain/job/job.feature.js";
+import { memoFeature } from "~tracer-api/domain/memo/memo.feature.js";
 import { recipeFeature } from "~tracer-api/domain/recipe/recipe.feature.js";
 import { ruleFeature } from "~tracer-api/domain/rule/rule.feature.js";
 import { searchFeature } from "~tracer-api/domain/search/search.feature.js";
@@ -35,6 +36,7 @@ const apiFeatures: readonly ApiFeatureCatalog[] = [
     cleanupFeature,
     healthFeature,
     jobFeature,
+    memoFeature,
     recipeFeature,
     ruleFeature,
     searchFeature,

@@ -11,6 +11,8 @@ import {
     DaemonHealthRepository,
     EventEntity,
     EventRepository,
+    MemoEntity,
+    MemoRepository,
     RecipeApplicationEntity,
     RecipeApplicationRepository,
     RecipeEntity,
@@ -53,4 +55,5 @@ export const repositoryProviders: Provider[] = [
     { provide: AppSettingRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new AppSettingRepository(ds.getRepository(AppSettingEntity)) },
     { provide: TransactionRunner, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new TransactionRunner(ds) },
     { provide: DaemonHealthRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new DaemonHealthRepository(ds.getRepository(DaemonHealthEntity)) },
+    { provide: MemoRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new MemoRepository(ds.getRepository(MemoEntity)) },
 ];
