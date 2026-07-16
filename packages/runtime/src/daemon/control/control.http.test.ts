@@ -212,4 +212,63 @@ describe("데몬 제어 HTTP", () => {
             expect(html, key).toContain(`>${action.label}</button>`);
         }
     });
+
+    it("config는 카탈로그 밖 경로이므로 버튼으로 렌더되지 않는다", async () => {
+        const html = await (await fetch(`${baseUrl}/`)).text();
+
+        expect(html).not.toContain('data-action="config"');
+    });
+
+    it("설정을 저장하면 검증 끝난 값으로 데몬 동작을 호출한다", async () => {
+        const body = {
+            userId: "me@example.com",
+            baseUrl: "http://127.0.0.1:3847",
+            daemon: {
+                recipeRefreshMs: 300_000,
+                rulesRefreshMs: 10_000,
+                ruleGenPollMs: 10_000,
+                idleShutdownMs: 300_000,
+                idleCheckMs: 30_000,
+                controlRebindRetryMs: 2000,
+                controlPort: 3848,
+                spoolMaxBytes: 52_428_800,
+                poisonAttempts: 3,
+            },
+        };
+
+        const response = await request("POST", "/api/v1/control/config", {token: TOKEN, body});
+
+        expect(response.status).toBe(200);
+        expect(response.json["ok"]).toBe(true);
+        expect(actions.updateConfig).toHaveBeenCalledWith(body);
+        const data = response.json["data"] as Record<string, unknown>;
+        expect((data["identity"] as Record<string, unknown>)["userId"]).toBe("me@example.com");
+    });
+
+    it("범위 밖 필드가 있으면 400과 필드별 오류를 낸다", async () => {
+        const response = await request("POST", "/api/v1/control/config", {
+            token: TOKEN,
+            body: {userId: "me@example.com", baseUrl: "http://127.0.0.1:3847", daemon: {controlPort: 0}},
+        });
+
+        expect(response.status).toBe(400);
+        expect(response.json["errors"]).toHaveProperty("controlPort");
+        expect(actions.updateConfig).not.toHaveBeenCalled();
+    });
+
+    it("신원이 비어 있으면 400과 필드 오류를 낸다", async () => {
+        const response = await request("POST", "/api/v1/control/config", {
+            token: TOKEN,
+            body: {userId: "", baseUrl: "", daemon: {}},
+        });
+
+        expect(response.status).toBe(400);
+        const errors = response.json["errors"] as Record<string, string>;
+        expect(errors).toHaveProperty("userId");
+        expect(errors).toHaveProperty("baseUrl");
+    });
+
+    it("config 경로에 GET하면 405를 낸다", async () => {
+        expect((await request("GET", "/api/v1/control/config", {token: TOKEN})).status).toBe(405);
+    });
 });
