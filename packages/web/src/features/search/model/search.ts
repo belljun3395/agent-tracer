@@ -11,7 +11,6 @@ export interface TaskSearchHit {
 
 export interface EventSearchHit {
   readonly id: string;
-  readonly eventId: string;
   readonly taskId: string;
   readonly taskTitle: string;
   readonly title: string;

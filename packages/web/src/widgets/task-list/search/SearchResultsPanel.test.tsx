@@ -18,7 +18,6 @@ const TASK_HIT: TaskSearchHit = {
 
 const EVENT_HIT: EventSearchHit = {
   id: "event-hit-1",
-  eventId: "event-1",
   taskId: "task-2",
   taskTitle: "Other task",
   title: "Event one",
@@ -62,6 +61,9 @@ describe("SearchResultsPanel", () => {
     expect(useSearchQueryMock).toHaveBeenLastCalledWith("events", "bug", undefined);
     expect(screen.getByText("Event one")).toBeTruthy();
     expect(screen.queryByText("Task one")).toBeNull();
+    const href = screen.getByText("Event one").closest("a")?.getAttribute("href");
+    expect(href).toContain("/tasks/task-2");
+    expect(href).toContain("event=event-hit-1");
   });
 
   it("scope 토글은 type 토글과 독립적으로 계속 렌더링된다", () => {

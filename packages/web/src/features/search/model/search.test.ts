@@ -18,7 +18,6 @@ const TASK: TaskSearchHit = {
 function event(taskTitle: string): EventSearchHit {
   return {
     id: "event-hit-1",
-    eventId: "event-1",
     taskId: "task-1",
     taskTitle,
     title: "Event one",

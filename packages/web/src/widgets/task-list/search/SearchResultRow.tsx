@@ -68,7 +68,7 @@ export function EventHitRow({ hit }: EventHitRowProps) {
 
   return (
     <Link
-      to={`/tasks/${TaskId(hit.taskId)}?event=${encodeURIComponent(EventId(hit.eventId))}`}
+      to={`/tasks/${TaskId(hit.taskId)}?event=${encodeURIComponent(EventId(hit.id))}`}
       className="block px-2.5 py-2 mb-px rounded-sm border border-transparent hover:bg-s1"
     >
       <div className="flex items-center gap-2">
