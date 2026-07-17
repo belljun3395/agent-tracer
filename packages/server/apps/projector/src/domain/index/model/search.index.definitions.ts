@@ -15,11 +15,25 @@ export const RECIPES_INDEX = "recipes-v1";
 export const MEMOS_ALIAS = "memos";
 export const MEMOS_INDEX = "memos-v1";
 
+// standard analyzer는 한글 음절 뭉치를 토큰 하나로 색인해 "입력"으로 "입력값"을 못 찾으므로 2글자 ngram으로 색인·질의한다.
+const SUBSTRING_ANALYSIS = {
+    analyzer: {
+        substring: { type: "custom", tokenizer: "substring_bigram", filter: ["lowercase"] },
+    },
+    tokenizer: {
+        substring_bigram: { type: "ngram", min_gram: 2, max_gram: 2, token_chars: ["letter", "digit"] },
+    },
+};
+
+const BASE_SETTINGS = { number_of_shards: 1, number_of_replicas: 0, analysis: SUBSTRING_ANALYSIS };
+const TEXT = { type: "text", analyzer: "substring" };
+const TEXT_WITH_RAW = { type: "text", analyzer: "substring", fields: { raw: { type: "keyword" } } };
+
 export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
     {
         alias: EVENTS_ALIAS,
         index: EVENTS_INDEX,
-        settings: { number_of_shards: 1, number_of_replicas: 0 },
+        settings: BASE_SETTINGS,
         mappings: {
             properties: {
                 userId: { type: "keyword" },
@@ -28,8 +42,8 @@ export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
                 turnId: { type: "keyword" },
                 kind: { type: "keyword" },
                 lane: { type: "keyword" },
-                title: { type: "text" },
-                body: { type: "text" },
+                title: TEXT,
+                body: TEXT,
                 toolName: { type: "keyword" },
                 filePaths: { type: "keyword" },
                 seq: { type: "long" },
@@ -40,12 +54,12 @@ export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
     {
         alias: TASKS_ALIAS,
         index: TASKS_INDEX,
-        settings: { number_of_shards: 1, number_of_replicas: 0 },
+        settings: BASE_SETTINGS,
         mappings: {
             properties: {
                 userId: { type: "keyword" },
-                title: { type: "text", fields: { raw: { type: "keyword" } } },
-                workspacePath: { type: "text", fields: { raw: { type: "keyword" } } },
+                title: TEXT_WITH_RAW,
+                workspacePath: TEXT_WITH_RAW,
                 status: { type: "keyword" },
                 origin: { type: "keyword" },
                 taskKind: { type: "keyword" },
@@ -60,14 +74,14 @@ export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
     {
         alias: RECIPES_ALIAS,
         index: RECIPES_INDEX,
-        settings: { number_of_shards: 1, number_of_replicas: 0 },
+        settings: BASE_SETTINGS,
         mappings: {
             properties: {
                 userId: { type: "keyword" },
-                title: { type: "text" },
-                intent: { type: "text" },
-                description: { type: "text" },
-                summaryMd: { type: "text" },
+                title: TEXT,
+                intent: TEXT,
+                description: TEXT,
+                summaryMd: TEXT,
                 touchedFiles: { type: "keyword" },
                 status: { type: "keyword" },
                 userEdited: { type: "boolean" },
@@ -79,14 +93,14 @@ export const SEARCH_INDEX_DEFINITIONS: readonly SearchIndexDefinition[] = [
     {
         alias: MEMOS_ALIAS,
         index: MEMOS_INDEX,
-        settings: { number_of_shards: 1, number_of_replicas: 0 },
+        settings: BASE_SETTINGS,
         mappings: {
             properties: {
                 userId: { type: "keyword" },
                 taskId: { type: "keyword" },
                 eventId: { type: "keyword" },
                 author: { type: "keyword" },
-                body: { type: "text" },
+                body: TEXT,
                 updatedAt: { type: "date" },
             },
         },
