@@ -11,6 +11,7 @@ export interface BindingRecord {
     readonly workspacePath?: string;
     readonly createdAt: string;
     readonly titled?: boolean;
+    readonly resumed?: boolean;
     readonly currentTurnId?: string;
     readonly turnStartedAt?: string;
     readonly previousTurnId?: string;

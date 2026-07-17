@@ -79,7 +79,7 @@ export class ClearSessionUsecase {
             title: input.title,
             ...(input.workspacePath ? {workspacePath: input.workspacePath} : {}),
         }));
-        return {taskId: created.taskId, sessionId: created.sessionId, taskCreated: true};
+        return {taskId: created.taskId, sessionId: created.sessionId, taskCreated: true, firstTitling: false};
     }
 
     private async append(event: Parameters<typeof toRunIngestEvent>[0]): Promise<void> {

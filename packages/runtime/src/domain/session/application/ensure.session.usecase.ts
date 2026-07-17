@@ -37,6 +37,7 @@ export class EnsureSessionUsecase {
         let created: BindingRecord | undefined;
         let existing: BindingRecord | undefined;
         let retitled = false;
+        let firstTitling = false;
         let resumedFromPrior: BindingRecord | undefined;
         try {
             const store = this.bindings.read();
@@ -53,10 +54,12 @@ export class EnsureSessionUsecase {
                     ...(input.workspacePath ? {workspacePath: input.workspacePath} : {}),
                     createdAt: new Date(this.clock.now()).toISOString(),
                     titled,
+                    ...(resumedFromPrior ? {resumed: true} : {}),
                 };
                 store[key] = created;
                 this.bindings.write(capBindingStore(store));
             } else if (titled && existing.titled !== true) {
+                firstTitling = existing.resumed !== true;
                 existing = {...existing, titled: true};
                 store[key] = existing;
                 this.bindings.write(store);
@@ -68,7 +71,7 @@ export class EnsureSessionUsecase {
 
         if (existing) {
             if (retitled) await this.append(taskLinkedEvent(existing.taskId, input.title));
-            return restored(existing);
+            return restored(existing, firstTitling);
         }
         if (!created) throw new Error("session binding was not created");
 
@@ -78,7 +81,12 @@ export class EnsureSessionUsecase {
                 ? {parentSessionId: resumedFromPrior.sessionId, resume: true}
                 : {}),
         }));
-        return {taskId: created.taskId, sessionId: created.sessionId, taskCreated: !resumedFromPrior};
+        return {
+            taskId: created.taskId,
+            sessionId: created.sessionId,
+            taskCreated: !resumedFromPrior,
+            firstTitling: !resumedFromPrior && titled,
+        };
     }
 
     private async append(event: Parameters<typeof toRunIngestEvent>[0]): Promise<void> {

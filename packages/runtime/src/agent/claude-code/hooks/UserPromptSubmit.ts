@@ -60,7 +60,7 @@ await runHook("UserPromptSubmit", {
                 messageId,
                 turnId,
                 prompt: payload.prompt,
-                phase: target.taskCreated ? "initial" : "follow_up",
+                phase: target.firstTitling ? "initial" : "follow_up",
                 runtimeSource: claudeRuntime.runtimeSource,
                 systemNotification,
             }),
@@ -82,7 +82,7 @@ await runHook("UserPromptSubmit", {
             rules,
             hints,
             recipeContext: recipes?.context ?? "",
-            titleNudge: target.taskCreated && !systemNotification ? formatTitleNudge(payload.sessionId) : "",
+            titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge(payload.sessionId) : "",
         });
         if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
 

@@ -20,7 +20,44 @@ describe("EnsureSessionUsecase", () => {
         const ensured = await usecase.execute(INPUT);
 
         expect(ensured.taskCreated).toBe(true);
+        expect(ensured.firstTitling).toBe(true);
         expect(sink.events[0]?.kind).toBe(KIND.sessionStarted);
+    });
+
+    it("시작 훅이 임시 제목으로 먼저 연 태스크는 첫 실제 발화에서 firstTitling을 켠다", async () => {
+        const bindings = new InMemoryBindingStore();
+        const usecase = new EnsureSessionUsecase(bindings, new InMemoryEventSink(), new SequentialIdGenerator(), new FixedClock(NOW));
+
+        const opened = await usecase.execute({...INPUT, title: "Claude Code — repo", titled: false});
+        const firstPrompt = await usecase.execute({...INPUT, title: "실제 제목"});
+        const secondPrompt = await usecase.execute({...INPUT, title: "또 다른 발화"});
+
+        expect(opened.firstTitling).toBe(false);
+        expect(firstPrompt.taskCreated).toBe(false);
+        expect(firstPrompt.firstTitling).toBe(true);
+        expect(secondPrompt.firstTitling).toBe(false);
+    });
+
+    it("resume으로 이어받아 임시 제목으로 연 태스크는 첫 발화라도 firstTitling을 켜지 않는다", async () => {
+        const bindings = new InMemoryBindingStore();
+        const usecase = new EnsureSessionUsecase(bindings, new InMemoryEventSink(), new SequentialIdGenerator(), new FixedClock(NOW));
+
+        await usecase.execute(INPUT);
+        const resumedOpen = await usecase.execute({
+            runtimeSource: "claude-plugin",
+            runtimeSessionId: "cc-2",
+            title: "Claude Code — repo",
+            titled: false,
+            resumedFrom: "cc-1",
+        });
+        const resumedPrompt = await usecase.execute({
+            runtimeSource: "claude-plugin",
+            runtimeSessionId: "cc-2",
+            title: "이어지는 실제 발화",
+        });
+
+        expect(resumedOpen.firstTitling).toBe(false);
+        expect(resumedPrompt.firstTitling).toBe(false);
     });
 
     it("같은 런타임 세션을 다시 보면 같은 태스크를 복원한다", async () => {
