@@ -22,7 +22,9 @@ export class OpenSearchTaskQuery implements TaskSearchPort {
                 query: {
                     bool: {
                         must: [{ multi_match: { query: q, fields: ["title", "workspacePath"] } }],
-                        filter: [{ term: { userId } }, { term: { hidden: false } }],
+                        filter: [{ term: { userId } }],
+                        // OpenSearch term은 필드가 없는 문서에 매치하지 않아, hidden=false 필터는 필드 부재 문서까지 탈락시킨다.
+                        must_not: [{ term: { hidden: true } }],
                     },
                 },
             },
