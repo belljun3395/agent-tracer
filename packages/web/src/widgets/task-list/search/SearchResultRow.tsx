@@ -6,7 +6,7 @@ import type {
 } from "~web/features/search/model/search.js";
 import { TaskId, EventId } from "~web/shared/identity.js";
 import type { StatusKind } from "~web/shared/ui/lib/status-kind.js";
-import { useGuidance, useSetSelectedEventId } from "~web/shared/store/index.js";
+import { useGuidance } from "~web/shared/store/index.js";
 import { GuidanceText, StatusDot } from "~web/shared/ui/index.js";
 import { formatRelativeShort } from "~web/shared/lib/formatting/time.js";
 import { laneThemeFor } from "~web/entities/task/model/lane-theme.js";
@@ -62,19 +62,13 @@ interface EventHitRowProps {
   readonly hit: EventSearchHit;
 }
 
-/** 이벤트 검색 결과 한 행. */
+/** 이벤트 검색 결과 한 행이며, 그 이벤트를 선택한 채로 태스크를 연다. */
 export function EventHitRow({ hit }: EventHitRowProps) {
-  const setSelectedEventId = useSetSelectedEventId();
   const lane = laneThemeFor(hit.lane);
-  const onClick = () => {
-    // 이동은 <Link>가 처리한다.
-    setSelectedEventId(EventId(hit.eventId));
-  };
 
   return (
     <Link
-      to={`/tasks/${TaskId(hit.taskId)}`}
-      onClick={onClick}
+      to={`/tasks/${TaskId(hit.taskId)}?event=${encodeURIComponent(EventId(hit.eventId))}`}
       className="block px-2.5 py-2 mb-px rounded-sm border border-transparent hover:bg-s1"
     >
       <div className="flex items-center gap-2">
@@ -109,18 +103,15 @@ interface MemoHitRowProps {
   readonly hit: MemoSearchHit;
 }
 
-/** 메모 검색 결과 한 행이며, 이벤트에 매달린 메모면 그 이벤트를 선택하며 이동한다. */
+/** 메모 검색 결과 한 행이며, 이벤트에 매달린 메모면 그 이벤트를 선택한 채로 태스크를 연다. */
 export function MemoHitRow({ hit }: MemoHitRowProps) {
-  const setSelectedEventId = useSetSelectedEventId();
-  const onClick = () => {
-    // 이동은 <Link>가 처리한다.
-    if (hit.eventId) setSelectedEventId(EventId(hit.eventId));
-  };
+  const to = hit.eventId
+    ? `/tasks/${TaskId(hit.taskId)}?event=${encodeURIComponent(EventId(hit.eventId))}`
+    : `/tasks/${TaskId(hit.taskId)}`;
 
   return (
     <Link
-      to={`/tasks/${TaskId(hit.taskId)}`}
-      onClick={onClick}
+      to={to}
       className="block px-2.5 py-2 mb-px rounded-sm border border-transparent hover:bg-s1"
     >
       <div className="flex items-center gap-2">
