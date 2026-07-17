@@ -74,12 +74,16 @@ export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
             <ByItem label="Model" value={model} mono />
           </>
         )}
-        {resumeTarget && (
-          <>
-            <Sep />
-            <SessionIdPill resumeTarget={resumeTarget} />
-          </>
-        )}
+        <Sep />
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((open) => !open)}
+          aria-expanded={detailsOpen}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-subtle hover:text-ink"
+        >
+          {detailsOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          Details &amp; Memo
+        </button>
         <span className="ml-auto inline-flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <ByItem label="ID" value={shortId} mono title={`Full task id: ${task.id}`} />
         </span>
@@ -100,37 +104,26 @@ export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
         </div>
       )}
 
-      <div className="mt-2.5">
-        <button
-          type="button"
-          onClick={() => setDetailsOpen((open) => !open)}
-          aria-expanded={detailsOpen}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-subtle hover:text-ink"
-        >
-          {detailsOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-          Details &amp; Memo
-        </button>
-        {detailsOpen && (
-          <div className="mt-2 flex flex-col gap-2.5 rounded-sm border border-hair bg-s1 px-3 py-2.5">
-            <div className="flex flex-col gap-1.5">
-              <ByItem label="Cwd" value={task.workspacePath ?? "—"} mono />
-              {resumeTarget ? (
-                <span className="inline-flex items-baseline gap-1.5">
-                  <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-tertiary">
-                    Session
-                  </span>
-                  <SessionIdPill resumeTarget={resumeTarget} />
+      {detailsOpen && (
+        <div className="mt-2.5 flex flex-col gap-2.5 rounded-sm border border-hair bg-s1 px-3 py-2.5">
+          <div className="flex flex-col gap-1.5">
+            <ByItem label="Cwd" value={task.workspacePath ?? "—"} mono />
+            {resumeTarget ? (
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-tertiary">
+                  Session
                 </span>
-              ) : (
-                <ByItem label="Session" value="—" mono />
-              )}
-              <ByItem label="Agent" value={task.runtimeSource ?? "—"} mono />
-              <ByItem label="Status" value={task.status} mono />
-            </div>
-            <TaskMemoThread taskId={task.id} />
+                <SessionIdPill resumeTarget={resumeTarget} />
+              </span>
+            ) : (
+              <ByItem label="Session" value="—" mono />
+            )}
+            <ByItem label="Agent" value={task.runtimeSource ?? "—"} mono />
+            <ByItem label="Status" value={task.status} mono />
           </div>
-        )}
-      </div>
+          <TaskMemoThread taskId={task.id} />
+        </div>
+      )}
     </div>
   );
 }
