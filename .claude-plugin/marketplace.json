@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agent Tracer monitoring plugin for Claude Code (single-plugin marketplace).",
-    "version": "0.8.2"
+    "version": "0.8.3"
   },
   "plugins": [
     {

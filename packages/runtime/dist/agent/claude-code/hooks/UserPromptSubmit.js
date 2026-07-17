@@ -3567,12 +3567,13 @@ var RequestRecipeScanUsecase = class {
 };
 
 // src/domain/session/model/ensured.session.model.ts
-function restored(binding2) {
+function restored(binding2, firstTitling = false) {
   const turn2 = turnStateOf(binding2);
   return {
     taskId: binding2.taskId,
     sessionId: binding2.sessionId,
     taskCreated: false,
+    firstTitling,
     ...turn2 ? { turnId: turn2.turnId } : {}
   };
 }
@@ -3674,7 +3675,7 @@ var ClearSessionUsecase = class {
       title: input.title,
       ...input.workspacePath ? { workspacePath: input.workspacePath } : {}
     }));
-    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: true };
+    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: true, firstTitling: false };
   }
   async append(event) {
     await this.sink.append([toRunIngestEvent(
@@ -3727,6 +3728,7 @@ var EnsureSessionUsecase = class {
     let created;
     let existing;
     let retitled = false;
+    let firstTitling = false;
     let resumedFromPrior;
     try {
       const store = this.bindings.read();
@@ -3740,11 +3742,13 @@ var EnsureSessionUsecase = class {
           runtimeSessionId: input.runtimeSessionId,
           ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
           createdAt: new Date(this.clock.now()).toISOString(),
-          titled
+          titled,
+          ...resumedFromPrior ? { resumed: true } : {}
         };
         store[key] = created;
         this.bindings.write(capBindingStore(store));
       } else if (titled && existing.titled !== true) {
+        firstTitling = existing.resumed !== true;
         existing = { ...existing, titled: true };
         store[key] = existing;
         this.bindings.write(store);
@@ -3755,14 +3759,19 @@ var EnsureSessionUsecase = class {
     }
     if (existing) {
       if (retitled) await this.append(taskLinkedEvent(existing.taskId, input.title));
-      return restored(existing);
+      return restored(existing, firstTitling);
     }
     if (!created) throw new Error("session binding was not created");
     await this.append(sessionStartedEvent(created.taskId, created.sessionId, {
       ...input,
       ...resumedFromPrior ? { parentSessionId: resumedFromPrior.sessionId, resume: true } : {}
     }));
-    return { taskId: created.taskId, sessionId: created.sessionId, taskCreated: !resumedFromPrior };
+    return {
+      taskId: created.taskId,
+      sessionId: created.sessionId,
+      taskCreated: !resumedFromPrior,
+      firstTitling: !resumedFromPrior && titled
+    };
   }
   async append(event) {
     await this.sink.append([toRunIngestEvent(
@@ -4151,7 +4160,7 @@ await runHook("UserPromptSubmit", {
         messageId,
         turnId,
         prompt: payload.prompt,
-        phase: target.taskCreated ? "initial" : "follow_up",
+        phase: target.firstTitling ? "initial" : "follow_up",
         runtimeSource: claudeRuntime.runtimeSource,
         systemNotification
       })
@@ -4170,7 +4179,7 @@ await runHook("UserPromptSubmit", {
       rules,
       hints,
       recipeContext: recipes?.context ?? "",
-      titleNudge: target.taskCreated && !systemNotification ? formatTitleNudge(payload.sessionId) : ""
+      titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge(payload.sessionId) : ""
     });
     if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
     await reportRecipeInjection(target.taskId, recipes.titles, emission.recipeBytes);
