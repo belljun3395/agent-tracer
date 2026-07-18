@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.tool_loop import ToolLoopBudget
+from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import RecipeAgentContext, build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
@@ -47,6 +47,7 @@ def create_candidate_nodes(
             req.toolCallback,
             usage,
             budget,
+            MAX_TOOL_ROUNDS,
             state["provenance"],
         )
         output = await recipe_agent.ainvoke(

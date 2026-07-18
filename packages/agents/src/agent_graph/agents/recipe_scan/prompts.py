@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 from ..shared.models import Language
-from .models import MAX_RECIPE_CANDIDATES, MAX_TOOL_ROUNDS
+from .models import MAX_RECIPE_CANDIDATES
 
-PROMPT_VERSION = "recipe-scan-native-v4"
+PROMPT_VERSION = "recipe-scan-native-v5"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "auto": "Use the dominant language of the anchor task.",
@@ -33,7 +33,7 @@ recipes). Parameter details live on the tool definitions.
 How to work:
   - Nothing is pre-loaded: read what you need, and keep reading while the evidence is thin. Every listing
     tool reports truncated/total/nextCursor, so pull more when they say more exists.
-  - Budget: up to {MAX_TOOL_ROUNDS} tool-calling rounds for this run. If the budget runs short, finish
+  - Every turn tells you how many tool-calling rounds remain. If the budget runs short, finish
     from what you already verified.
   - A sensible route is to understand the anchor first (summary, applicable rules, its events), then
     chase friction (search_events with kind="agent_tracer.user.message" finds user corrections and

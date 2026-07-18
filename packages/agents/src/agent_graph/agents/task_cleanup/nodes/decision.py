@@ -8,10 +8,15 @@ from typing import Any
 import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.tool_loop import ToolLoopBudget
+from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
 from ..models import CleanupDraft, TaskCleanupRequest, TaskCleanupState
-from ..policy import AGENT_RECURSION_LIMIT, TASK_CLEANUP_MAX_MODEL_COST_USD, validate_suggestions
+from ..policy import (
+    AGENT_RECURSION_LIMIT,
+    MAX_TOOL_ROUNDS,
+    TASK_CLEANUP_MAX_MODEL_COST_USD,
+    validate_suggestions,
+)
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 
 type CleanupNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
@@ -44,6 +49,7 @@ def create_decision_nodes(
             req.toolCallback,
             usage,
             budget,
+            MAX_TOOL_ROUNDS,
             state["exposed_candidates"],
             state["event_ids_by_task"],
         )

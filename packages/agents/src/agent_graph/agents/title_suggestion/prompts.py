@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from ..shared.models import Language
 from .models import TitleSuggestionContext
-from .policy import MAX_TOOL_ROUNDS
 
-PROMPT_VERSION = "title-suggestion-native-v3"
+PROMPT_VERSION = "title-suggestion-native-v4"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "auto": "Mirror the language of the current title and the user's messages.",
@@ -25,8 +24,8 @@ are dropped when the task is long, and the excerpt says so when that happened.
 
 When the excerpt is enough to name the work, name it without calling any tool. When it is empty, ambiguous,
 truncated, or omits load-bearing work, call get_task_events to read the raw event sequence: you choose limit
-and cursor, and order="desc" reads the ending of a long task first. You have up to {MAX_TOOL_ROUNDS} tool
-rounds; stop pulling as soon as you can name the work.
+and cursor, and order="desc" reads the ending of a long task first. Every turn tells you how many tool
+rounds remain; stop pulling as soon as you can name the work.
 
 If the current title is already concrete, accurate, and readable, return an empty list: that is a real
 answer, not a failure. Otherwise return exactly 2-3 distinct alternatives. Each title must be concrete,

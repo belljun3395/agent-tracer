@@ -1,0 +1,150 @@
+"""도구 예산을 다 쓴 실행이 결론을 내고 끝나는지 검증한다(페이크 모델, 네트워크 없음)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+from langchain_core.messages import HumanMessage
+
+from agent_graph.agents.runtime.execution.runner import execute
+from agent_graph.agents.runtime.llm.standard_agent import FINALIZE_DIRECTIVE
+from agent_graph.agents.task_cleanup import agent as cleanup_mod
+from agent_graph.agents.task_cleanup.models import TaskCleanupRequest
+from agent_graph.agents.task_cleanup.policy import MAX_TOOL_ROUNDS
+from tests.fakes import FakeToolClient, mk_ai
+
+_CALLBACK = {"url": "http://worker:8810/tools/invoke", "token": "tok-1"}
+_COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
+
+_DRAFT = {
+    "suggestions": [
+        {
+            "kind": "archive",
+            "taskId": "task-1",
+            "rationale": "의미 있는 활동이 없다",
+            "evidenceEventIds": [],
+        }
+    ]
+}
+
+
+class GreedyChat:
+    """예산을 안 보고 계속 도구만 부르다가 결론 요구를 받으면 그때 출력하는 모델이다."""
+
+    def __init__(self) -> None:
+        self.bound_tools: list[Any] = []
+        self.tools_per_call: list[list[str]] = []
+        self.notices: list[str] = []
+
+    def bind_tools(self, tools: list[Any], **_kwargs: Any) -> GreedyChat:
+        self.bound_tools = tools
+        return self
+
+    def bind(self, **_kwargs: Any) -> GreedyChat:
+        return self
+
+    async def ainvoke(self, messages: list[Any]) -> Any:
+        self.tools_per_call.append([getattr(tool, "name", "") for tool in self.bound_tools])
+        directives = [
+            message.content
+            for message in messages
+            if isinstance(message, HumanMessage) and isinstance(message.content, str)
+        ]
+        self.notices.append(directives[-1])
+        if FINALIZE_DIRECTIVE in directives[-1]:
+            return mk_ai(
+                tool_calls=[
+                    {"name": "CleanupDraft", "args": _DRAFT, "id": "call-out", "type": "tool_call"}
+                ]
+            )
+        return mk_ai(
+            tool_calls=[
+                {
+                    "name": "list_candidate_tasks",
+                    "args": {},
+                    "id": f"call-{len(self.tools_per_call)}",
+                    "type": "tool_call",
+                }
+            ]
+        )
+
+
+def _request() -> TaskCleanupRequest:
+    return TaskCleanupRequest(
+        model="claude-sonnet-4-6",
+        apiKey="sk-test",
+        scannedAt="2026-07-14T00:00:00Z",
+        maxSuggestions=5,
+        language="ko",
+        toolCallback=_CALLBACK,  # type: ignore[arg-type]
+        completionCallback=_COMPLETION,  # type: ignore[arg-type]
+    )
+
+
+def _client() -> FakeToolClient:
+    return FakeToolClient(
+        {
+            "list_candidate_tasks": {
+                "candidates": [
+                    {
+                        "id": "task-1",
+                        "visibleTitle": "제목",
+                        "status": "running",
+                        "lastEventAt": None,
+                        "hasEvents": False,
+                        "activeChildCount": 0,
+                        "candidateReasons": ["stale"],
+                    }
+                ],
+                "truncated": False,
+                "nextCursor": None,
+                "total": 1,
+                "moreCandidatesOutsideBatch": False,
+            }
+        }
+    )
+
+
+async def _run(chat: GreedyChat, client: FakeToolClient) -> Any:
+    req = _request()
+    return await execute(
+        "task-cleanup",
+        req.model,
+        req.deadlineMs,
+        lambda usage: cleanup_mod.run_task_cleanup(req, client, usage),  # type: ignore[arg-type]
+    )
+
+
+async def test_예산을_다_써도_모은_근거로_결론을_낸다(monkeypatch: pytest.MonkeyPatch) -> None:
+    chat = GreedyChat()
+    client = _client()
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+
+    res = await _run(chat, client)
+
+    assert res.error is None
+    assert res.data["suggestions"] == _DRAFT["suggestions"]
+
+
+async def test_남은_라운드를_매_턴_알려준다(monkeypatch: pytest.MonkeyPatch) -> None:
+    chat = GreedyChat()
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+
+    await _run(chat, _client())
+
+    assert f"{MAX_TOOL_ROUNDS} of {MAX_TOOL_ROUNDS}" in chat.notices[0]
+    assert f"{MAX_TOOL_ROUNDS - 1} of {MAX_TOOL_ROUNDS}" in chat.notices[1]
+
+
+async def test_마지막_라운드에는_조사_도구를_거두고_출력만_남긴다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat = GreedyChat()
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+
+    await _run(chat, _client())
+
+    assert "list_candidate_tasks" in chat.tools_per_call[0]
+    assert chat.tools_per_call[-1] == ["CleanupDraft"]
+    assert FINALIZE_DIRECTIVE in chat.notices[-1]

@@ -8,10 +8,15 @@ from typing import Any
 import httpx
 
 from ...runtime.execution.trace import ExecutionTrace
-from ...runtime.llm.tool_loop import ToolLoopBudget
+from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import TitleAgentContext, build_title_agent
 from ..models import TitleSuggestionDraft, TitleSuggestionRequest, TitleSuggestionState
-from ..policy import AGENT_RECURSION_LIMIT, MAX_TITLE_MODEL_COST_USD, validate_title_candidate
+from ..policy import (
+    AGENT_RECURSION_LIMIT,
+    MAX_TITLE_MODEL_COST_USD,
+    MAX_TOOL_ROUNDS,
+    validate_title_candidate,
+)
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 
 type TitleNode = Callable[[TitleSuggestionState], Awaitable[dict[str, Any]]]
@@ -33,7 +38,9 @@ def create_candidate_nodes(
         messages: list[Any], spent: float
     ) -> tuple[TitleSuggestionDraft, list[Any], float]:
         budget = ToolLoopBudget(agent_name, req.model, MAX_TITLE_MODEL_COST_USD, spent)
-        context = TitleAgentContext(agent_name, client, req.toolCallback, usage, budget)
+        context = TitleAgentContext(
+            agent_name, client, req.toolCallback, usage, budget, MAX_TOOL_ROUNDS
+        )
         output = await title_agent.ainvoke(
             {"messages": messages},
             context=context,

@@ -7,13 +7,23 @@ from typing import Any, cast
 
 import httpx
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ...shared.models import ToolCallback
 from ..errors import OutputTruncated
 from ..execution.trace import ExecutionTrace
-from .tool_loop import ToolLoopBudget
+from .budget import ToolLoopBudget
 from .trajectory import is_truncated
+
+BUDGET_NOTICE = (
+    "Tool budget: {remaining} of {total} tool-calling rounds remain. "
+    "Choose what to verify next within what is left."
+)
+
+FINALIZE_DIRECTIVE = (
+    "The tool budget is exhausted. Produce the final structured output now "
+    "using only the evidence you already verified."
+)
 
 
 @dataclass
@@ -25,6 +35,7 @@ class StandardAgentContext:
     callback: ToolCallback
     trace: ExecutionTrace
     budget: ToolLoopBudget
+    max_tool_rounds: int
 
 
 class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
@@ -35,7 +46,7 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         request: ModelRequest[StandardAgentContext],
         handler: Any,
     ) -> ModelResponse[Any]:
-        response = await handler(request.override(messages=cache_tool_messages(request.messages)))
+        response = await handler(_with_budget(request))
         for message in response.result:
             if not isinstance(message, AIMessage):
                 continue
@@ -52,6 +63,22 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         if isinstance(response, ToolMessage):
             request.runtime.context.trace.record_message(response)
         return response
+
+
+def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[StandardAgentContext]:
+    """남은 도구 라운드를 모델에게 알리고, 마지막 라운드에는 결론만 받는다."""
+    total = request.runtime.context.max_tool_rounds
+    spent = request.state.get("run_model_call_count", 0)
+    remaining = total - (spent if isinstance(spent, int) else 0)
+    messages = cache_tool_messages(request.messages)
+    if remaining > 1:
+        notice = BUDGET_NOTICE.format(remaining=remaining, total=total)
+        return request.override(messages=[*messages, HumanMessage(content=notice)])
+    # 조사 도구를 거둬야 모델이 결론을 낸다. 구조화 출력 도구는 이 목록 밖에서 붙는다.
+    return request.override(
+        messages=[*messages, HumanMessage(content=FINALIZE_DIRECTIVE)],
+        tools=[],
+    )
 
 
 def cache_tool_messages(messages: list[Any]) -> list[Any]:

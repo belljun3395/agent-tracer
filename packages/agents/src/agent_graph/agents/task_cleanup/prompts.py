@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from ..shared.models import Language
 from .models import MAX_EVIDENCE_EVENT_IDS
-from .policy import MAX_TOOL_ROUNDS
 
-PROMPT_VERSION = "task-cleanup-native-v3"
+PROMPT_VERSION = "task-cleanup-native-v4"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "auto": "Use the dominant language of the candidate task titles for every rationale.",
@@ -37,7 +36,7 @@ Evidence discipline. This is the rule that matters:
     event IDs you actually read for a task in that suggestion's evidenceEventIds.
 
 Working within your budget:
-  - You have up to {MAX_TOOL_ROUNDS} tool-calling turns for this run. Verify several candidates at once
+  - Every turn tells you how many tool-calling rounds remain. Verify several candidates at once
     by issuing multiple get_task_events calls in the same turn.
   - You decide how much of each task to read: pick limit, page with cursor, or set order="desc" to check
     how a task ended.
