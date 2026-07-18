@@ -7,6 +7,7 @@ Temporal 기본 재시도에 맡긴다.
 from __future__ import annotations
 
 from anthropic import APIConnectionError, APIError, APIStatusError
+from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
 
 from ..shared.models import AgentErrorDTO
 
@@ -21,11 +22,6 @@ class BudgetExceeded(Exception):
 
 class OutputTruncated(Exception):
     """max_tokens에서 잘려 구조화 출력을 완성하지 못함. 같은 입력이면 재시도해도 다시 잘린다."""
-
-
-class MaxTurnsExceeded(Exception):
-    """도구 예산 소진 후 truncate로 tool_use/tool_result 불변식을 복구해도 최종 구조화
-    응답을 완성하지 못함. 같은 예산 안에서는 재시도해도 해소되지 않는다."""
 
 
 def _anthropic_subtype(err: APIStatusError) -> str:
@@ -47,7 +43,8 @@ def classify_exception(err: BaseException) -> AgentErrorDTO:
         return AgentErrorDTO(subtype="budget_exceeded", summary=str(err))
     if isinstance(err, OutputTruncated):
         return AgentErrorDTO(subtype="max_tokens", summary=str(err))
-    if isinstance(err, MaxTurnsExceeded):
+    # 도구 예산을 다 쓴 실행은 같은 예산으로 재시도해도 같은 자리에서 끝나므로 비재시도로 넘긴다.
+    if isinstance(err, ModelCallLimitExceededError):
         return AgentErrorDTO(subtype="max_turns_exceeded", summary=str(err))
     # Anthropic SDK에서 APIConnectionError는 APIError의 서브클래스다.
     if isinstance(err, APIConnectionError):
