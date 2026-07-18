@@ -11,7 +11,7 @@ from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.tool_loop import ToolLoopBudget
 from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
 from ..models import CleanupDraft, TaskCleanupRequest, TaskCleanupState
-from ..policy import MAX_TOOL_ROUNDS, TASK_CLEANUP_MAX_MODEL_COST_USD, validate_suggestions
+from ..policy import AGENT_RECURSION_LIMIT, TASK_CLEANUP_MAX_MODEL_COST_USD, validate_suggestions
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 
 type CleanupNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
@@ -50,7 +50,7 @@ def create_decision_nodes(
         output = await cleanup_agent.ainvoke(
             {"messages": messages},
             context=context,
-            config={"recursion_limit": 2 * MAX_TOOL_ROUNDS + 10},
+            config={"recursion_limit": AGENT_RECURSION_LIMIT},
         )
         draft = output.get("structured_response")
         if not isinstance(draft, CleanupDraft):

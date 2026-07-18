@@ -11,7 +11,7 @@ from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.tool_loop import ToolLoopBudget
 from ..langchain_agent import TitleAgentContext, build_title_agent
 from ..models import TitleSuggestionDraft, TitleSuggestionRequest, TitleSuggestionState
-from ..policy import MAX_TITLE_MODEL_COST_USD, MAX_TOOL_ROUNDS, validate_title_candidate
+from ..policy import AGENT_RECURSION_LIMIT, MAX_TITLE_MODEL_COST_USD, validate_title_candidate
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 
 type TitleNode = Callable[[TitleSuggestionState], Awaitable[dict[str, Any]]]
@@ -37,7 +37,7 @@ def create_candidate_nodes(
         output = await title_agent.ainvoke(
             {"messages": messages},
             context=context,
-            config={"recursion_limit": 2 * MAX_TOOL_ROUNDS + 10},
+            config={"recursion_limit": AGENT_RECURSION_LIMIT},
         )
         candidate = output.get("structured_response")
         if not isinstance(candidate, TitleSuggestionDraft):
