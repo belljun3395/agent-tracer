@@ -1,4 +1,7 @@
 import { TaskCleanupSuggestionEntity } from "../cleanup/task.cleanup.suggestion.entity.js";
+import { AgentEventView } from "../timeline/event/agent.event.view.js";
+import { AgentRuleView } from "../rule/agent.rule.view.js";
+import { AgentTaskView } from "../task/agent.task.view.js";
 import { DaemonHealthEntity } from "../daemon/daemon.health.entity.js";
 import { AiJobEntity } from "../job/ai.job.entity.js";
 import { AiJobStepEntity } from "../job/ai.job.step.entity.js";
@@ -37,4 +40,7 @@ export const TRACER_ENTITIES = [
     SearchOutboxEntity,
     DaemonHealthEntity,
     MemoEntity,
+    AgentTaskView,
+    AgentEventView,
+    AgentRuleView,
 ];
