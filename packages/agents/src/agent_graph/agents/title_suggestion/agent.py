@@ -7,6 +7,7 @@ from typing import Any
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
+from ..runtime.llm.structured_agent import recursion_config
 from ..runtime.validation_graph import ValidationGraphContext
 from .graph import TITLE_SUGGESTION_GRAPH
 from .models import TitleSuggestionRequest
@@ -59,6 +60,6 @@ async def run_title_suggestion(
             "result": None,
         },
         context=context,
-        config={"recursion_limit": 20},
+        config=recursion_config(20),
     )
     return final["result"] or {"suggestions": []}

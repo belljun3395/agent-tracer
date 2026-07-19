@@ -12,9 +12,8 @@ from pydantic import BaseModel, ValidationError
 from agent_graph.agents.task_cleanup.langchain_agent import get_task_events, list_candidate_tasks
 from agent_graph.agents.task_cleanup.models import (
     CLEANUP_REVIEWER_ROLE,
-    MAX_INSPECT_ROUNDS,
-    InspectReport,
     MAX_EVIDENCE_EVENT_IDS,
+    MAX_INSPECT_ROUNDS,
     MAX_SUGGESTIONS,
     CandidatePage,
     CleanupBatch,
@@ -22,6 +21,7 @@ from agent_graph.agents.task_cleanup.models import (
     CleanupEvent,
     CleanupSuggestionKind,
     EventPage,
+    InspectReport,
 )
 from agent_graph.agents.task_cleanup.policy import (
     MAX_TOOL_ROUNDS,

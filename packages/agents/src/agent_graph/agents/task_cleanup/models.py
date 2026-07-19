@@ -108,13 +108,15 @@ class InspectAssignment(BaseModel):
 class TriagePlan(BaseModel):
     """조율자가 후보 배치를 보고 무엇을 열어볼지 정한 결과다."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    inspect: list[InspectAssignment] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)
+    assignments: list[InspectAssignment] = Field(
+        default_factory=list, alias="inspect", max_length=MAX_SUGGESTIONS
+    )
 
     def total_rounds(self) -> int:
         """계획이 요구하는 조사 라운드 합이다."""
-        return sum(item.rounds for item in self.inspect)
+        return sum(item.rounds for item in self.assignments)
 
 
 class InspectDispatch(BaseModel):

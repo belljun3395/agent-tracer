@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.orchestration import clamp_rounds
 from .models import (
     MAX_RECIPE_CANDIDATES,
     MAX_TOOL_ROUNDS,
@@ -45,14 +46,7 @@ def clamp_plan(plan: DispatchPlan, available: int) -> tuple[DispatchPlan, int]:
     if requested <= available:
         return plan, 0
     # 전문가마다 최소 한 라운드는 남겨야 계획이 의미를 잃지 않는다.
-    floor = len(plan.probes)
-    spare = max(available - floor, 0)
-    over = requested - floor
-    granted = [1 + ((probe.rounds - 1) * spare // over if over else 0) for probe in plan.probes]
-    # 몫을 나눈 나머지는 많이 요구한 순서대로 한 라운드씩 돌려주어 예산을 흘리지 않는다.
-    order = sorted(range(len(granted)), key=lambda index: plan.probes[index].rounds, reverse=True)
-    for index in order[: max(available - sum(granted), 0)]:
-        granted[index] += 1
+    granted = clamp_rounds(plan.probes, available)
     shrunk = [
         probe.model_copy(update={"rounds": rounds})
         for probe, rounds in zip(plan.probes, granted, strict=True)

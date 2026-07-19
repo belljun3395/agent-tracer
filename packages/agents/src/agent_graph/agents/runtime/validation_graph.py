@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from langgraph.graph import END, StateGraph
 from langgraph.runtime import Runtime
@@ -13,7 +13,8 @@ from langgraph.runtime import Runtime
 from .execution.trace import ExecutionTrace
 
 type ValidationNode = Callable[[Any], Awaitable[dict[str, Any]]]
-type ValidationRoute = Callable[[Any], str]
+type ValidationRouteName = Literal["repair", "finalize", "empty"]
+type ValidationRoute = Callable[[Any], ValidationRouteName]
 
 
 @dataclass(frozen=True)
@@ -79,5 +80,5 @@ def _dispatch(node_name: str) -> Callable[..., Awaitable[dict[str, Any]]]:
     return run
 
 
-def _route(state: Any, runtime: Runtime[ValidationGraphContext]) -> str:
+def _route(state: Any, runtime: Runtime[ValidationGraphContext]) -> ValidationRouteName:
     return runtime.context.route_validation(state)

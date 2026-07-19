@@ -7,6 +7,7 @@ from typing import Any
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
+from ..runtime.llm.structured_agent import recursion_config
 from ..runtime.validation_graph import ValidationGraphContext
 from .graph import TASK_CLEANUP_GRAPH
 from .models import TaskCleanupRequest
@@ -64,6 +65,6 @@ async def run_task_cleanup(
             "result": None,
         },
         context=context,
-        config={"recursion_limit": 30},
+        config=recursion_config(30),
     )
     return final["result"] or {"suggestions": []}

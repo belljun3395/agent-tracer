@@ -5,6 +5,7 @@ from __future__ import annotations
 from langgraph.graph import START
 from langgraph.types import Send
 
+from ..runtime.orchestration import allocate_cost_shares
 from ..runtime.validation_graph import add_validation_tail, new_graph, observed
 from .models import ProbeDispatch, RecipeScanState
 
@@ -14,13 +15,12 @@ def _dispatch(state: RecipeScanState) -> list[Send]:
     plan = state["plan"]
     if plan is None:
         return [Send("investigate", state)]
-    total = plan.total_rounds()
     return [
         Send(
             "probe",
-            ProbeDispatch(assignment=assignment, cost_share=assignment.rounds / total),
+            ProbeDispatch(assignment=assignment, cost_share=cost_share),
         )
-        for assignment in plan.probes
+        for assignment, cost_share in allocate_cost_shares(plan.probes)
     ]
 
 

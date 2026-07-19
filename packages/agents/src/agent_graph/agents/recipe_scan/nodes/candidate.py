@@ -9,6 +9,7 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.structured_agent import invoke_structured_agent
 from ..langchain_agent import RecipeAgentContext, build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
@@ -54,15 +55,15 @@ def create_candidate_nodes(
             search=search,
             provenance=state["provenance"],
         )
-        output = await recipe_agent.ainvoke(
-            {"messages": messages},
+        result = await invoke_structured_agent(
+            recipe_agent,
+            messages=messages,
             context=context,
-            config={"recursion_limit": AGENT_RECURSION_LIMIT},
+            response_type=RecipeDraft,
+            recursion_limit=AGENT_RECURSION_LIMIT,
+            missing_response=f"{agent_name} produced no structured output",
         )
-        draft = output.get("structured_response")
-        if not isinstance(draft, RecipeDraft):
-            raise ValueError(f"{agent_name} produced no structured output")
-        return draft, list(output["messages"]), context
+        return result.response, result.messages, context
 
     async def investigate(state: RecipeScanState) -> dict[str, Any]:
         draft, messages, context = await invoke_agent(

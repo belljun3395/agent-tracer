@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.orchestration import clamp_rounds
 from .models import (
     CleanupDraftSuggestion,
     InspectAssignment,
@@ -38,23 +39,18 @@ def decision_rounds(plan: TriagePlan | None) -> int:
 def clamp_triage(plan: TriagePlan, available: int) -> tuple[TriagePlan, int]:
     """조율자의 배분을 남은 예산 안으로 비례 축소하고 깎인 라운드 수를 함께 돌려준다."""
     requested = plan.total_rounds()
-    if requested <= available or not plan.inspect:
+    if requested <= available or not plan.assignments:
         return plan, 0
-    floor = len(plan.inspect)
+    floor = len(plan.assignments)
     if floor > available:
         # 열어볼 후보가 예산보다 많으면 많이 요구한 순서대로 남길 만큼만 남긴다.
-        ranked = sorted(plan.inspect, key=lambda item: item.rounds, reverse=True)[:available]
+        ranked = sorted(plan.assignments, key=lambda item: item.rounds, reverse=True)[:available]
         kept = TriagePlan(inspect=[item.model_copy(update={"rounds": 1}) for item in ranked])
         return kept, requested - kept.total_rounds()
-    spare = available - floor
-    over = requested - floor
-    granted = [1 + ((item.rounds - 1) * spare // over if over else 0) for item in plan.inspect]
-    order = sorted(range(len(granted)), key=lambda index: plan.inspect[index].rounds, reverse=True)
-    for index in order[: max(available - sum(granted), 0)]:
-        granted[index] += 1
+    granted = clamp_rounds(plan.assignments, available)
     shrunk: list[InspectAssignment] = [
         item.model_copy(update={"rounds": rounds})
-        for item, rounds in zip(plan.inspect, granted, strict=True)
+        for item, rounds in zip(plan.assignments, granted, strict=True)
     ]
     clamped = TriagePlan(inspect=shrunk)
     return clamped, requested - clamped.total_rounds()

@@ -9,6 +9,7 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.structured_agent import invoke_structured_agent
 from ..langchain_agent import PROBE_TOOLS, RecipeAgentContext, build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
@@ -60,17 +61,16 @@ def create_probe_node(
                 PROBE_TOOLS[assignment.probe],
                 ProbeReport,
             )
-            output = await agent.ainvoke(
-                {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": build_probe_prompt(
-                                req.taskId, assignment.question, assignment.rounds
-                            ),
-                        }
-                    ]
-                },
+            result = await invoke_structured_agent(
+                agent,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": build_probe_prompt(
+                            req.taskId, assignment.question, assignment.rounds
+                        ),
+                    }
+                ],
                 context=RecipeAgentContext(
                     agent_name=probe_name,
                     trace=usage,
@@ -80,11 +80,11 @@ def create_probe_node(
                     search=search,
                     provenance=catalog,
                 ),
-                config={"recursion_limit": AGENT_RECURSION_LIMIT},
+                response_type=ProbeReport,
+                recursion_limit=AGENT_RECURSION_LIMIT,
+                missing_response=f"{assignment.probe} probe produced no structured report",
             )
-            report = output.get("structured_response")
-            if not isinstance(report, ProbeReport):
-                raise ValueError(f"{assignment.probe} probe produced no structured report")
+            report = result.response
         except Exception as exc:
             report = ProbeReport(
                 probe=assignment.probe,

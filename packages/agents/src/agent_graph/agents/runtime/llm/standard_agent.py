@@ -41,6 +41,7 @@ class StandardAgentContext:
     max_tool_rounds: int
 
 
+# noinspection PyTypeChecker
 class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
     """모델 비용과 실행 궤적과 도구 결과를 제품 계약으로 기록한다."""
 
@@ -49,7 +50,7 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         request: ModelRequest[StandardAgentContext],
         handler: Any,
     ) -> ModelResponse[Any]:
-        response = await handler(_with_budget(request))
+        response: ModelResponse[Any] = await handler(_with_budget(request))
         for message in response.result:
             if not isinstance(message, AIMessage):
                 continue
@@ -59,7 +60,7 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
             context.budget.charge(message)
             if is_truncated(message):
                 raise OutputTruncated(f"{context.agent_name} structured output truncated at max_tokens")
-        return cast(ModelResponse[Any], response)
+        return response
 
     async def awrap_tool_call(
         self,
@@ -72,8 +73,9 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         return response
 
 
+# noinspection PyTypeChecker
 def tool_context[ContextT: StandardAgentContext](
-    request: ToolCallRequest, schema: type[ContextT]
+    request: ToolCallRequest, _schema: type[ContextT]
 ) -> ContextT:
     """도구 호출 요청에 실려 온 이 실행의 컨텍스트를 꺼낸다."""
     # ToolCallRequest는 컨텍스트 타입을 제네릭으로 싣지 않아 runtime.context가 None으로 굳는다.
@@ -81,11 +83,12 @@ def tool_context[ContextT: StandardAgentContext](
     return cast("ContextT", request.runtime.context)
 
 
+# noinspection PyTypeChecker
 def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[StandardAgentContext]:
     """남은 도구 라운드를 모델에게 알리고, 라운드나 비용이 바닥나면 결론만 받는다."""
     context = request.runtime.context
     total = context.max_tool_rounds
-    spent = request.state.get("run_model_call_count", 0)
+    spent = dict(request.state).get("run_model_call_count", 0)
     remaining = total - (spent if isinstance(spent, int) else 0)
     messages = cache_tool_messages(request.messages)
     if remaining > 1 and not context.budget.landing:
@@ -121,8 +124,11 @@ def cache_tool_messages(messages: list[Any]) -> list[Any]:
 def _message_text(message: ToolMessage) -> str:
     if isinstance(message.content, str):
         return message.content
-    return "".join(
-        str(block.get("text", ""))
-        for block in message.content
-        if isinstance(block, dict) and block.get("type") == "text"
-    )
+    texts: list[str] = []
+    for block in message.content:
+        if not isinstance(block, dict) or block.get("type") != "text":
+            continue
+        text = block.get("text")
+        if isinstance(text, str):
+            texts.append(text)
+    return "".join(texts)

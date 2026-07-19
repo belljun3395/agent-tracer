@@ -11,8 +11,8 @@ from pydantic import ValidationError
 
 from agent_graph.agents.recipe_scan.langchain_agent import PROBE_TOOLS, RECIPE_LANGCHAIN_TOOLS
 from agent_graph.agents.recipe_scan.models import (
-    MAX_RECIPE_CANDIDATES,
     MAX_PROBE_ROUNDS,
+    MAX_RECIPE_CANDIDATES,
     MAX_TOOL_ROUNDS,
     Excerpt,
     ProbeReport,

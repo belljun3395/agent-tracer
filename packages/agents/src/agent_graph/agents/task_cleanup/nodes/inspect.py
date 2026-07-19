@@ -9,6 +9,7 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.structured_agent import invoke_structured_agent
 from ..langchain_agent import (
     INSPECT_TOOLS,
     TRIAGE_TOOLS,
@@ -68,17 +69,16 @@ def create_triage_node(
         agent = build_cleanup_agent(
             chat, TRIAGE_SYSTEM_PROMPT, TRIAGE_ROUNDS, TRIAGE_TOOLS, TriagePlan
         )
-        output = await agent.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": build_triage_prompt(
-                            len(req.batch.candidates), inspection_rounds()
-                        ),
-                    }
-                ]
-            },
+        result = await invoke_structured_agent(
+            agent,
+            messages=[
+                {
+                    "role": "user",
+                    "content": build_triage_prompt(
+                        len(req.batch.candidates), inspection_rounds()
+                    ),
+                }
+            ],
             context=CleanupAgentContext(
                 agent_name=triage_name,
                 trace=usage,
@@ -89,13 +89,12 @@ def create_triage_node(
                 exposed_candidates=exposed,
                 event_ids_by_task=event_ids,
             ),
-            config={"recursion_limit": AGENT_RECURSION_LIMIT},
+            response_type=TriagePlan,
+            recursion_limit=AGENT_RECURSION_LIMIT,
+            missing_response=f"{agent_name} triage produced no structured plan",
         )
-        raw = output.get("structured_response")
-        if not isinstance(raw, TriagePlan):
-            raise ValueError(f"{agent_name} triage produced no structured plan")
-        kept, cut = clamp_triage(raw, inspection_rounds())
-        chosen = ", ".join(f"{item.taskId}:{item.rounds}" for item in kept.inspect) or "없음"
+        kept, cut = clamp_triage(result.response, inspection_rounds())
+        chosen = ", ".join(f"{item.taskId}:{item.rounds}" for item in kept.assignments) or "없음"
         usage.record_graph_event(
             "route.selected",
             f"triage -> {chosen}" + (f" (배분 {cut}라운드 축소)" if cut else ""),
@@ -134,15 +133,14 @@ def create_inspect_node(
             agent = build_cleanup_agent(
                 chat, INSPECT_SYSTEM_PROMPT, assignment.rounds, INSPECT_TOOLS, InspectReport
             )
-            output = await agent.ainvoke(
-                {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": build_inspect_prompt(assignment.taskId, assignment.rounds),
-                        }
-                    ]
-                },
+            result = await invoke_structured_agent(
+                agent,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": build_inspect_prompt(assignment.taskId, assignment.rounds),
+                    }
+                ],
                 context=CleanupAgentContext(
                     agent_name=name,
                     trace=usage,
@@ -153,11 +151,11 @@ def create_inspect_node(
                     exposed_candidates={},
                     event_ids_by_task=event_ids,
                 ),
-                config={"recursion_limit": AGENT_RECURSION_LIMIT},
+                response_type=InspectReport,
+                recursion_limit=AGENT_RECURSION_LIMIT,
+                missing_response=f"{assignment.taskId} inspection produced no structured report",
             )
-            report = output.get("structured_response")
-            if not isinstance(report, InspectReport):
-                raise ValueError(f"{assignment.taskId} inspection produced no structured report")
+            report = result.response
         except Exception as exc:
             # 조사가 무너진 후보는 안전하게 보존하도록 보관 불가로 올린다.
             report = InspectReport(

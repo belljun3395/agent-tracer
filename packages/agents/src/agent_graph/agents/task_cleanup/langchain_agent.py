@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal
 
 from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.agents import create_agent
@@ -83,6 +83,7 @@ async def list_candidate_tasks(
     return await _invoke_and_record(runtime.context, LIST_CANDIDATE_TASKS, args)
 
 
+# noinspection PyPep8Naming
 @tool(GET_TASK_EVENTS, description=GET_TASK_EVENTS_DESCRIPTION)
 async def get_task_events(
     taskId: Annotated[str, Field(min_length=1)],
@@ -141,22 +142,18 @@ def build_cleanup_agent(
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
-    # AgentMiddleware가 상태 타입에 불변이고 미들웨어마다 자기 상태를 덧붙이므로
-    # 섞어 쌓은 목록에는 Any 말고 공통 상위 타입이 없다.
-    middleware: list[AgentMiddleware[Any, Any]] = [
+    middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
         CleanupAgentMiddleware(),
         _tool_retry(),
     ]
-    return cast(
-        CompiledStateGraph[Any, Any, Any, Any],
-        create_agent(
-            chat,
-            tools=list(tools),
-            system_prompt=system,
-            middleware=middleware,
-            response_format=ToolStrategy(output, handle_errors=True),
-            context_schema=CleanupAgentContext,
-            name="task-cleanup-investigator",
-        ),
+    # noinspection PyTypeChecker
+    return create_agent(
+        chat,
+        tools=list(tools),
+        system_prompt=system,
+        middleware=middleware,
+        response_format=ToolStrategy(output, handle_errors=True),
+        context_schema=CleanupAgentContext,
+        name="task-cleanup-investigator",
     )

@@ -9,6 +9,7 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.structured_agent import invoke_structured_agent
 from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
 from ..models import CleanupDraft, TaskCleanupRequest, TaskCleanupState
 from ..policy import (
@@ -55,15 +56,15 @@ def create_decision_nodes(
             exposed_candidates=state["exposed_candidates"],
             event_ids_by_task=state["event_ids_by_task"],
         )
-        output = await cleanup_agent.ainvoke(
-            {"messages": messages},
+        result = await invoke_structured_agent(
+            cleanup_agent,
+            messages=messages,
             context=context,
-            config={"recursion_limit": AGENT_RECURSION_LIMIT},
+            response_type=CleanupDraft,
+            recursion_limit=AGENT_RECURSION_LIMIT,
+            missing_response=f"{agent_name} produced no structured output",
         )
-        draft = output.get("structured_response")
-        if not isinstance(draft, CleanupDraft):
-            raise ValueError(f"{agent_name} produced no structured output")
-        return draft, list(output["messages"]), context
+        return result.response, result.messages, context
 
     async def investigate(state: TaskCleanupState) -> dict[str, Any]:
         draft, messages, context = await invoke_agent(

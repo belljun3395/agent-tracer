@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal
 
 from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.agents import create_agent
@@ -18,8 +18,12 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
-from opensearchpy.exceptions import ConnectionError as OpenSearchConnectionError
-from opensearchpy.exceptions import ConnectionTimeout as OpenSearchConnectionTimeout
+from opensearchpy.exceptions import (
+    ConnectionError as OpenSearchConnectionError,
+)
+from opensearchpy.exceptions import (
+    ConnectionTimeout as OpenSearchConnectionTimeout,
+)
 from pydantic import BaseModel, Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
@@ -55,6 +59,7 @@ def _description(name: str) -> str:
     return next(tool.description for tool in RECIPE_TOOLS if tool.name == name)
 
 
+# noinspection PyPep8Naming
 @tool("get_task_summary", description=_description("get_task_summary"))
 async def get_task_summary(
     taskId: Annotated[str, Field(min_length=1)],
@@ -65,6 +70,7 @@ async def get_task_summary(
     return await _invoke_and_record(runtime.context, "get_task_summary", {"taskId": taskId, "window": window})
 
 
+# noinspection PyPep8Naming
 @tool("get_task_events", description=_description("get_task_events"))
 async def get_task_events(
     taskId: Annotated[str, Field(min_length=1)],
@@ -80,6 +86,7 @@ async def get_task_events(
     return await _invoke_and_record(runtime.context, "get_task_events", args)
 
 
+# noinspection PyPep8Naming
 @tool("list_rules", description=_description("list_rules"))
 async def list_rules(
     taskId: Annotated[str, Field(min_length=1)], runtime: ToolRuntime[RecipeAgentContext]
@@ -88,6 +95,7 @@ async def list_rules(
     return await _invoke_and_record(runtime.context, "list_rules", {"taskId": taskId})
 
 
+# noinspection PyPep8Naming
 @tool("search_events", description=_description("search_events"))
 async def search_events(
     q: Annotated[str, Field(min_length=1)],
@@ -106,6 +114,7 @@ async def search_events(
     return await _invoke_and_record(runtime.context, "search_events", args)
 
 
+# noinspection PyPep8Naming
 @tool("find_similar_tasks", description=_description("find_similar_tasks"))
 async def find_similar_tasks(
     anchorTaskId: Annotated[str, Field(min_length=1)],
@@ -118,6 +127,7 @@ async def find_similar_tasks(
     )
 
 
+# noinspection PyPep8Naming
 @tool("check_citations", description=_description("check_citations"))
 async def check_citations(
     taskId: Annotated[str, Field(min_length=1)],
@@ -203,22 +213,18 @@ def build_recipe_agent(
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
-    # AgentMiddleware는 상태 타입에 불변이고 미들웨어마다 자기 상태를 덧붙이므로
-    # 섞어 쌓은 목록에는 Any 말고 공통 상위 타입이 없다.
-    middleware: list[AgentMiddleware[Any, Any]] = [
+    middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
         _tool_retry(),
     ]
-    return cast(
-        CompiledStateGraph[Any, Any, Any, Any],
-        create_agent(
-            chat,
-            tools=list(tools),
-            system_prompt=system,
-            middleware=middleware,
-            response_format=ToolStrategy(output, handle_errors=True),
-            context_schema=RecipeAgentContext,
-            name="recipe-scan-investigator",
-        ),
+    # noinspection PyTypeChecker
+    return create_agent(
+        chat,
+        tools=list(tools),
+        system_prompt=system,
+        middleware=middleware,
+        response_format=ToolStrategy(output, handle_errors=True),
+        context_schema=RecipeAgentContext,
+        name="recipe-scan-investigator",
     )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, Literal
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, ModelCallLimitMiddleware
@@ -35,6 +35,7 @@ class TitleAgentContext(StandardAgentContext):
     reader: TitleLedgerReader
 
 
+# noinspection PyPep8Naming
 @tool("get_task_events", description=GET_TASK_EVENTS_DESCRIPTION)
 async def get_task_events(
     taskId: Annotated[str, Field(min_length=1)],
@@ -55,21 +56,17 @@ def build_title_agent(chat: BaseChatModel, system_prompt: str) -> CompiledStateG
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
-    # AgentMiddleware가 상태 타입에 불변이고 미들웨어마다 자기 상태를 덧붙이므로
-    # 섞어 쌓은 목록에는 Any 말고 공통 상위 타입이 없다.
-    middleware: list[AgentMiddleware[Any, Any]] = [
+    middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=MAX_TOOL_ROUNDS + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
     ]
-    return cast(
-        CompiledStateGraph[Any, Any, Any, Any],
-        create_agent(
-            chat,
-            tools=[get_task_events],
-            system_prompt=system,
-            middleware=middleware,
-            response_format=ToolStrategy(TitleSuggestionDraft, handle_errors=True),
-            context_schema=TitleAgentContext,
-            name="title-suggestion-investigator",
-        ),
+    # noinspection PyTypeChecker
+    return create_agent(
+        chat,
+        tools=[get_task_events],
+        system_prompt=system,
+        middleware=middleware,
+        response_format=ToolStrategy(TitleSuggestionDraft, handle_errors=True),
+        context_schema=TitleAgentContext,
+        name="title-suggestion-investigator",
     )

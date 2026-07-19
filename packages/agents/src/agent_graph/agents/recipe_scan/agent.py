@@ -9,6 +9,7 @@ from opensearchpy import AsyncOpenSearch
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
+from ..runtime.llm.structured_agent import recursion_config
 from ..runtime.validation_graph import ValidationGraphContext
 from .graph import RECIPE_SCAN_GRAPH
 from .models import ProvenanceCatalog, RecipeScanRequest
@@ -34,9 +35,9 @@ async def run_recipe_scan(
         max_output_tokens=RECIPE_MAX_OUTPUT_TOKENS,
     )
     reader = RecipeLedgerReader(ledger, req.userId)
-    index = RecipeSearchReader(search, req.userId)
+    search_reader = RecipeSearchReader(search, req.userId)
     investigate, validate_candidate, repair = create_candidate_nodes(
-        req, reader, index, usage, chat, agent_name=AGENT_NAME
+        req, reader, search_reader, usage, chat, agent_name=AGENT_NAME
     )
     context = ValidationGraphContext(
         AGENT_NAME,
@@ -44,7 +45,7 @@ async def run_recipe_scan(
         {
             "survey": create_survey_node(req, usage, chat),
             "probe": create_probe_node(
-                req, reader, index, usage, chat, agent_name=AGENT_NAME
+                req, reader, search_reader, usage, chat, agent_name=AGENT_NAME
             ),
             "investigate": investigate,
             "validate_candidate": validate_candidate,
@@ -70,6 +71,6 @@ async def run_recipe_scan(
             "result": None,
         },
         context=context,
-        config={"recursion_limit": 30},
+        config=recursion_config(30),
     )
     return final["result"] or {"recipes": []}
