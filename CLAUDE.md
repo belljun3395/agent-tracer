@@ -44,6 +44,7 @@
 | `0029-retention-and-archival-ownership` | 보존 기간·아카이브·삭제 책임을 정할 때. 어떤 데이터가 언제까지 남는지 판단할 때 |
 | `0030-projection-write-authorization-gap` | 인증을 도입할 때. 투영이 taskId 소유권을 강제하는지 판단할 때 |
 | `0031-agents-read-through-views` | 파이썬 에이전트가 읽는 데이터를 바꿀 때. 뷰에 없는 열이 필요해질 때 |
+| `0032-coordinator-and-specialists` | 조사를 나눌 때. 전문가를 더하거나 뺄 때. 예산 배분과 근거 장부 병합을 만질 때 |
 
 ## 놓치기 쉬운 규칙
 
@@ -64,7 +65,7 @@
 | 인프라 종료 | `npm run infra:down` |
 | 전체 dev 서버 (인프라 선행 필수, agents 포함) | `npm run dev` |
 | 배포되는 이미지 그대로 전체 기동 (진입점 `127.0.0.1:3847`) | `npm run stack:up` / `stack:down` / `stack:logs` |
-| 앱 이미지 다섯 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
+| 배포 이미지 일곱 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
 | `packages/agents`(Python)만 기동 | `npm run dev:agents` |
 | 검증 (작업 완료 전 필수) | `npm run lint && npm run test && npm run lint:deps` |
 | 의존 그래프 규칙 검사 | `npm run lint:deps` |
