@@ -4,7 +4,12 @@ import type { ToolHandlers } from "~ai-agent-worker/config/llm/llm.runner.js";
 import { withToolTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
 import { clampInt } from "~ai-agent-worker/support/clamp.js";
 import { toRecipeEventPage, type RecipeSlimEvent } from "~ai-agent-worker/domain/recipe/model/recipe.event.model.js";
-import { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
+import {
+    isEventVerified,
+    isRuleVerified,
+    isTurnVerified,
+    ProvenanceLedger,
+} from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
 import { buildTaskSummary, type TaskSummaryEvent } from "~ai-agent-worker/domain/recipe/model/task.summary.model.js";
 import {
     DEFAULT_EVENT_LIMIT,
@@ -18,6 +23,7 @@ import {
     parseGetTaskSummaryArgs,
     parseListRulesArgs,
     parseSearchEventsArgs,
+    parseCheckCitationsArgs,
     parseSearchRecipesArgs,
     RECIPE_SCAN_TOOL,
     SUMMARY_EVENT_WINDOW,
@@ -140,6 +146,21 @@ export function buildRecipeToolHandlers(
                     limit ?? DEFAULT_SIMILAR_TASK_LIMIT,
                 );
                 return found === null ? notFound(anchorTaskId) : dump(found);
+            });
+        },
+
+        [RECIPE_SCAN_TOOL.checkCitations]: async (raw) => {
+            const { taskId, eventIds, turnIds, ruleIds } = parseCheckCitationsArgs(raw);
+            return telemetry(RECIPE_SCAN_TOOL.checkCitations, { taskId }, () => {
+                const seen = ledger.snapshot();
+                return Promise.resolve(
+                    dump({
+                        taskSupported: seen.eventIdsByTask[taskId] !== undefined,
+                        unsupportedEventIds: (eventIds ?? []).filter((id) => !isEventVerified(seen, taskId, id)).sort(),
+                        unsupportedTurnIds: (turnIds ?? []).filter((id) => !isTurnVerified(seen, taskId, id)).sort(),
+                        unsupportedRuleIds: (ruleIds ?? []).filter((id) => !isRuleVerified(seen, id)).sort(),
+                    }),
+                );
             });
         },
 

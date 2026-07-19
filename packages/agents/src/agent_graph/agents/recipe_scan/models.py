@@ -27,6 +27,7 @@ RecipeToolName = Literal[
     "search_events",
     "find_similar_tasks",
     "search_recipes",
+    "check_citations",
 ]
 
 

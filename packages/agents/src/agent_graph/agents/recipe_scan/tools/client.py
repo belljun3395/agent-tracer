@@ -23,9 +23,27 @@ def _parse_content(content: str) -> Any:
         return None
 
 
+def _unsupported(catalog: ProvenanceCatalog, args: dict[str, Any]) -> dict[str, Any]:
+    task_id = args["taskId"]
+    seen_events = catalog.eventIdsByTask.get(task_id, set())
+    seen_turns = catalog.turnIdsByTask.get(task_id, set())
+    return {
+        "taskSupported": task_id in catalog.eventIdsByTask,
+        "unsupportedEventIds": sorted(set(args.get("eventIds", [])) - seen_events),
+        "unsupportedTurnIds": sorted(set(args.get("turnIds", [])) - seen_turns),
+        "unsupportedRuleIds": sorted(set(args.get("ruleIds", [])) - catalog.ruleIds),
+    }
+
+
 async def _run(
-    reader: RecipeLedgerReader, search: RecipeSearchReader, name: str, args: dict[str, Any]
+    reader: RecipeLedgerReader,
+    search: RecipeSearchReader,
+    catalog: ProvenanceCatalog,
+    name: str,
+    args: dict[str, Any],
 ) -> Any:
+    if name == "check_citations":
+        return _unsupported(catalog, args)
     if name == "get_task_summary":
         loaded = await reader.task_with_events(args["taskId"], args["window"])
         if loaded is None:
@@ -55,13 +73,14 @@ async def _run(
 async def invoke_tool(
     reader: RecipeLedgerReader,
     search: RecipeSearchReader,
+    catalog: ProvenanceCatalog,
     name: str,
     args: dict[str, Any],
 ) -> str:
     """모델이 고른 도구를 인자 검증 뒤 원장 뷰와 검색 색인에서 실행한다."""
     validated = validate_tool_args(name, args)
     async with tool_span(name, agent_name="recipe-scan", parameters=validated):
-        result = await _run(reader, search, name, validated)
+        result = await _run(reader, search, catalog, name, validated)
     if result is None:
         task_id = validated.get("taskId") or validated.get("anchorTaskId", "")
         return _NOT_FOUND.format(task_id=task_id)

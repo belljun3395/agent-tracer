@@ -41,6 +41,7 @@ MAX_EVENT_LIMIT = 300
 DEFAULT_SEARCH_LIMIT = 20
 MAX_SEARCH_LIMIT = 100
 MAX_SEARCH_OFFSET = 9_900
+MAX_CITED_IDS = 200
 DEFAULT_SIMILAR_LIMIT = 5
 MAX_SIMILAR_LIMIT = 20
 
@@ -91,6 +92,15 @@ class FindSimilarTasksArgs(RecipeToolArgs):
     limit: int = Field(default=DEFAULT_SIMILAR_LIMIT, ge=1, le=MAX_SIMILAR_LIMIT)
 
 
+class CheckCitationsArgs(RecipeToolArgs):
+    """인용 예정 식별자가 근거 장부에 있는지 묻는 인자를 검증한다."""
+
+    taskId: TrimmedStr = Field(min_length=1)
+    eventIds: list[TrimmedStr] = Field(default_factory=list, max_length=MAX_CITED_IDS)
+    turnIds: list[TrimmedStr] = Field(default_factory=list, max_length=MAX_CITED_IDS)
+    ruleIds: list[TrimmedStr] = Field(default_factory=list, max_length=MAX_CITED_IDS)
+
+
 class SearchRecipesArgs(RecipeToolArgs):
     """기존 레시피 검색 인자를 검증한다."""
 
@@ -110,8 +120,9 @@ class RecipeToolDefinition:
 _DESCRIPTIONS: dict[str, str] = {
     "get_task_summary": (
         "Get a cheap task overview (tool usage counts, top files touched, top commands run, first "
-        f"user message) aggregated over the task's earliest events, window many, default {DEFAULT_SUMMARY_WINDOW}. The "
-        "response's truncated/totalEventCount fields tell you whether later events were left out."
+        "user message) aggregated over the task's earliest events, window many, default "
+        f"{DEFAULT_SUMMARY_WINDOW}. The response's truncated/totalEventCount fields tell you whether "
+        "later events were left out."
     ),
     "get_task_events": (
         "Get a page of a task's chronological event sequence (user messages, assistant messages, tool "
@@ -132,6 +143,13 @@ _DESCRIPTIONS: dict[str, str] = {
         "Find tasks with titles similar to the anchor task. Use after inspecting the anchor to check "
         "whether the workflow repeats."
     ),
+    "check_citations": (
+        "Check whether the IDs you plan to cite are backed by what your tools actually returned, "
+        "before you write the final candidates. Pass the task plus the event, turn, and rule IDs you "
+        "intend to use; the response names the ones that are not citable. A single unsupported ID "
+        "gets the whole candidate list rejected, so verify here instead of spending your one repair "
+        "on it."
+    ),
     "search_recipes": (
         "Search existing recipes for possible duplicate or outdated targets. Use this before setting "
         "revises_recipe_id."
@@ -145,6 +163,7 @@ RECIPE_TOOLS: tuple[RecipeToolDefinition, ...] = (
     RecipeToolDefinition("search_events", _DESCRIPTIONS["search_events"], SearchEventsArgs),
     RecipeToolDefinition("find_similar_tasks", _DESCRIPTIONS["find_similar_tasks"], FindSimilarTasksArgs),
     RecipeToolDefinition("search_recipes", _DESCRIPTIONS["search_recipes"], SearchRecipesArgs),
+    RecipeToolDefinition("check_citations", _DESCRIPTIONS["check_citations"], CheckCitationsArgs),
 )
 
 _TOOL_BY_NAME = {tool.name: tool for tool in RECIPE_TOOLS}

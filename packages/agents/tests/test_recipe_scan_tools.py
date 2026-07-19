@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -35,6 +36,7 @@ def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> Non
         "search_events",
         "find_similar_tasks",
         "search_recipes",
+        "check_citations",
     ]
     assert all(tool["description"] and tool["input_schema"] for tool in catalog)
     search_schema = next(tool["input_schema"] for tool in catalog if tool["name"] == "search_events")
@@ -83,6 +85,7 @@ async def test_유효하지_않은_도구_인자는_실제_조회를_하지_않�
         await invoke_tool(
             RecipeLedgerReader(ledger, "user-1"),  # type: ignore[arg-type]
             RecipeSearchReader(search, "user-1"),  # type: ignore[arg-type]
+            ProvenanceCatalog(),
             "search_events",
             {"q": "failure", "taskId": "task-1", "kind": "drifted.kind"},
         )
@@ -133,6 +136,7 @@ async def test_모델이_생략한_인자는_도구_기본값으로_채워_조�
     content = await invoke_tool(
         RecipeLedgerReader(ledger, "user-1"),  # type: ignore[arg-type]
         RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        ProvenanceCatalog(),
         "get_task_events",
         {"taskId": "task-1"},
     )
@@ -216,3 +220,43 @@ def test_이름만_돌려준_태스크는_근거_원장에_오르지_않는다(
     add_provenance(catalog, record)
 
     assert catalog.eventIdsByTask == {}
+
+
+async def test_인용_확인은_장부에_없는_식별자를_짚어준다() -> None:
+    catalog = ProvenanceCatalog(
+        eventIdsByTask={"task-1": {"event-1"}},
+        turnIdsByTask={"task-1": {"turn-1"}},
+        ruleIds={"rule-1"},
+    )
+
+    content = await invoke_tool(
+        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        catalog,
+        "check_citations",
+        {
+            "taskId": "task-1",
+            "eventIds": ["event-1", "event-9"],
+            "turnIds": ["turn-9"],
+            "ruleIds": ["rule-1"],
+        },
+    )
+
+    assert json.loads(content) == {
+        "taskSupported": True,
+        "unsupportedEventIds": ["event-9"],
+        "unsupportedTurnIds": ["turn-9"],
+        "unsupportedRuleIds": [],
+    }
+
+
+async def test_인용_확인은_읽지_않은_태스크를_알려준다() -> None:
+    content = await invoke_tool(
+        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        ProvenanceCatalog(),
+        "check_citations",
+        {"taskId": "task-9", "eventIds": ["event-1"]},
+    )
+
+    assert json.loads(content)["taskSupported"] is False

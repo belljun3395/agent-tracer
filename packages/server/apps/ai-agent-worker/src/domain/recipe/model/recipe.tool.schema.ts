@@ -15,6 +15,7 @@ export const RECIPE_SCAN_TOOL = {
     searchEvents: "search_events",
     findSimilarTasks: "find_similar_tasks",
     searchRecipes: "search_recipes",
+    checkCitations: "check_citations",
 } as const;
 
 export type RecipeScanToolName = (typeof RECIPE_SCAN_TOOL)[keyof typeof RECIPE_SCAN_TOOL];
@@ -26,6 +27,7 @@ export const DEFAULT_EVENT_LIMIT = 100;
 export const MAX_EVENT_LIMIT = 300;
 export const DEFAULT_SEARCH_LIMIT = 20;
 export const MAX_SEARCH_LIMIT = 100;
+export const MAX_CITED_IDS = 200;
 // 검색 엔진 기본 결과창을 offset과 limit의 합이 넘지 않도록 잡은 상한이다.
 export const MAX_SEARCH_OFFSET = 9_900;
 export const DEFAULT_SIMILAR_TASK_LIMIT = 5;
@@ -68,6 +70,16 @@ const findSimilarTasksShape = {
     limit: z.number().int().min(1).max(MAX_SIMILAR_TASK_LIMIT).optional().describe("Max tasks"),
 } as const;
 
+const checkCitationsShape = {
+    taskId: z.string().trim().min(1).describe("The task the cited IDs belong to"),
+    eventIds: z.array(z.string().trim().min(1)).max(MAX_CITED_IDS).optional()
+        .describe("Event IDs you intend to cite"),
+    turnIds: z.array(z.string().trim().min(1)).max(MAX_CITED_IDS).optional()
+        .describe("Turn IDs you intend to cite"),
+    ruleIds: z.array(z.string().trim().min(1)).max(MAX_CITED_IDS).optional()
+        .describe("Rule IDs you intend to cite in governing_rules"),
+} as const;
+
 const searchRecipesShape = {
     q: z.string().trim().min(1).describe("Search query"),
     limit: z.number().int().min(1).max(MAX_SIMILAR_TASK_LIMIT).optional().describe("Max recipes"),
@@ -78,6 +90,9 @@ export const GET_TASK_EVENTS_DESCRIPTION =
     + `up to ${MAX_EVENT_LIMIT} events per page. You choose how much to read: pick limit, pass the response's `
     + `nextCursor back as cursor to keep paging, and set order="desc" to start from the latest events. `
     + `truncated/total tell you whether more events exist.`;
+
+const CHECK_CITATIONS_DESCRIPTION =
+    "Check whether the IDs you plan to cite are backed by what your tools actually returned, before you write the final candidates. Pass the task plus the event, turn, and rule IDs you intend to use; the response names the ones that are not citable. A single unsupported ID gets the whole candidate list rejected, so verify here instead of spending your one repair on it.";
 
 const DESCRIPTIONS: Readonly<Record<RecipeScanToolName, string>> = {
     [RECIPE_SCAN_TOOL.getTaskSummary]:
@@ -91,6 +106,7 @@ const DESCRIPTIONS: Readonly<Record<RecipeScanToolName, string>> = {
         "Find tasks with titles similar to the anchor task. Use after inspecting the anchor to check whether the workflow repeats.",
     [RECIPE_SCAN_TOOL.searchRecipes]:
         "Search existing recipes for possible duplicate or outdated targets. Use this before setting revises_recipe_id.",
+    [RECIPE_SCAN_TOOL.checkCitations]: CHECK_CITATIONS_DESCRIPTION,
 };
 
 /** recipe-scan이 모델에게 노출하는 도구 계약이다. */
@@ -101,6 +117,7 @@ export const RECIPE_SCAN_TOOLS: readonly RecipeToolSpec[] = [
     { name: RECIPE_SCAN_TOOL.searchEvents, description: DESCRIPTIONS[RECIPE_SCAN_TOOL.searchEvents], shape: searchEventsShape },
     { name: RECIPE_SCAN_TOOL.findSimilarTasks, description: DESCRIPTIONS[RECIPE_SCAN_TOOL.findSimilarTasks], shape: findSimilarTasksShape },
     { name: RECIPE_SCAN_TOOL.searchRecipes, description: DESCRIPTIONS[RECIPE_SCAN_TOOL.searchRecipes], shape: searchRecipesShape },
+    { name: RECIPE_SCAN_TOOL.checkCitations, description: DESCRIPTIONS[RECIPE_SCAN_TOOL.checkCitations], shape: checkCitationsShape },
 ];
 
 export const RECIPE_SCAN_TOOL_NAMES: readonly string[] = RECIPE_SCAN_TOOLS.map((spec) => spec.name);
@@ -110,6 +127,7 @@ export type GetTaskEventsArgs = z.infer<z.ZodObject<typeof getTaskEventsShape>>;
 export type ListRulesArgs = z.infer<z.ZodObject<typeof listRulesShape>>;
 export type SearchEventsArgs = z.infer<z.ZodObject<typeof searchEventsShape>>;
 export type FindSimilarTasksArgs = z.infer<z.ZodObject<typeof findSimilarTasksShape>>;
+export type CheckCitationsArgs = z.infer<z.ZodObject<typeof checkCitationsShape>>;
 export type SearchRecipesArgs = z.infer<z.ZodObject<typeof searchRecipesShape>>;
 
 export function parseGetTaskSummaryArgs(raw: unknown): GetTaskSummaryArgs {
@@ -130,6 +148,10 @@ export function parseSearchEventsArgs(raw: unknown): SearchEventsArgs {
 
 export function parseFindSimilarTasksArgs(raw: unknown): FindSimilarTasksArgs {
     return z.object(findSimilarTasksShape).parse(raw);
+}
+
+export function parseCheckCitationsArgs(raw: unknown): CheckCitationsArgs {
+    return z.object(checkCitationsShape).parse(raw);
 }
 
 export function parseSearchRecipesArgs(raw: unknown): SearchRecipesArgs {

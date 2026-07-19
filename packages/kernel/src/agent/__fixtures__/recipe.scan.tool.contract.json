@@ -10,32 +10,74 @@
   },
   "tools": {
     "get_task_summary": {
-      "required": ["taskId"],
-      "optional": ["window"],
+      "required": [
+        "taskId"
+      ],
+      "optional": [
+        "window"
+      ],
       "numbers": {
-        "window": { "default": 400, "min": 1, "max": 2000 }
+        "window": {
+          "default": 400,
+          "min": 1,
+          "max": 2000
+        }
       }
     },
     "get_task_events": {
-      "required": ["taskId"],
-      "optional": ["limit", "cursor", "order"],
+      "required": [
+        "taskId"
+      ],
+      "optional": [
+        "limit",
+        "cursor",
+        "order"
+      ],
       "numbers": {
-        "limit": { "default": 100, "min": 1, "max": 300 }
+        "limit": {
+          "default": 100,
+          "min": 1,
+          "max": 300
+        }
       },
       "enums": {
-        "order": { "default": "asc", "values": ["asc", "desc"] }
+        "order": {
+          "default": "asc",
+          "values": [
+            "asc",
+            "desc"
+          ]
+        }
       }
     },
     "list_rules": {
-      "required": ["taskId"],
+      "required": [
+        "taskId"
+      ],
       "optional": []
     },
     "search_events": {
-      "required": ["q"],
-      "optional": ["taskId", "kind", "toolName", "limit", "offset"],
+      "required": [
+        "q"
+      ],
+      "optional": [
+        "taskId",
+        "kind",
+        "toolName",
+        "limit",
+        "offset"
+      ],
       "numbers": {
-        "limit": { "default": 20, "min": 1, "max": 100 },
-        "offset": { "default": 0, "min": 0, "max": 9900 }
+        "limit": {
+          "default": 20,
+          "min": 1,
+          "max": 100
+        },
+        "offset": {
+          "default": 0,
+          "min": 0,
+          "max": 9900
+        }
       },
       "enums": {
         "kind": {
@@ -64,23 +106,60 @@
         }
       },
       "responseEvent": {
-        "required": ["id", "taskId", "seq", "kind", "title", "filePaths", "occurredAt"],
-        "optional": ["body", "toolName"]
+        "required": [
+          "id",
+          "taskId",
+          "seq",
+          "kind",
+          "title",
+          "filePaths",
+          "occurredAt"
+        ],
+        "optional": [
+          "body",
+          "toolName"
+        ]
       }
     },
     "find_similar_tasks": {
-      "required": ["anchorTaskId"],
-      "optional": ["limit"],
+      "required": [
+        "anchorTaskId"
+      ],
+      "optional": [
+        "limit"
+      ],
       "numbers": {
-        "limit": { "default": 5, "min": 1, "max": 20 }
+        "limit": {
+          "default": 5,
+          "min": 1,
+          "max": 20
+        }
       }
     },
     "search_recipes": {
-      "required": ["q"],
-      "optional": ["limit"],
+      "required": [
+        "q"
+      ],
+      "optional": [
+        "limit"
+      ],
       "numbers": {
-        "limit": { "default": 5, "min": 1, "max": 20 }
+        "limit": {
+          "default": 5,
+          "min": 1,
+          "max": 20
+        }
       }
+    },
+    "check_citations": {
+      "required": [
+        "taskId"
+      ],
+      "optional": [
+        "eventIds",
+        "turnIds",
+        "ruleIds"
+      ]
     }
   },
   "descriptions": {
@@ -89,6 +168,7 @@
     "list_rules": "List existing global and task-scoped rules that apply to the anchor task, so friction a rule already governs is cited by rule ID in governing_rules instead of re-described.",
     "search_events": "Search indexed events by title/body, ranked by recency. Use q with optional taskId, kind, or toolName filters to find user corrections, instructions, and friction evidence. Pick limit (up to 100 per call) and offset to page through as many results as you need.",
     "find_similar_tasks": "Find tasks with titles similar to the anchor task. Use after inspecting the anchor to check whether the workflow repeats.",
-    "search_recipes": "Search existing recipes for possible duplicate or outdated targets. Use this before setting revises_recipe_id."
+    "search_recipes": "Search existing recipes for possible duplicate or outdated targets. Use this before setting revises_recipe_id.",
+    "check_citations": "Check whether the IDs you plan to cite are backed by what your tools actually returned, before you write the final candidates. Pass the task plus the event, turn, and rule IDs you intend to use; the response names the ones that are not citable. A single unsupported ID gets the whole candidate list rejected, so verify here instead of spending your one repair on it."
   }
 }

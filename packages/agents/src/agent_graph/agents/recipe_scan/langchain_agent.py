@@ -109,6 +109,22 @@ async def find_similar_tasks(
     )
 
 
+@tool("check_citations", description=_description("check_citations"))
+async def check_citations(
+    taskId: Annotated[str, Field(min_length=1)],
+    runtime: ToolRuntime[RecipeAgentContext],
+    eventIds: list[str] | None = None,
+    turnIds: list[str] | None = None,
+    ruleIds: list[str] | None = None,
+) -> str:
+    """인용하려는 식별자가 근거 장부에 있는지 확정 전에 확인한다."""
+    args: dict[str, Any] = {"taskId": taskId}
+    for name, value in (("eventIds", eventIds), ("turnIds", turnIds), ("ruleIds", ruleIds)):
+        if value is not None:
+            args[name] = value
+    return await _invoke_and_record(runtime.context, "check_citations", args)
+
+
 @tool("search_recipes", description=_description("search_recipes"))
 async def search_recipes(
     q: Annotated[str, Field(min_length=1)],
@@ -126,11 +142,12 @@ RECIPE_LANGCHAIN_TOOLS = (
     search_events,
     find_similar_tasks,
     search_recipes,
+    check_citations,
 )
 
 
 async def _invoke_and_record(context: RecipeAgentContext, name: str, args: dict[str, Any]) -> str:
-    content = await invoke_tool(context.reader, context.search, name, args)
+    content = await invoke_tool(context.reader, context.search, context.provenance, name, args)
     record_evidence(context.provenance, name, args, content)
     return content
 
