@@ -42,7 +42,7 @@ from .tools.contracts import (
 )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RecipeAgentContext(StandardAgentContext):
     """recipe-scan 도구에 원장·색인 조회 진입점과 요청별 인용 가능 근거 장부를 제공한다."""
 

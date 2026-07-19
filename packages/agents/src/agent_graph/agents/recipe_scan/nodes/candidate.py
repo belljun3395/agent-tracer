@@ -46,13 +46,13 @@ def create_candidate_nodes(
         )
         rounds = synthesis_rounds(state["plan"])
         context = RecipeAgentContext(
-            agent_name,
-            usage,
-            budget,
-            rounds,
-            reader,
-            search,
-            state["provenance"],
+            agent_name=agent_name,
+            trace=usage,
+            budget=budget,
+            max_tool_rounds=rounds,
+            reader=reader,
+            search=search,
+            provenance=state["provenance"],
         )
         output = await recipe_agent.ainvoke(
             {"messages": messages},

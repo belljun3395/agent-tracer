@@ -62,9 +62,8 @@ def create_triage_node(
     async def triage(_state: TaskCleanupState) -> dict[str, Any]:
         exposed: dict[str, CleanupCandidate] = {}
         event_ids: dict[str, set[str]] = {}
-        budget = ToolLoopBudget(
-            f"{agent_name}:triage", req.model, TASK_CLEANUP_MAX_MODEL_COST_USD, 0.0
-        )
+        triage_name = f"{agent_name}:triage"
+        budget = ToolLoopBudget(triage_name, req.model, TASK_CLEANUP_MAX_MODEL_COST_USD, 0.0)
         agent = build_cleanup_agent(
             chat, TRIAGE_SYSTEM_PROMPT, TRIAGE_ROUNDS, TRIAGE_TOOLS, TriagePlan
         )
@@ -80,14 +79,14 @@ def create_triage_node(
                 ]
             },
             context=CleanupAgentContext(
-                f"{agent_name}:triage",
-                usage,
-                budget,
-                TRIAGE_ROUNDS,
-                reader,
-                req.batch,
-                exposed,
-                event_ids,
+                agent_name=triage_name,
+                trace=usage,
+                budget=budget,
+                max_tool_rounds=TRIAGE_ROUNDS,
+                reader=reader,
+                batch=req.batch,
+                exposed_candidates=exposed,
+                event_ids_by_task=event_ids,
             ),
             config={"recursion_limit": AGENT_RECURSION_LIMIT},
         )
@@ -144,7 +143,14 @@ def create_inspect_node(
                     ]
                 },
                 context=CleanupAgentContext(
-                    name, usage, budget, assignment.rounds, reader, req.batch, {}, event_ids
+                    agent_name=name,
+                    trace=usage,
+                    budget=budget,
+                    max_tool_rounds=assignment.rounds,
+                    reader=reader,
+                    batch=req.batch,
+                    exposed_candidates={},
+                    event_ids_by_task=event_ids,
                 ),
                 config={"recursion_limit": AGENT_RECURSION_LIMIT},
             )

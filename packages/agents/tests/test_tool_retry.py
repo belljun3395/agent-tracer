@@ -45,13 +45,13 @@ def _flaky_tool(fail_times: int, error: BaseException) -> tuple[Any, list[int]]:
 
 def _context() -> RecipeAgentContext:
     return RecipeAgentContext(
-        "recipe-scan",
-        ExecutionTrace(),
-        ToolLoopBudget("recipe-scan", _MODEL, 2.0, 0.0),
-        5,
-        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
-        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
-        ProvenanceCatalog(),
+        agent_name="recipe-scan",
+        trace=ExecutionTrace(),
+        budget=ToolLoopBudget("recipe-scan", _MODEL, 2.0, 0.0),
+        max_tool_rounds=5,
+        reader=RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        search=RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        provenance=ProvenanceCatalog(),
     )
 
 

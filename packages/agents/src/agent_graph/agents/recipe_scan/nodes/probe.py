@@ -48,7 +48,8 @@ def create_probe_node(
         share = MAX_RECIPE_MODEL_COST_USD * payload.cost_share
         # 장부를 전문가마다 새로 두어 다른 전문가가 읽은 것을 인용하지 못하게 한다.
         catalog = ProvenanceCatalog()
-        budget = ToolLoopBudget(f"{agent_name}:{assignment.probe}", req.model, share, 0.0)
+        probe_name = f"{agent_name}:{assignment.probe}"
+        budget = ToolLoopBudget(probe_name, req.model, share, 0.0)
         # 전문가 하나가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
         try:
@@ -71,13 +72,13 @@ def create_probe_node(
                     ]
                 },
                 context=RecipeAgentContext(
-                    f"{agent_name}:{assignment.probe}",
-                    usage,
-                    budget,
-                    assignment.rounds,
-                    reader,
-                    search,
-                    catalog,
+                    agent_name=probe_name,
+                    trace=usage,
+                    budget=budget,
+                    max_tool_rounds=assignment.rounds,
+                    reader=reader,
+                    search=search,
+                    provenance=catalog,
                 ),
                 config={"recursion_limit": AGENT_RECURSION_LIMIT},
             )

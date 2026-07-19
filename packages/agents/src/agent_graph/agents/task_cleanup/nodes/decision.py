@@ -46,14 +46,14 @@ def create_decision_nodes(
         )
         rounds = decision_rounds(state["plan"])
         context = CleanupAgentContext(
-            agent_name,
-            usage,
-            budget,
-            rounds,
-            reader,
-            req.batch,
-            state["exposed_candidates"],
-            state["event_ids_by_task"],
+            agent_name=agent_name,
+            trace=usage,
+            budget=budget,
+            max_tool_rounds=rounds,
+            reader=reader,
+            batch=req.batch,
+            exposed_candidates=state["exposed_candidates"],
+            event_ids_by_task=state["event_ids_by_task"],
         )
         output = await cleanup_agent.ainvoke(
             {"messages": messages},

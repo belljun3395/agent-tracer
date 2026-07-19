@@ -31,7 +31,7 @@ FINALIZE_DIRECTIVE = (
 )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class StandardAgentContext:
     """표준 agent 도구와 미들웨어가 공유하는 요청별 실행 의존성이다."""
 

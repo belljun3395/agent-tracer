@@ -18,12 +18,17 @@ class ToolLoopBudget:
         self._max = max_cost_usd
         self._peak = 0.0
         self._landed = False
-        self.spent = spent
+        self._spent = spent
+
+    @property
+    def spent(self) -> float:
+        """이 루프가 지금까지 태운 모델 비용이다."""
+        return self._spent
 
     @property
     def landing(self) -> bool:
         """지금까지 가장 비쌌던 호출을 한 번 더 감당할 수 없는지 알린다."""
-        return self.spent + self._peak >= self._max
+        return self._spent + self._peak >= self._max
 
     def land(self) -> None:
         """결론만 받는 마지막 호출로 넘어갔음을 알린다."""
@@ -34,8 +39,8 @@ class ToolLoopBudget:
         cost = estimate_cost_usd(self._model, usage.to_dto()) if usage else None
         if cost is None:
             raise BudgetExceeded(f"{self._agent} cannot enforce its internal budget for model {self._model}")
-        self.spent += cost
+        self._spent += cost
         self._peak = max(self._peak, cost)
         # 착지한 뒤의 지출은 이미 끝난 실행의 마지막 호출이라 끊어봐야 산출물만 잃는다.
-        if not self._landed and self.spent > self._max:
+        if not self._landed and self._spent > self._max:
             raise BudgetExceeded(f"{self._agent} exceeded internal model budget ${self._max:.2f}")

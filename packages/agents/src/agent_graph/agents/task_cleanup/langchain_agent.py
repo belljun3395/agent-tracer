@@ -44,7 +44,7 @@ from .tools import (
 )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CleanupAgentContext(StandardAgentContext):
     """task-cleanup 도구에 원장 조회 진입점과 후보 배치와 근거 장부를 제공한다."""
 

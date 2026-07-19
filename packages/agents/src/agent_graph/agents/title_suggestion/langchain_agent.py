@@ -28,7 +28,7 @@ from .tools import (
 )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TitleAgentContext(StandardAgentContext):
     """title-suggestion 도구에 사용자 범위가 묶인 원장 조회 진입점을 제공한다."""
 
