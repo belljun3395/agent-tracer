@@ -45,6 +45,7 @@ COPY packages/web packages/web
 
 # ---- migrate: tracer·runtime DB 마이그레이션을 실행하고 종료하는 원샷 컨테이너 ----
 FROM runtime-deps AS migrate
+COPY scripts/grant-agent-reader.mjs scripts/
 CMD ["npm", "run", "migrate:all"]
 
 # ---- runtime-api: swc-node 로더로 소스에서 직접 실행 ----
