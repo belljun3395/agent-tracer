@@ -3,6 +3,7 @@ import type { TitleSuggestionPayload } from "@monitor/kernel";
 const PLACEHOLDER_TITLES: ReadonlySet<string> = new Set(["untitled", "test"]);
 const PLACEHOLDER_PATTERN = /^task(?:[\s\-_:#])*\d+$/;
 const MIN_SUGGESTIONS = 2;
+// 상한은 출력 스키마가 이미 끊으므로 여기서는 모자란 개수만 모델에게 돌려준다.
 const MAX_SUGGESTIONS = 3;
 
 /** 모델이 낸 제목 후보가 제품이 받아들이는 제목인지 검사하며, 오류는 모델에게 돌려줄 문장이다. */
@@ -14,7 +15,7 @@ export function validateTitleSuggestions(
     if (suggestions.length === 0) return [];
 
     const errors: string[] = [];
-    if (suggestions.length < MIN_SUGGESTIONS || suggestions.length > MAX_SUGGESTIONS) {
+    if (suggestions.length < MIN_SUGGESTIONS) {
         errors.push(`suggestions must be empty or contain ${MIN_SUGGESTIONS}-${MAX_SUGGESTIONS} items`);
     }
 

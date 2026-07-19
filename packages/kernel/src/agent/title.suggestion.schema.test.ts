@@ -32,10 +32,9 @@ describe("titleSuggestionsListSchema", () => {
         expect(parsed.suggestions).toHaveLength(0);
     });
 
-    it("1개만 반환하면 거부한다", () => {
-        expect(() =>
-            titleSuggestionsListSchema.parse({ suggestions: [suggestion()] }),
-        ).toThrow();
+    it("1개도 받아 실행 백엔드의 검증기가 수리하게 한다", () => {
+        const parsed = titleSuggestionsListSchema.parse({ suggestions: [suggestion()] });
+        expect(parsed.suggestions).toHaveLength(1);
     });
 
     it("2개는 받는다", () => {

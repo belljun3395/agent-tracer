@@ -6,15 +6,10 @@ export const titleSuggestionSchema = z.object({
     rationale: z.string().trim().min(1).max(200),
 });
 
-// 기존 제목이 적절하면 빈 배열, 아니면 2~3개만 유효하다(1개만 반환하는 응답은 거부).
-export const titleSuggestionsListSchema = z
-    .object({
-        suggestions: z.array(titleSuggestionSchema).max(3),
-    })
-    .refine((value) => value.suggestions.length === 0 || value.suggestions.length >= 2, {
-        message: "suggestions must be empty or contain 2-3 items",
-        path: ["suggestions"],
-    });
+// 기존 제목이 적절하면 빈 배열이고 아니면 2~3개이며, 모자란 개수는 되물으면 고쳐지므로 실행 백엔드의 검증기가 잡고 여기에는 폭주를 끊는 상한만 둔다.
+export const titleSuggestionsListSchema = z.object({
+    suggestions: z.array(titleSuggestionSchema).max(3),
+});
 
 export type TitleSuggestionPayload = z.infer<typeof titleSuggestionSchema>;
 export type TitleSuggestionsList = z.infer<typeof titleSuggestionsListSchema>;
