@@ -114,5 +114,10 @@ describe("RecipeSdkAgentAdapter", () => {
             ]),
         );
         expect(request?.providerOptions?.agents?.["timeline"]?.prompt).toContain('"probe":"timeline"');
+        expect(request?.providerOptions?.agents?.["timeline"]).toMatchObject({
+            maxTurns: 10,
+            permissionMode: "bypassPermissions",
+        });
+        expect(request?.providerOptions?.agents?.["timeline"]?.model).toBe(request?.model);
     });
 });

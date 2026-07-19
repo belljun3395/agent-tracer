@@ -92,6 +92,11 @@ describe("CleanupSdkAgentAdapter", () => {
             expect.stringContaining("get_task_events"),
         ]);
         expect(request?.providerOptions?.agents?.["cleanup-candidate-reviewer"]?.prompt).toContain("citedEventIds");
+        expect(request?.providerOptions?.agents?.["cleanup-candidate-reviewer"]).toMatchObject({
+            maxTurns: 4,
+            permissionMode: "bypassPermissions",
+        });
+        expect(request?.providerOptions?.agents?.["cleanup-candidate-reviewer"]?.model).toBe(request?.model);
         expect(request?.systemPrompt).toContain("delegate its review");
     });
 
