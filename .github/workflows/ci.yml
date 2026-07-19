@@ -97,7 +97,9 @@ jobs:
           failed=0
           for sha in $shas; do
             git log -1 --format=%B "$sha" > "$RUNNER_TEMP/msg"
-            node scripts/check-commit-msg.mjs "$RUNNER_TEMP/msg" || failed=1
+            # 어느 커밋이 걸렸는지 없으면 위반 목록만 여러 벌 쌓여 범인을 못 찾는다.
+            node scripts/check-commit-msg.mjs "$RUNNER_TEMP/msg" \
+              || { echo "  ↳ $(git log -1 --format='%h %s' "$sha")"; failed=1; }
           done
           exit $failed
 
