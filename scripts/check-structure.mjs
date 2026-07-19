@@ -41,11 +41,29 @@ export function findUntestedUsecases(files) {
     .map((file) => ({ file }));
 }
 
+function linksToClaudeDoc(sibling) {
+  try {
+    return fs.lstatSync(sibling).isSymbolicLink() && fs.readlinkSync(sibling) === "CLAUDE.md";
+  } catch {
+    return false;
+  }
+}
+
+/** 두 도구가 같은 지침을 읽도록 CLAUDE.md 옆에는 AGENTS.md 링크가 선다. */
+export function findUnlinkedAgentDocs(files) {
+  return files
+    .filter((file) => path.basename(file) === "CLAUDE.md")
+    .filter((file) => !linksToClaudeDoc(path.join(path.dirname(file), "AGENTS.md")))
+    .map((file) => ({ file }));
+}
+
 function main() {
-  const files = fs.existsSync(SCAN_ROOT) ? walk(SCAN_ROOT) : [];
+  const scanned = fs.existsSync(SCAN_ROOT) ? walk(SCAN_ROOT) : [];
+  const files = [...scanned, path.join(ROOT, "CLAUDE.md")];
   const metrics = {
     oversizedFiles: findOversized(files, BUDGETS.maxFileLines),
     untestedUsecases: findUntestedUsecases(files),
+    unlinkedAgentDocs: findUnlinkedAgentDocs(files),
   };
 
   const violations = Object.entries(metrics).filter(

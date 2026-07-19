@@ -68,6 +68,7 @@ export const BUDGETS = Object.freeze({
   maxFileLines: 300,
   oversizedFiles: 0,
   untestedUsecases: 0,
+  unlinkedAgentDocs: 0,
 });
 
 /** shape가 sliced인 배포 단위의 이름. */
