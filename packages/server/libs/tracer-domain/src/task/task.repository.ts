@@ -28,6 +28,24 @@ export class TaskRepository {
         return this.repo.find({ where: { parentTaskId: taskId } });
     }
 
+    // 서브에이전트 트리의 깊이를 알 수 없어 한 겹씩 넓히며 걷고, 이미 본 id를 걸러 순환이 있어도 끝나게 한다.
+    async findDescendantIds(rootId: string, userId: string): Promise<string[]> {
+        const out: string[] = [];
+        const seen = new Set<string>([rootId]);
+        let frontier = [rootId];
+        while (frontier.length > 0) {
+            const children = await this.repo.find({ where: { parentTaskId: In(frontier), userId } });
+            frontier = [];
+            for (const child of children) {
+                if (seen.has(child.id)) continue;
+                seen.add(child.id);
+                out.push(child.id);
+                frontier.push(child.id);
+            }
+        }
+        return out;
+    }
+
     // 정리 후보 판정용으로 부모 id 목록에 속한 자식 중 running/waiting만 상한 없이 직접 조회해, 부모 목록이 페이지에 잘려도 활성 자식 존재 여부가 틀리지 않는다.
     async findActiveChildren(parentTaskIds: readonly string[]): Promise<TaskEntity[]> {
         if (parentTaskIds.length === 0) return [];

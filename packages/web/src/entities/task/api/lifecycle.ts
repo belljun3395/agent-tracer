@@ -7,7 +7,10 @@ import {
 } from "~web/shared/api/client/json-methods.js";
 
 export interface DeleteTaskResponse {
-  readonly deleted: boolean;
+  readonly taskId: TaskId;
+  readonly hidden: true;
+  /** 요청된 태스크와 함께 숨겨진 서브에이전트 자손까지 전부다. */
+  readonly hiddenTaskIds: readonly TaskId[];
 }
 
 export function deleteTask(taskId: TaskId): Promise<DeleteTaskResponse> {

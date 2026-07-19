@@ -25,6 +25,12 @@ export class TaskUserStateService {
         await this.mutate(userId, taskId, (state, now) => state.hide(now), { hidden: true });
     }
 
+    async hideAll(userId: string, taskIds: readonly string[]): Promise<void> {
+        for (const taskId of taskIds) {
+            await this.hide(userId, taskId);
+        }
+    }
+
     async rename(userId: string, taskId: string, title: string): Promise<void> {
         await this.mutate(userId, taskId, (state, now) => state.rename(title, now), { title });
     }

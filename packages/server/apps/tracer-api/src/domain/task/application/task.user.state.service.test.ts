@@ -64,6 +64,19 @@ describe("TaskUserStateService", () => {
         expect(harness.indexed).toEqual([{ taskId: "t1", hidden: true }]);
     });
 
+    it("여러 태스크를 한꺼번에 숨기면 각각의 상태와 색인에 숨김을 남긴다", async () => {
+        const harness = makeService();
+
+        await harness.service.hideAll("u1", ["t1", "t2"]);
+
+        expect(harness.stored("t1")?.isHidden()).toBe(true);
+        expect(harness.stored("t2")?.isHidden()).toBe(true);
+        expect(harness.indexed).toEqual([
+            { taskId: "t1", hidden: true },
+            { taskId: "t2", hidden: true },
+        ]);
+    });
+
     it("개명하면 사용자 제목을 저장하고 색인 제목을 바꾼다", async () => {
         const harness = makeService([TaskUserStateEntity.init("t1", "u1", NOW)]);
 

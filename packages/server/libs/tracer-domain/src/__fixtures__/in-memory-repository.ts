@@ -13,9 +13,11 @@ function cloneRow<T extends ObjectLiteral>(row: T): T {
 }
 
 function fieldMatches(actual: unknown, expected: unknown): boolean {
-    // IsNull() 외의 FindOperator는 지원하지 않는다.
+    // IsNull()과 In() 외의 FindOperator는 지원하지 않는다.
     if (expected instanceof FindOperator) {
-        return expected.type === "isNull" ? actual === null : false;
+        if (expected.type === "isNull") return actual === null;
+        if (expected.type === "in") return (expected.value as unknown[]).includes(actual);
+        return false;
     }
     return actual === expected;
 }

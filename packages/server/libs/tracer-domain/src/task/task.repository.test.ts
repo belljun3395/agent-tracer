@@ -158,3 +158,55 @@ describe("TaskRepository.findVisiblePage", () => {
         expect(view?.toListItem()).toMatchObject({ id: "task", title: "사용자 제목", archived: true });
     });
 });
+
+describe("TaskRepository.findDescendantIds", () => {
+    function child(id: string, parentTaskId: string, userId = "u1"): TaskEntity {
+        const task = makeTask(id, "2026-01-01T00:00:00.000Z");
+        task.parentTaskId = parentTaskId;
+        task.userId = userId;
+        return task;
+    }
+
+    function repositoryWith(...tasks: readonly TaskEntity[]): TaskRepository {
+        const repo = createInMemoryRepository<TaskEntity>();
+        repo.seed(...tasks);
+        return new TaskRepository(asRepository(repo));
+    }
+
+    it("자식이 없으면 빈 목록이다", async () => {
+        const repository = repositoryWith(makeTask("root", "2026-01-01T00:00:00.000Z"));
+
+        expect(await repository.findDescendantIds("root", "u1")).toEqual([]);
+    });
+
+    it("손자까지 모든 깊이의 자손을 모은다", async () => {
+        const repository = repositoryWith(
+            makeTask("root", "2026-01-01T00:00:00.000Z"),
+            child("sub1", "root"),
+            child("sub2", "root"),
+            child("subsub", "sub1"),
+        );
+
+        const ids = await repository.findDescendantIds("root", "u1");
+
+        expect([...ids].sort()).toEqual(["sub1", "sub2", "subsub"]);
+    });
+
+    it("다른 사용자의 자손은 모으지 않는다", async () => {
+        const repository = repositoryWith(
+            makeTask("root", "2026-01-01T00:00:00.000Z"),
+            child("mine", "root"),
+            child("theirs", "root", "u2"),
+        );
+
+        expect(await repository.findDescendantIds("root", "u1")).toEqual(["mine"]);
+    });
+
+    it("자손이 뿌리를 되가리켜도 순회가 끝난다", async () => {
+        const root = makeTask("root", "2026-01-01T00:00:00.000Z");
+        root.parentTaskId = "sub";
+        const repository = repositoryWith(root, child("sub", "root"));
+
+        expect(await repository.findDescendantIds("root", "u1")).toEqual(["sub"]);
+    });
+});

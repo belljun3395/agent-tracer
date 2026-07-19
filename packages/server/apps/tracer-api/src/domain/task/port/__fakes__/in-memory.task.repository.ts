@@ -28,6 +28,24 @@ export class InMemoryTaskRepository implements TaskRepositoryPort {
         return Promise.resolve(this.all().filter((task) => task.parentTaskId === taskId));
     }
 
+    findDescendantIds(rootId: string, userId: string): Promise<string[]> {
+        const out: string[] = [];
+        const seen = new Set<string>([rootId]);
+        const queue = [rootId];
+        while (queue.length > 0) {
+            const parentId = queue.shift()!;
+            for (const task of this.all()) {
+                if (task.parentTaskId !== parentId) continue;
+                if (task.userId !== userId) continue;
+                if (seen.has(task.id)) continue;
+                seen.add(task.id);
+                out.push(task.id);
+                queue.push(task.id);
+            }
+        }
+        return Promise.resolve(out);
+    }
+
     findPage(userId: string, filter: TaskPageFilter): Promise<TaskEntity[]> {
         this.lastPageFilter = filter;
         const rows = this.all()
