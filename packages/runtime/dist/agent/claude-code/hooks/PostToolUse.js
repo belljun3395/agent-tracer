@@ -3319,7 +3319,7 @@ function formatRecipeContext(matches) {
   ];
   for (const match of matches) {
     lines.push("");
-    lines.push(`\u2022 ${match.title} (score ${match.score.toFixed(2)})`);
+    lines.push(`\u2022 ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})`);
     lines.push(`  intent: ${match.intent}`);
     lines.push(`  ${match.description}`);
     const summary = match.summaryMd.trim();
