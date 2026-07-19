@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ..shared.models import Language
-from .models import MAX_RECIPE_CANDIDATES
+from .models import MAX_RECIPE_CANDIDATES, DispatchPlan, ProbeReport
 
 PROMPT_VERSION = "recipe-scan-native-v5"
 
@@ -102,7 +104,11 @@ again to ground a citation. Then return the complete repaired candidate list.
 
 
 def build_user_prompt(
-    task_id: str, user_prompt: str | None, language: Language, plan: object = None
+    task_id: str,
+    user_prompt: str | None,
+    language: Language,
+    plan: DispatchPlan | None = None,
+    reports: Sequence[ProbeReport] | None = None,
 ) -> str:
     """앵커 태스크와 사용자 지시와 출력 언어와 스스로 세운 계획을 담은 최초 지시문이다."""
     lines = [f"Anchor taskId: {task_id}"]
@@ -110,7 +116,7 @@ def build_user_prompt(
         lines.append(f"User direction: {user_prompt}")
     lines.append(f"Output language: {LANGUAGE_DIRECTIVES[language]}")
     lines.append(f"Mine this task for up to {MAX_RECIPE_CANDIDATES} recipe candidates.")
-    return "\n".join(lines) + render_plan(plan)
+    return "\n".join(lines) + render_plan(plan) + render_reports(reports)
 
 
 SURVEY_SYSTEM_PROMPT = f"""You plan one recipe-scan investigation before it starts.
@@ -129,11 +135,25 @@ that gets your allocation cut down proportionally, so allocate within it.
 """
 
 
-def render_plan(plan: object) -> str:
-    """조율자가 세운 계획을 조사자가 읽을 지시문으로 편다."""
-    probes = getattr(plan, "probes", None)
-    if not probes:
+def render_reports(reports: Sequence[ProbeReport] | None) -> str:
+    """전문가들이 올린 보고를 조율자가 읽을 근거로 편다."""
+    if not reports:
         return ""
+    blocks = []
+    for report in reports:
+        lines = [f"### {report.probe}" + (" (rounds exhausted)" if report.exhausted else "")]
+        lines.append(report.verdict)
+        for excerpt in report.excerpts:
+            lines.append(f"- [{excerpt.taskId}/{excerpt.eventId}] {excerpt.text}")
+        blocks.append("\n".join(lines))
+    return "\n\nWhat your specialists reported:\n\n" + "\n\n".join(blocks)
+
+
+def render_plan(plan: DispatchPlan | None) -> str:
+    """조율자가 세운 계획을 조사자가 읽을 지시문으로 편다."""
+    if plan is None:
+        return ""
+    probes = plan.probes
     lines = [
         f"- {probe.probe} ({probe.rounds} rounds): {probe.question}" for probe in probes
     ]
@@ -149,3 +169,28 @@ def build_survey_prompt(task_id: str, user_prompt: str | None, available_rounds:
     if user_prompt:
         lines.append(f"What the user asked for: {user_prompt}")
     return "\n".join(lines)
+
+
+PROBE_SYSTEM_PROMPT = f"""You are one specialist in a recipe-scan investigation.
+Prompt version: {PROMPT_VERSION}.
+
+You investigate the one question the coordinator gave you, using only the tools you hold, and report
+back. You do not write recipes; the coordinator does that from your report and the other specialists'.
+
+Report a verdict that answers your question directly, and attach the excerpts the coordinator needs to
+write from — quote the evidence rather than summarising it away, because the coordinator cannot see
+what you read. Every excerpt must name the event it came from. Verify with check_citations before you
+report: an ID the coordinator cannot cite is worse than no evidence at all. If your rounds run out with
+the question still open, say so in exhausted so the coordinator can decide whether to spend more.
+"""
+
+
+def build_probe_prompt(task_id: str, question: str, rounds: int) -> str:
+    """전문가가 자기 질문 하나에 집중하도록 맡은 범위만 싣는다."""
+    return "\n".join(
+        [
+            f"Anchor task ID: {task_id}",
+            f"Your question: {question}",
+            f"Rounds available: {rounds}",
+        ]
+    )

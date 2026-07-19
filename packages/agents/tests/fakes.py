@@ -46,9 +46,11 @@ class FakeToolLoopChat:
     turns의 각 항목은 도구 호출 목록(list)이거나 최종 구조화 출력(dict)이다.
     """
 
-    def __init__(self, turns: list[Any], plan: Any = None) -> None:
+    def __init__(self, turns: list[Any], plan: Any = None, report: Any = None) -> None:
         self.turns = list(turns)
         self.plan = plan
+        self.report = report
+        self.probe_calls: list[list[str]] = []
         self.bound_tools: list[dict[str, Any]] = []
         self.output_config: dict[str, Any] | None = None
         self.requests: list[list[Any]] = []
@@ -73,6 +75,20 @@ class FakeToolLoopChat:
 
     async def ainvoke(self, messages: list[Any]) -> AIMessage:
         self.requests.append(list(messages))
+        probe_tool = next(
+            (tool for tool in self.bound_tools if getattr(tool, "name", "") == "ProbeReport"), None
+        )
+        if probe_tool is not None:
+            # 전문가 보고는 조율자 턴을 소비하지 않는다. 무엇을 쥐고 돌았는지만 기록한다.
+            self.probe_calls.append(
+                [getattr(tool, "name", "") for tool in self.bound_tools if tool is not probe_tool]
+            )
+            report = self.report or {"probe": "timeline", "verdict": "조사했다"}
+            return mk_ai(
+                tool_calls=[
+                    {"name": "ProbeReport", "args": report, "id": "call-probe", "type": "tool_call"}
+                ]
+            )
         if not self.turns:
             raise AssertionError("no fake turn remains")
         turn = self.turns.pop(0)

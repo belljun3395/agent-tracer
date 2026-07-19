@@ -17,6 +17,9 @@ from .models import (
 # 계획을 세우는 데 한 라운드를 쓰므로 배분 가능한 조사 라운드는 그만큼 줄어든다.
 SURVEY_ROUNDS = 1
 
+# 조율자는 조사를 전문가에게 맡겼으므로 종합과 인용 확인에 필요한 만큼만 쓴다.
+SYNTHESIS_ROUNDS = 3
+
 MAX_RECIPE_MODEL_COST_USD = 2.0
 RECIPE_MAX_OUTPUT_TOKENS = 16_000
 

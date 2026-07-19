@@ -13,6 +13,7 @@ from ..runtime.validation_graph import ValidationGraphContext
 from .graph import RECIPE_SCAN_GRAPH
 from .models import ProvenanceCatalog, RecipeScanRequest
 from .nodes.candidate import create_candidate_nodes
+from .nodes.probe import create_probe_node
 from .nodes.result import empty, finalize
 from .nodes.survey import create_survey_node
 from .policy import RECIPE_MAX_OUTPUT_TOKENS, build_routes
@@ -32,19 +33,19 @@ async def run_recipe_scan(
         req.deadlineMs,
         max_output_tokens=RECIPE_MAX_OUTPUT_TOKENS,
     )
+    reader = RecipeLedgerReader(ledger, req.userId)
+    index = RecipeSearchReader(search, req.userId)
     investigate, validate_candidate, repair = create_candidate_nodes(
-        req,
-        RecipeLedgerReader(ledger, req.userId),
-        RecipeSearchReader(search, req.userId),
-        usage,
-        chat,
-        agent_name=AGENT_NAME,
+        req, reader, index, usage, chat, agent_name=AGENT_NAME
     )
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
         {
             "survey": create_survey_node(req, usage, chat),
+            "probe": create_probe_node(
+                req, reader, index, usage, chat, agent_name=AGENT_NAME
+            ),
             "investigate": investigate,
             "validate_candidate": validate_candidate,
             "repair": repair,

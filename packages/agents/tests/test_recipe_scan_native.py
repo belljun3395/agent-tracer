@@ -16,6 +16,7 @@ def test_recipe_전용_그래프_위상을_명시한다() -> None:
     assert set(graph.nodes) == {
         "__start__",
         "survey",
+        "probe",
         "investigate",
         "validate_candidate",
         "repair",

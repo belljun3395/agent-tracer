@@ -228,6 +228,9 @@ class TestRecipeScanGraph:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         class FailingChat(FakeToolLoopChat):
+            def with_structured_output(self, _schema: object, **_kwargs: object) -> object:
+                return self
+
             async def ainvoke(self, messages: list[object]) -> object:
                 raise AuthenticationError(
                     "bad key",
@@ -243,7 +246,8 @@ class TestRecipeScanGraph:
         res = await self._run(chat)
 
         assert res.error is not None
-        events = [step.eventKind for step in res.steps if step.nodeName == "investigate"]
+        # 계획 단계가 첫 모델 호출이므로 실패도 거기서 궤적에 남는다.
+        events = [step.eventKind for step in res.steps if step.nodeName == "survey"]
         assert events == ["node.started", "node.failed"]
 
 
@@ -259,11 +263,39 @@ class TestRecipeScanGraph:
         res = await self._run(chat)
 
         assert res.error is None
-        sent = " ".join(str(getattr(message, "content", message)) for message in chat.requests[0])
+        sent = " ".join(
+            str(getattr(message, "content", message))
+            for request in chat.requests
+            for message in request
+        )
         # 계획이 조사 지시문으로 펴지고 배분한 라운드가 그대로 예산이 된다.
         assert "rules (3 rounds): 어떤 규칙이 걸렸나" in sent
         assert "3 of 3 tool-calling rounds remain" in sent
         assert any("survey -> rules:3" in step.content for step in res.steps)
+
+    async def test_계획한_전문가들이_각자_도구만_쥐고_병렬로_돈다(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plan = DispatchPlan(
+            probes=[
+                {"probe": "timeline", "rounds": 4, "question": "무엇을 했나"},  # type: ignore[list-item]
+                {"probe": "rules", "rounds": 3, "question": "어떤 규칙이"},  # type: ignore[list-item]
+            ]
+        )
+        chat = FakeToolLoopChat([{"recipes": []}], plan=plan)
+        monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
+
+        res = await self._run(chat)
+
+        assert res.error is None
+        # 전문가는 자기 근거 원천의 도구만 쥔다.
+        assert sorted(sorted(names) for names in chat.probe_calls) == [
+            ["check_citations", "get_task_events", "get_task_summary"],
+            ["check_citations", "list_rules", "search_recipes"],
+        ]
+        # 두 전문가가 모두 돌았음이 궤적에 남는다.
+        probe_nodes = [step for step in res.steps if step.nodeName == "probe"]
+        assert sum(1 for step in probe_nodes if step.eventKind == "node.completed") == 2
 
 class TestExecuteWrapper:
     async def test_데드라인_초과를_deadline_exceeded로_잡는다(self) -> None:
