@@ -6,13 +6,13 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ...runtime.execution.trace import ExecutionTrace
-from ..models import MAX_TOOL_ROUNDS, DispatchPlan, RecipeScanRequest, RecipeScanState
-from ..policy import SURVEY_ROUNDS, clamp_plan
+from ..models import DispatchPlan, RecipeScanRequest, RecipeScanState
+from ..policy import clamp_plan, distributable_rounds
 from ..prompts import SURVEY_SYSTEM_PROMPT, build_survey_prompt
 
 type SurveyNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
 
-AVAILABLE_ROUNDS = MAX_TOOL_ROUNDS - SURVEY_ROUNDS
+AVAILABLE_ROUNDS = distributable_rounds()
 
 
 def create_survey_node(req: RecipeScanRequest, usage: ExecutionTrace, chat: Any) -> SurveyNode:

@@ -15,7 +15,7 @@ from ..models import (
     RecipeScanRequest,
     RecipeScanState,
 )
-from ..policy import MAX_RECIPE_MODEL_COST_USD, SYNTHESIS_ROUNDS, validate_recipe_candidates
+from ..policy import MAX_RECIPE_MODEL_COST_USD, synthesis_rounds, validate_recipe_candidates
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
@@ -42,8 +42,7 @@ def create_candidate_nodes(
         budget = ToolLoopBudget(
             agent_name, req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
         )
-        plan = state["plan"]
-        rounds = SYNTHESIS_ROUNDS if plan is not None else MAX_TOOL_ROUNDS
+        rounds = synthesis_rounds(state["plan"])
         context = RecipeAgentContext(
             agent_name,
             usage,
