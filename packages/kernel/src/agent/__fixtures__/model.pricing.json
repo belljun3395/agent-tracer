@@ -1,0 +1,7 @@
+{
+  "unit": "usd-per-million-tokens",
+  "rates": {
+    "sonnet": { "input": 3.0, "output": 15.0, "cacheWrite": 3.75, "cacheRead": 0.3 },
+    "haiku": { "input": 1.0, "output": 5.0, "cacheWrite": 1.25, "cacheRead": 0.1 }
+  }
+}

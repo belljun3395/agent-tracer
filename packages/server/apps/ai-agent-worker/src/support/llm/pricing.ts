@@ -1,14 +1,14 @@
 import type { AgentQueryUsage } from "./agent.usage.js";
 
 // 백만 토큰당 USD이며 이름 부분일치로 버전 접미사가 붙은 모델도 해석한다.
-interface ModelRate {
+export interface ModelRate {
     readonly input: number;
     readonly output: number;
     readonly cacheWrite: number;
     readonly cacheRead: number;
 }
 
-const MODEL_RATES: ReadonlyArray<readonly [string, ModelRate]> = [
+export const MODEL_RATES: ReadonlyArray<readonly [string, ModelRate]> = [
     ["sonnet", { input: 3.0, output: 15.0, cacheWrite: 3.75, cacheRead: 0.3 }],
     ["haiku", { input: 1.0, output: 5.0, cacheWrite: 1.25, cacheRead: 0.1 }],
 ];

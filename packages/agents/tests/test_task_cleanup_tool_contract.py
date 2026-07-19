@@ -14,6 +14,7 @@ from agent_graph.agents.task_cleanup.models import (
     MAX_EVIDENCE_EVENT_IDS,
     MAX_SUGGESTIONS,
     CandidatePage,
+    CleanupBatch,
     CleanupCandidate,
     CleanupEvent,
     CleanupSuggestionKind,
@@ -33,6 +34,7 @@ from agent_graph.agents.task_cleanup.tools import (
     EventOrder,
     GetTaskEventsArgs,
     ListCandidateTasksArgs,
+    candidate_page,
     validate_tool_args,
 )
 
@@ -125,9 +127,10 @@ def test_get_task_events의_읽기_방향_기본값과_허용값이_골든_계�
         GetTaskEventsArgs(taskId="task-1", order="sideways")  # type: ignore[arg-type]
 
 
-def test_생략한_인자는_콜백으로_보내지_않아_워커의_기본값이_걸린다() -> None:
+def test_생략한_인자는_검증을_통과하고_실행이_기본값을_채운다() -> None:
     assert validate_tool_args(GET_TASK_EVENTS, {"taskId": "task-1"}) == {"taskId": "task-1"}
     assert validate_tool_args(LIST_CANDIDATE_TASKS, {}) == {}
+    assert candidate_page(CleanupBatch(), None, None).candidates == []
 
 
 def test_제안_종류가_골든_계약과_같다() -> None:

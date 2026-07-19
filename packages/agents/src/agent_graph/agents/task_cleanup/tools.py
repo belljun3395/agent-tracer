@@ -26,7 +26,6 @@ DEFAULT_EVENT_ORDER: EventOrder = "asc"
 class ListCandidateTasksArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # 인자를 생략하면 워커 콜백이 자기 기본값을 적용하므로 여기서 기본값을 채우지 않는다.
     limit: int | None = Field(
         default=None,
         ge=1,

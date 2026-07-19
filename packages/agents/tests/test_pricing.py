@@ -1,7 +1,27 @@
 from __future__ import annotations
 
-from agent_graph.agents.runtime.pricing import estimate_cost_usd
+import json
+from pathlib import Path
+
+from agent_graph.agents.runtime.pricing import _RATES, estimate_cost_usd
 from agent_graph.agents.shared.models import UsageDTO
+
+# 두 언어가 같은 파일을 읽어야 한쪽만 바뀌는 드리프트가 남지 않는다.
+GOLDEN = Path(__file__).parents[2] / "kernel" / "src" / "agent" / "__fixtures__"
+
+
+def test_단가가_골든_계약과_같다() -> None:
+    contract = json.loads((GOLDEN / "model.pricing.json").read_text(encoding="utf-8"))["rates"]
+
+    assert {
+        name: {
+            "input": rate.input,
+            "output": rate.output,
+            "cacheWrite": rate.cache_write,
+            "cacheRead": rate.cache_read,
+        }
+        for name, rate in _RATES.items()
+    } == contract
 
 
 def _usage() -> UsageDTO:
