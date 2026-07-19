@@ -8,7 +8,7 @@
 
 - `persistence/`: TypeORM 엔티티, 데이터소스, 마이그레이션, 투영 재생성 테이블 분류.
 - `task/` `timeline/` `job/` `rule/` `recipe/` `cleanup/` `settings/` `user/` `search/`
-  `daemon/`: 각 읽기 모델의 순수 도메인 규칙.
+  `daemon/` `memo/` `tag/`: 각 읽기 모델의 순수 도메인 규칙.
 - `error/`: 이 라이브러리가 던지는 도메인 오류.
 - `migrations/`: TypeORM 마이그레이션 파일.
 - `__fixtures__/`: 저장소 테스트가 공유하는 픽스처.

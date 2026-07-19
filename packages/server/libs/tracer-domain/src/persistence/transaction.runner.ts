@@ -7,6 +7,10 @@ import { AiJobStepEntity } from "../job/ai.job.step.entity.js";
 import { AiJobStepRepository } from "../job/ai.job.step.repository.js";
 import { MemoEntity } from "../memo/memo.entity.js";
 import { MemoRepository } from "../memo/memo.repository.js";
+import { TagEntity } from "../tag/tag.entity.js";
+import { TagRepository } from "../tag/tag.repository.js";
+import { TaskTagEntity } from "../tag/task-tag.entity.js";
+import { TaskTagRepository } from "../tag/task-tag.repository.js";
 import { RecipeEntity } from "../recipe/recipe.entity.js";
 import { RecipeRepository } from "../recipe/recipe.repository.js";
 import { RuleEntity } from "../rule/rule.entity.js";
@@ -29,6 +33,8 @@ export interface TracerTx {
     readonly taskUserStates: TaskUserStateRepository;
     readonly searchOutbox: SearchOutboxRepository;
     readonly memos: MemoRepository;
+    readonly tags: TagRepository;
+    readonly taskTags: TaskTagRepository;
 }
 
 function bind(manager: EntityManager): TracerTx {
@@ -42,6 +48,8 @@ function bind(manager: EntityManager): TracerTx {
         taskUserStates: new TaskUserStateRepository(manager.getRepository(TaskUserStateEntity)),
         searchOutbox: new SearchOutboxRepository(manager.getRepository(SearchOutboxEntity)),
         memos: new MemoRepository(manager.getRepository(MemoEntity)),
+        tags: new TagRepository(manager.getRepository(TagEntity)),
+        taskTags: new TaskTagRepository(manager.getRepository(TaskTagEntity)),
     };
 }
 

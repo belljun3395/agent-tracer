@@ -68,6 +68,12 @@ export * from "./search/search.outbox.repository.js";
 export * from "./memo/memo.entity.js";
 export * from "./memo/memo.repository.js";
 
+// tag
+export * from "./tag/tag.entity.js";
+export * from "./tag/tag.repository.js";
+export * from "./tag/task-tag.entity.js";
+export * from "./tag/task-tag.repository.js";
+
 // daemon
 export * from "./daemon/daemon.health.entity.js";
 export * from "./daemon/daemon.health.repository.js";

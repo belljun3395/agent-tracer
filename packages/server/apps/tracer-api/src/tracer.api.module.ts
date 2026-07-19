@@ -11,6 +11,7 @@ import { ruleFeature } from "~tracer-api/domain/rule/rule.feature.js";
 import { searchFeature } from "~tracer-api/domain/search/search.feature.js";
 import { sessionFeature } from "~tracer-api/domain/session/session.feature.js";
 import { settingsFeature } from "~tracer-api/domain/settings/settings.feature.js";
+import { tagFeature } from "~tracer-api/domain/tag/tag.feature.js";
 import { taskFeature } from "~tracer-api/domain/task/task.feature.js";
 import { timelineFeature } from "~tracer-api/domain/timeline/timeline.feature.js";
 import { userFeature } from "~tracer-api/domain/user/user.feature.js";
@@ -42,6 +43,7 @@ const apiFeatures: readonly ApiFeatureCatalog[] = [
     searchFeature,
     sessionFeature,
     settingsFeature,
+    tagFeature,
     taskFeature,
     timelineFeature,
     userFeature,

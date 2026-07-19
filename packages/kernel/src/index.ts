@@ -49,6 +49,9 @@ export * from "./agent/agent.const.js";
 export * from "./memo/memo.const.js";
 export * from "./memo/memo.dto.js";
 export * from "./api/memo.query.const.js";
+export * from "./tag/tag.const.js";
+export * from "./tag/tag.dto.js";
+export * from "./api/tag.query.const.js";
 
 export type * from "./ingest/ingest.schema.js";
 export type * from "./ingest/stored-event.schema.js";

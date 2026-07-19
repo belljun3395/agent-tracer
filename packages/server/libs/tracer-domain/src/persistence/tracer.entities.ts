@@ -16,6 +16,8 @@ import { AppSettingEntity } from "../settings/app.setting.entity.js";
 import { SessionEntity } from "../task/session/session.entity.js";
 import { TaskEntity } from "../task/task.entity.js";
 import { TaskUserStateEntity } from "../task/user-state/task.user.state.entity.js";
+import { TagEntity } from "../tag/tag.entity.js";
+import { TaskTagEntity } from "../tag/task-tag.entity.js";
 import { EventEntity } from "../timeline/event/event.entity.js";
 import { TurnEntity } from "../timeline/turn/turn.entity.js";
 import { UserEntity } from "../user/user.entity.js";
@@ -40,6 +42,8 @@ export const TRACER_ENTITIES = [
     SearchOutboxEntity,
     DaemonHealthEntity,
     MemoEntity,
+    TagEntity,
+    TaskTagEntity,
     AgentTaskView,
     AgentEventView,
     AgentRuleView,
