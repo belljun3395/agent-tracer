@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import httpx
-
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
@@ -18,13 +16,14 @@ from ..policy import (
     validate_suggestions,
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
+from ..reader import CleanupLedgerReader
 
 type CleanupNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
 
 
 def create_decision_nodes(
     req: TaskCleanupRequest,
-    client: httpx.AsyncClient,
+    reader: CleanupLedgerReader,
     usage: ExecutionTrace,
     chat: Any,
     *,
@@ -48,8 +47,8 @@ def create_decision_nodes(
             usage,
             budget,
             MAX_TOOL_ROUNDS,
-            client,
-            req.toolCallback,
+            reader,
+            req.batch,
             state["exposed_candidates"],
             state["event_ids_by_task"],
         )

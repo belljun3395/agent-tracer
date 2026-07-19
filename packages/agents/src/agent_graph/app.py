@@ -102,7 +102,7 @@ async def task_cleanup(
     return accept(
         "task-cleanup",
         req,
-        lambda trace: run_task_cleanup(req, request.app.state.tool_client, trace),
+        lambda trace: run_task_cleanup(req, request.app.state.ledger, trace),
         background,
         request,
     )

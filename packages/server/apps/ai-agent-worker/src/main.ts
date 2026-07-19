@@ -142,7 +142,7 @@ async function bootstrap(): Promise<void> {
     const cleanupRepository = new CleanupRepositoryAdapter(jobs, tasks, taskStates, settings, tx);
     const cleanupNotification = new CleanupNotificationAdapter(publish);
     const cleanupAgents = {
-        [AGENT_BACKEND.python]: new CleanupGraphAgentAdapter(graphClient, callbacks, cleanupTools),
+        [AGENT_BACKEND.python]: new CleanupGraphAgentAdapter(graphClient),
         [AGENT_BACKEND.claudeSdk]: new CleanupSdkAgentAdapter(claudeRunner, cleanupTools),
     };
     const cleanup = new CleanupActivity(

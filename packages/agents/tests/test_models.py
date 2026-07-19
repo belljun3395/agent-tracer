@@ -88,9 +88,10 @@ class TestTaskCleanupRequest:
                 "model": "m",
                 "apiKey": "k",
                 "scannedAt": "2026-07-13T00:00:00.000Z",
+                "userId": "user-1",
+                "batch": {"candidates": []},
                 "language": "ko",
                 "maxSuggestions": 20,
-                "toolCallback": _CALLBACK,
                 "completionCallback": _COMPLETION,
             }
         )
@@ -106,8 +107,9 @@ class TestTaskCleanupRequest:
                     "model": "m",
                     "apiKey": "k",
                     "scannedAt": "2026-07-13T00:00:00.000Z",
+                    "userId": "user-1",
+                    "batch": {"candidates": []},
                     "maxSuggestions": 20,
-                    "toolCallback": _CALLBACK,
                     "completionCallback": _COMPLETION,
                     "outputSchema": {"type": "object"},
                 }

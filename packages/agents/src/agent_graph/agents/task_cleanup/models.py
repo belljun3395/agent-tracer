@@ -7,7 +7,7 @@ from typing import Literal, TypedDict
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, TrimmedStr
 
 # 저장 계약의 판별자와 같은 값이어야 하는 정리 제안의 종류다.
 CleanupSuggestionKind = Literal["archive"]
@@ -17,18 +17,6 @@ MAX_EVIDENCE_EVENT_IDS = 100
 
 # 워커의 도구 응답을 그대로 받으므로 워커가 필드를 늘려도 실행이 깨지지 않게 모르는 필드는 버린다.
 _TOOL_RESPONSE = ConfigDict(extra="ignore")
-
-
-class TaskCleanupRequest(AgentExecutionRequest):
-    """Python-native task-cleanup이 받는 도메인 실행 봉투."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    deadlineMs: int = 300_000
-    scannedAt: TrimmedStr = Field(min_length=1)
-    language: Language = "auto"
-    maxSuggestions: int = Field(ge=1, le=MAX_SUGGESTIONS)
-    toolCallback: ToolCallback
 
 
 class CleanupCandidate(BaseModel):
@@ -42,6 +30,30 @@ class CleanupCandidate(BaseModel):
     hasEvents: bool
     activeChildCount: int = Field(ge=0)
     candidateReasons: list[TrimmedStr]
+
+
+class CleanupBatch(BaseModel):
+    """서버가 이번 스캔 대상으로 미리 자격 심사한 후보 배치다."""
+
+    model_config = _TOOL_RESPONSE
+
+    candidates: list[CleanupCandidate] = Field(default_factory=list)
+    # 서버 조회 상한에 걸려 이 배치가 후보 전체를 담지 못했는지 여부다.
+    batchTruncated: bool = False
+
+
+class TaskCleanupRequest(AgentExecutionRequest):
+    """Python-native task-cleanup이 받는 도메인 실행 봉투."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    deadlineMs: int = 300_000
+    scannedAt: TrimmedStr = Field(min_length=1)
+    # 조회 범위를 정하는 값이라 도메인 입력이며 멱등 해시에 함께 든다.
+    userId: TrimmedStr = Field(min_length=1)
+    language: Language = "auto"
+    maxSuggestions: int = Field(ge=1, le=MAX_SUGGESTIONS)
+    batch: CleanupBatch
 
 
 class CandidatePage(BaseModel):

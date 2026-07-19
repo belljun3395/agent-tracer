@@ -6,7 +6,6 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, cast
 
-import httpx
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware
 from langchain.agents.structured_output import ToolStrategy
@@ -16,9 +15,9 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
-from ..shared.models import ToolCallback
-from .models import CleanupCandidate, CleanupDraft
+from .models import CleanupBatch, CleanupCandidate, CleanupDraft
 from .policy import MAX_TOOL_ROUNDS
+from .reader import CleanupLedgerReader
 from .tools import (
     GET_TASK_EVENTS,
     GET_TASK_EVENTS_DESCRIPTION,
@@ -33,10 +32,10 @@ from .tools import (
 
 @dataclass
 class CleanupAgentContext(StandardAgentContext):
-    """task-cleanup 도구에 워커 콜백 창구와 근거 장부와 순차 실행 경계를 제공한다."""
+    """task-cleanup 도구에 원장 조회 진입점과 후보 배치와 근거 장부를 제공한다."""
 
-    client: httpx.AsyncClient
-    callback: ToolCallback
+    reader: CleanupLedgerReader
+    batch: CleanupBatch
     exposed_candidates: dict[str, CleanupCandidate]
     event_ids_by_task: dict[str, set[str]]
     tool_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -82,7 +81,7 @@ async def get_task_events(
 
 
 async def _invoke_and_record(context: CleanupAgentContext, name: str, args: dict[str, Any]) -> str:
-    content = await invoke_tool(context.client, context.callback, name, args)
+    content = await invoke_tool(context.reader, context.batch, name, args)
     record_evidence(context.exposed_candidates, context.event_ids_by_task, name, args, content)
     return content
 

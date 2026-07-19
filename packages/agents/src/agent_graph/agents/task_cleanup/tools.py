@@ -1,17 +1,16 @@
-"""task-cleanup의 도구 계약과 콜백 실행과 근거 장부 기록."""
+"""task-cleanup의 도구 계약과 원장 뷰 실행과 근거 장부 기록."""
 
 from __future__ import annotations
 
 import json
 from typing import Any, Literal
 
-import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..runtime.callback import invoke_remote_tool
 from ..runtime.telemetry.spans import tool_span
-from ..shared.models import ToolCallback, TrimmedStr
-from .models import CandidatePage, CleanupCandidate, EventPage
+from ..shared.models import TrimmedStr
+from .models import CandidatePage, CleanupBatch, CleanupCandidate, EventPage
+from .reader import CleanupLedgerReader
 
 LIST_CANDIDATE_TASKS = "list_candidate_tasks"
 GET_TASK_EVENTS = "get_task_events"
@@ -101,7 +100,7 @@ _ARGS_BY_TOOL: dict[str, type[BaseModel]] = {
 
 
 def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
-    """모델이 고른 도구 인자를 소유 스키마로 검증해 콜백 인자를 만든다."""
+    """모델이 고른 도구 인자를 소유 스키마로 검증해 조회 인자를 만든다."""
     args_model = _ARGS_BY_TOOL.get(name)
     if args_model is None:
         raise ValueError(f"unknown task-cleanup tool: {name}")
@@ -109,16 +108,49 @@ def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
     return validated
 
 
+def candidate_page(
+    batch: CleanupBatch, limit: int | None, cursor: str | None
+) -> CandidatePage:
+    """서버가 미리 자격 심사한 후보 배치를 커서로 잘라 한 페이지를 낸다."""
+    size = limit if limit is not None else DEFAULT_CANDIDATE_LIMIT
+    start = int(cursor) if cursor is not None and cursor.isdigit() else 0
+    page = batch.candidates[start : start + size]
+    next_index = start + len(page)
+    truncated = next_index < len(batch.candidates)
+    return CandidatePage(
+        candidates=page,
+        truncated=truncated,
+        nextCursor=str(next_index) if truncated else None,
+        total=len(batch.candidates),
+        moreCandidatesOutsideBatch=batch.batchTruncated,
+    )
+
+
 async def invoke_tool(
-    client: httpx.AsyncClient,
-    callback: ToolCallback,
+    reader: CleanupLedgerReader,
+    batch: CleanupBatch,
     name: str,
     args: dict[str, Any],
 ) -> str:
-    """모델이 고른 도구를 인자 검증 뒤 워커 콜백으로 실행한다."""
+    """모델이 고른 도구를 인자 검증 뒤 후보 배치나 원장 뷰에서 실행한다."""
     validated = validate_tool_args(name, args)
     async with tool_span(name, agent_name="task-cleanup", parameters=validated):
-        return await invoke_remote_tool(client, callback, name, validated)
+        if name == LIST_CANDIDATE_TASKS:
+            page = candidate_page(batch, validated.get("limit"), validated.get("cursor"))
+            dumped = page.model_dump(mode="json")
+            # 후보의 lastEventAt은 null이 곧 이벤트 없음이라 지우면 안 되고, 커서는 없을 때 빠진다.
+            if dumped["nextCursor"] is None:
+                del dumped["nextCursor"]
+            return json.dumps(dumped, ensure_ascii=False)
+        events = await reader.task_events(
+            validated["taskId"],
+            validated.get("limit", DEFAULT_EVENT_LIMIT),
+            validated.get("cursor"),
+            validated.get("order", DEFAULT_EVENT_ORDER),
+        )
+    if events is None:
+        return f"Task {validated['taskId']} not found."
+    return json.dumps(events, ensure_ascii=False)
 
 
 def record_evidence(

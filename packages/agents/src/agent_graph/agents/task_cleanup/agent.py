@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
 from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
 from ..runtime.validation_graph import ValidationGraphContext
 from .graph import TASK_CLEANUP_GRAPH
@@ -14,12 +13,13 @@ from .models import TaskCleanupRequest
 from .nodes.decision import create_decision_nodes
 from .nodes.result import empty, finalize
 from .policy import TASK_CLEANUP_MAX_OUTPUT_TOKENS, build_routes
+from .reader import CleanupLedgerReader
 
 AGENT_NAME = "task-cleanup"
 
 
 async def run_task_cleanup(
-    req: TaskCleanupRequest, client: httpx.AsyncClient, usage: ExecutionTrace
+    req: TaskCleanupRequest, ledger: LedgerPoolProvider, usage: ExecutionTrace
 ) -> dict[str, Any]:
     """task-cleanup 노드를 실행 의존성과 결합해 그래프를 수행한다."""
     chat = make_chat(
@@ -30,7 +30,7 @@ async def run_task_cleanup(
     )
     investigate, validate_decisions, repair = create_decision_nodes(
         req,
-        client,
+        CleanupLedgerReader(ledger, req.userId),
         usage,
         chat,
         agent_name=AGENT_NAME,
