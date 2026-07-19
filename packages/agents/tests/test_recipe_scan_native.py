@@ -8,7 +8,9 @@ from agent_graph.agents.recipe_scan.models import (
     DispatchPlan,
     ProvenanceCatalog,
     RecipeCandidate,
+    RecipeScanRequest,
 )
+from agent_graph.agents.recipe_scan.nodes.probe import create_probe_node
 from agent_graph.agents.recipe_scan.policy import (
     MIN_SYNTHESIS_ROUNDS,
     SURVEY_ROUNDS,
@@ -16,6 +18,10 @@ from agent_graph.agents.recipe_scan.policy import (
     synthesis_rounds,
     validate_recipe_candidate,
 )
+from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
+from agent_graph.agents.recipe_scan.search import RecipeSearchReader
+from agent_graph.agents.runtime.execution.trace import ExecutionTrace
+from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 
 def test_recipe_전용_그래프_위상을_명시한다() -> None:
@@ -88,6 +94,41 @@ def test_종합_라운드는_최소_몫_아래로_내려가지_않는다() -> No
     )
 
     assert synthesis_rounds(greedy) == MIN_SYNTHESIS_ROUNDS
+
+
+async def test_전문가_실행_예외는_실패_보고로_강등된다() -> None:
+    class BoomChat(FakeToolLoopChat):
+        async def ainvoke(self, messages: list[object]) -> object:
+            raise RuntimeError("agent blew up")
+
+    req = RecipeScanRequest(
+        model="claude-sonnet-4-6",
+        apiKey="sk-test",
+        taskId="t1",
+        userId="user-1",
+        completionCallback={"url": "http://worker/c", "token": "x"},  # type: ignore[arg-type]
+    )
+    node = create_probe_node(
+        req,
+        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        ExecutionTrace(),
+        BoomChat([]),
+        agent_name="recipe-scan",
+    )
+
+    result = await node(
+        {"assignment": {"probe": "timeline", "rounds": 2, "question": "무엇"}, "cost_share": 0.5}
+    )
+
+    # 예외를 던진 전문가는 판정을 실패로 싣고 소진 표시를 올려 조율자가 알게 한다.
+    report = result["reports"][0]
+    assert report.probe == "timeline"
+    assert report.exhausted is True
+    assert report.verdict.startswith("조사 실패") and "agent blew up" in report.verdict
+    assert report.excerpts == []
+    # 실패해도 지출은 합산에 실린다.
+    assert "model_cost_usd" in result
 
 
 def test_anchor_slice는_실제_anchor_event를_인용해야_한다() -> None:

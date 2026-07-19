@@ -14,6 +14,7 @@ from ..langchain_agent import (
     build_cleanup_agent,
 )
 from ..models import (
+    MAX_INSPECT_REASON_CHARS,
     CleanupCandidate,
     InspectAssignment,
     InspectReport,
@@ -38,6 +39,12 @@ from ..reader import CleanupLedgerReader
 
 type TriageNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
 type InspectNode = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
+
+
+def _failure_reason(exc: Exception) -> str:
+    """후보 조사가 무너진 사유를 판정 상한 안으로 줄여 보고 문장으로 만든다."""
+    summary = str(exc).strip() or type(exc).__name__
+    return f"조사 실패: {summary}"[:MAX_INSPECT_REASON_CHARS]
 
 
 def create_triage_node(
@@ -119,26 +126,37 @@ def create_inspect_node(
         event_ids: dict[str, set[str]] = {}
         name = f"{agent_name}:inspect"
         budget = ToolLoopBudget(name, req.model, share, 0.0)
-        agent = build_cleanup_agent(
-            chat, INSPECT_SYSTEM_PROMPT, assignment.rounds, INSPECT_TOOLS, InspectReport
-        )
-        output = await agent.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": build_inspect_prompt(assignment.taskId, assignment.rounds),
-                    }
-                ]
-            },
-            context=CleanupAgentContext(
-                name, usage, budget, assignment.rounds, reader, req.batch, {}, event_ids
-            ),
-            config={"recursion_limit": AGENT_RECURSION_LIMIT},
-        )
-        report = output.get("structured_response")
-        if not isinstance(report, InspectReport):
-            raise ValueError(f"{assignment.taskId} inspection produced no structured report")
+        # 후보 하나의 조사가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
+        # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
+        try:
+            agent = build_cleanup_agent(
+                chat, INSPECT_SYSTEM_PROMPT, assignment.rounds, INSPECT_TOOLS, InspectReport
+            )
+            output = await agent.ainvoke(
+                {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": build_inspect_prompt(assignment.taskId, assignment.rounds),
+                        }
+                    ]
+                },
+                context=CleanupAgentContext(
+                    name, usage, budget, assignment.rounds, reader, req.batch, {}, event_ids
+                ),
+                config={"recursion_limit": AGENT_RECURSION_LIMIT},
+            )
+            report = output.get("structured_response")
+            if not isinstance(report, InspectReport):
+                raise ValueError(f"{assignment.taskId} inspection produced no structured report")
+        except Exception as exc:
+            # 조사가 무너진 후보는 안전하게 보존하도록 보관 불가로 올린다.
+            report = InspectReport(
+                taskId=assignment.taskId,
+                archivable=False,
+                reason=_failure_reason(exc),
+                citedEventIds=[],
+            )
         return {
             "reports": [report],
             "event_ids_by_task": event_ids,

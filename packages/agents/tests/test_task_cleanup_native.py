@@ -9,9 +9,12 @@ import pytest
 from pydantic import ValidationError
 
 from agent_graph.agents.runtime.execution.runner import execute
+from agent_graph.agents.runtime.execution.trace import ExecutionTrace
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
 from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH, _dispatch
 from agent_graph.agents.task_cleanup.models import TaskCleanupRequest, TriagePlan
+from agent_graph.agents.task_cleanup.nodes.inspect import create_inspect_node
+from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from tests.fakes import FakeLedger, FakeToolLoopChat
 
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
@@ -260,6 +263,61 @@ async def test_아무_도구도_부르지_않으면_빈_결과로_끝낸다(monk
     res = await _run(chat, ledger, *candidates)
 
     assert res.error is None and res.data == {"suggestions": []}
+
+
+async def test_후보_조사_예외는_실패_보고로_강등된다() -> None:
+    class BoomChat(FakeToolLoopChat):
+        async def ainvoke(self, messages: list[Any]) -> Any:
+            raise RuntimeError("inspect blew up")
+
+    req = _request(_candidate("task-1", has_events=True))
+    node = create_inspect_node(
+        req,
+        CleanupLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        ExecutionTrace(),
+        BoomChat([]),
+        agent_name="task-cleanup",
+    )
+
+    result = await node({"assignment": {"taskId": "task-1", "rounds": 2}, "cost_share": 0.5})
+
+    # 조사가 무너진 후보는 안전하게 보관 불가로, 사유는 실패로 올린다.
+    report = result["reports"][0]
+    assert report.taskId == "task-1"
+    assert report.archivable is False
+    assert report.reason.startswith("조사 실패") and "inspect blew up" in report.reason
+    assert report.citedEventIds == []
+    assert "model_cost_usd" in result
+
+
+async def test_후보_하나가_무너져도_그래프가_완주하고_나머지가_합쳐진다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class OneInspectFails(FakeToolLoopChat):
+        async def ainvoke(self, messages: list[Any]) -> Any:
+            names = {getattr(tool, "name", "") for tool in self.bound_tools}
+            text = " ".join(str(getattr(message, "content", message)) for message in messages)
+            # task-2 조사만 골라 무너뜨린다. 조율자는 CleanupDraft를 쥐므로 걸리지 않는다.
+            if "InspectReport" in names and "task-2" in text:
+                raise RuntimeError("inspect blew up")
+            return await super().ainvoke(messages)
+
+    plan = {"inspect": [{"taskId": "task-1", "rounds": 2}, {"taskId": "task-2", "rounds": 2}]}
+    chat = OneInspectFails([{"suggestions": []}], report={"TriagePlan": plan})
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+
+    res = await _run(
+        chat,
+        FakeLedger(),
+        _candidate("task-1", has_events=True),
+        _candidate("task-2", has_events=True),
+    )
+
+    # 한 후보 조사가 예외를 던져도 잡은 실패하지 않고 완주한다.
+    assert res.error is None and res.data == {"suggestions": []}
+    inspected = [step for step in res.steps if step.nodeName == "inspect"]
+    assert sum(1 for step in inspected if step.eventKind == "node.completed") == 2
+    assert not any(step.eventKind == "node.failed" for step in inspected)
 
 
 async def test_고른_후보만_각자_예산으로_병렬_조사된다(monkeypatch: pytest.MonkeyPatch) -> None:

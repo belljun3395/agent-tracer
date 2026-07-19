@@ -297,6 +297,35 @@ class TestRecipeScanGraph:
         probe_nodes = [step for step in res.steps if step.nodeName == "probe"]
         assert sum(1 for step in probe_nodes if step.eventKind == "node.completed") == 2
 
+    async def test_전문가_하나가_무너져도_그래프가_완주하고_나머지가_합쳐진다(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class OneProbeFails(FakeToolLoopChat):
+            async def ainvoke(self, messages: list[object]) -> object:
+                names = {getattr(tool, "name", "") for tool in self.bound_tools}
+                # rules 전문가만 골라 무너뜨린다. 조율자는 RecipeDraft를 쥐므로 걸리지 않는다.
+                if "ProbeReport" in names and "list_rules" in names:
+                    raise RuntimeError("rules probe blew up")
+                return await super().ainvoke(messages)
+
+        plan = DispatchPlan(
+            probes=[
+                {"probe": "timeline", "rounds": 4, "question": "무엇을 했나"},  # type: ignore[list-item]
+                {"probe": "rules", "rounds": 3, "question": "어떤 규칙이"},  # type: ignore[list-item]
+            ]
+        )
+        chat = OneProbeFails([{"recipes": []}], plan=plan)
+        monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
+
+        res = await self._run(chat)
+
+        # 한 전문가가 예외를 던져도 잡은 실패하지 않고 완주한다.
+        assert res.error is None and res.data == {"recipes": []}
+        probe_nodes = [step for step in res.steps if step.nodeName == "probe"]
+        # 두 분기 모두 노드로는 완주하고, 실패로 무너진 분기는 없다.
+        assert sum(1 for step in probe_nodes if step.eventKind == "node.completed") == 2
+        assert not any(step.eventKind == "node.failed" for step in probe_nodes)
+
 class TestExecuteWrapper:
     async def test_데드라인_초과를_deadline_exceeded로_잡는다(self) -> None:
         async def slow(_usage: object) -> dict[str, object]:
