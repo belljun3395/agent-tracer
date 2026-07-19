@@ -9,7 +9,11 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.recipe_scan.langchain_agent import PROBE_TOOLS, RECIPE_LANGCHAIN_TOOLS
+from agent_graph.agents.recipe_scan.langchain_agent import (
+    PROBE_TOOLS,
+    RECIPE_LANGCHAIN_TOOLS,
+    build_recipe_agent,
+)
 from agent_graph.agents.recipe_scan.models import (
     MAX_EXCERPT_CHARS,
     MAX_EXCERPTS_PER_PROBE,
@@ -25,7 +29,7 @@ from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
 from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
 from agent_graph.agents.recipe_scan.tools.provenance import add_provenance, merge_provenance
-from tests.fakes import FakeLedger, FakeSearch
+from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 
 def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> None:
@@ -343,3 +347,10 @@ def test_전문가는_자기_근거_원천의_도구만_쥔다() -> None:
     }
     # 세 전문가를 합치면 조율자가 혼자 쓸 때와 같은 도구 집합이라 계약이 안 바뀐다.
     assert set().union(*rosters.values()) == {tool.name for tool in RECIPE_LANGCHAIN_TOOLS}
+
+
+def test_전문가는_후보가_아니라_보고를_내도록_조립된다() -> None:
+    probe = build_recipe_agent(FakeToolLoopChat([]), "system", 3, PROBE_TOOLS["rules"], ProbeReport)
+    coordinator = build_recipe_agent(FakeToolLoopChat([]), "system", 15)
+
+    assert probe is not None and coordinator is not None

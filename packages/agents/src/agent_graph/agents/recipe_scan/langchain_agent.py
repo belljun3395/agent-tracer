@@ -11,7 +11,7 @@ from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import SystemMessage
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import ProbeName, ProvenanceCatalog, RecipeDraft
@@ -165,6 +165,7 @@ def build_recipe_agent(
     system_prompt: str,
     max_rounds: int,
     tools: tuple[Any, ...] = RECIPE_LANGCHAIN_TOOLS,
+    output: type[BaseModel] = RecipeDraft,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 recipe-scan agent를 컴파일한다."""
     system = SystemMessage(
@@ -183,7 +184,7 @@ def build_recipe_agent(
                     StandardAgentMiddleware(),
                 ],
             ),
-            response_format=ToolStrategy(RecipeDraft, handle_errors=True),
+            response_format=ToolStrategy(output, handle_errors=True),
             context_schema=RecipeAgentContext,
             name="recipe-scan-investigator",
         ),
