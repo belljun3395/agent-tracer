@@ -5,12 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, cast
 
+from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelCallLimitMiddleware
+from langchain.agents.middleware import ModelCallLimitMiddleware, ToolRetryMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import SystemMessage
 from langgraph.graph.state import CompiledStateGraph
+from opensearchpy.exceptions import ConnectionError as OpenSearchConnectionError
+from opensearchpy.exceptions import ConnectionTimeout as OpenSearchConnectionTimeout
 from pydantic import BaseModel, Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
@@ -146,6 +149,29 @@ RECIPE_LANGCHAIN_TOOLS = (
 )
 
 
+# 원장(asyncpg)과 색인(opensearch)의 연결 계열 오류만 일시적이다. 검증·도메인 오류는 재시도하면 안 된다.
+_TRANSIENT_TOOL_ERRORS: tuple[type[Exception], ...] = (
+    PostgresConnectionError,
+    CannotConnectNowError,
+    OpenSearchConnectionError,
+    OpenSearchConnectionTimeout,
+    ConnectionError,
+    TimeoutError,
+)
+
+
+def _tool_retry() -> ToolRetryMiddleware:
+    """도구의 일시적 연결 오류를 도구 계층에서 재시도해 병렬 조사가 통째로 무너지지 않게 한다."""
+    return ToolRetryMiddleware(
+        max_retries=2,
+        retry_on=_TRANSIENT_TOOL_ERRORS,
+        on_failure="error",
+        backoff_factor=2.0,
+        initial_delay=0.5,
+        jitter=False,
+    )
+
+
 async def _invoke_and_record(context: RecipeAgentContext, name: str, args: dict[str, Any]) -> str:
     content = await invoke_tool(context.reader, context.search, context.provenance, name, args)
     record_evidence(context.provenance, name, args, content)
@@ -182,6 +208,7 @@ def build_recipe_agent(
                 [
                     ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
                     StandardAgentMiddleware(),
+                    _tool_retry(),
                 ],
             ),
             response_format=ToolStrategy(output, handle_errors=True),

@@ -6,8 +6,9 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, cast
 
+from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelCallLimitMiddleware
+from langchain.agents.middleware import ModelCallLimitMiddleware, ToolRetryMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import SystemMessage
@@ -90,6 +91,26 @@ async def _invoke_and_record(context: CleanupAgentContext, name: str, args: dict
 TRIAGE_TOOLS = (list_candidate_tasks,)
 INSPECT_TOOLS = (get_task_events,)
 
+# 이 에이전트는 원장(asyncpg)만 읽는다. 연결 계열 오류만 일시적이며 검증·도메인 오류는 재시도하지 않는다.
+_TRANSIENT_TOOL_ERRORS: tuple[type[Exception], ...] = (
+    PostgresConnectionError,
+    CannotConnectNowError,
+    ConnectionError,
+    TimeoutError,
+)
+
+
+def _tool_retry() -> ToolRetryMiddleware:
+    """도구의 일시적 연결 오류를 도구 계층에서 재시도해 병렬 조사가 통째로 무너지지 않게 한다."""
+    return ToolRetryMiddleware(
+        max_retries=2,
+        retry_on=_TRANSIENT_TOOL_ERRORS,
+        on_failure="error",
+        backoff_factor=2.0,
+        initial_delay=0.5,
+        jitter=False,
+    )
+
 
 def build_cleanup_agent(
     chat: Any,
@@ -113,6 +134,7 @@ def build_cleanup_agent(
                 [
                     ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
                     CleanupAgentMiddleware(),
+                    _tool_retry(),
                 ],
             ),
             response_format=ToolStrategy(output, handle_errors=True),
