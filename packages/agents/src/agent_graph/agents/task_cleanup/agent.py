@@ -11,6 +11,7 @@ from ..runtime.validation_graph import ValidationGraphContext
 from .graph import TASK_CLEANUP_GRAPH
 from .models import TaskCleanupRequest
 from .nodes.decision import create_decision_nodes
+from .nodes.inspect import create_inspect_node, create_triage_node
 from .nodes.result import empty, finalize
 from .policy import TASK_CLEANUP_MAX_OUTPUT_TOKENS, build_routes
 from .reader import CleanupLedgerReader
@@ -28,17 +29,16 @@ async def run_task_cleanup(
         req.deadlineMs,
         max_output_tokens=TASK_CLEANUP_MAX_OUTPUT_TOKENS,
     )
+    reader = CleanupLedgerReader(ledger, req.userId)
     investigate, validate_decisions, repair = create_decision_nodes(
-        req,
-        CleanupLedgerReader(ledger, req.userId),
-        usage,
-        chat,
-        agent_name=AGENT_NAME,
+        req, reader, usage, chat, agent_name=AGENT_NAME
     )
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
         {
+            "triage": create_triage_node(req, reader, usage, chat, agent_name=AGENT_NAME),
+            "inspect": create_inspect_node(req, reader, usage, chat, agent_name=AGENT_NAME),
             "investigate": investigate,
             "validate_decisions": validate_decisions,
             "repair": repair,
@@ -53,6 +53,8 @@ async def run_task_cleanup(
             "language": req.language,
             "max_suggestions": req.maxSuggestions,
             "messages": [],
+            "plan": None,
+            "reports": [],
             "exposed_candidates": {},
             "event_ids_by_task": {},
             "model_cost_usd": 0.0,

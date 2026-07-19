@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ..shared.models import Language
-from .models import MAX_EVIDENCE_EVENT_IDS
+from .models import MAX_EVIDENCE_EVENT_IDS, InspectReport
 
 PROMPT_VERSION = "task-cleanup-native-v4"
 
@@ -81,12 +83,67 @@ your tools returned. You may read more evidence first. Then return the complete 
 """
 
 
-def build_user_prompt(scanned_at: str, max_suggestions: int, language: Language) -> str:
-    """정리 스캔 시점과 제안 상한과 출력 언어를 담은 최초 지시문이다."""
+def build_user_prompt(
+    scanned_at: str,
+    max_suggestions: int,
+    language: Language,
+    reports: Sequence[InspectReport] | None = None,
+) -> str:
+    """정리 스캔 시점과 제안 상한과 출력 언어와 조사 결과를 담은 최초 지시문이다."""
+    return (
+        "\n".join(
+            [
+                f"Scan time: {scanned_at}",
+                f"Propose at most {max_suggestions} tasks to archive.",
+                f"Output language: {LANGUAGE_DIRECTIVES[language]}",
+            ]
+        )
+        + render_reports(reports)
+    )
+
+
+TRIAGE_SYSTEM_PROMPT = f"""You decide which cleanup candidates are worth opening.
+Prompt version: {PROMPT_VERSION}.
+
+You see the qualified candidates and nothing else. Opening a task costs rounds, so choose the ones whose
+archivability you genuinely cannot judge from the listing, and give each only the rounds it needs. A
+candidate with no events needs no inspection at all; a long-running one may need several. Asking for more
+rounds than exist gets your allocation cut down proportionally, so allocate within what you are told.
+"""
+
+INSPECT_SYSTEM_PROMPT = f"""You judge one cleanup candidate by reading what actually happened in it.
+Prompt version: {PROMPT_VERSION}.
+
+Read the task's events and decide whether it can be archived. Report the event IDs that back your
+judgement — the coordinator cannot see what you read, and a task with events may only be proposed for
+archival when its own events are cited. If the task turns out to hold real work, say so; refusing to
+archive is as useful an answer as approving it.
+"""
+
+
+def build_triage_prompt(candidate_count: int, available_rounds: int) -> str:
+    """조율자가 무엇을 열어볼지 정하는 데 필요한 사실만 싣는다."""
     return "\n".join(
         [
-            f"Scan time: {scanned_at}",
-            f"Propose at most {max_suggestions} tasks to archive.",
-            f"Output language: {LANGUAGE_DIRECTIVES[language]}",
+            f"Candidates in this batch: {candidate_count}",
+            f"Inspection rounds available: {available_rounds}",
+            "Call list_candidate_tasks to see them before deciding.",
         ]
     )
+
+
+def build_inspect_prompt(task_id: str, rounds: int) -> str:
+    """조사자가 후보 하나에만 집중하도록 맡은 범위만 싣는다."""
+    return "\n".join([f"Task to judge: {task_id}", f"Rounds available: {rounds}"])
+
+
+def render_reports(reports: Sequence[InspectReport] | None) -> str:
+    """후보별 조사 결과를 조율자가 읽을 근거로 편다."""
+    if not reports:
+        return ""
+    lines = [
+        f"- {report.taskId}: {'archivable' if report.archivable else 'keep'} — {report.reason}"
+        + (f" (events: {', '.join(report.citedEventIds)})" if report.citedEventIds else "")
+        for report in reports
+    ]
+    return "\n\nWhat your inspectors reported:\n" + "\n".join(lines)

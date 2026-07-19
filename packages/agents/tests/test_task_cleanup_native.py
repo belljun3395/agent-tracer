@@ -73,6 +73,8 @@ def test_전용_그래프_위상을_고정한다() -> None:
 
     assert set(graph.nodes) == {
         "__start__",
+        "triage",
+        "inspect",
         "investigate",
         "validate_decisions",
         "repair",
@@ -81,7 +83,10 @@ def test_전용_그래프_위상을_고정한다() -> None:
         "__end__",
     }
     edges = {(edge.source, edge.target) for edge in graph.edges}
-    assert ("__start__", "investigate") in edges
+    # 조율자가 열어볼 후보를 고르고, 고른 만큼 동시에 조사한다.
+    assert ("__start__", "triage") in edges
+    assert ("triage", "inspect") in edges
+    assert ("inspect", "investigate") in edges
     assert ("investigate", "validate_decisions") in edges
     assert ("repair", "validate_decisions") in edges
 
@@ -234,3 +239,17 @@ async def test_아무_도구도_부르지_않으면_빈_결과로_끝낸다(monk
     res = await _run(chat, ledger, *candidates)
 
     assert res.error is None and res.data == {"suggestions": []}
+
+
+async def test_고른_후보만_각자_예산으로_병렬_조사된다(monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = {"inspect": [{"taskId": "task-1", "rounds": 2}, {"taskId": "task-2", "rounds": 2}]}
+    chat = FakeToolLoopChat([{"suggestions": []}], report={"TriagePlan": plan})
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+
+    res = await _run(
+        chat, FakeLedger(), _candidate("task-1", has_events=True), _candidate("task-2", has_events=True)
+    )
+
+    assert res.error is None
+    inspected = [step for step in res.steps if step.nodeName == "inspect"]
+    assert sum(1 for step in inspected if step.eventKind == "node.completed") == 2

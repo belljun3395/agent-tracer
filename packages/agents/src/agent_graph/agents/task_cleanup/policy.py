@@ -6,12 +6,58 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
-from .models import CleanupDraftSuggestion, TaskCleanupState
+from .models import (
+    CleanupDraftSuggestion,
+    InspectAssignment,
+    TaskCleanupState,
+    TriagePlan,
+)
 
 TASK_CLEANUP_MAX_OUTPUT_TOKENS = 16_000
 TASK_CLEANUP_MAX_MODEL_COST_USD = 0.5
 # 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
 MAX_TOOL_ROUNDS = 16
+
+# 후보 목록을 훑는 데 쓰는 라운드와, 조사를 마친 뒤 제안을 쓰는 데 남기는 라운드다.
+TRIAGE_ROUNDS = 3
+DECISION_ROUNDS = 3
+
+
+def inspection_rounds() -> int:
+    """선별과 결정에 쓰고 남은, 후보를 열어보는 데 배분 가능한 라운드다."""
+    return MAX_TOOL_ROUNDS - TRIAGE_ROUNDS - DECISION_ROUNDS
+
+
+def decision_rounds(plan: TriagePlan | None) -> int:
+    """선별과 조사에 쓰고 남은, 조율자가 제안을 쓰는 데 갖는 라운드다."""
+    if plan is None:
+        return MAX_TOOL_ROUNDS
+    return max(MAX_TOOL_ROUNDS - TRIAGE_ROUNDS - plan.total_rounds(), DECISION_ROUNDS)
+
+
+def clamp_triage(plan: TriagePlan, available: int) -> tuple[TriagePlan, int]:
+    """조율자의 배분을 남은 예산 안으로 비례 축소하고 깎인 라운드 수를 함께 돌려준다."""
+    requested = plan.total_rounds()
+    if requested <= available or not plan.inspect:
+        return plan, 0
+    floor = len(plan.inspect)
+    if floor > available:
+        # 열어볼 후보가 예산보다 많으면 많이 요구한 순서대로 남길 만큼만 남긴다.
+        ranked = sorted(plan.inspect, key=lambda item: item.rounds, reverse=True)[:available]
+        kept = TriagePlan(inspect=[item.model_copy(update={"rounds": 1}) for item in ranked])
+        return kept, requested - kept.total_rounds()
+    spare = available - floor
+    over = requested - floor
+    granted = [1 + ((item.rounds - 1) * spare // over if over else 0) for item in plan.inspect]
+    order = sorted(range(len(granted)), key=lambda index: plan.inspect[index].rounds, reverse=True)
+    for index in order[: max(available - sum(granted), 0)]:
+        granted[index] += 1
+    shrunk: list[InspectAssignment] = [
+        item.model_copy(update={"rounds": rounds})
+        for item, rounds in zip(plan.inspect, granted, strict=True)
+    ]
+    clamped = TriagePlan(inspect=shrunk)
+    return clamped, requested - clamped.total_rounds()
 
 # 라운드 예산은 agent의 호출 한도가 집행한다. 한 라운드가 before_model·model·after_model·tools
 # 네 슈퍼스텝을 도는 데다 미들웨어를 더하면 더 늘어나므로, 재귀 한도는 예산을 세는 자리가 아니라

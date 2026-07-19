@@ -12,7 +12,7 @@ from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import SystemMessage
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import CleanupBatch, CleanupCandidate, CleanupDraft
@@ -86,7 +86,18 @@ async def _invoke_and_record(context: CleanupAgentContext, name: str, args: dict
     return content
 
 
-def build_cleanup_agent(chat: Any, system_prompt: str) -> CompiledStateGraph[Any, Any, Any, Any]:
+# 조율자는 후보 목록만, 조사자는 이벤트만 본다. 인용 확인은 아직 이 에이전트에 없다.
+TRIAGE_TOOLS = (list_candidate_tasks,)
+INSPECT_TOOLS = (get_task_events,)
+
+
+def build_cleanup_agent(
+    chat: Any,
+    system_prompt: str,
+    max_rounds: int = MAX_TOOL_ROUNDS,
+    tools: tuple[Any, ...] = (list_candidate_tasks, get_task_events),
+    output: type[BaseModel] = CleanupDraft,
+) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 task-cleanup agent를 컴파일한다."""
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
@@ -95,16 +106,16 @@ def build_cleanup_agent(chat: Any, system_prompt: str) -> CompiledStateGraph[Any
         CompiledStateGraph[Any, Any, Any, Any],
         create_agent(
             chat,
-            tools=[list_candidate_tasks, get_task_events],
+            tools=list(tools),
             system_prompt=system,
             middleware=cast(
                 Any,
                 [
-                    ModelCallLimitMiddleware(run_limit=MAX_TOOL_ROUNDS + 2, exit_behavior="error"),
+                    ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
                     CleanupAgentMiddleware(),
                 ],
             ),
-            response_format=ToolStrategy(CleanupDraft, handle_errors=True),
+            response_format=ToolStrategy(output, handle_errors=True),
             context_schema=CleanupAgentContext,
             name="task-cleanup-investigator",
         ),

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+import operator
+from typing import Annotated, Literal, TypedDict
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
@@ -88,6 +89,61 @@ class EventPage(BaseModel):
     total: int = Field(ge=0)
 
 
+# 한 후보를 열어보는 데 쓰는 최대 라운드이며 조율자의 배분을 이 안으로 가둔다.
+MAX_INSPECT_ROUNDS = 4
+MAX_INSPECT_EXCERPTS = 6
+MAX_INSPECT_REASON_CHARS = 400
+
+
+class InspectAssignment(BaseModel):
+    """조율자가 열어보기로 고른 후보 하나와 배분한 라운드다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    taskId: TrimmedStr = Field(min_length=1)
+    rounds: int = Field(ge=1, le=MAX_INSPECT_ROUNDS)
+
+
+class TriagePlan(BaseModel):
+    """조율자가 후보 배치를 보고 무엇을 열어볼지 정한 결과다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    inspect: list[InspectAssignment] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)
+
+    def total_rounds(self) -> int:
+        """계획이 요구하는 조사 라운드 합이다."""
+        return sum(item.rounds for item in self.inspect)
+
+
+class InspectReport(BaseModel):
+    """한 후보를 열어본 결과이며 조율자는 이것만 보고 제안을 쓴다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    taskId: TrimmedStr = Field(min_length=1)
+    archivable: bool
+    reason: TrimmedStr = Field(min_length=1, max_length=MAX_INSPECT_REASON_CHARS)
+    citedEventIds: list[TrimmedStr] = Field(default_factory=list, max_length=MAX_INSPECT_EXCERPTS)
+
+
+def merged_candidates(
+    left: dict[str, CleanupCandidate], right: dict[str, CleanupCandidate]
+) -> dict[str, CleanupCandidate]:
+    """병렬 조사가 노출한 후보를 하나의 목록으로 합친다."""
+    return {**left, **right}
+
+
+def merged_event_ids(
+    left: dict[str, set[str]], right: dict[str, set[str]]
+) -> dict[str, set[str]]:
+    """태스크마다 실제로 열어본 이벤트를 합집합으로 합친다."""
+    combined = {task_id: set(ids) for task_id, ids in left.items()}
+    for task_id, ids in right.items():
+        combined.setdefault(task_id, set()).update(ids)
+    return combined
+
+
 class CleanupDraftSuggestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -115,9 +171,12 @@ class TaskCleanupState(TypedDict):
     max_suggestions: int
     # 근거는 프롬프트에 다시 붙이지 않고 대화 이력에 남아 캐시된다.
     messages: list[BaseMessage]
-    exposed_candidates: dict[str, CleanupCandidate]
-    event_ids_by_task: dict[str, set[str]]
-    model_cost_usd: float
+    plan: TriagePlan | None
+    # 후보마다 병렬로 열어보므로 노출·인용·지출이 모두 누적으로 합쳐져야 한다.
+    reports: Annotated[list[InspectReport], operator.add]
+    exposed_candidates: Annotated[dict[str, CleanupCandidate], merged_candidates]
+    event_ids_by_task: Annotated[dict[str, set[str]], merged_event_ids]
+    model_cost_usd: Annotated[float, operator.add]
     suggestions: list[CleanupDraftSuggestion]
     validation_errors: list[str]
     repair_attempted: bool

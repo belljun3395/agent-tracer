@@ -30,6 +30,14 @@ def mk_ai(
     )
 
 
+# 전문가 보고와 선별 계획은 조율자 턴을 소비하지 않고 대역이 알아서 채운다.
+_AUTO_REPORTS: dict[str, dict[str, Any]] = {
+    "ProbeReport": {"probe": "timeline", "verdict": "조사했다"},
+    "InspectReport": {"taskId": "task-1", "archivable": True, "reason": "의미 있는 활동이 없다"},
+    "TriagePlan": {"inspect": []},
+}
+
+
 class _FakePlanner:
     """구조화 출력 대역이며 조율자가 세운 계획을 캔 값으로 돌려준다."""
 
@@ -75,19 +83,20 @@ class FakeToolLoopChat:
 
     async def ainvoke(self, messages: list[Any]) -> AIMessage:
         self.requests.append(list(messages))
+        auto_names = {"ProbeReport", "InspectReport", "TriagePlan"}
         probe_tool = next(
-            (tool for tool in self.bound_tools if getattr(tool, "name", "") == "ProbeReport"), None
+            (tool for tool in self.bound_tools if getattr(tool, "name", "") in auto_names), None
         )
         if probe_tool is not None:
             # 전문가 보고는 조율자 턴을 소비하지 않는다. 무엇을 쥐고 돌았는지만 기록한다.
             self.probe_calls.append(
                 [getattr(tool, "name", "") for tool in self.bound_tools if tool is not probe_tool]
             )
-            report = self.report or {"probe": "timeline", "verdict": "조사했다"}
+            name = probe_tool.name
+            override = (self.report or {}).get(name) if isinstance(self.report, dict) else self.report
+            report = override if override is not None else _AUTO_REPORTS[name]
             return mk_ai(
-                tool_calls=[
-                    {"name": "ProbeReport", "args": report, "id": "call-probe", "type": "tool_call"}
-                ]
+                tool_calls=[{"name": name, "args": report, "id": "call-probe", "type": "tool_call"}]
             )
         if not self.turns:
             raise AssertionError("no fake turn remains")

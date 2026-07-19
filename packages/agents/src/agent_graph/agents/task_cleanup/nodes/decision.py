@@ -11,8 +11,8 @@ from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
 from ..models import CleanupDraft, TaskCleanupRequest, TaskCleanupState
 from ..policy import (
     AGENT_RECURSION_LIMIT,
-    MAX_TOOL_ROUNDS,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
+    decision_rounds,
     validate_suggestions,
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
@@ -42,11 +42,12 @@ def create_decision_nodes(
             TASK_CLEANUP_MAX_MODEL_COST_USD,
             state["model_cost_usd"],
         )
+        rounds = decision_rounds(state["plan"])
         context = CleanupAgentContext(
             agent_name,
             usage,
             budget,
-            MAX_TOOL_ROUNDS,
+            rounds,
             reader,
             req.batch,
             state["exposed_candidates"],
@@ -68,7 +69,10 @@ def create_decision_nodes(
                 {
                     "role": "user",
                     "content": build_user_prompt(
-                        state["scanned_at"], state["max_suggestions"], state["language"]
+                        state["scanned_at"],
+                        state["max_suggestions"],
+                        state["language"],
+                        state["reports"],
                     ),
                 }
             ],
