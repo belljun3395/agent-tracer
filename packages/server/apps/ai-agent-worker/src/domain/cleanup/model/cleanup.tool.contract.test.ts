@@ -23,6 +23,7 @@ const CONTRACT = JSON.parse(
         "utf8",
     ),
 ) as {
+    readonly descriptions: Record<string, string>;
     readonly maxTurns: number;
     readonly outputKinds: string[];
     readonly limits: {
@@ -167,3 +168,11 @@ function sampleEvent(id: string): CleanupSlimEvent {
         occurredAt: "2026-07-14T00:00:00Z",
     };
 }
+
+describe("도구 설명", () => {
+    it("골든 계약과 같은 문장을 모델에게 보인다", () => {
+        const shown = Object.fromEntries(TASK_CLEANUP_TOOLS.map((spec) => [spec.name, spec.description]));
+
+        expect(shown).toEqual(CONTRACT.descriptions);
+    });
+});

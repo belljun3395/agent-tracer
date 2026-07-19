@@ -82,5 +82,13 @@
         "limit": { "default": 5, "min": 1, "max": 20 }
       }
     }
+  },
+  "descriptions": {
+    "get_task_summary": "Get a cheap task overview (tool usage counts, top files touched, top commands run, first user message) aggregated over the task's earliest events, window many, default 400. The response's truncated/totalEventCount fields tell you whether later events were left out.",
+    "get_task_events": "Get a page of a task's chronological event sequence (user messages, assistant messages, tool runs), up to 300 events per page. You choose how much to read: pick limit, pass the response's nextCursor back as cursor to keep paging, and set order=\"desc\" to start from the latest events. truncated/total tell you whether more events exist.",
+    "list_rules": "List existing global and task-scoped rules that apply to the anchor task, so friction a rule already governs is cited by rule ID in governing_rules instead of re-described.",
+    "search_events": "Search indexed events by title/body, ranked by recency. Use q with optional taskId, kind, or toolName filters to find user corrections, instructions, and friction evidence. Pick limit (up to 100 per call) and offset to page through as many results as you need.",
+    "find_similar_tasks": "Find tasks with titles similar to the anchor task. Use after inspecting the anchor to check whether the workflow repeats.",
+    "search_recipes": "Search existing recipes for possible duplicate or outdated targets. Use this before setting revises_recipe_id."
   }
 }

@@ -23,6 +23,7 @@ const CONTRACT = JSON.parse(
         "utf8",
     ),
 ) as {
+    readonly descriptions: Record<string, string>;
     readonly maxTurns: number;
     readonly limits: {
         readonly recentTurnLimit: number;
@@ -104,5 +105,13 @@ describe("title-suggestion 도구 계약", () => {
     it("읽기 방향의 기본값과 허용 값이 골든 계약과 같다", () => {
         expect(DEFAULT_EVENT_ORDER).toBe(CONTRACT.getTaskEvents.order.default);
         expect(Object.values(EVENT_ORDER)).toEqual(CONTRACT.getTaskEvents.order.values);
+    });
+});
+
+describe("도구 설명", () => {
+    it("골든 계약과 같은 문장을 모델에게 보인다", () => {
+        const shown = Object.fromEntries(TITLE_SUGGESTION_TOOLS.map((spec) => [spec.name, spec.description]));
+
+        expect(shown).toEqual(CONTRACT.descriptions);
     });
 });

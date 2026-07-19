@@ -37,5 +37,9 @@
       "page": ["events", "truncated", "nextCursor", "total"],
       "item": ["id", "seq", "kind", "title", "body", "toolName", "filePaths", "occurredAt"]
     }
+  },
+  "descriptions": {
+    "list_candidate_tasks": "List the cleanup candidates the server already qualified for this scan (hidden, active, and recently touched tasks are excluded before you see them). Each entry carries visibleTitle, status, lastEventAt, hasEvents, activeChildCount and the server-detected candidateReasons. Call this first, and page with cursor until truncated is false if you want the whole batch. Only task ids returned here may be proposed. moreCandidatesOutsideBatch=true means the server itself capped this batch; the leftover tasks are outside your reach and a future scan will pick them up.",
+    "get_task_events": "Get a page of a task's chronological event sequence (user messages, assistant messages, tool runs), up to 300 events per page. You choose how much to read: pick limit, pass the response's nextCursor back as cursor to keep paging, and set order=\"desc\" to start from the latest events (e.g. to see how a long task ended). truncated/total tell you whether more events exist. Call this whenever you need to see what actually happened in a task before judging it."
   }
 }

@@ -23,6 +23,8 @@ from agent_graph.agents.title_suggestion.policy import (
 from agent_graph.agents.title_suggestion.tools import (
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
+    GET_TASK_EVENTS_DESCRIPTION,
+    GET_TASK_EVENTS_TOOL_NAME,
     MAX_EVENT_LIMIT,
     MIN_EVENT_LIMIT,
     GetTaskEventsArgs,
@@ -112,3 +114,9 @@ def test_읽기_방향의_기본값과_허용_값이_골든_계약과_같다() -
     assert DEFAULT_EVENT_ORDER == order["default"]
     assert GetTaskEventsArgs.model_validate({"taskId": "task-1"}).order == order["default"]
     assert list(get_args(field.annotation)) == order["values"]
+
+
+def test_도구_설명이_골든_계약과_같다() -> None:
+    contract = _contract()["descriptions"]
+
+    assert {GET_TASK_EVENTS_TOOL_NAME: GET_TASK_EVENTS_DESCRIPTION} == contract

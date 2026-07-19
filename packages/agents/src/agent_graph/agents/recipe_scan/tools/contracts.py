@@ -106,39 +106,45 @@ class RecipeToolDefinition:
     description: str
     args_model: type[BaseModel]
 
-RECIPE_TOOLS: tuple[RecipeToolDefinition, ...] = (
-    RecipeToolDefinition(
-        "get_task_summary",
-        "Get a cheap task overview. Increase window when truncated indicates later activity was omitted.",
-        GetTaskSummaryArgs,
+# 모델이 읽는 문장은 커널의 골든 계약이 소유하며 두 실행 백엔드가 같은 문장을 쓴다.
+_DESCRIPTIONS: dict[str, str] = {
+    "get_task_summary": (
+        "Get a cheap task overview (tool usage counts, top files touched, top commands run, first "
+        f"user message) aggregated over the task's earliest events, window many, default {DEFAULT_SUMMARY_WINDOW}. The "
+        "response's truncated/totalEventCount fields tell you whether later events were left out."
     ),
-    RecipeToolDefinition(
-        "get_task_events",
-        "Read one chronological page of raw task events. Use desc to inspect how a long task ended.",
-        GetTaskEventsArgs,
+    "get_task_events": (
+        "Get a page of a task's chronological event sequence (user messages, assistant messages, tool "
+        f"runs), up to {MAX_EVENT_LIMIT} events per page. You choose how much to read: pick limit, pass the "
+        "response's nextCursor back as cursor to keep paging, and set order=\"desc\" to start from the "
+        "latest events. truncated/total tell you whether more events exist."
     ),
-    RecipeToolDefinition(
-        "list_rules",
-        "List global and task-scoped rules applicable to the anchor task.",
-        ListRulesArgs,
+    "list_rules": (
+        "List existing global and task-scoped rules that apply to the anchor task, so friction a rule "
+        "already governs is cited by rule ID in governing_rules instead of re-described."
     ),
-    RecipeToolDefinition(
-        "search_events",
+    "search_events": (
         "Search indexed events by title/body, ranked by recency. Use q with optional taskId, kind, or "
-        "toolName filters to find user corrections, instructions, and friction evidence. Pick limit and "
-        "offset to page through as many results as you need.",
-        SearchEventsArgs,
+        "toolName filters to find user corrections, instructions, and friction evidence. Pick limit "
+        f"(up to {MAX_SEARCH_LIMIT} per call) and offset to page through as many results as you need."
     ),
-    RecipeToolDefinition(
-        "find_similar_tasks",
-        "Find tasks whose titles resemble the anchor after the anchor workflow is understood.",
-        FindSimilarTasksArgs,
+    "find_similar_tasks": (
+        "Find tasks with titles similar to the anchor task. Use after inspecting the anchor to check "
+        "whether the workflow repeats."
     ),
-    RecipeToolDefinition(
-        "search_recipes",
-        "Search existing recipes before proposing a revision target.",
-        SearchRecipesArgs,
+    "search_recipes": (
+        "Search existing recipes for possible duplicate or outdated targets. Use this before setting "
+        "revises_recipe_id."
     ),
+}
+
+RECIPE_TOOLS: tuple[RecipeToolDefinition, ...] = (
+    RecipeToolDefinition("get_task_summary", _DESCRIPTIONS["get_task_summary"], GetTaskSummaryArgs),
+    RecipeToolDefinition("get_task_events", _DESCRIPTIONS["get_task_events"], GetTaskEventsArgs),
+    RecipeToolDefinition("list_rules", _DESCRIPTIONS["list_rules"], ListRulesArgs),
+    RecipeToolDefinition("search_events", _DESCRIPTIONS["search_events"], SearchEventsArgs),
+    RecipeToolDefinition("find_similar_tasks", _DESCRIPTIONS["find_similar_tasks"], FindSimilarTasksArgs),
+    RecipeToolDefinition("search_recipes", _DESCRIPTIONS["search_recipes"], SearchRecipesArgs),
 )
 
 _TOOL_BY_NAME = {tool.name: tool for tool in RECIPE_TOOLS}

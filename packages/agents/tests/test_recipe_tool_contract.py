@@ -147,3 +147,9 @@ def test_steps의_order가_1부터_연속하지_않으면_거부한다() -> None
 
     with pytest.raises(ValidationError):
         _candidate([1, 3])
+
+
+def test_도구_설명이_골든_계약과_같다() -> None:
+    contract = _contract()["descriptions"]
+
+    assert {tool.name: tool.description for tool in RECIPE_TOOLS} == contract

@@ -11,5 +11,8 @@
     "optional": ["limit", "cursor", "order"],
     "limit": { "default": 100, "min": 1, "max": 300 },
     "order": { "default": "asc", "values": ["asc", "desc"] }
+  },
+  "descriptions": {
+    "get_task_events": "Get a page of a task's chronological event sequence (user messages, assistant messages, tool runs), up to 300 events per page. You choose how much to read: pick limit, pass the response's nextCursor back as cursor to keep paging, and set order=\"desc\" to start from the latest events (e.g. to see how a long task ended). truncated/total tell you whether more events exist. Call this when the conversation excerpt in the prompt is too thin to name the work."
   }
 }

@@ -40,6 +40,7 @@ const CONTRACT = JSON.parse(
         "utf8",
     ),
 ) as {
+    readonly descriptions: Record<string, string>;
     readonly maxTurns: number;
     readonly limits: { readonly candidateLimit: number; readonly maxOutputTokens: number; readonly maxBudgetUsd: number };
     readonly steps: { readonly consecutiveFromOne: boolean };
@@ -172,5 +173,13 @@ describe("recipe-scan 도구 계약", () => {
         expect(CONTRACT.steps.consecutiveFromOne).toBe(true);
         expect(RECIPE_SCAN_SPEC.outputSchema.safeParse(candidateWithStepOrders([1, 2])).success).toBe(true);
         expect(RECIPE_SCAN_SPEC.outputSchema.safeParse(candidateWithStepOrders([1, 3])).success).toBe(false);
+    });
+});
+
+describe("도구 설명", () => {
+    it("골든 계약과 같은 문장을 모델에게 보인다", () => {
+        const shown = Object.fromEntries(RECIPE_SCAN_TOOLS.map((spec) => [spec.name, spec.description]));
+
+        expect(shown).toEqual(CONTRACT.descriptions);
     });
 });

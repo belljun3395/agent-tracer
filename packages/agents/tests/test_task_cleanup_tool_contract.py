@@ -30,7 +30,9 @@ from agent_graph.agents.task_cleanup.tools import (
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
     GET_TASK_EVENTS,
+    GET_TASK_EVENTS_DESCRIPTION,
     LIST_CANDIDATE_TASKS,
+    LIST_CANDIDATE_TASKS_DESCRIPTION,
     EventOrder,
     GetTaskEventsArgs,
     ListCandidateTasksArgs,
@@ -183,3 +185,12 @@ def test_워커가_응답에_필드를_늘려도_도구_루프가_깨지지_않�
     )
 
     assert [candidate.id for candidate in page.candidates] == ["task-1"]
+
+
+def test_도구_설명이_골든_계약과_같다() -> None:
+    contract = _contract()["descriptions"]
+
+    assert {
+        LIST_CANDIDATE_TASKS: LIST_CANDIDATE_TASKS_DESCRIPTION,
+        GET_TASK_EVENTS: GET_TASK_EVENTS_DESCRIPTION,
+    } == contract
