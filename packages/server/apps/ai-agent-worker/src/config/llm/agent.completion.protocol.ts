@@ -1,4 +1,4 @@
-import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 export const COMPLETION_PATH = "/runs/complete";
 
@@ -9,14 +9,6 @@ const MAX_COMPLETION_BODY_BYTES = 8 * 1024 * 1024;
 export interface CompletionRequest {
     readonly token: string;
     readonly response: Record<string, unknown>;
-}
-
-export function headerCarrier(headers: IncomingHttpHeaders): Record<string, string> {
-    const carrier: Record<string, string> = {};
-    for (const [key, value] of Object.entries(headers)) {
-        if (typeof value === "string") carrier[key] = value;
-    }
-    return carrier;
 }
 
 export function parseCompletion(raw: string): CompletionRequest {
@@ -58,6 +50,6 @@ export function send(res: ServerResponse, status: number, payload: Record<string
     res.end(text);
 }
 
-export function invokeErrorMessage(error: unknown): string {
+export function badRequestMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }

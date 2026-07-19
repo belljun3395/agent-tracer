@@ -89,39 +89,6 @@ class FakeToolLoopChat:
         return found
 
 
-class FakeToolResponse:
-    def __init__(self, payload: dict[str, Any]) -> None:
-        self._payload = payload
-
-    def raise_for_status(self) -> None:
-        return None
-
-    def json(self) -> dict[str, Any]:
-        return self._payload
-
-
-class FakeToolClient:
-    """워커 도구 콜백 대역. 도구 이름별 결과를 돌려주고 호출 순서를 기록한다."""
-
-    def __init__(self, results: dict[str, Any] | None = None) -> None:
-        self.results = results or {}
-        self.calls: list[str] = []
-        self.tokens: list[str] = []
-        self.args: list[dict[str, Any]] = []
-
-    async def post(
-        self, _url: str, json: dict[str, Any], headers: dict[str, str] | None = None
-    ) -> FakeToolResponse:
-        name = str(json["name"])
-        self.calls.append(name)
-        self.tokens.append(str(json["token"]))
-        self.args.append(dict(json["args"]))
-        if name not in self.results:
-            return FakeToolResponse({"error": f"Unknown tool: {name}"})
-        return FakeToolResponse({"content": _json.dumps(self.results[name])})
-
-    async def aclose(self) -> None:
-        return None
 
 
 class FakeLedgerConnection:

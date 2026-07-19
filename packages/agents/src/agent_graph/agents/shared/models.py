@@ -17,13 +17,6 @@ TrimmedStr = Annotated[str, BeforeValidator(_strip)]
 Language = Literal["auto", "ko", "en", "ja", "zh"]
 
 
-class ToolCallback(BaseModel):
-    """도구 실행 창구. 토큰이 곧 소유 스코프라 실행 백엔드는 userId를 알 필요가 없다."""
-
-    url: TrimmedStr = Field(min_length=1)
-    token: TrimmedStr = Field(min_length=1)
-
-
 class CompletionCallback(BaseModel):
     """실행 결과를 돌려줄 창구. 요청한 HTTP 연결이 아니라 이 창구가 결과를 받는다."""
 

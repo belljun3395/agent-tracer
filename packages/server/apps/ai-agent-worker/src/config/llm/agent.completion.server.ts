@@ -1,11 +1,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
     COMPLETION_PATH,
-    invokeErrorMessage,
+    badRequestMessage,
     parseCompletion,
     readCompletionBody,
     send,
-} from "./agent.callback.protocol.js";
+} from "./agent.completion.protocol.js";
 import type { CompletionInbox } from "./durable.completion.inbox.js";
 
 /** 실행 백엔드가 분리 실행을 끝내고 보내는 완료 통지를 워커 안으로 받아들인다. */
@@ -47,7 +47,7 @@ export class AgentCompletionServer {
         try {
             body = parseCompletion(await readCompletionBody(req));
         } catch (error) {
-            return send(res, 400, { error: invokeErrorMessage(error) });
+            return send(res, 400, { error: badRequestMessage(error) });
         }
 
         const accepted = await this.completionInbox.accept(body.token, body.response);

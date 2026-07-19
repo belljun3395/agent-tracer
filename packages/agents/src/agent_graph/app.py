@@ -31,14 +31,12 @@ from .agents.title_suggestion.agent import run_title_suggestion
 from .agents.title_suggestion.models import TitleSuggestionRequest
 from .config import get_settings
 
-TOOL_CALLBACK_TIMEOUT_S = 60.0
 COMPLETION_CALLBACK_TIMEOUT_S = 30.0
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     shutdown_observability = configure_observability()
-    app.state.tool_client = httpx.AsyncClient(timeout=TOOL_CALLBACK_TIMEOUT_S)
     app.state.completion_client = httpx.AsyncClient(timeout=COMPLETION_CALLBACK_TIMEOUT_S)
     settings = get_settings()
     app.state.ledger = LedgerPoolProvider(settings.tracer_dsn())
@@ -47,7 +45,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         shutdown_observability()
-        await app.state.tool_client.aclose()
         await app.state.completion_client.aclose()
         await app.state.ledger.close()
         await app.state.search.close()

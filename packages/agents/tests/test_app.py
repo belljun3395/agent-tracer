@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from agent_graph import app as app_module
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.title_suggestion import agent as title_mod
-from tests.fakes import FakeToolClient, FakeToolLoopChat
+from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 from tests.test_observability import SHARED_SPAN_EXPORTER
 
 _TOOLS: dict[str, object] = {
@@ -98,24 +98,24 @@ def _post(
     path: str,
     body: dict[str, object],
     *,
-    tools: object | None = None,
     ledger: object | None = None,
+    search: object | None = None,
     headers: dict[str, str] | None = None,
 ) -> httpx.Response:
-    original_tools = client.app.state.tool_client
     original_completions = client.app.state.completion_client
     original_ledger = client.app.state.ledger
+    original_search = client.app.state.search
     client.app.state.completion_client = completions
-    if tools is not None:
-        client.app.state.tool_client = tools
     if ledger is not None:
         client.app.state.ledger = ledger
+    if search is not None:
+        client.app.state.search = search
     try:
         return client.post(path, json=body, headers=headers or {})
     finally:
-        client.app.state.tool_client = original_tools
         client.app.state.completion_client = original_completions
         client.app.state.ledger = original_ledger
+        client.app.state.search = original_search
 
 
 def test_health_ok(client: TestClient) -> None:
@@ -124,15 +124,15 @@ def test_health_ok(client: TestClient) -> None:
     assert res.json() == {"status": "ok"}
 
 
-def test_요청별_client_대역은_앱_상태에_남지_않는다(
+def test_요청별_대역은_앱_상태에_남지_않는다(
     client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(title_mod, "make_chat", lambda *a, **k: FakeToolLoopChat([{"suggestions": []}]))
 
-    original_tools = client.app.state.tool_client
+    original_ledger = client.app.state.ledger
     original_completions = client.app.state.completion_client
-    _post(client, completions, "/agents/title-suggestion", _title_body(), tools=FakeToolClient({}))
-    assert client.app.state.tool_client is original_tools
+    _post(client, completions, "/agents/title-suggestion", _title_body(), ledger=FakeLedger())
+    assert client.app.state.ledger is original_ledger
     assert client.app.state.completion_client is original_completions
 
 
@@ -177,15 +177,7 @@ def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
         "userId": "user-1",
         "completionCallback": _TOOLS["completionCallback"],
     }
-    tools = FakeToolClient(
-        {
-            "get_task_summary": {"id": "t1", "title": "x"},
-            "list_rules": [],
-            "get_task_events": {"events": [], "truncated": False, "total": 0},
-        }
-    )
-
-    res = _post(client, completions, "/agents/recipe-scan", body, tools=tools)
+    res = _post(client, completions, "/agents/recipe-scan", body, ledger=FakeLedger(), search=FakeSearch())
 
     assert res.status_code == 202
     payload = completions.response()

@@ -38,7 +38,7 @@ def test_허용된_조립과_동일_slice_import를_통과시킨다(tmp_path: Pa
     )
     write_module(
         source_root,
-        "agent_graph.agents.runtime.callback",
+        "agent_graph.agents.runtime.ledger",
         "from ..shared import models\n",
     )
     write_module(source_root, "agent_graph.agents.shared.models", "import json\n")
