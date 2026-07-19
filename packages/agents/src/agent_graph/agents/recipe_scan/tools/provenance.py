@@ -5,6 +5,16 @@ from __future__ import annotations
 from ..models import EvidenceRecord, ProvenanceCatalog
 
 
+def merge_provenance(into: ProvenanceCatalog, other: ProvenanceCatalog) -> None:
+    """전문가가 자기 맥락에서 모은 장부를 조율자의 장부로 합친다."""
+    for task_id, event_ids in other.eventIdsByTask.items():
+        into.eventIdsByTask.setdefault(task_id, set()).update(event_ids)
+    for task_id, turn_ids in other.turnIdsByTask.items():
+        into.turnIdsByTask.setdefault(task_id, set()).update(turn_ids)
+    into.ruleIds.update(other.ruleIds)
+    into.recipeIds.update(other.recipeIds)
+
+
 def add_provenance(catalog: ProvenanceCatalog, record: EvidenceRecord) -> None:
     """도구 응답 본문에서 이벤트와 규칙과 레시피 식별자를 기록한다."""
     parsed = record.parsed

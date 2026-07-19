@@ -72,6 +72,34 @@ class DispatchPlan(BaseModel):
         return sum(probe.rounds for probe in self.probes)
 
 
+# 발췌 상한이 곧 맥락 격리의 강도다. 넉넉히 열면 전문가의 맥락이 조율자에게 그대로 옮겨온다.
+MAX_EXCERPTS_PER_PROBE = 12
+MAX_EXCERPT_CHARS = 600
+MAX_VERDICT_CHARS = 1_200
+
+
+class Excerpt(BaseModel):
+    """전문가가 조율자에게 올리는 근거 한 조각이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    taskId: TrimmedStr = Field(min_length=1)
+    eventId: TrimmedStr = Field(min_length=1)
+    text: TrimmedStr = Field(min_length=1, max_length=MAX_EXCERPT_CHARS)
+
+
+class ProbeReport(BaseModel):
+    """한 전문가의 조사 결과이며 조율자는 이것만 보고 후보를 쓴다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    probe: ProbeName
+    verdict: TrimmedStr = Field(min_length=1, max_length=MAX_VERDICT_CHARS)
+    excerpts: list[Excerpt] = Field(default_factory=list, max_length=MAX_EXCERPTS_PER_PROBE)
+    # 예산이 끊겨 못 본 것이 있으면 조율자가 남은 예산을 다시 줄지 판단한다.
+    exhausted: bool = False
+
+
 class RecipeStep(BaseModel):
     order: int = Field(ge=1, le=50)
     action: TrimmedStr = Field(min_length=1, max_length=200)
@@ -146,6 +174,7 @@ class ProvenanceCatalog(BaseModel):
 
 class RecipeScanState(TypedDict):
     plan: DispatchPlan | None
+    reports: list[ProbeReport]
     task_id: str
     language: Language
     user_prompt: str | None

@@ -10,13 +10,21 @@ import pytest
 from pydantic import ValidationError
 
 from agent_graph.agents.recipe_scan.langchain_agent import RECIPE_LANGCHAIN_TOOLS
-from agent_graph.agents.recipe_scan.models import DispatchPlan, EvidenceRecord, ProvenanceCatalog
+from agent_graph.agents.recipe_scan.models import (
+    MAX_EXCERPT_CHARS,
+    MAX_EXCERPTS_PER_PROBE,
+    DispatchPlan,
+    EvidenceRecord,
+    Excerpt,
+    ProbeReport,
+    ProvenanceCatalog,
+)
 from agent_graph.agents.recipe_scan.policy import clamp_plan
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
 from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
-from agent_graph.agents.recipe_scan.tools.provenance import add_provenance
+from agent_graph.agents.recipe_scan.tools.provenance import add_provenance, merge_provenance
 from tests.fakes import FakeLedger, FakeSearch
 
 
@@ -282,3 +290,44 @@ def test_조율자의_배분이_예산을_넘으면_비례로_깎인다() -> Non
     floored, _cut = clamp_plan(plan, 3)
     # 전문가마다 최소 한 라운드는 남아 계획이 통째로 사라지지 않는다.
     assert [probe.rounds for probe in floored.probes] == [1, 1, 1]
+
+
+def test_전문가의_장부가_조율자의_장부로_합쳐진다() -> None:
+    coordinator = ProvenanceCatalog(
+        eventIdsByTask={"task-1": {"event-1"}},
+        ruleIds={"rule-1"},
+    )
+    probe = ProvenanceCatalog(
+        eventIdsByTask={"task-1": {"event-2"}, "task-2": {"event-3"}},
+        turnIdsByTask={"task-2": {"turn-1"}},
+        recipeIds={"recipe-1"},
+    )
+
+    merge_provenance(coordinator, probe)
+
+    assert coordinator.eventIdsByTask == {"task-1": {"event-1", "event-2"}, "task-2": {"event-3"}}
+    assert coordinator.turnIdsByTask == {"task-2": {"turn-1"}}
+    assert coordinator.ruleIds == {"rule-1"} and coordinator.recipeIds == {"recipe-1"}
+
+
+def test_병합된_장부는_인용_확인이_그대로_읽는다() -> None:
+    coordinator = ProvenanceCatalog()
+    merge_provenance(coordinator, ProvenanceCatalog(eventIdsByTask={"task-1": {"event-9"}}))
+
+    # 전문가가 읽은 것을 조율자가 인용해도 되는지 같은 술어로 확인된다.
+    assert "event-9" in coordinator.eventIdsByTask["task-1"]
+
+
+def test_발췌는_상한을_넘으면_거부한다() -> None:
+    with pytest.raises(ValidationError):
+        Excerpt(taskId="t", eventId="e", text="x" * (MAX_EXCERPT_CHARS + 1))
+
+    with pytest.raises(ValidationError):
+        ProbeReport(
+            probe="timeline",
+            verdict="v",
+            excerpts=[
+                Excerpt(taskId="t", eventId=f"e{index}", text="x")
+                for index in range(MAX_EXCERPTS_PER_PROBE + 1)
+            ],
+        )

@@ -60,6 +60,7 @@ async def run_recipe_scan(
             "user_prompt": req.userPrompt,
             "messages": [],
             "plan": None,
+            "reports": [],
             "provenance": ProvenanceCatalog(),
             "model_cost_usd": 0.0,
             "candidates": [],
