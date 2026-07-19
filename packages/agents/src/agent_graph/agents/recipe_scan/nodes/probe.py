@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from langchain_core.language_models import BaseChatModel
+
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import PROBE_TOOLS, RecipeAgentContext, build_recipe_agent
@@ -35,7 +37,7 @@ def create_probe_node(
     reader: RecipeLedgerReader,
     search: RecipeSearchReader,
     usage: ExecutionTrace,
-    chat: Any,
+    chat: BaseChatModel,
     *,
     agent_name: str,
 ) -> ProbeNode:

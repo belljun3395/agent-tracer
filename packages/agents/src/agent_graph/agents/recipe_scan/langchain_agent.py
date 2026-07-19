@@ -10,7 +10,9 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware, ToolRetryMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from opensearchpy.exceptions import ConnectionError as OpenSearchConnectionError
 from opensearchpy.exceptions import ConnectionTimeout as OpenSearchConnectionTimeout
@@ -179,7 +181,7 @@ async def _invoke_and_record(context: RecipeAgentContext, name: str, args: dict[
 
 
 # 전문가는 자기 근거 원천에 닿는 도구만 쥔다. 인용 확인은 어느 전문가든 쓰므로 모두에게 준다.
-PROBE_TOOLS: dict[ProbeName, tuple[Any, ...]] = {
+PROBE_TOOLS: dict[ProbeName, tuple[BaseTool, ...]] = {
     "timeline": (get_task_summary, get_task_events, check_citations),
     "rules": (list_rules, search_recipes, check_citations),
     "repetition": (search_events, find_similar_tasks, check_citations),
@@ -187,10 +189,10 @@ PROBE_TOOLS: dict[ProbeName, tuple[Any, ...]] = {
 
 
 def build_recipe_agent(
-    chat: Any,
+    chat: BaseChatModel,
     system_prompt: str,
     max_rounds: int,
-    tools: tuple[Any, ...] = RECIPE_LANGCHAIN_TOOLS,
+    tools: tuple[BaseTool, ...] = RECIPE_LANGCHAIN_TOOLS,
     output: type[BaseModel] = RecipeDraft,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 recipe-scan agent를 컴파일한다."""

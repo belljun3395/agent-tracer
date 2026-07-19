@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from langchain_core.language_models import BaseChatModel
+
 from ...runtime.execution.trace import ExecutionTrace
 from ..models import DispatchPlan, RecipeScanRequest, RecipeScanState
 from ..policy import clamp_plan, distributable_rounds
@@ -15,7 +17,7 @@ type SurveyNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
 AVAILABLE_ROUNDS = distributable_rounds()
 
 
-def create_survey_node(req: RecipeScanRequest, usage: ExecutionTrace, chat: Any) -> SurveyNode:
+def create_survey_node(req: RecipeScanRequest, usage: ExecutionTrace, chat: BaseChatModel) -> SurveyNode:
     """조율자가 어디를 얼마나 팔지 스스로 정하게 하고 배분을 예산 안으로 가둔다."""
     planner = chat.with_structured_output(DispatchPlan)
 

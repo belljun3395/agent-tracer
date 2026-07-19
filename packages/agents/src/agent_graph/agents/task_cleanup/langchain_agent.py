@@ -11,7 +11,9 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware, ToolRetryMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 
@@ -113,10 +115,10 @@ def _tool_retry() -> ToolRetryMiddleware:
 
 
 def build_cleanup_agent(
-    chat: Any,
+    chat: BaseChatModel,
     system_prompt: str,
     max_rounds: int = MAX_TOOL_ROUNDS,
-    tools: tuple[Any, ...] = (list_candidate_tasks, get_task_events),
+    tools: tuple[BaseTool, ...] = (list_candidate_tasks, get_task_events),
     output: type[BaseModel] = CleanupDraft,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 task-cleanup agent를 컴파일한다."""

@@ -9,6 +9,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import Field
@@ -49,7 +50,7 @@ async def get_task_events(
     return await invoke_tool(runtime.context.reader, "get_task_events", args)
 
 
-def build_title_agent(chat: Any, system_prompt: str) -> CompiledStateGraph[Any, Any, Any, Any]:
+def build_title_agent(chat: BaseChatModel, system_prompt: str) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 title agent를 컴파일한다."""
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]

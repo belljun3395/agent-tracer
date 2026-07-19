@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from langchain_core.language_models import BaseChatModel
+
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
@@ -25,7 +27,7 @@ def create_decision_nodes(
     req: TaskCleanupRequest,
     reader: CleanupLedgerReader,
     usage: ExecutionTrace,
-    chat: Any,
+    chat: BaseChatModel,
     *,
     agent_name: str,
 ) -> tuple[CleanupNode, CleanupNode, CleanupNode]:
