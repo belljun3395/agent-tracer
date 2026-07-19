@@ -21,9 +21,8 @@ export const applicationConfigSchema = z.object({
     temporal: z.object({ address: z.string().min(1), namespace: z.string().min(1) }),
     agentGraph: z.object({
         url: z.string().min(1),
-        toolCallbackPort: z.number().int().positive(),
-        toolCallbackUrl: z.string().min(1),
-        instanceId: z.string().min(1),
+        callbackPort: z.number().int().positive(),
+        callbackUrl: z.string().min(1),
     }),
 });
 

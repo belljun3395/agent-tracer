@@ -49,7 +49,7 @@ describe("loadApplicationConfig", () => {
         );
         vi.stubEnv("RUNTIME_API_PORT", "4301");
         vi.stubEnv("KAFKA_BROKERS", "env-a:9092, ,env-b:9092");
-        vi.stubEnv("AGENT_TOOL_CALLBACK_PORT", "9910");
+        vi.stubEnv("AGENT_CALLBACK_PORT", "9910");
 
         const loadApplicationConfig = await loadFreshConfig();
         const config = loadApplicationConfig();
@@ -58,9 +58,8 @@ describe("loadApplicationConfig", () => {
         expect(config.runtimeApi.port).toBe(4301);
         expect(config.kafka.brokers).toEqual(["env-a:9092", "env-b:9092"]);
         expect(config.agentGraph).toMatchObject({
-            toolCallbackPort: 9910,
-            toolCallbackUrl: "http://pod-a:9910",
-            instanceId: "pod-a",
+            callbackPort: 9910,
+            callbackUrl: "http://pod-a:9910",
         });
     });
 

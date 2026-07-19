@@ -20,6 +20,9 @@ recipe/
 
 - 백엔드는 둘뿐이다. `*.sdk.agent.adapter.ts`(Claude SDK)와 `*.graph.agent.adapter.ts`
   (Python `packages/agents` 실행 백엔드를 HTTP로 호출).
+- SDK 백엔드만 `*.tools.ts`의 도구 핸들러를 프로세스 안에서 실행한다. graph 백엔드는 자기
+  도구를 스스로 실행하므로 워커는 실행 봉투와 사전 필터 결과만 넘기고 결과의 taskId 소유권만
+  다시 본다. `config/llm/agent.completion.server.ts`는 완료 통지만 받는다.
 - 프롬프트와 출력 스키마와 도구 명세는 제품 지식이므로 슬라이스의 `model/`이 소유한다.
   두 어댑터가 같은 명세를 읽어 서로 다른 방언으로 렌더링한다.
 - `*.workflow.ts`는 결정적이어야 한다. `*.activity.ts`, `adapter/`, `port/`, `config/`,

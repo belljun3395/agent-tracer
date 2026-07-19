@@ -9,7 +9,7 @@ export {
     type ApplicationConfig,
     type DbConfig,
 } from "./config/application.config.schema.js";
-export { resolveToolCallbackInstanceId, resolveToolCallbackUrl } from "./config/agent.graph.config.js";
+export { resolveCallbackUrl } from "./config/agent.graph.config.js";
 export * from "./auth/auth.token.js";
 export * from "./auth/cookie.js";
 export * from "./auth/rate.limiter.js";

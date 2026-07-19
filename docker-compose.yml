@@ -240,8 +240,8 @@ services:
     environment:
       <<: *app-env
       AGENT_GRAPH_URL: http://agents:8800
-      AGENT_TOOL_CALLBACK_PORT: "8810"
-      AGENT_TOOL_CALLBACK_URL: http://ai-agent-worker:8810
+      AGENT_CALLBACK_PORT: "8810"
+      AGENT_CALLBACK_URL: http://ai-agent-worker:8810
     depends_on:
       tracer-db: { condition: service_healthy }
       temporal: { condition: service_started }

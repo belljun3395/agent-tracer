@@ -32,7 +32,7 @@ import { TRACER_ENTITIES } from "@monitor/tracer-domain/persistence/tracer.entit
 import { resolveDefaultAgentBackend } from "~ai-agent-worker/config/agent.backend.js";
 import { ClaudeQueryRunner } from "~ai-agent-worker/config/llm/claude.query.runner.js";
 import { AgentGraphClient } from "~ai-agent-worker/config/llm/graph.client.js";
-import { AgentCallbackServer } from "~ai-agent-worker/config/llm/agent.callback.server.js";
+import { AgentCompletionServer } from "~ai-agent-worker/config/llm/agent.completion.server.js";
 import { DurableCompletionInbox } from "~ai-agent-worker/config/llm/durable.completion.inbox.js";
 import { errorMessage, logError, logInfo } from "~ai-agent-worker/config/log.js";
 import { createNotificationPublisher } from "~ai-agent-worker/config/notification.js";
@@ -96,15 +96,13 @@ async function bootstrap(): Promise<void> {
     const search = createOpenSearchClient();
 
     const defaultBackend = resolveDefaultAgentBackend();
-    const callbacks = new AgentCallbackServer(
-        config.agentGraph.toolCallbackPort,
-        config.agentGraph.toolCallbackUrl,
-        config.agentGraph.instanceId,
-        new DurableCompletionInbox(config.agentGraph.toolCallbackUrl, completionInbox),
+    const callbacks = new AgentCompletionServer(
+        config.agentGraph.callbackPort,
+        new DurableCompletionInbox(config.agentGraph.callbackUrl, completionInbox),
     );
     await callbacks.start();
     const graphClient = new AgentGraphClient(config.agentGraph.url, new DurableCompletionInbox(
-        config.agentGraph.toolCallbackUrl,
+        config.agentGraph.callbackUrl,
         completionInbox,
     ));
     // 세 에이전트 모두 도구를 쓰므로 Claude 쪽은 Agent SDK 러너 하나로 충분하다.
