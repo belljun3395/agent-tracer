@@ -101,11 +101,51 @@ again to ground a citation. Then return the complete repaired candidate list.
 """
 
 
-def build_user_prompt(task_id: str, user_prompt: str | None, language: Language) -> str:
-    """앵커 태스크와 사용자 지시와 출력 언어를 담은 최초 지시문이다."""
+def build_user_prompt(
+    task_id: str, user_prompt: str | None, language: Language, plan: object = None
+) -> str:
+    """앵커 태스크와 사용자 지시와 출력 언어와 스스로 세운 계획을 담은 최초 지시문이다."""
     lines = [f"Anchor taskId: {task_id}"]
     if user_prompt:
         lines.append(f"User direction: {user_prompt}")
     lines.append(f"Output language: {LANGUAGE_DIRECTIVES[language]}")
     lines.append(f"Mine this task for up to {MAX_RECIPE_CANDIDATES} recipe candidates.")
+    return "\n".join(lines) + render_plan(plan)
+
+
+SURVEY_SYSTEM_PROMPT = f"""You plan one recipe-scan investigation before it starts.
+Prompt version: {PROMPT_VERSION}.
+
+Three specialists can be dispatched, each reading in its own isolated context:
+
+- timeline: reads the anchor task's own events end to end.
+- rules: reads the rules that already govern the anchor and the recipes that already exist.
+- repetition: searches other tasks for the same workflow to judge whether it recurs.
+
+Assign only the specialists this anchor actually needs, give each a concrete question, and split the
+investigation rounds between them. Spend rounds where the evidence is; a specialist you do not need is
+a specialist you should not dispatch. You are told how many rounds exist in total — asking for more than
+that gets your allocation cut down proportionally, so allocate within it.
+"""
+
+
+def render_plan(plan: object) -> str:
+    """조율자가 세운 계획을 조사자가 읽을 지시문으로 편다."""
+    probes = getattr(plan, "probes", None)
+    if not probes:
+        return ""
+    lines = [
+        f"- {probe.probe} ({probe.rounds} rounds): {probe.question}" for probe in probes
+    ]
+    return "\n\nYour own plan for this investigation:\n" + "\n".join(lines)
+
+
+def build_survey_prompt(task_id: str, user_prompt: str | None, available_rounds: int) -> str:
+    """조율자가 조사 계획을 세우는 데 필요한 사실만 싣는다."""
+    lines = [
+        f"Anchor task ID: {task_id}",
+        f"Investigation rounds available: {available_rounds}",
+    ]
+    if user_prompt:
+        lines.append(f"What the user asked for: {user_prompt}")
     return "\n".join(lines)

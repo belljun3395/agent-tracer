@@ -10,7 +10,10 @@ import pytest
 from anthropic import AuthenticationError
 
 from agent_graph.agents.recipe_scan import agent as recipe_mod
-from agent_graph.agents.recipe_scan.models import RecipeScanRequest
+from agent_graph.agents.recipe_scan.models import (
+    DispatchPlan,  # noqa: F401
+    RecipeScanRequest,
+)
 from agent_graph.agents.runtime.execution.runner import execute
 from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
@@ -244,6 +247,24 @@ class TestRecipeScanGraph:
         assert events == ["node.started", "node.failed"]
 
 
+    async def test_조율자가_세운_계획이_조사_지시문과_라운드에_반영된다(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plan = DispatchPlan(
+            probes=[{"probe": "rules", "rounds": 3, "question": "어떤 규칙이 걸렸나"}]  # type: ignore[list-item]
+        )
+        chat = FakeToolLoopChat([{"recipes": []}], plan=plan)
+        monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
+
+        res = await self._run(chat)
+
+        assert res.error is None
+        sent = " ".join(str(getattr(message, "content", message)) for message in chat.requests[0])
+        # 계획이 조사 지시문으로 펴지고 배분한 라운드가 그대로 예산이 된다.
+        assert "rules (3 rounds): 어떤 규칙이 걸렸나" in sent
+        assert "3 of 3 tool-calling rounds remain" in sent
+        assert any("survey -> rules:3" in step.content for step in res.steps)
+
 class TestExecuteWrapper:
     async def test_데드라인_초과를_deadline_exceeded로_잡는다(self) -> None:
         async def slow(_usage: object) -> dict[str, object]:
@@ -260,3 +281,4 @@ class TestExecuteWrapper:
 
         res = await execute("auth", "claude-haiku-4-5", 5000, boom)
         assert res.error is not None and res.error.subtype == "authentication_error"
+

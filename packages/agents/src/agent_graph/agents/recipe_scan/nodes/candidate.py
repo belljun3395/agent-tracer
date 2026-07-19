@@ -42,11 +42,13 @@ def create_candidate_nodes(
         budget = ToolLoopBudget(
             agent_name, req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
         )
+        plan = state["plan"]
+        rounds = plan.total_rounds() if plan is not None else MAX_TOOL_ROUNDS
         context = RecipeAgentContext(
             agent_name,
             usage,
             budget,
-            MAX_TOOL_ROUNDS,
+            rounds,
             reader,
             search,
             state["provenance"],
@@ -67,7 +69,7 @@ def create_candidate_nodes(
                 {
                     "role": "user",
                     "content": build_user_prompt(
-                        state["task_id"], state["user_prompt"], state["language"]
+                        state["task_id"], state["user_prompt"], state["language"], state["plan"]
                     ),
                 }
             ],

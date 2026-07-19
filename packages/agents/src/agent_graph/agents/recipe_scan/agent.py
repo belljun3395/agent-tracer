@@ -14,6 +14,7 @@ from .graph import RECIPE_SCAN_GRAPH
 from .models import ProvenanceCatalog, RecipeScanRequest
 from .nodes.candidate import create_candidate_nodes
 from .nodes.result import empty, finalize
+from .nodes.survey import create_survey_node
 from .policy import RECIPE_MAX_OUTPUT_TOKENS, build_routes
 from .reader import RecipeLedgerReader
 from .search import RecipeSearchReader
@@ -43,6 +44,7 @@ async def run_recipe_scan(
         AGENT_NAME,
         usage,
         {
+            "survey": create_survey_node(req, usage, chat),
             "investigate": investigate,
             "validate_candidate": validate_candidate,
             "repair": repair,
@@ -57,6 +59,7 @@ async def run_recipe_scan(
             "language": req.language,
             "user_prompt": req.userPrompt,
             "messages": [],
+            "plan": None,
             "provenance": ProvenanceCatalog(),
             "model_cost_usd": 0.0,
             "candidates": [],

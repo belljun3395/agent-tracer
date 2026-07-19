@@ -15,6 +15,7 @@ def test_recipe_전용_그래프_위상을_명시한다() -> None:
 
     assert set(graph.nodes) == {
         "__start__",
+        "survey",
         "investigate",
         "validate_candidate",
         "repair",
@@ -61,3 +62,4 @@ def test_이벤트를_읽지_않은_태스크는_기여_슬라이스로_인정�
     errors = validate_recipe_candidate(candidate, "task-1", provenance)
 
     assert "Unsupported contributing task ID: task-2." in errors
+

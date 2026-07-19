@@ -44,6 +44,34 @@ class RecipeScanRequest(AgentExecutionRequest):
     userPrompt: TrimmedStr | None = None
 
 
+ProbeName = Literal["timeline", "rules", "repetition"]
+
+# 한 전문가에게 몰아줄 수 있는 최대 라운드이며 조율자의 배분을 이 안으로 가둔다.
+MAX_PROBE_ROUNDS = 10
+
+
+class ProbeAssignment(BaseModel):
+    """조율자가 한 전문가에게 맡긴 질문과 배분한 조사 라운드다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    probe: ProbeName
+    rounds: int = Field(ge=1, le=MAX_PROBE_ROUNDS)
+    question: TrimmedStr = Field(min_length=1, max_length=300)
+
+
+class DispatchPlan(BaseModel):
+    """조율자가 세운 조사 계획이며 어디를 얼마나 팔지 스스로 정한 결과다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    probes: list[ProbeAssignment] = Field(min_length=1, max_length=3)
+
+    def total_rounds(self) -> int:
+        """계획이 요구하는 조사 라운드 합이다."""
+        return sum(probe.rounds for probe in self.probes)
+
+
 class RecipeStep(BaseModel):
     order: int = Field(ge=1, le=50)
     action: TrimmedStr = Field(min_length=1, max_length=200)
@@ -117,6 +145,7 @@ class ProvenanceCatalog(BaseModel):
 
 
 class RecipeScanState(TypedDict):
+    plan: DispatchPlan | None
     task_id: str
     language: Language
     user_prompt: str | None

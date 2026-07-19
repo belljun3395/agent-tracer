@@ -6,12 +6,43 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
-from .models import MAX_RECIPE_CANDIDATES, ProvenanceCatalog, RecipeCandidate, RecipeScanState
+from .models import (
+    MAX_RECIPE_CANDIDATES,
+    DispatchPlan,
+    ProvenanceCatalog,
+    RecipeCandidate,
+    RecipeScanState,
+)
+
+# 계획을 세우는 데 한 라운드를 쓰므로 배분 가능한 조사 라운드는 그만큼 줄어든다.
+SURVEY_ROUNDS = 1
 
 MAX_RECIPE_MODEL_COST_USD = 2.0
 RECIPE_MAX_OUTPUT_TOKENS = 16_000
 
 ValidationRoute = Callable[[RecipeScanState], Literal["repair", "finalize", "empty"]]
+
+
+def clamp_plan(plan: DispatchPlan, available: int) -> tuple[DispatchPlan, int]:
+    """조율자의 배분을 남은 예산 안으로 비례 축소하고 깎인 라운드 수를 함께 돌려준다."""
+    requested = plan.total_rounds()
+    if requested <= available:
+        return plan, 0
+    # 전문가마다 최소 한 라운드는 남겨야 계획이 의미를 잃지 않는다.
+    floor = len(plan.probes)
+    spare = max(available - floor, 0)
+    over = requested - floor
+    granted = [1 + ((probe.rounds - 1) * spare // over if over else 0) for probe in plan.probes]
+    # 몫을 나눈 나머지는 많이 요구한 순서대로 한 라운드씩 돌려주어 예산을 흘리지 않는다.
+    order = sorted(range(len(granted)), key=lambda index: plan.probes[index].rounds, reverse=True)
+    for index in order[: max(available - sum(granted), 0)]:
+        granted[index] += 1
+    shrunk = [
+        probe.model_copy(update={"rounds": rounds})
+        for probe, rounds in zip(plan.probes, granted, strict=True)
+    ]
+    clamped = DispatchPlan(probes=shrunk)
+    return clamped, requested - clamped.total_rounds()
 
 
 def validate_recipe_candidates(

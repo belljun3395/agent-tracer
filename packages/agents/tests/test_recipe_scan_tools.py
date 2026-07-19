@@ -10,7 +10,8 @@ import pytest
 from pydantic import ValidationError
 
 from agent_graph.agents.recipe_scan.langchain_agent import RECIPE_LANGCHAIN_TOOLS
-from agent_graph.agents.recipe_scan.models import EvidenceRecord, ProvenanceCatalog
+from agent_graph.agents.recipe_scan.models import DispatchPlan, EvidenceRecord, ProvenanceCatalog
+from agent_graph.agents.recipe_scan.policy import clamp_plan
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
@@ -260,3 +261,24 @@ async def test_인용_확인은_읽지_않은_태스크를_알려준다() -> Non
     )
 
     assert json.loads(content)["taskSupported"] is False
+
+
+def test_조율자의_배분이_예산을_넘으면_비례로_깎인다() -> None:
+    plan = DispatchPlan(
+        probes=[
+            {"probe": "timeline", "rounds": 10, "question": "앵커가 무엇을 했나"},  # type: ignore[list-item]
+            {"probe": "rules", "rounds": 6, "question": "적용 규칙은"},  # type: ignore[list-item]
+            {"probe": "repetition", "rounds": 4, "question": "반복되나"},  # type: ignore[list-item]
+        ]
+    )
+
+    kept, cut = clamp_plan(plan, 20)
+    assert [probe.rounds for probe in kept.probes] == [10, 6, 4] and cut == 0
+
+    shrunk, cut = clamp_plan(plan, 14)
+    # 남은 예산을 넘지 않으면서 흘리지도 않는다.
+    assert shrunk.total_rounds() == 14 and cut == 6
+
+    floored, _cut = clamp_plan(plan, 3)
+    # 전문가마다 최소 한 라운드는 남아 계획이 통째로 사라지지 않는다.
+    assert [probe.rounds for probe in floored.probes] == [1, 1, 1]

@@ -30,17 +30,38 @@ def mk_ai(
     )
 
 
+class _FakePlanner:
+    """구조화 출력 대역이며 조율자가 세운 계획을 캔 값으로 돌려준다."""
+
+    def __init__(self, plan: Any) -> None:
+        self._plan = plan
+
+    async def ainvoke(self, _messages: Any, **_kwargs: Any) -> Any:
+        return self._plan
+
+
 class FakeToolLoopChat:
     """도구 루프 대역. 턴마다 도구 호출이나 구조화 출력을 순서대로 재생한다.
 
     turns의 각 항목은 도구 호출 목록(list)이거나 최종 구조화 출력(dict)이다.
     """
 
-    def __init__(self, turns: list[Any]) -> None:
+    def __init__(self, turns: list[Any], plan: Any = None) -> None:
         self.turns = list(turns)
+        self.plan = plan
         self.bound_tools: list[dict[str, Any]] = []
         self.output_config: dict[str, Any] | None = None
         self.requests: list[list[Any]] = []
+
+    def with_structured_output(self, schema: Any, **_kwargs: Any) -> _FakePlanner:
+        if self.plan is not None:
+            return _FakePlanner(self.plan)
+        # 계획을 안 준 테스트는 전체 예산을 한 전문가에게 몰아준 계획으로 돈다.
+        return _FakePlanner(
+            schema.model_validate(
+                {"probes": [{"probe": "timeline", "rounds": 10, "question": "무엇을 했나"}]}
+            )
+        )
 
     def bind_tools(self, tools: list[Any], **_kwargs: Any) -> FakeToolLoopChat:
         self.bound_tools = tools
