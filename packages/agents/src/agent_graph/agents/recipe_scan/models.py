@@ -173,6 +173,23 @@ class ProvenanceCatalog(BaseModel):
     recipeIds: set[str] = Field(default_factory=set)
 
 
+def merged_provenance(left: ProvenanceCatalog, right: ProvenanceCatalog) -> ProvenanceCatalog:
+    """두 근거 장부를 합친 새 장부를 낸다. 전문가가 자기 맥락에서 모은 것을 부모로 올릴 때 쓴다."""
+    combined = left.model_copy(deep=True)
+    for task_id, event_ids in right.eventIdsByTask.items():
+        combined.eventIdsByTask.setdefault(task_id, set()).update(event_ids)
+    for task_id, turn_ids in right.turnIdsByTask.items():
+        combined.turnIdsByTask.setdefault(task_id, set()).update(turn_ids)
+    combined.ruleIds.update(right.ruleIds)
+    combined.recipeIds.update(right.recipeIds)
+    return combined
+
+
+def _sum_cost(left: float, right: float) -> float:
+    """전문가들이 병렬로 쓴 비용을 더해 실행 전체의 지출로 만든다."""
+    return left + right
+
+
 class RecipeScanState(TypedDict):
     plan: DispatchPlan | None
     # 전문가가 병렬로 보고를 올리므로 동시 갱신을 누적으로 합치는 리듀서가 필요하다.
@@ -182,8 +199,8 @@ class RecipeScanState(TypedDict):
     user_prompt: str | None
     # 근거는 프롬프트에 다시 붙이지 않고 대화 이력에 그대로 남아 캐시된다.
     messages: list[BaseMessage]
-    provenance: ProvenanceCatalog
-    model_cost_usd: float
+    provenance: Annotated[ProvenanceCatalog, merged_provenance]
+    model_cost_usd: Annotated[float, _sum_cost]
     candidates: list[RecipeCandidate]
     validation_errors: list[str]
     repair_attempted: bool

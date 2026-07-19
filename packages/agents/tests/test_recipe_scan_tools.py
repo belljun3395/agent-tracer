@@ -22,13 +22,14 @@ from agent_graph.agents.recipe_scan.models import (
     Excerpt,
     ProbeReport,
     ProvenanceCatalog,
+    merged_provenance,
 )
 from agent_graph.agents.recipe_scan.policy import clamp_plan
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
 from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
-from agent_graph.agents.recipe_scan.tools.provenance import add_provenance, merge_provenance
+from agent_graph.agents.recipe_scan.tools.provenance import add_provenance
 from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 
@@ -307,7 +308,7 @@ def test_전문가의_장부가_조율자의_장부로_합쳐진다() -> None:
         recipeIds={"recipe-1"},
     )
 
-    merge_provenance(coordinator, probe)
+    coordinator = merged_provenance(coordinator, probe)
 
     assert coordinator.eventIdsByTask == {"task-1": {"event-1", "event-2"}, "task-2": {"event-3"}}
     assert coordinator.turnIdsByTask == {"task-2": {"turn-1"}}
@@ -316,7 +317,9 @@ def test_전문가의_장부가_조율자의_장부로_합쳐진다() -> None:
 
 def test_병합된_장부는_인용_확인이_그대로_읽는다() -> None:
     coordinator = ProvenanceCatalog()
-    merge_provenance(coordinator, ProvenanceCatalog(eventIdsByTask={"task-1": {"event-9"}}))
+    coordinator = merged_provenance(
+        coordinator, ProvenanceCatalog(eventIdsByTask={"task-1": {"event-9"}})
+    )
 
     # 전문가가 읽은 것을 조율자가 인용해도 되는지 같은 술어로 확인된다.
     assert "event-9" in coordinator.eventIdsByTask["task-1"]
