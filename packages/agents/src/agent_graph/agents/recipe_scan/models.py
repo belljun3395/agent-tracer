@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+import operator
+from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -174,7 +175,8 @@ class ProvenanceCatalog(BaseModel):
 
 class RecipeScanState(TypedDict):
     plan: DispatchPlan | None
-    reports: list[ProbeReport]
+    # 전문가가 병렬로 보고를 올리므로 동시 갱신을 누적으로 합치는 리듀서가 필요하다.
+    reports: Annotated[list[ProbeReport], operator.add]
     task_id: str
     language: Language
     user_prompt: str | None

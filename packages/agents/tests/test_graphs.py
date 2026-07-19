@@ -282,3 +282,4 @@ class TestExecuteWrapper:
         res = await execute("auth", "claude-haiku-4-5", 5000, boom)
         assert res.error is not None and res.error.subtype == "authentication_error"
 
+
