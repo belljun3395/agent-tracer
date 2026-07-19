@@ -18,7 +18,7 @@ export function formatRecipeContext(matches: readonly RecipeMatch[]): string {
     ];
     for (const match of matches) {
         lines.push("");
-        lines.push(`• ${match.title} (score ${match.score.toFixed(2)})`);
+        lines.push(`• ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})`);
         lines.push(`  intent: ${match.intent}`);
         lines.push(`  ${match.description}`);
         const summary = match.summaryMd.trim();

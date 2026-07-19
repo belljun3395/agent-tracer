@@ -21,6 +21,14 @@ describe("BuildRecipeContextUsecase", () => {
         expect(result.bytes).toBe(Buffer.byteLength(result.context, "utf8"));
     });
 
+    it("주입 텍스트에 recipeId를 실어 되먹임을 보고할 수 있게 한다", () => {
+        const usecase = new BuildRecipeContextUsecase(new InMemoryRecipeCache([RECIPE]));
+
+        const result = usecase.execute("lint pipeline");
+
+        expect(result.context).toContain("recipeId: recipe-1");
+    });
+
     it("겹치는 레시피가 없으면 아무것도 주입하지 않는다", () => {
         const usecase = new BuildRecipeContextUsecase(new InMemoryRecipeCache([RECIPE]));
 

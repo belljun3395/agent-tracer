@@ -9,12 +9,16 @@ export const REPORT_RECIPE_OUTCOME_TOOL: McpToolSpec = {
         "Report whether a recipe you followed actually helped on this task. Call this once you can "
         + "judge the result — right after finishing the work the recipe guided, or as soon as you "
         + "abandon the recipe partway through because it did not fit. This is the only feedback signal "
-        + "recipe effectiveness is measured by: call it every time you acted on a recipe returned by "
-        + "search_recipes, even when the outcome was mixed or negative.",
+        + "recipe effectiveness is measured by: call it every time you acted on a recipe, whether you "
+        + "found it with search_recipes or it arrived in your context, even when the outcome was mixed "
+        + "or negative.",
     inputSchema: {
         type: "object",
         properties: {
-            recipeId: {type: "string", description: "The recipeId from a prior search_recipes result."},
+            recipeId: {
+                type: "string",
+                description: "The recipeId from a search_recipes result or from a recipe block in your context.",
+            },
             outcome: {
                 type: "string",
                 enum: [...RECIPE_OUTCOMES],
