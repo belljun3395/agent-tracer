@@ -4,6 +4,7 @@ import { z } from "zod";
 import { RECIPE_CANDIDATE_LIMIT, TIMELINE_EVENT_KINDS } from "@monitor/kernel";
 import { RECIPE_SCAN_MAX_TURNS } from "./recipe.prompt.js";
 import { RECIPE_SCAN_SPEC } from "./recipe.spec.js";
+import { RECIPE_WORKER_MAX_TURNS, RECIPE_WORKER_TOOLS } from "../adapter/recipe.sdk.agent.adapter.js";
 import {
     DEFAULT_EVENT_LIMIT,
     DEFAULT_SEARCH_LIMIT,
@@ -44,6 +45,11 @@ const CONTRACT = JSON.parse(
     readonly maxTurns: number;
     readonly limits: { readonly candidateLimit: number; readonly maxOutputTokens: number; readonly maxBudgetUsd: number };
     readonly steps: { readonly consecutiveFromOne: boolean };
+    readonly orchestration: {
+        readonly workerMaxTurns: number;
+        readonly roles: Readonly<Record<string, readonly string[]>>;
+        readonly workerReport: { readonly required: readonly string[]; readonly excerptRequired: readonly string[] };
+    };
     readonly tools: Readonly<Record<string, ToolContract>>;
 };
 
@@ -128,6 +134,11 @@ describe("recipe-scan 도구 계약", () => {
 
     it("모델에게 노출하는 도구 이름이 골든 계약과 같다", () => {
         expect(RECIPE_SCAN_TOOLS.map((tool) => tool.name)).toEqual(Object.keys(CONTRACT.tools));
+    });
+
+    it("SDK 워커 역할과 도구와 턴 몫이 골든 계약과 같다", () => {
+        expect(RECIPE_WORKER_MAX_TURNS).toBe(CONTRACT.orchestration.workerMaxTurns);
+        expect(RECIPE_WORKER_TOOLS).toEqual(CONTRACT.orchestration.roles);
     });
 
     it("도구마다 필수와 선택 인자가 골든 계약과 같다", () => {

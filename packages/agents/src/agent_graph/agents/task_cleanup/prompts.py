@@ -146,4 +146,4 @@ def render_reports(reports: Sequence[InspectReport] | None) -> str:
         + (f" (events: {', '.join(report.citedEventIds)})" if report.citedEventIds else "")
         for report in reports
     ]
-    return "\n\nWhat your inspectors reported:\n" + "\n".join(lines)
+    return "\n\nWhat the cleanup candidate reviewers reported:\n" + "\n".join(lines)

@@ -12,7 +12,11 @@ export function withMcpToolPrefix(
 }
 
 export function mcpToolNames(serverName: string, toolNames: readonly string[]): readonly string[] {
-    return toolNames.map((name) => `mcp__${serverName}__${name}`);
+    return toolNames.map((name) => mcpToolName(serverName, name));
+}
+
+export function mcpToolName(serverName: string, toolName: string): string {
+    return `mcp__${serverName}__${toolName}`;
 }
 
 function escapeRegExp(value: string): string {

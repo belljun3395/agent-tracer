@@ -79,7 +79,7 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                 model: request.model,
                 // allowedTools는 자동 승인 목록이고 tools는 사용 가능한 빌트인 도구 집합이다.
                 allowedTools: [...request.allowedTools],
-                tools: [],
+                tools: [...(options?.builtInTools ?? [])],
                 maxTurns: request.maxTurns,
                 systemPrompt,
                 ...(request.outputSchema !== undefined
@@ -96,6 +96,7 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                 ...(request.effort !== undefined ? { effort: request.effort } : {}),
                 ...(request.maxBudgetUsd !== undefined ? { maxBudgetUsd: request.maxBudgetUsd } : {}),
                 ...(options?.fallbackModel !== undefined ? { fallbackModel: options.fallbackModel } : {}),
+                ...(options?.agents !== undefined ? { agents: { ...options.agents } } : {}),
             },
         });
 

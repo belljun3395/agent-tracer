@@ -9,10 +9,13 @@ from typing import Any, get_args
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.recipe_scan.langchain_agent import RECIPE_LANGCHAIN_TOOLS
+from agent_graph.agents.recipe_scan.langchain_agent import PROBE_TOOLS, RECIPE_LANGCHAIN_TOOLS
 from agent_graph.agents.recipe_scan.models import (
     MAX_RECIPE_CANDIDATES,
+    MAX_PROBE_ROUNDS,
     MAX_TOOL_ROUNDS,
+    Excerpt,
+    ProbeReport,
     ProvenanceCatalog,
     RecipeCandidate,
 )
@@ -84,6 +87,16 @@ def test_후보_상한과_토큰과_비용_예산이_골든_계약과_같다() -
 
 def test_모델에게_노출하는_도구_이름이_골든_계약과_같다() -> None:
     assert [spec.name for spec in RECIPE_TOOLS] == list(_tools())
+
+
+def test_전문가_역할과_도구와_보고가_골든_계약과_같다() -> None:
+    orchestration = _contract()["orchestration"]
+    roles = {name: [tool.name for tool in tools] for name, tools in PROBE_TOOLS.items()}
+
+    assert MAX_PROBE_ROUNDS == orchestration["workerMaxTurns"]
+    assert roles == orchestration["roles"]
+    assert list(ProbeReport.model_fields) == orchestration["workerReport"]["required"]
+    assert list(Excerpt.model_fields) == orchestration["workerReport"]["excerptRequired"]
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:

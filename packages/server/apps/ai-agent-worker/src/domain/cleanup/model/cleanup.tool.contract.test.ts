@@ -7,6 +7,11 @@ import { toCleanupEventPage, type CleanupSlimEvent } from "./cleanup.event.model
 import { TASK_CLEANUP_MAX_TURNS } from "./cleanup.prompt.js";
 import { TASK_CLEANUP_SPEC } from "./cleanup.spec.js";
 import {
+    CLEANUP_REVIEWER_MAX_TURNS,
+    CLEANUP_REVIEWER_ROLE,
+    CLEANUP_REVIEWER_TOOLS,
+} from "../adapter/cleanup.sdk.agent.adapter.js";
+import {
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
@@ -31,6 +36,11 @@ const CONTRACT = JSON.parse(
         readonly maxEvidenceEventIds: number;
         readonly maxOutputTokens: number;
         readonly maxBudgetUsd: number;
+    };
+    readonly orchestration: {
+        readonly workerMaxTurns: number;
+        readonly roles: Readonly<Record<string, readonly string[]>>;
+        readonly workerReport: { readonly required: readonly string[] };
     };
     readonly tools: Record<
         string,
@@ -64,6 +74,11 @@ describe("task-cleanup 도구 계약", () => {
 
     it("모델에게 여는 도구 이름이 골든 계약과 같다", () => {
         expect(new Set(TASK_CLEANUP_TOOLS.map((tool) => tool.name))).toEqual(new Set(Object.keys(CONTRACT.tools)));
+    });
+
+    it("SDK 검토 전문가의 이름과 도구와 턴 몫이 골든 계약과 같다", () => {
+        expect(CLEANUP_REVIEWER_MAX_TURNS).toBe(CONTRACT.orchestration.workerMaxTurns);
+        expect({ [CLEANUP_REVIEWER_ROLE]: CLEANUP_REVIEWER_TOOLS }).toEqual(CONTRACT.orchestration.roles);
     });
 
     it("list_candidate_tasks의 필수와 선택 인자가 골든 계약과 같다", () => {

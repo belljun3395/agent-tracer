@@ -1,15 +1,16 @@
 import { AGENT, JOB_KIND, type RecipeCandidatePayload } from "@monitor/kernel";
+import type { AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
 import { buildMcpToolServer } from "~ai-agent-worker/config/llm/claude.tool.schema.js";
 import { zodToClaudeOutputSchema } from "~ai-agent-worker/config/llm/claude.output.schema.js";
 import type { ClaudeQueryOptions } from "~ai-agent-worker/config/llm/claude.query.options.js";
 import type { IQueryRunner } from "~ai-agent-worker/config/llm/llm.runner.js";
-import { mcpToolNames, withMcpToolPrefix } from "~ai-agent-worker/config/llm/mcp.tool.prefix.js";
+import { mcpToolName, mcpToolNames, withMcpToolPrefix } from "~ai-agent-worker/config/llm/mcp.tool.prefix.js";
 import { runStructuredQuery, type StructuredQueryResult } from "~ai-agent-worker/config/llm/structured.query.js";
 import { buildRecipeRepairPrompt } from "~ai-agent-worker/domain/recipe/model/recipe.prompt.js";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";
-import { RECIPE_SCAN_TOOL_NAMES } from "~ai-agent-worker/domain/recipe/model/recipe.tool.schema.js";
+import { RECIPE_SCAN_TOOL, RECIPE_SCAN_TOOL_NAMES } from "~ai-agent-worker/domain/recipe/model/recipe.tool.schema.js";
 import { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
 import { validateRecipeCandidates } from "~ai-agent-worker/domain/recipe/model/recipe.validation.model.js";
 import type {
@@ -20,6 +21,22 @@ import type {
 import { buildRecipeToolHandlers, type RecipeToolDeps } from "./recipe.tools.js";
 
 const MCP_SERVER = `monitor-${RECIPE_SCAN_SPEC.name}`;
+const AGENT_TOOL = "Agent";
+export const RECIPE_WORKER_MAX_TURNS = 10;
+
+export const RECIPE_WORKER_TOOLS = {
+    timeline: [RECIPE_SCAN_TOOL.getTaskSummary, RECIPE_SCAN_TOOL.getTaskEvents, RECIPE_SCAN_TOOL.checkCitations],
+    rules: [RECIPE_SCAN_TOOL.listRules, RECIPE_SCAN_TOOL.searchRecipes, RECIPE_SCAN_TOOL.checkCitations],
+    repetition: [RECIPE_SCAN_TOOL.searchEvents, RECIPE_SCAN_TOOL.findSimilarTasks, RECIPE_SCAN_TOOL.checkCitations],
+} as const;
+
+const DELEGATION_DIRECTIVE = `
+
+Investigation organization:
+  - You are the lead synthesizer. Delegate the evidence-gathering work with the Agent tool before producing recipes.
+  - Launch timeline, rules, and repetition as independent subagents when their lane is relevant. Give each the anchor taskId and the exact question it should answer.
+  - Treat subagent reports as leads, not authority. Reconcile overlaps, preserve exact identifiers, and call check_citations before the final structured output.
+  - Do not redo a subagent's broad investigation in the parent thread. Use the parent only to coordinate, check citations, synthesize, and repair.`;
 
 /** Claude Agent SDK 방언으로 recipe 명세를 렌더링해 실행한다. */
 export class RecipeSdkAgentAdapter implements RecipeAgentPort {
@@ -77,6 +94,7 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
     ): Promise<StructuredRun> {
         const { limits } = RECIPE_SCAN_SPEC;
         const model = input.model?.trim() || limits.defaultModel;
+        const agents = recipeSubagents(model);
 
         return runStructuredQuery(
             this.runner,
@@ -84,11 +102,11 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
                 label: RECIPE_SCAN_SPEC.name,
                 prompt,
                 systemPrompt: withMcpToolPrefix(
-                    RECIPE_SCAN_SPEC.systemPrompt(),
+                    RECIPE_SCAN_SPEC.systemPrompt() + DELEGATION_DIRECTIVE,
                     RECIPE_SCAN_TOOL_NAMES,
                     MCP_SERVER,
                 ),
-                allowedTools: mcpToolNames(MCP_SERVER, RECIPE_SCAN_TOOL_NAMES),
+                allowedTools: [...mcpToolNames(MCP_SERVER, RECIPE_SCAN_TOOL_NAMES), AGENT_TOOL],
                 jobId: input.jobId,
                 model,
                 maxTurns: limits.maxTurns,
@@ -105,6 +123,8 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
                 maxBudgetUsd: limits.maxBudgetUsd,
                 providerOptions: {
                     ...(model !== limits.fallbackModel ? { fallbackModel: limits.fallbackModel } : {}),
+                    builtInTools: [AGENT_TOOL],
+                    agents,
                     mcpServers: {
                         [MCP_SERVER]: buildMcpToolServer(MCP_SERVER, RECIPE_SCAN_SPEC.tools, handlers),
                     },
@@ -115,6 +135,39 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
             RECIPE_SCAN_SPEC.outputSchema,
         );
     }
+}
+
+function recipeSubagents(model: string): Readonly<Record<string, AgentDefinition>> {
+    const tool = (name: string): string => mcpToolName(MCP_SERVER, name);
+    const shared = {
+        model,
+        maxTurns: RECIPE_WORKER_MAX_TURNS,
+        permissionMode: "bypassPermissions" as const,
+    };
+    return {
+        timeline: {
+            ...shared,
+            description: "Read the anchor task's own events end to end and report its verified timeline.",
+            prompt: workerPrompt("timeline", "Read the anchor summary and enough raw events to separate distinct user intents."),
+            tools: RECIPE_WORKER_TOOLS.timeline.map(tool),
+        },
+        rules: {
+            ...shared,
+            description: "Read rules governing the anchor and existing recipes that may already cover it.",
+            prompt: workerPrompt("rules", "Identify governing rule IDs and existing recipe IDs without inventing either."),
+            tools: RECIPE_WORKER_TOOLS.rules.map(tool),
+        },
+        repetition: {
+            ...shared,
+            description: "Search other tasks for the same workflow and judge whether it recurs.",
+            prompt: workerPrompt("repetition", "Find repeated workflow evidence across tasks and preserve exact task and event IDs."),
+            tools: RECIPE_WORKER_TOOLS.repetition.map(tool),
+        },
+    };
+}
+
+function workerPrompt(probe: keyof typeof RECIPE_WORKER_TOOLS, directive: string): string {
+    return `${directive} Return exactly one JSON report with this shape: {"probe":"${probe}","verdict":"...","excerpts":[{"taskId":"...","eventId":"...","text":"..."}],"exhausted":false}. The probe value must remain "${probe}". Use only identifiers returned by your tools, call check_citations before reporting cited IDs, and never draft final recipes.`;
 }
 
 type StructuredRun = StructuredQueryResult<{ readonly recipes: RecipeCandidatePayload[] }>;

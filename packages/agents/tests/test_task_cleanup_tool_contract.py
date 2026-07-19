@@ -11,6 +11,9 @@ from pydantic import BaseModel, ValidationError
 
 from agent_graph.agents.task_cleanup.langchain_agent import get_task_events, list_candidate_tasks
 from agent_graph.agents.task_cleanup.models import (
+    CLEANUP_REVIEWER_ROLE,
+    MAX_INSPECT_ROUNDS,
+    InspectReport,
     MAX_EVIDENCE_EVENT_IDS,
     MAX_SUGGESTIONS,
     CandidatePage,
@@ -63,6 +66,14 @@ def test_턴_예산이_골든_계약과_같다() -> None:
 
 def test_모델에게_여는_도구_이름이_골든_계약과_같다() -> None:
     assert {tool.name for tool in (list_candidate_tasks, get_task_events)} == set(_contract()["tools"])
+
+
+def test_정리_후보_검토_전문가의_역할과_보고가_골든_계약과_같다() -> None:
+    orchestration = _contract()["orchestration"]
+
+    assert MAX_INSPECT_ROUNDS == orchestration["workerMaxTurns"]
+    assert {CLEANUP_REVIEWER_ROLE: [GET_TASK_EVENTS]} == orchestration["roles"]
+    assert list(InspectReport.model_fields) == orchestration["workerReport"]["required"]
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:

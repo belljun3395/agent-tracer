@@ -16,6 +16,7 @@ from ..langchain_agent import (
     build_cleanup_agent,
 )
 from ..models import (
+    CLEANUP_REVIEWER_ROLE,
     MAX_INSPECT_REASON_CHARS,
     CleanupCandidate,
     InspectDispatch,
@@ -125,7 +126,7 @@ def create_inspect_node(
         share = TASK_CLEANUP_MAX_MODEL_COST_USD * payload.cost_share
         # 장부를 조사마다 새로 두어 다른 후보의 이벤트를 인용하지 못하게 한다.
         event_ids: dict[str, set[str]] = {}
-        name = f"{agent_name}:inspect"
+        name = f"{agent_name}:{CLEANUP_REVIEWER_ROLE}"
         budget = ToolLoopBudget(name, req.model, share, 0.0)
         # 후보 하나의 조사가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.

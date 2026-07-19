@@ -39,6 +39,7 @@ function result(structuredOutput: unknown): AgentQueryResult {
 /** 도구를 부르지 않으므로 근거 장부가 비고, 모델이 낸 모든 인용은 근거가 서지 않는다. */
 class ScriptedRunner implements IQueryRunner<ClaudeQueryOptions> {
     readonly prompts: string[] = [];
+    readonly requests: AgentQueryRequest<ClaudeQueryOptions>[] = [];
 
     constructor(private readonly outputs: readonly unknown[]) {}
 
@@ -47,6 +48,7 @@ class ScriptedRunner implements IQueryRunner<ClaudeQueryOptions> {
     }
 
     run(request: AgentQueryRequest<ClaudeQueryOptions>): Promise<AgentQueryResult> {
+        this.requests.push(request);
         this.prompts.push(request.prompt);
         return Promise.resolve(result(this.outputs[this.prompts.length - 1] ?? { suggestions: [] }));
     }
@@ -76,6 +78,21 @@ describe("CleanupSdkAgentAdapter", () => {
         expect(runner.prompts[1]).toContain("Deterministic provenance validation rejected part of your output");
         expect(runner.prompts[1]).toContain("unsupported candidate task ID task-1");
         expect(output.suggestions).toEqual([]);
+    });
+
+    it("이벤트 조사를 SDK 네이티브 정리 후보 검토 전문가에 위임한다", async () => {
+        const runner = new ScriptedRunner([{ suggestions: [] }]);
+
+        await adapterFor(runner).generate(INPUT);
+
+        const request = runner.requests[0];
+        expect(request?.allowedTools).toContain("Agent");
+        expect(request?.providerOptions?.builtInTools).toEqual(["Agent"]);
+        expect(request?.providerOptions?.agents?.["cleanup-candidate-reviewer"]?.tools).toEqual([
+            expect.stringContaining("get_task_events"),
+        ]);
+        expect(request?.providerOptions?.agents?.["cleanup-candidate-reviewer"]?.prompt).toContain("citedEventIds");
+        expect(request?.systemPrompt).toContain("delegate its review");
     });
 
     it("수리한 출력도 근거가 서지 않으면 그 제안을 버린다", async () => {

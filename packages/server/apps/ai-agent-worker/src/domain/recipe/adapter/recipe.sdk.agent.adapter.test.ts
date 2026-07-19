@@ -39,6 +39,7 @@ function result(structuredOutput: unknown): AgentQueryResult {
 /** 도구를 부르지 않으므로 근거 장부가 비고, 모델이 낸 모든 인용은 근거가 서지 않는다. */
 class ScriptedRunner implements IQueryRunner<ClaudeQueryOptions> {
     readonly prompts: string[] = [];
+    readonly requests: AgentQueryRequest<ClaudeQueryOptions>[] = [];
 
     constructor(private readonly outputs: readonly unknown[]) {}
 
@@ -47,6 +48,7 @@ class ScriptedRunner implements IQueryRunner<ClaudeQueryOptions> {
     }
 
     run(request: AgentQueryRequest<ClaudeQueryOptions>): Promise<AgentQueryResult> {
+        this.requests.push(request);
         this.prompts.push(request.prompt);
         return Promise.resolve(result(this.outputs[this.prompts.length - 1] ?? { recipes: [] }));
     }
@@ -89,5 +91,28 @@ describe("RecipeSdkAgentAdapter", () => {
 
         expect(runner.prompts).toHaveLength(1);
         expect(output.recipes).toEqual([]);
+    });
+
+    it("조사를 SDK 네이티브 서브에이전트에 분해한다", async () => {
+        const runner = new ScriptedRunner([{ recipes: [] }]);
+
+        await adapterFor(runner).generate(INPUT);
+
+        const request = runner.requests[0];
+        expect(request?.allowedTools).toContain("Agent");
+        expect(request?.providerOptions?.builtInTools).toEqual(["Agent"]);
+        expect(Object.keys(request?.providerOptions?.agents ?? {})).toEqual([
+            "timeline",
+            "rules",
+            "repetition",
+        ]);
+        expect(request?.providerOptions?.agents?.["timeline"]?.tools).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining("get_task_summary"),
+                expect.stringContaining("get_task_events"),
+                expect.stringContaining("check_citations"),
+            ]),
+        );
+        expect(request?.providerOptions?.agents?.["timeline"]?.prompt).toContain('"probe":"timeline"');
     });
 });

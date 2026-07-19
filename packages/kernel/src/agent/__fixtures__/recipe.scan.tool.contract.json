@@ -8,6 +8,18 @@
   "steps": {
     "consecutiveFromOne": true
   },
+  "orchestration": {
+    "workerMaxTurns": 10,
+    "roles": {
+      "timeline": ["get_task_summary", "get_task_events", "check_citations"],
+      "rules": ["list_rules", "search_recipes", "check_citations"],
+      "repetition": ["search_events", "find_similar_tasks", "check_citations"]
+    },
+    "workerReport": {
+      "required": ["probe", "verdict", "excerpts", "exhausted"],
+      "excerptRequired": ["taskId", "eventId", "text"]
+    }
+  },
   "tools": {
     "get_task_summary": {
       "required": [

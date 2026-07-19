@@ -93,6 +93,7 @@ class EventPage(BaseModel):
 MAX_INSPECT_ROUNDS = 4
 MAX_INSPECT_EXCERPTS = 6
 MAX_INSPECT_REASON_CHARS = 400
+CLEANUP_REVIEWER_ROLE = "cleanup-candidate-reviewer"
 
 
 class InspectAssignment(BaseModel):

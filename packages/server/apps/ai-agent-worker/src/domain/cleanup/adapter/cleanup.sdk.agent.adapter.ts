@@ -1,16 +1,17 @@
 import { AGENT, JOB_KIND, type CleanupSuggestionPayload } from "@monitor/kernel";
+import type { AgentDefinition } from "@anthropic-ai/claude-agent-sdk";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import { zodToClaudeOutputSchema } from "~ai-agent-worker/config/llm/claude.output.schema.js";
 import type { ClaudeQueryOptions } from "~ai-agent-worker/config/llm/claude.query.options.js";
 import { buildMcpToolServer } from "~ai-agent-worker/config/llm/claude.tool.schema.js";
 import type { IQueryRunner } from "~ai-agent-worker/config/llm/llm.runner.js";
-import { mcpToolNames, withMcpToolPrefix } from "~ai-agent-worker/config/llm/mcp.tool.prefix.js";
+import { mcpToolName, mcpToolNames, withMcpToolPrefix } from "~ai-agent-worker/config/llm/mcp.tool.prefix.js";
 import { runStructuredQuery, type StructuredQueryResult } from "~ai-agent-worker/config/llm/structured.query.js";
 import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
 import { buildCleanupRepairPrompt } from "~ai-agent-worker/domain/cleanup/model/cleanup.prompt.js";
 import { CleanupProvenanceLedger } from "~ai-agent-worker/domain/cleanup/model/cleanup.provenance.model.js";
 import { TASK_CLEANUP_SPEC } from "~ai-agent-worker/domain/cleanup/model/cleanup.spec.js";
-import { TASK_CLEANUP_TOOL_NAMES } from "~ai-agent-worker/domain/cleanup/model/cleanup.tool.schema.js";
+import { TASK_CLEANUP_TOOL, TASK_CLEANUP_TOOL_NAMES } from "~ai-agent-worker/domain/cleanup/model/cleanup.tool.schema.js";
 import { validateCleanupSuggestions } from "~ai-agent-worker/domain/cleanup/model/cleanup.validation.model.js";
 import type {
     CleanupAgentPort,
@@ -20,6 +21,18 @@ import type {
 import { buildCleanupToolHandlers, type CleanupToolDeps } from "./cleanup.tools.js";
 
 const MCP_SERVER = `monitor-${TASK_CLEANUP_SPEC.name}`;
+const AGENT_TOOL = "Agent";
+export const CLEANUP_REVIEWER_ROLE = "cleanup-candidate-reviewer";
+export const CLEANUP_REVIEWER_MAX_TURNS = 4;
+export const CLEANUP_REVIEWER_TOOLS = [TASK_CLEANUP_TOOL.getTaskEvents] as const;
+
+const DELEGATION_DIRECTIVE = `
+
+Investigation organization:
+  - You are the lead janitor. First call list_candidate_tasks yourself.
+  - For every hasEvents=true candidate you might archive, delegate its review to cleanup-candidate-reviewer with the exact taskId and candidate signals. Launch independent reviews together when possible.
+  - Treat reviewer reports as evidence summaries. The parent thread owns the final archive decisions and structured output.
+  - Never propose a hasEvents=true task that cleanup-candidate-reviewer did not actually open.`;
 
 type StructuredRun = StructuredQueryResult<{ readonly suggestions: CleanupSuggestionPayload[] }>;
 
@@ -96,11 +109,11 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
                 label: TASK_CLEANUP_SPEC.name,
                 prompt,
                 systemPrompt: withMcpToolPrefix(
-                    TASK_CLEANUP_SPEC.systemPrompt(input.language),
+                    TASK_CLEANUP_SPEC.systemPrompt(input.language) + DELEGATION_DIRECTIVE,
                     TASK_CLEANUP_TOOL_NAMES,
                     MCP_SERVER,
                 ),
-                allowedTools: mcpToolNames(MCP_SERVER, TASK_CLEANUP_TOOL_NAMES),
+                allowedTools: [...mcpToolNames(MCP_SERVER, TASK_CLEANUP_TOOL_NAMES), AGENT_TOOL],
                 jobId: input.jobId,
                 model,
                 maxTurns: limits.maxTurns,
@@ -117,6 +130,8 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
                 maxBudgetUsd: limits.maxBudgetUsd,
                 providerOptions: {
                     ...(model !== limits.fallbackModel ? { fallbackModel: limits.fallbackModel } : {}),
+                    builtInTools: [AGENT_TOOL],
+                    agents: cleanupSubagents(model),
                     mcpServers: {
                         [MCP_SERVER]: buildMcpToolServer(MCP_SERVER, TASK_CLEANUP_SPEC.tools, handlers),
                     },
@@ -127,6 +142,19 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
             TASK_CLEANUP_SPEC.outputSchema,
         );
     }
+}
+
+function cleanupSubagents(model: string): Readonly<Record<string, AgentDefinition>> {
+    return {
+        [CLEANUP_REVIEWER_ROLE]: {
+            description: "Inspect one cleanup candidate's events and decide whether it is an empty or disposable shell versus substantive work.",
+            prompt: 'Inspect exactly the taskId assigned by the parent. Read enough events, including the ending when useful, to determine whether substantive user work, edits, commands, or a conclusion occurred. Return exactly one JSON report with this shape: {"taskId":"...","archivable":false,"reason":"...","citedEventIds":["..."]}. Use only event IDs returned for that task. Do not inspect other candidates and do not produce the final cleanup schema.',
+            tools: CLEANUP_REVIEWER_TOOLS.map((name) => mcpToolName(MCP_SERVER, name)),
+            model,
+            maxTurns: CLEANUP_REVIEWER_MAX_TURNS,
+            permissionMode: "bypassPermissions",
+        },
+    };
 }
 
 function toOutput(

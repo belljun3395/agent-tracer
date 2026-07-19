@@ -7,6 +7,15 @@
     "maxOutputTokens": 16000,
     "maxBudgetUsd": 0.5
   },
+  "orchestration": {
+    "workerMaxTurns": 4,
+    "roles": {
+      "cleanup-candidate-reviewer": ["get_task_events"]
+    },
+    "workerReport": {
+      "required": ["taskId", "archivable", "reason", "citedEventIds"]
+    }
+  },
   "tools": {
     "list_candidate_tasks": {
       "required": [],
