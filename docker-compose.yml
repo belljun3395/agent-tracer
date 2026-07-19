@@ -9,6 +9,8 @@ x-app-env: &app-env
   TRACER_DB_PORT: "5432"
   POSTGRES_USER: ${POSTGRES_USER:-monitor}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitor}
+  AGENT_DB_READER_USER: ${AGENT_DB_READER_USER:-agent_reader}
+  AGENT_DB_READER_PASSWORD: ${AGENT_DB_READER_PASSWORD:-agentreader}
   KAFKA_BROKERS: redpanda:29092
   OPENSEARCH_NODE: http://opensearch:9200
   TEMPORAL_ADDRESS: temporal:7233
@@ -216,6 +218,15 @@ services:
     environment:
       AGENT_GRAPH_HOST: 0.0.0.0
       AGENT_GRAPH_PORT: "8800"
+      TRACER_DB_HOST: tracer-db
+      TRACER_DB_PORT: "5432"
+      AGENT_DB_READER_USER: ${AGENT_DB_READER_USER:-agent_reader}
+      AGENT_DB_READER_PASSWORD: ${AGENT_DB_READER_PASSWORD:-agentreader}
+      OPENSEARCH_NODE: http://opensearch:9200
+    depends_on:
+      tracer-db: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8800/health')"]
       interval: 10s
