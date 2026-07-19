@@ -26,7 +26,8 @@ export interface GenerateRecipeCandidatesOutput {
     /** 모델과 도구 실행의 궤적이며 모든 백엔드가 채운다. */
     readonly steps: readonly AiJobStepPayload[];
     /** 이 실행 중 도구가 실제로 돌려준 ID 장부다. */
-    readonly provenance: ProvenanceSnapshot;
+    /** 워커가 도구를 돌렸을 때의 근거 장부이며, 실행 백엔드가 자기 장부로 검증했으면 null이다. */
+    readonly provenance: ProvenanceSnapshot | null;
 }
 
 /** 백엔드가 구현하는 레시피 후보 생성 계약이다. */

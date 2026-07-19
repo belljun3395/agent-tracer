@@ -114,7 +114,7 @@ async function bootstrap(): Promise<void> {
     const recipeRepository = new RecipeRepositoryAdapter(jobs, tasks, taskStates, settings, tx);
     const recipeNotification = new RecipeNotificationAdapter(publish);
     const recipeAgents = {
-        [AGENT_BACKEND.python]: new RecipeGraphAgentAdapter(graphClient, callbacks, recipeTools),
+        [AGENT_BACKEND.python]: new RecipeGraphAgentAdapter(graphClient),
         [AGENT_BACKEND.claudeSdk]: new RecipeSdkAgentAdapter(claudeRunner, recipeTools),
     };
     const recipe = new RecipeActivity(

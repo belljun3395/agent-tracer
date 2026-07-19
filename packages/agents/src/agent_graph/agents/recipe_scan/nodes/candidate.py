@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import httpx
-
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import RecipeAgentContext, build_recipe_agent
@@ -19,13 +17,16 @@ from ..models import (
 )
 from ..policy import MAX_RECIPE_MODEL_COST_USD, validate_recipe_candidates
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
+from ..reader import RecipeLedgerReader
+from ..search import RecipeSearchReader
 
 type RecipeNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
 
 
 def create_candidate_nodes(
     req: RecipeScanRequest,
-    client: httpx.AsyncClient,
+    reader: RecipeLedgerReader,
+    search: RecipeSearchReader,
     usage: ExecutionTrace,
     chat: Any,
     *,
@@ -46,8 +47,8 @@ def create_candidate_nodes(
             usage,
             budget,
             MAX_TOOL_ROUNDS,
-            client,
-            req.toolCallback,
+            reader,
+            search,
             state["provenance"],
         )
         output = await recipe_agent.ainvoke(

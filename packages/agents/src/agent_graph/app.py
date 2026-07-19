@@ -21,6 +21,7 @@ from .agents.runtime.execution.completion import run_and_deliver
 from .agents.runtime.execution.registry import cancel_run
 from .agents.runtime.execution.runner import AgentBody, execute
 from .agents.runtime.ledger import LedgerPoolProvider
+from .agents.runtime.search import create_search_client
 from .agents.runtime.telemetry.bootstrap import configure_observability
 from .agents.runtime.telemetry.propagation import extract_trace_context
 from .agents.shared.models import AgentAccepted, AgentExecutionRequest, AgentResponse
@@ -39,7 +40,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     shutdown_observability = configure_observability()
     app.state.tool_client = httpx.AsyncClient(timeout=TOOL_CALLBACK_TIMEOUT_S)
     app.state.completion_client = httpx.AsyncClient(timeout=COMPLETION_CALLBACK_TIMEOUT_S)
-    app.state.ledger = LedgerPoolProvider(get_settings().tracer_dsn())
+    settings = get_settings()
+    app.state.ledger = LedgerPoolProvider(settings.tracer_dsn())
+    app.state.search = create_search_client(settings.opensearch_node)
     try:
         yield
     finally:
@@ -47,6 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.tool_client.aclose()
         await app.state.completion_client.aclose()
         await app.state.ledger.close()
+        await app.state.search.close()
 
 
 def accept(
@@ -116,7 +120,7 @@ async def recipe_scan(
     return accept(
         "recipe-scan",
         req,
-        lambda trace: run_recipe_scan(req, request.app.state.tool_client, trace),
+        lambda trace: run_recipe_scan(req, request.app.state.ledger, request.app.state.search, trace),
         background,
         request,
     )

@@ -174,7 +174,7 @@ def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
         "apiKey": "sk-test",
         "taskId": "t1",
         "language": "ko",
-        "toolCallback": _TOOLS["toolCallback"],
+        "userId": "user-1",
         "completionCallback": _TOOLS["completionCallback"],
     }
     tools = FakeToolClient(

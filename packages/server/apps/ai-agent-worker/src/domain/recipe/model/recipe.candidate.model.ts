@@ -43,39 +43,57 @@ interface ProvenanceFilterResult {
     readonly revisesRecipeIdSeenRev?: number;
 }
 
-/** 근거 장부에 없는 ID 인용과 사용자 소유가 아닌 태스크 인용을 걷어낸다. */
+/** 사용자 소유가 아닌 태스크 인용을 걷어내며, 장부가 있으면 그 장부에 없는 ID 인용도 함께 걷어낸다. */
 export function filterCandidateByProvenance(
     candidate: RecipeCandidatePayload,
     ownedTaskIds: ReadonlySet<string>,
-    provenance: ProvenanceSnapshot,
+    provenance: ProvenanceSnapshot | null,
 ): ProvenanceFilterResult | null {
     const contributingSlices = candidate.contributing_slices
         .filter((slice) => ownedTaskIds.has(slice.taskId))
         .map((slice) => ({
             taskId: slice.taskId,
-            turnIds: slice.turnIds.filter((turnId) => isTurnVerified(provenance, slice.taskId, turnId)),
-            eventIds: slice.eventIds.filter((eventId) => isEventVerified(provenance, slice.taskId, eventId)),
+            turnIds:
+                provenance === null
+                    ? slice.turnIds
+                    : slice.turnIds.filter((turnId) => isTurnVerified(provenance, slice.taskId, turnId)),
+            eventIds:
+                provenance === null
+                    ? slice.eventIds
+                    : slice.eventIds.filter((eventId) => isEventVerified(provenance, slice.taskId, eventId)),
         }));
     if (contributingSlices.length === 0) return null;
 
     const corrections = candidate.corrections
         .map((correction) => ({
             ...correction,
-            evidence: correction.evidence.filter((eventId) => isEventVerifiedAnyTask(provenance, eventId)),
+            evidence:
+                provenance === null
+                    ? correction.evidence
+                    : correction.evidence.filter((eventId) => isEventVerifiedAnyTask(provenance, eventId)),
         }))
         .filter((correction) => correction.evidence.length > 0);
 
     const pitfalls = candidate.pitfalls
         .map((pitfall) => ({
             ...pitfall,
-            evidence: pitfall.evidence.filter((eventId) => isEventVerifiedAnyTask(provenance, eventId)),
+            evidence:
+                provenance === null
+                    ? pitfall.evidence
+                    : pitfall.evidence.filter((eventId) => isEventVerifiedAnyTask(provenance, eventId)),
         }))
         .filter((pitfall) => pitfall.evidence.length > 0);
 
-    const governingRules = candidate.governing_rules.filter((ruleId) => isRuleVerified(provenance, ruleId));
+    const governingRules =
+        provenance === null
+            ? candidate.governing_rules
+            : candidate.governing_rules.filter((ruleId) => isRuleVerified(provenance, ruleId));
 
     const revisesRecipeId = candidate.revises_recipe_id;
-    const seenRev = revisesRecipeId !== undefined ? verifiedRecipeRev(provenance, revisesRecipeId) : undefined;
+    const seenRev =
+        revisesRecipeId !== undefined && provenance !== null
+            ? verifiedRecipeRev(provenance, revisesRecipeId)
+            : undefined;
 
     return {
         contributingSlices,
@@ -92,7 +110,7 @@ export function filterCandidateByProvenance(
 export function assembleRecipeCandidates(
     candidates: readonly RecipeCandidatePayload[],
     ownedTaskIds: ReadonlySet<string>,
-    provenance: ProvenanceSnapshot,
+    provenance: ProvenanceSnapshot | null,
     nextId: () => string,
 ): readonly GeneratedRecipeCandidate[] {
     const assembled: GeneratedRecipeCandidate[] = [];

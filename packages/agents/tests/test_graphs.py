@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -11,7 +12,7 @@ from anthropic import AuthenticationError
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.recipe_scan.models import RecipeScanRequest
 from agent_graph.agents.runtime.execution.runner import execute
-from tests.fakes import FakeToolClient, FakeToolLoopChat
+from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 # 워커가 제공하는 도구 콜백 창구다.
 _TOOLS: dict[str, object] = {
@@ -27,9 +28,23 @@ _TOOLS: dict[str, object] = {
             "parameters": {"type": "object", "properties": {"taskId": {"type": "string"}}, "required": ["taskId"]},
         },
     ],
-    "toolCallback": {"url": "http://worker:8810/tools/invoke", "token": "tok-1"},
     "completionCallback": {"url": "http://worker:8810/runs/complete", "token": "done-1"},
 }
+
+def _event_row(event_id: str, turn_id: str, title: str) -> dict[str, object]:
+    return {
+        "id": event_id,
+        "seq": 1,
+        "turn_id": turn_id,
+        "kind": "execute_tool",
+        "title": title,
+        "body": None,
+        "tool_name": None,
+        "file_paths": [],
+        "metadata": {},
+        "occurred_at": datetime(2026, 7, 14, tzinfo=UTC),
+    }
+
 
 def _recipe() -> dict[str, object]:
     return {
@@ -48,21 +63,26 @@ def _recipe() -> dict[str, object]:
 
 class TestRecipeScanGraph:
     @staticmethod
-    def _client() -> FakeToolClient:
-        return FakeToolClient(
-            {
-                "get_task_summary": {"id": "t1", "title": "x", "eventCount": 2},
-                "list_rules": [{"id": "rule-1"}],
-                "get_task_events": {
-                    "events": [
-                        {"id": "event-1", "turnId": "turn-1", "title": "마이그레이션"},
-                        {"id": "event-2", "turnId": "turn-2", "title": "대시보드"},
-                    ],
-                    "truncated": False,
-                    "total": 2,
-                },
-                "search_events": {"events": [], "truncated": False, "total": 0},
-            }
+    def _ledger() -> FakeLedger:
+        return FakeLedger(
+            [
+                _event_row("event-1", "turn-1", "마이그레이션"),
+                _event_row("event-2", "turn-2", "대시보드"),
+            ],
+            rules=[
+                {
+                    "id": "rule-1",
+                    "name": "규칙",
+                    "expectation": {"kind": "action", "tool": "Bash"},
+                    "task_id": "t1",
+                    "anchor_event_id": "event-1",
+                    "source": "agent",
+                    "severity": "info",
+                    "rationale": None,
+                    "signature": "sig-1",
+                    "created_at": datetime(2026, 7, 14, tzinfo=UTC),
+                }
+            ],
         )
 
     @staticmethod
@@ -72,18 +92,18 @@ class TestRecipeScanGraph:
             apiKey="sk-test",
             taskId="t1",
             language="ko",
-            toolCallback=_TOOLS["toolCallback"],  # type: ignore[arg-type]
+            userId="user-1",
             completionCallback=_TOOLS["completionCallback"],  # type: ignore[arg-type]
         )
 
-    async def _run(self, chat: FakeToolLoopChat, client: FakeToolClient | None = None) -> object:
+    async def _run(self, chat: FakeToolLoopChat, ledger: FakeLedger | None = None) -> object:
         req = self._request()
-        tools = client or self._client()
+        reader = ledger or self._ledger()
         return await execute(
             "recipe-scan",
             req.model,
             req.deadlineMs,
-            lambda usage: recipe_mod.run_recipe_scan(req, tools, usage),  # type: ignore[arg-type]
+            lambda usage: recipe_mod.run_recipe_scan(req, reader, FakeSearch(), usage),  # type: ignore[arg-type]
         )
 
     async def test_모델이_스스로_도구를_골라_근거를_모으고_후보를_낸다(
@@ -98,12 +118,11 @@ class TestRecipeScanGraph:
             {"recipes": [_recipe()]},
         ])
         monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
-        client = self._client()
+        ledger = self._ledger()
 
-        res = await self._run(chat, client)
+        res = await self._run(chat, ledger)
 
         assert res.error is None
-        assert client.calls == ["get_task_summary", "list_rules", "get_task_events"]
         assert res.data is not None and res.data["recipes"][0]["title"] == "Add migration"
         assert [step.toolName for step in res.steps if step.role == "tool"] == [
             "get_task_summary",
@@ -116,12 +135,13 @@ class TestRecipeScanGraph:
     ) -> None:
         chat = FakeToolLoopChat([{"recipes": []}])
         monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
-        client = self._client()
+        ledger = self._ledger()
 
-        res = await self._run(chat, client)
+        res = await self._run(chat, ledger)
 
         assert res.error is None and res.data == {"recipes": []}
-        assert client.calls == []
+        # 도구를 부르지 않았으니 원장을 한 번도 조회하지 않는다.
+        assert ledger.queries == []
 
     async def test_도구가_돌려주지_않은_ID는_한_번_수정한_뒤_검증한다(
         self, monkeypatch: pytest.MonkeyPatch

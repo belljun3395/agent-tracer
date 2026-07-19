@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from typing import Any
 
 import asyncpg
 
@@ -11,6 +13,13 @@ type LedgerPool = asyncpg.Pool[asyncpg.Record]
 
 MIN_POOL_SIZE = 1
 MAX_POOL_SIZE = 8
+
+
+# 드라이버는 jsonb를 문자열로 내주므로 연결마다 해석 코덱을 걸어야 목록과 사전으로 읽힌다.
+async def _decode_json(connection: Any) -> None:
+    await connection.set_type_codec(
+        "jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+    )
 
 
 class LedgerPoolProvider:
@@ -26,7 +35,7 @@ class LedgerPoolProvider:
         async with self._lock:
             if self._pool is None:
                 opened = await asyncpg.create_pool(
-                    self._dsn, min_size=MIN_POOL_SIZE, max_size=MAX_POOL_SIZE
+                    self._dsn, min_size=MIN_POOL_SIZE, max_size=MAX_POOL_SIZE, init=_decode_json
                 )
                 if opened is None:
                     raise RuntimeError("원장 연결 풀을 열지 못했다")

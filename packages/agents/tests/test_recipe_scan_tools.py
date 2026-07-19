@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -9,11 +10,12 @@ from pydantic import ValidationError
 
 from agent_graph.agents.recipe_scan.langchain_agent import RECIPE_LANGCHAIN_TOOLS
 from agent_graph.agents.recipe_scan.models import EvidenceRecord, ProvenanceCatalog
+from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
+from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
 from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
 from agent_graph.agents.recipe_scan.tools.provenance import add_provenance
-from agent_graph.agents.shared.models import ToolCallback
-from tests.fakes import FakeToolClient
+from tests.fakes import FakeLedger, FakeSearch
 
 
 def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> None:
@@ -73,19 +75,19 @@ def test_모델이_없는_도구를_부르면_거부한다() -> None:
         validate_tool_args("delete_everything", {})
 
 
-async def test_유효하지_않은_도구_인자는_실제_콜백을_호출하지_않는다() -> None:
-    client = FakeToolClient({"search_events": {"events": []}})
-    callback = ToolCallback(url="http://worker:8810/tools/invoke", token="token-1")
+async def test_유효하지_않은_도구_인자는_실제_조회를_하지_않는다() -> None:
+    ledger = FakeLedger()
+    search = FakeSearch()
 
     with pytest.raises(ValidationError):
         await invoke_tool(
-            client,  # type: ignore[arg-type]
-            callback,
+            RecipeLedgerReader(ledger, "user-1"),  # type: ignore[arg-type]
+            RecipeSearchReader(search, "user-1"),  # type: ignore[arg-type]
             "search_events",
             {"q": "failure", "taskId": "task-1", "kind": "drifted.kind"},
         )
 
-    assert client.calls == []
+    assert ledger.queries == [] and search.bodies == []
 
 
 def test_빈_이벤트_커서는_콜백_전에_거부한다() -> None:
@@ -112,20 +114,31 @@ def test_revision이_있는_recipe만_수정_근거로_인정한다() -> None:
     assert catalog.recipeIds == {"versioned"}
 
 
-async def test_모델이_생략한_인자는_도구_기본값으로_채워_부른다() -> None:
-    client = FakeToolClient(
-        {"get_task_events": {"events": [{"id": "event-1", "taskId": "task-1"}]}}
-    )
-    callback = ToolCallback(url="http://worker:8810/tools/invoke", token="token-1")
+async def test_모델이_생략한_인자는_도구_기본값으로_채워_조회한다() -> None:
+    ledger = FakeLedger([
+        {
+            "id": "event-1",
+            "seq": 1,
+            "turn_id": None,
+            "kind": "execute_tool",
+            "title": "x",
+            "body": None,
+            "tool_name": None,
+            "file_paths": [],
+            "metadata": {},
+            "occurred_at": datetime(2026, 7, 14, tzinfo=UTC),
+        }
+    ])
 
     content = await invoke_tool(
-        client,  # type: ignore[arg-type]
-        callback,
+        RecipeLedgerReader(ledger, "user-1"),  # type: ignore[arg-type]
+        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
         "get_task_events",
         {"taskId": "task-1"},
     )
 
-    assert client.args == [{"taskId": "task-1", "limit": 100, "order": "asc"}]
+    # 기본 limit 100에 truncated 판별용 한 행을 더해 101을 읽는다.
+    assert ledger.queries == [{"desc": False, "args": ["task-1", "user-1", None, 101]}]
     assert "event-1" in content
 
 

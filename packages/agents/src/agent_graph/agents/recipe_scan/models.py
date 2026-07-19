@@ -7,7 +7,7 @@ from typing import Any, Literal, TypedDict
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, TrimmedStr
 
 # 한 태스크가 서로 다른 작업 turn을 담을 수 있어 스캔 한 번이 낼 수 있는 후보 수다.
 MAX_RECIPE_CANDIDATES = 4
@@ -37,9 +37,10 @@ class RecipeScanRequest(AgentExecutionRequest):
 
     deadlineMs: int = 720_000
     taskId: TrimmedStr = Field(min_length=1)
+    # 조회 범위를 정하는 값이라 도메인 입력이며 멱등 해시에 함께 든다.
+    userId: TrimmedStr = Field(min_length=1)
     language: Language = "auto"
     userPrompt: TrimmedStr | None = None
-    toolCallback: ToolCallback
 
 
 class RecipeStep(BaseModel):

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
+from opensearchpy import AsyncOpenSearch
 
 from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
 from ..runtime.validation_graph import ValidationGraphContext
 from .graph import RECIPE_SCAN_GRAPH
@@ -14,12 +15,14 @@ from .models import ProvenanceCatalog, RecipeScanRequest
 from .nodes.candidate import create_candidate_nodes
 from .nodes.result import empty, finalize
 from .policy import RECIPE_MAX_OUTPUT_TOKENS, build_routes
+from .reader import RecipeLedgerReader
+from .search import RecipeSearchReader
 
 AGENT_NAME = "recipe-scan"
 
 
 async def run_recipe_scan(
-    req: RecipeScanRequest, client: httpx.AsyncClient, usage: ExecutionTrace
+    req: RecipeScanRequest, ledger: LedgerPoolProvider, search: AsyncOpenSearch, usage: ExecutionTrace
 ) -> dict[str, Any]:
     """recipe-scan 노드를 실행 의존성과 결합해 그래프를 수행한다."""
     chat = make_chat(
@@ -30,7 +33,8 @@ async def run_recipe_scan(
     )
     investigate, validate_candidate, repair = create_candidate_nodes(
         req,
-        client,
+        RecipeLedgerReader(ledger, req.userId),
+        RecipeSearchReader(search, req.userId),
         usage,
         chat,
         agent_name=AGENT_NAME,

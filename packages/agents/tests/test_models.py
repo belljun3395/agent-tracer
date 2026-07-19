@@ -131,7 +131,7 @@ class TestRecipeScanRequest:
                     "systemPrompt": "s",
                     "outputSchema": {"type": "object"},
                     "tools": [],
-                    "toolCallback": _CALLBACK,
+                    "userId": "user-1",
                     "completionCallback": _COMPLETION,
                 }
             )
@@ -144,7 +144,7 @@ class TestRecipeScanRequest:
                 "taskId": " t1 ",
                 "language": "ko",
                 "userPrompt": " 작업에서 레시피를 찾아줘 ",
-                "toolCallback": _CALLBACK,
+                "userId": "user-1",
                 "completionCallback": _COMPLETION,
             }
         )

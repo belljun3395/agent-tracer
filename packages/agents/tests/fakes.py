@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as _json
+from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.messages import AIMessage
@@ -134,7 +135,12 @@ class FakeLedgerConnection:
             return self._ledger.total
         return 1 if self._ledger.owned else None
 
+    async def fetchrow(self, _statement: str, *_args: Any) -> Any:
+        return self._ledger.task if self._ledger.owned else None
+
     async def fetch(self, statement: str, *args: Any) -> list[Any]:
+        if "agent_rule_view" in statement:
+            return list(self._ledger.rules)
         self._ledger.queries.append({"desc": "ORDER BY seq DESC" in statement, "args": list(args)})
         return list(self._ledger.rows)
 
@@ -156,11 +162,27 @@ class FakeLedger:
     """원장 연결 풀 공급자 대역. 조회 인자를 기록하고 캔 행을 돌려준다."""
 
     def __init__(
-        self, rows: list[dict[str, Any]] | None = None, *, owned: bool = True, total: int | None = None
+        self,
+        rows: list[dict[str, Any]] | None = None,
+        *,
+        owned: bool = True,
+        total: int | None = None,
+        rules: list[dict[str, Any]] | None = None,
+        task: dict[str, Any] | None = None,
     ) -> None:
         self.rows = rows or []
         self.owned = owned
         self.total = len(self.rows) if total is None else total
+        self.rules = rules or []
+        self.task = task or {
+            "id": "t1",
+            "title": "x",
+            "status": "completed",
+            "task_kind": "monitoring",
+            "workspace_path": None,
+            "created_at": datetime(2026, 7, 14, tzinfo=UTC),
+            "updated_at": datetime(2026, 7, 14, tzinfo=UTC),
+        }
         self.queries: list[dict[str, Any]] = []
 
     async def pool(self) -> FakeLedger:
@@ -168,6 +190,22 @@ class FakeLedger:
 
     def acquire(self) -> FakeLedgerAcquire:
         return FakeLedgerAcquire(self)
+
+    async def close(self) -> None:
+        return None
+
+
+class FakeSearch:
+    """검색 색인 대역. 색인별 캔 히트를 돌려주고 질의 본문을 기록한다."""
+
+    def __init__(self, hits: dict[str, list[dict[str, Any]]] | None = None) -> None:
+        self.hits = hits or {}
+        self.bodies: list[dict[str, Any]] = []
+
+    async def search(self, index: str, body: dict[str, Any]) -> dict[str, Any]:
+        self.bodies.append({"index": index, "body": body})
+        found = self.hits.get(index, [])
+        return {"hits": {"total": {"value": len(found)}, "hits": found}}
 
     async def close(self) -> None:
         return None
