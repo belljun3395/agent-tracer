@@ -17,6 +17,14 @@ from tests.fakes import FakeToolClient, mk_ai
 _CALLBACK = {"url": "http://worker:8810/tools/invoke", "token": "tok-1"}
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
 
+# 호출 하나가 sonnet 단가로 약 $0.21이라 세 번째 호출은 $0.50 상한 안에 들어갈 수 없다.
+_EXPENSIVE_USAGE = {
+    "input_tokens": 10_000,
+    "output_tokens": 12_000,
+    "total_tokens": 22_000,
+    "input_token_details": {"cache_read": 0, "cache_creation": 0},
+}
+
 _DRAFT = {
     "suggestions": [
         {
@@ -32,10 +40,11 @@ _DRAFT = {
 class GreedyChat:
     """예산을 안 보고 계속 도구만 부르다가 결론 요구를 받으면 그때 출력하는 모델이다."""
 
-    def __init__(self) -> None:
+    def __init__(self, usage: dict[str, Any] | None = None) -> None:
         self.bound_tools: list[Any] = []
         self.tools_per_call: list[list[str]] = []
         self.notices: list[str] = []
+        self.usage = usage
 
     def bind_tools(self, tools: list[Any], **_kwargs: Any) -> GreedyChat:
         self.bound_tools = tools
@@ -56,7 +65,8 @@ class GreedyChat:
             return mk_ai(
                 tool_calls=[
                     {"name": "CleanupDraft", "args": _DRAFT, "id": "call-out", "type": "tool_call"}
-                ]
+                ],
+                usage=self.usage,
             )
         return mk_ai(
             tool_calls=[
@@ -66,7 +76,8 @@ class GreedyChat:
                     "id": f"call-{len(self.tools_per_call)}",
                     "type": "tool_call",
                 }
-            ]
+            ],
+            usage=self.usage,
         )
 
 
@@ -135,6 +146,18 @@ async def test_남은_라운드를_매_턴_알려준다(monkeypatch: pytest.Monk
 
     assert f"{MAX_TOOL_ROUNDS} of {MAX_TOOL_ROUNDS}" in chat.notices[0]
     assert f"{MAX_TOOL_ROUNDS - 1} of {MAX_TOOL_ROUNDS}" in chat.notices[1]
+
+
+async def test_비용_상한에_닿기_전에_결론을_받아낸다(monkeypatch: pytest.MonkeyPatch) -> None:
+    chat = GreedyChat(usage=_EXPENSIVE_USAGE)
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+
+    res = await _run(chat, _client())
+
+    assert res.error is None
+    assert res.data["suggestions"] == _DRAFT["suggestions"]
+    assert len(chat.notices) < MAX_TOOL_ROUNDS
+    assert FINALIZE_DIRECTIVE in chat.notices[-1]
 
 
 async def test_마지막_라운드에는_조사_도구를_거두고_출력만_남긴다(

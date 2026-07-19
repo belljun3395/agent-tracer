@@ -21,7 +21,7 @@ BUDGET_NOTICE = (
 )
 
 FINALIZE_DIRECTIVE = (
-    "The tool budget is exhausted. Produce the final structured output now "
+    "The investigation budget is exhausted. Produce the final structured output now "
     "using only the evidence you already verified."
 )
 
@@ -66,14 +66,16 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
 
 
 def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[StandardAgentContext]:
-    """남은 도구 라운드를 모델에게 알리고, 마지막 라운드에는 결론만 받는다."""
-    total = request.runtime.context.max_tool_rounds
+    """남은 도구 라운드를 모델에게 알리고, 라운드나 비용이 바닥나면 결론만 받는다."""
+    context = request.runtime.context
+    total = context.max_tool_rounds
     spent = request.state.get("run_model_call_count", 0)
     remaining = total - (spent if isinstance(spent, int) else 0)
     messages = cache_tool_messages(request.messages)
-    if remaining > 1:
+    if remaining > 1 and not context.budget.landing:
         notice = BUDGET_NOTICE.format(remaining=remaining, total=total)
         return request.override(messages=[*messages, HumanMessage(content=notice)])
+    context.budget.land()
     # 조사 도구를 거둬야 모델이 결론을 낸다. 구조화 출력 도구는 이 목록 밖에서 붙는다.
     return request.override(
         messages=[*messages, HumanMessage(content=FINALIZE_DIRECTIVE)],
