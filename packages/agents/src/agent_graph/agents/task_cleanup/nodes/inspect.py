@@ -16,7 +16,7 @@ from ..langchain_agent import (
 from ..models import (
     MAX_INSPECT_REASON_CHARS,
     CleanupCandidate,
-    InspectAssignment,
+    InspectDispatch,
     InspectReport,
     TaskCleanupRequest,
     TaskCleanupState,
@@ -38,7 +38,7 @@ from ..prompts import (
 from ..reader import CleanupLedgerReader
 
 type TriageNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
-type InspectNode = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
+type InspectNode = Callable[[InspectDispatch], Awaitable[dict[str, Any]]]
 
 
 def _failure_reason(exc: Exception) -> str:
@@ -119,9 +119,9 @@ def create_inspect_node(
 ) -> InspectNode:
     """후보 하나를 자기 예산과 자기 장부로 열어보고 판정을 올린다."""
 
-    async def inspect(payload: dict[str, Any]) -> dict[str, Any]:
-        assignment = InspectAssignment.model_validate(payload["assignment"])
-        share = TASK_CLEANUP_MAX_MODEL_COST_USD * payload["cost_share"]
+    async def inspect(payload: InspectDispatch) -> dict[str, Any]:
+        assignment = payload.assignment
+        share = TASK_CLEANUP_MAX_MODEL_COST_USD * payload.cost_share
         # 장부를 조사마다 새로 두어 다른 후보의 이벤트를 인용하지 못하게 한다.
         event_ids: dict[str, set[str]] = {}
         name = f"{agent_name}:inspect"

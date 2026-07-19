@@ -6,6 +6,8 @@ from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH, _dispatch
 from agent_graph.agents.recipe_scan.models import (
     MAX_TOOL_ROUNDS,
     DispatchPlan,
+    ProbeAssignment,
+    ProbeDispatch,
     ProvenanceCatalog,
     RecipeCandidate,
     RecipeScanRequest,
@@ -50,7 +52,9 @@ def test_전문가_비용_몫은_배분한_라운드에_비례한다() -> None:
 
     sends = _dispatch({"plan": plan})  # type: ignore[typeddict-item]
 
-    shares = {send.arg["assignment"]["probe"]: send.arg["cost_share"] for send in sends}
+    # Send는 페이로드를 직렬화하지 않고 계약 객체 그대로 노드에 넘긴다.
+    assert all(isinstance(send.arg, ProbeDispatch) for send in sends)
+    shares = {send.arg.assignment.probe: send.arg.cost_share for send in sends}
     # 8라운드 중 6:2로 나눴으니 비용도 0.75:0.25로 갈린다.
     assert shares == {"timeline": 0.75, "rules": 0.25}
 
@@ -118,7 +122,10 @@ async def test_전문가_실행_예외는_실패_보고로_강등된다() -> Non
     )
 
     result = await node(
-        {"assignment": {"probe": "timeline", "rounds": 2, "question": "무엇"}, "cost_share": 0.5}
+        ProbeDispatch(
+            assignment=ProbeAssignment(probe="timeline", rounds=2, question="무엇"),
+            cost_share=0.5,
+        )
     )
 
     # 예외를 던진 전문가는 판정을 실패로 싣고 소진 표시를 올려 조율자가 알게 한다.

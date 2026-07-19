@@ -11,7 +11,7 @@ from ..langchain_agent import PROBE_TOOLS, RecipeAgentContext, build_recipe_agen
 from ..models import (
     AGENT_RECURSION_LIMIT,
     MAX_VERDICT_CHARS,
-    ProbeAssignment,
+    ProbeDispatch,
     ProbeReport,
     ProvenanceCatalog,
     RecipeScanRequest,
@@ -21,7 +21,7 @@ from ..prompts import PROBE_SYSTEM_PROMPT, build_probe_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
 
-type ProbeNode = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
+type ProbeNode = Callable[[ProbeDispatch], Awaitable[dict[str, Any]]]
 
 
 def _failure_verdict(exc: Exception) -> str:
@@ -41,9 +41,9 @@ def create_probe_node(
 ) -> ProbeNode:
     """맡은 질문 하나를 자기 도구와 자기 예산과 자기 장부로 조사하는 전문가를 만든다."""
 
-    async def probe(payload: dict[str, Any]) -> dict[str, Any]:
-        assignment = ProbeAssignment.model_validate(payload["assignment"])
-        share = MAX_RECIPE_MODEL_COST_USD * payload["cost_share"]
+    async def probe(payload: ProbeDispatch) -> dict[str, Any]:
+        assignment = payload.assignment
+        share = MAX_RECIPE_MODEL_COST_USD * payload.cost_share
         # 장부를 전문가마다 새로 두어 다른 전문가가 읽은 것을 인용하지 못하게 한다.
         catalog = ProvenanceCatalog()
         budget = ToolLoopBudget(f"{agent_name}:{assignment.probe}", req.model, share, 0.0)

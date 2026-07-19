@@ -6,7 +6,7 @@ from langgraph.graph import START
 from langgraph.types import Send
 
 from ..runtime.validation_graph import add_validation_tail, new_graph, observed
-from .models import RecipeScanState
+from .models import ProbeDispatch, RecipeScanState
 
 
 def _dispatch(state: RecipeScanState) -> list[Send]:
@@ -18,7 +18,7 @@ def _dispatch(state: RecipeScanState) -> list[Send]:
     return [
         Send(
             "probe",
-            {"assignment": assignment.model_dump(), "cost_share": assignment.rounds / total},
+            ProbeDispatch(assignment=assignment, cost_share=assignment.rounds / total),
         )
         for assignment in plan.probes
     ]

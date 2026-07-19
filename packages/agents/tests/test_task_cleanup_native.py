@@ -12,7 +12,12 @@ from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.runtime.execution.trace import ExecutionTrace
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
 from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH, _dispatch
-from agent_graph.agents.task_cleanup.models import TaskCleanupRequest, TriagePlan
+from agent_graph.agents.task_cleanup.models import (
+    InspectAssignment,
+    InspectDispatch,
+    TaskCleanupRequest,
+    TriagePlan,
+)
 from agent_graph.agents.task_cleanup.nodes.inspect import create_inspect_node
 from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from tests.fakes import FakeLedger, FakeToolLoopChat
@@ -104,7 +109,9 @@ def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:
 
     sends = _dispatch({"plan": plan})  # type: ignore[typeddict-item]
 
-    shares = {send.arg["assignment"]["taskId"]: send.arg["cost_share"] for send in sends}
+    # Send는 페이로드를 직렬화하지 않고 계약 객체 그대로 노드에 넘긴다.
+    assert all(isinstance(send.arg, InspectDispatch) for send in sends)
+    shares = {send.arg.assignment.taskId: send.arg.cost_share for send in sends}
     # 4라운드 중 3:1로 나눴으니 비용도 0.75:0.25로 갈린다.
     assert shares == {"task-1": 0.75, "task-2": 0.25}
 
@@ -279,7 +286,11 @@ async def test_후보_조사_예외는_실패_보고로_강등된다() -> None:
         agent_name="task-cleanup",
     )
 
-    result = await node({"assignment": {"taskId": "task-1", "rounds": 2}, "cost_share": 0.5})
+    result = await node(
+        InspectDispatch(
+            assignment=InspectAssignment(taskId="task-1", rounds=2), cost_share=0.5
+        )
+    )
 
     # 조사가 무너진 후보는 안전하게 보관 불가로, 사유는 실패로 올린다.
     report = result["reports"][0]

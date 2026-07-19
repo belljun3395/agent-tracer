@@ -6,7 +6,7 @@ from langgraph.graph import START
 from langgraph.types import Send
 
 from ..runtime.validation_graph import add_validation_tail, new_graph, observed
-from .models import TaskCleanupState
+from .models import InspectDispatch, TaskCleanupState
 
 
 def _dispatch(state: TaskCleanupState) -> list[Send]:
@@ -18,7 +18,7 @@ def _dispatch(state: TaskCleanupState) -> list[Send]:
     return [
         Send(
             "inspect",
-            {"assignment": assignment.model_dump(), "cost_share": assignment.rounds / total},
+            InspectDispatch(assignment=assignment, cost_share=assignment.rounds / total),
         )
         for assignment in plan.inspect
     ]

@@ -116,6 +116,15 @@ class TriagePlan(BaseModel):
         return sum(item.rounds for item in self.inspect)
 
 
+class InspectDispatch(BaseModel):
+    """조율자가 후보 조사 분기 하나에 실어 보내는 조사 지시와 비용 몫이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    assignment: InspectAssignment
+    cost_share: float = Field(gt=0.0, le=1.0)
+
+
 class InspectReport(BaseModel):
     """한 후보를 열어본 결과이며 조율자는 이것만 보고 제안을 쓴다."""
 

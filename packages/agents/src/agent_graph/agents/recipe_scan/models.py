@@ -73,6 +73,15 @@ class DispatchPlan(BaseModel):
         return sum(probe.rounds for probe in self.probes)
 
 
+class ProbeDispatch(BaseModel):
+    """조율자가 전문가 분기 하나에 실어 보내는 조사 지시와 비용 몫이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    assignment: ProbeAssignment
+    cost_share: float = Field(gt=0.0, le=1.0)
+
+
 # 발췌 상한이 곧 맥락 격리의 강도다. 넉넉히 열면 전문가의 맥락이 조율자에게 그대로 옮겨온다.
 MAX_EXCERPTS_PER_PROBE = 12
 MAX_EXCERPT_CHARS = 600
