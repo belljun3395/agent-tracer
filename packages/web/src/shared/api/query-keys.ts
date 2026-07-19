@@ -49,6 +49,10 @@ export const monitorQueryKeys = {
   eventMemos: (taskId: TaskId, eventId: string) =>
     ["monitor", "task", taskId, "event", eventId, "memos"] as const,
   memosPrefix: () => ["monitor", "memos"] as const,
+  tags: () => ["monitor", "tags"] as const,
+  tagsPrefix: () => ["monitor", "tags"] as const,
+  taskTags: (taskId: TaskId) => ["monitor", "task", taskId, "tags"] as const,
+  tasksByTag: (tagId: string) => ["monitor", "tags", tagId, "tasks"] as const,
   taskVerifications: (taskId: TaskId) =>
     ["monitor", "task", taskId, "verifications"] as const,
   taskCleanupSuggestions: (status: "pending" | "all" = "pending") =>

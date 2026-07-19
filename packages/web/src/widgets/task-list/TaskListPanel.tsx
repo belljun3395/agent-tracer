@@ -5,6 +5,7 @@ import { useDebouncedValue } from "~web/shared/lib/hooks/use-debounced-value.js"
 import { cn } from "~web/shared/ui/lib/cn.js";
 import { TaskListHeader } from "~web/widgets/task-list/TaskListHeader.js";
 import { TaskListFilters } from "~web/widgets/task-list/TaskListFilters.js";
+import { TaskListTagFilter } from "~web/widgets/task-list/TaskListTagFilter.js";
 import { TaskGroupHeader } from "~web/widgets/task-list/TaskGroup.js";
 import { TaskRow } from "~web/widgets/task-list/row/TaskRow.js";
 import { TaskListFooter } from "~web/widgets/task-list/TaskListFooter.js";
@@ -39,6 +40,7 @@ export function TaskListPanel() {
         />
         <TaskListHeader />
         {!isSearching && <TaskListFilters counts={counts} />}
+        {!isSearching && <TaskListTagFilter />}
       </div>
 
       <ScrollArea className="flex-1 min-h-0">

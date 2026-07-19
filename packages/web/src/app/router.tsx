@@ -5,6 +5,7 @@ import TaskRoute from "~web/pages/task/TaskPage.js";
 import NotFound from "~web/pages/not-found/NotFoundPage.js";
 import { RulesPage } from "~web/pages/rules/RulesPage.js";
 import { MemosPage } from "~web/pages/memos/MemosPage.js";
+import { TagsPage } from "~web/pages/tags/TagsPage.js";
 import { RecipesPage } from "~web/pages/recipes/RecipesPage.js";
 import { JobsPage } from "~web/pages/jobs/JobsPage.js";
 import { SettingsPage } from "~web/pages/settings/SettingsPage.js";
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { path: "tasks/:taskId", element: <TaskRoute /> },
       { path: "rules", element: <RulesPage /> },
       { path: "memos", element: <MemosPage /> },
+      { path: "tags", element: <TagsPage /> },
       { path: "recipes", element: <RecipesPage /> },
       { path: "jobs", element: <JobsPage /> },
       { path: "settings", element: <SettingsPage /> },

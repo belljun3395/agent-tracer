@@ -12,7 +12,7 @@ import type {
 } from "~web/shared/store/slices/sidebarSlice.js";
 import type { Theme } from "~web/shared/store/slices/themeSlice.js";
 import type { GuidanceLocale } from "~web/shared/guidance.js";
-import type { EventId, TaskId } from "~web/shared/identity.js";
+import type { EventId, TagId, TaskId } from "~web/shared/identity.js";
 
 // ── theme ─────────────────────────────────────────────────────────────
 export const useTheme = (): Theme => useUiStore((s) => s.theme);
@@ -106,3 +106,7 @@ export const useSetSidebarSearchType = () =>
 export const useMarkTaskRead = () => useUiStore((s) => s.markTaskRead);
 export const useShowArchived = (): boolean => useUiStore((s) => s.showArchived);
 export const useSetShowArchived = () => useUiStore((s) => s.setShowArchived);
+export const useSidebarTagFilter = (): readonly TagId[] =>
+  useUiStore((s) => s.tagFilter as readonly TagId[]);
+export const useToggleSidebarTagFilter = () => useUiStore((s) => s.toggleTagFilter);
+export const useClearSidebarTagFilter = () => useUiStore((s) => s.clearTagFilter);

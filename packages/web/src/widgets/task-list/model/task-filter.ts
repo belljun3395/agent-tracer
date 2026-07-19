@@ -1,4 +1,5 @@
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
+import type { TaskId } from "~web/shared/identity.js";
 import {
   SIDEBAR_FILTERS,
   type SidebarFilter,
@@ -21,9 +22,12 @@ export function filterTasks(
   tasks: readonly MonitoringTask[],
   filter: SidebarFilter,
   searchQuery: string,
+  /** null이면 태그로 걸러내지 않고, 지정하면 이 집합에 있는 태스크만 남긴다. */
+  tagEligibleTaskIds?: ReadonlySet<TaskId> | null,
 ): readonly MonitoringTask[] {
   const query = searchQuery.trim().toLowerCase();
   return tasks.filter((task) => {
+    if (tagEligibleTaskIds && !tagEligibleTaskIds.has(task.id)) return false;
     if (query.length > 0) {
       const title = (task.displayTitle ?? task.title).toLowerCase();
       if (!title.includes(query)) return false;

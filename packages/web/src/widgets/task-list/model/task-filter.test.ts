@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
-import type { TaskId } from "~web/shared/identity.js";
+import { TaskId } from "~web/shared/identity.js";
 import { countByFilter, filterTasks } from "~web/widgets/task-list/model/task-filter.js";
 
 type TaskFixtureOverrides = Omit<Partial<MonitoringTask>, "id"> & {
@@ -78,6 +78,18 @@ describe("filterTasks", () => {
 
   test("검색어가 비어 있으면 상태 필터 외에는 아무것도 걸러내지 않는다", () => {
     expect(filterTasks(tasks, "all", "   ")).toHaveLength(4);
+  });
+
+  test("태그 적격 집합을 주면 그 집합에 없는 태스크는 제외한다", () => {
+    const eligible = new Set<TaskId>([TaskId("a"), TaskId("c")]);
+    expect(filterTasks(tasks, "all", "", eligible).map((task) => task.id)).toEqual([
+      "a",
+      "c",
+    ]);
+  });
+
+  test("태그 적격 집합이 null이면 태그로 걸러내지 않는다", () => {
+    expect(filterTasks(tasks, "all", "", null)).toHaveLength(4);
   });
 });
 

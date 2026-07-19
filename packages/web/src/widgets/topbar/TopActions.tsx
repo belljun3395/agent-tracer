@@ -1,8 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ActivityIcon, BookIcon, ChecklistIcon, GearIcon, NoteIcon, Tooltip } from "~web/shared/ui/index.js";
+import { ActivityIcon, BookIcon, ChecklistIcon, GearIcon, NoteIcon, TagIcon, Tooltip } from "~web/shared/ui/index.js";
 import { useRecipesQuery } from "~web/entities/recipe/api/queries.js";
 import { useRulesQuery } from "~web/entities/rule/api/queries.js";
 import { useMemosQuery } from "~web/entities/memo/api/queries.js";
+import { useTagsQuery } from "~web/entities/tag/api/queries.js";
 import { ThemeToggle } from "~web/widgets/topbar/ThemeToggle.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
 
@@ -12,6 +13,7 @@ export function TopActions() {
     <div className="flex items-center gap-2">
       <RecipesButton />
       <RulesButton />
+      <TagsButton />
       <MemosButton />
       <JobsButton />
       <SettingsButton />
@@ -108,6 +110,46 @@ function MemosButton() {
         <NoteIcon />
         <span className="text-xs font-medium tracking-[-0.05px]">
           Memos
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center justify-center rounded-pill font-mono text-[10px] font-semibold px-1.5 min-w-5 leading-4",
+            count > 0 ? "bg-ink-tertiary text-white" : "bg-s1 text-ink-tertiary",
+          )}
+        >
+          {isLoading ? "…" : count}
+        </span>
+      </button>
+    </Tooltip>
+  );
+}
+
+function TagsButton() {
+  const { data, isLoading } = useTagsQuery();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const count = data?.tags.length ?? 0;
+  const active = location.pathname === "/tags";
+
+  const onClick = () => {
+    void navigate("/tags");
+  };
+
+  return (
+    <Tooltip content="Manage tags" side="bottom">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Manage tags"
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "h-7 px-2.5 inline-flex items-center gap-1.5 rounded-sm hover:bg-s1 transition-colors",
+          active ? "text-ink bg-s1" : "text-ink-muted bg-transparent",
+        )}
+      >
+        <TagIcon />
+        <span className="text-xs font-medium tracking-[-0.05px]">
+          Tags
         </span>
         <span
           className={cn(

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
 import { useTaskPagesQuery } from "~web/entities/task/api/list-queries.js";
+import { useTaskIdsForTagsQuery } from "~web/entities/tag/api/queries.js";
 import { useNowMs } from "~web/shared/lib/hooks/use-now-ms.js";
 import {
   useCollapsedParents,
@@ -9,6 +10,7 @@ import {
   useShowArchived,
   useSidebarFilter,
   useSidebarSearchQuery,
+  useSidebarTagFilter,
   useSidebarView,
   type SidebarFilter,
 } from "~web/shared/store/index.js";
@@ -55,11 +57,13 @@ export function useTaskList(): TaskListVm {
   const showArchived = useShowArchived();
   const filter = useSidebarFilter();
   const searchQuery = useSidebarSearchQuery();
+  const tagFilter = useSidebarTagFilter();
   const lastSeenAt = useLastSeenAt();
   const collapsedParents = useCollapsedParents();
   const selectedTaskId = useSelectedTaskId();
   const view = useSidebarView();
   const nowMs = useNowMs(15_000);
+  const { taskIds: tagEligibleTaskIds } = useTaskIdsForTagsQuery(tagFilter);
   const origin = view === "subagents" ? "server-sdk" : "user";
   // `filter`(live/attn/done)는 구체적인 태스크 상태를 묶은 클라이언트 전용 집계값이다.
   const pages = useTaskPagesQuery({
@@ -84,7 +88,7 @@ export function useTaskList(): TaskListVm {
   const counts = useMemo(() => countByFilter(viewTasks), [viewTasks]);
 
   const groups = useMemo<readonly TaskGroupVm[]>(() => {
-    const filtered = filterTasks(viewTasks, filter, searchQuery);
+    const filtered = filterTasks(viewTasks, filter, searchQuery, tagEligibleTaskIds);
     const collapsedSet = new Set(collapsedParents);
     return groupHierarchically(filtered, collapsedSet, nowMs).map((g) => ({
       key: g.key,
@@ -102,6 +106,7 @@ export function useTaskList(): TaskListVm {
     viewTasks,
     filter,
     searchQuery,
+    tagEligibleTaskIds,
     nowMs,
     lastSeenAt,
     collapsedParents,

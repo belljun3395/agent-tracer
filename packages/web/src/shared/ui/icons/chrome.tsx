@@ -170,6 +170,28 @@ export function NoteIcon({ size = 14, className }: IconProps) {
   );
 }
 
+/** 라벨 모양 몸통과 구멍 하나를 그린 태그 글리프. */
+
+export function TagIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M20.5 12.5 12 21l-9-9V4h8z" />
+      <circle cx="7.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function ChecklistIcon({ size = 14, className }: IconProps) {
   return (
     <svg

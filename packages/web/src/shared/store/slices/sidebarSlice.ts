@@ -1,4 +1,4 @@
-import type { TaskId } from "~web/shared/identity.js";
+import type { TagId, TaskId } from "~web/shared/identity.js";
 
 // 필터 필·카운트·판정이 모두 이 목록에서 파생된다.
 export const SIDEBAR_FILTERS = ["all", "live", "attn", "done"] as const;
@@ -36,6 +36,8 @@ export interface SidebarSlice {
   readonly collapsedParents: readonly string[];
   /** true면 사이드바가 active 대신 archived 태스크를 가져온다. */
   readonly showArchived: boolean;
+  /** 선택된 태그 id 목록이며 비어 있으면 태그로 걸러내지 않는다. */
+  readonly tagFilter: readonly string[];
   readonly setView: (view: SidebarView) => void;
   readonly setFilter: (filter: SidebarFilter) => void;
   readonly setSearchQuery: (query: string) => void;
@@ -44,6 +46,8 @@ export interface SidebarSlice {
   readonly markTaskRead: (taskId: TaskId, atMs?: number) => void;
   readonly toggleCollapsedParent: (taskId: TaskId) => void;
   readonly setShowArchived: (value: boolean) => void;
+  readonly toggleTagFilter: (tagId: TagId) => void;
+  readonly clearTagFilter: () => void;
 }
 
 type SetState = (
@@ -62,6 +66,7 @@ export function createSidebarSlice(set: SetState): SidebarSlice {
     lastSeenAt: {},
     collapsedParents: [],
     showArchived: false,
+    tagFilter: [],
     setView: (view) => set({ view }),
     setFilter: (filter) => set({ filter }),
     setShowArchived: (value) => set({ showArchived: value }),
@@ -82,5 +87,13 @@ export function createSidebarSlice(set: SetState): SidebarSlice {
         else existing.add(taskId);
         return { collapsedParents: Array.from(existing) };
       }),
+    toggleTagFilter: (tagId) =>
+      set((state) => {
+        const existing = new Set(state.tagFilter);
+        if (existing.has(tagId)) existing.delete(tagId);
+        else existing.add(tagId);
+        return { tagFilter: Array.from(existing) };
+      }),
+    clearTagFilter: () => set({ tagFilter: [] }),
   };
 }

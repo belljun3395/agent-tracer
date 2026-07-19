@@ -20,6 +20,7 @@ import {
   EN_INSPECTOR,
 } from "~web/shared/guidance-en/rules.js";
 import { EN_MEMOS } from "~web/shared/guidance-en/memos.js";
+import { EN_TAGS } from "~web/shared/guidance-en/tags.js";
 
 export const EN_GUIDANCE = defineGuidanceCatalog({
   common: EN_COMMON,
@@ -33,6 +34,7 @@ export const EN_GUIDANCE = defineGuidanceCatalog({
   recipes: EN_RECIPES,
   inspector: EN_INSPECTOR,
   memos: EN_MEMOS,
+  tags: EN_TAGS,
 });
 
 export type GuidanceCatalog = typeof EN_GUIDANCE;

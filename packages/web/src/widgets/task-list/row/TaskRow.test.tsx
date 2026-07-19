@@ -34,6 +34,10 @@ vi.mock("~web/entities/task/api/lifecycle-mutations.js", () => ({
   useUnarchiveTaskMutation: () => mutations.unarchive,
 }));
 
+vi.mock("~web/entities/tag/api/queries.js", () => ({
+  useTaskTagsQuery: () => ({ data: undefined, isLoading: false }),
+}));
+
 beforeEach(() => {
   mutations.archive.mutate.mockClear();
   mutations.delete.mutate.mockClear();

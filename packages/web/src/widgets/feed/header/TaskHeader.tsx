@@ -2,6 +2,9 @@ import { useState } from "react";
 import type { MonitoringTask } from "~web/entities/task/model/task.js";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
 import type { ResumeTargetDto } from "@monitor/kernel";
+import { useTaskTagsQuery } from "~web/entities/tag/api/queries.js";
+import { TagChipList } from "~web/entities/tag/ui/TagChipList.js";
+import { TaskTagPicker } from "~web/entities/tag/ui/TaskTagPicker.js";
 import { useNowMs } from "~web/shared/lib/hooks/use-now-ms.js";
 import {
   useMainView,
@@ -96,6 +99,8 @@ export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
         {task.workspacePath ?? "agent-tracer"}
       </div>
 
+      <TaskHeaderTags taskId={task.id} />
+
       <MetricRail task={task} timeline={timeline} nowMs={nowMs} />
 
       {timeline.length > 0 && (
@@ -124,6 +129,18 @@ export function TaskHeader({ task, timeline, resumeTarget }: TaskHeaderProps) {
           <TaskMemoThread taskId={task.id} />
         </div>
       )}
+    </div>
+  );
+}
+
+function TaskHeaderTags({ taskId }: { readonly taskId: MonitoringTask["id"] }) {
+  const { data } = useTaskTagsQuery(taskId);
+  const tags = data?.tags ?? [];
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+      <TagChipList tags={tags} maxVisible={6} />
+      <TaskTagPicker taskId={taskId} />
     </div>
   );
 }

@@ -39,6 +39,7 @@ export {
   RefreshIcon,
   SparkleIcon,
   SunIcon,
+  TagIcon,
   TrashIcon,
   UnarchiveIcon,
   UpIcon,

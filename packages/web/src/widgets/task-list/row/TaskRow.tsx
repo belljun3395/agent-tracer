@@ -18,6 +18,7 @@ import {
   TaskHierarchyToggle,
 } from "~web/widgets/task-list/row/TaskHierarchyGuides.js";
 import { TaskRowActions } from "~web/widgets/task-list/row/TaskRowActions.js";
+import { TaskRowTags } from "~web/widgets/task-list/row/TaskRowTags.js";
 import { useTaskRowActions } from "~web/widgets/task-list/row/useTaskRowActions.js";
 
 interface TaskRowProps {
@@ -163,6 +164,8 @@ export function TaskRow({
           </span>
         </div>
       )}
+
+      <TaskRowTags taskId={task.id} />
     </Link>
   );
 }

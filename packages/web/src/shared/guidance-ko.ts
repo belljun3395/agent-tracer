@@ -20,6 +20,7 @@ import {
   KO_INSPECTOR,
 } from "~web/shared/guidance-ko/rules.js";
 import { KO_MEMOS } from "~web/shared/guidance-ko/memos.js";
+import { KO_TAGS } from "~web/shared/guidance-ko/tags.js";
 import type { GuidanceCatalog } from "~web/shared/guidance-en.js";
 
 export const KO_GUIDANCE = defineGuidanceCatalog({
@@ -34,4 +35,5 @@ export const KO_GUIDANCE = defineGuidanceCatalog({
   recipes: KO_RECIPES,
   inspector: KO_INSPECTOR,
   memos: KO_MEMOS,
+  tags: KO_TAGS,
 } satisfies GuidanceCatalog);
