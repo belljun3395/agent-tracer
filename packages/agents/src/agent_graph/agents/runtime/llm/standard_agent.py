@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ModelRequest,
+    ModelResponse,
+    ToolCallRequest,
+)
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.types import Command
 
 from ..errors import OutputTruncated
 from ..execution.trace import ExecutionTrace
@@ -54,11 +61,24 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
                 raise OutputTruncated(f"{context.agent_name} structured output truncated at max_tokens")
         return cast(ModelResponse[Any], response)
 
-    async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
+    async def awrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
+    ) -> ToolMessage | Command[Any]:
         response = await handler(request)
         if isinstance(response, ToolMessage):
-            request.runtime.context.trace.record_message(response)
+            tool_context(request, StandardAgentContext).trace.record_message(response)
         return response
+
+
+def tool_context[ContextT: StandardAgentContext](
+    request: ToolCallRequest, schema: type[ContextT]
+) -> ContextT:
+    """도구 호출 요청에 실려 온 이 실행의 컨텍스트를 꺼낸다."""
+    # ToolCallRequest는 컨텍스트 타입을 제네릭으로 싣지 않아 runtime.context가 None으로 굳는다.
+    # 실제로 담긴 값은 create_agent에 넘긴 context_schema의 인스턴스다.
+    return cast("ContextT", request.runtime.context)
 
 
 def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[StandardAgentContext]:

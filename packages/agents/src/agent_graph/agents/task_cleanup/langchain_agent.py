@@ -3,21 +3,32 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, cast
 
 from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelCallLimitMiddleware, ToolRetryMiddleware
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ModelCallLimitMiddleware,
+    ToolCallRequest,
+    ToolRetryMiddleware,
+)
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 from pydantic import BaseModel, Field
 
-from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
+from ..runtime.llm.standard_agent import (
+    StandardAgentContext,
+    StandardAgentMiddleware,
+    tool_context,
+)
 from .models import CleanupBatch, CleanupCandidate, CleanupDraft
 from .policy import MAX_TOOL_ROUNDS
 from .reader import CleanupLedgerReader
@@ -47,8 +58,13 @@ class CleanupAgentContext(StandardAgentContext):
 class CleanupAgentMiddleware(StandardAgentMiddleware):
     """공유 근거 장부를 쓰는 cleanup 도구를 기존 호출 순서대로 실행한다."""
 
-    async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
-        async with request.runtime.context.tool_lock:
+    async def awrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
+    ) -> ToolMessage | Command[Any]:
+        context = tool_context(request, CleanupAgentContext)
+        async with context.tool_lock:
             return await super().awrap_tool_call(request, handler)
 
 
@@ -125,20 +141,20 @@ def build_cleanup_agent(
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
+    # AgentMiddleware가 상태 타입에 불변이고 미들웨어마다 자기 상태를 덧붙이므로
+    # 섞어 쌓은 목록에는 Any 말고 공통 상위 타입이 없다.
+    middleware: list[AgentMiddleware[Any, Any]] = [
+        ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
+        CleanupAgentMiddleware(),
+        _tool_retry(),
+    ]
     return cast(
         CompiledStateGraph[Any, Any, Any, Any],
         create_agent(
             chat,
             tools=list(tools),
             system_prompt=system,
-            middleware=cast(
-                Any,
-                [
-                    ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
-                    CleanupAgentMiddleware(),
-                    _tool_retry(),
-                ],
-            ),
+            middleware=middleware,
             response_format=ToolStrategy(output, handle_errors=True),
             context_schema=CleanupAgentContext,
             name="task-cleanup-investigator",

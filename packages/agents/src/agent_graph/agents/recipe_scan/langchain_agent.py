@@ -7,7 +7,11 @@ from typing import Annotated, Any, Literal, cast
 
 from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelCallLimitMiddleware, ToolRetryMiddleware
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ModelCallLimitMiddleware,
+    ToolRetryMiddleware,
+)
 from langchain.agents.structured_output import ToolStrategy
 from langchain.tools import ToolRuntime, tool
 from langchain_core.language_models import BaseChatModel
@@ -199,20 +203,20 @@ def build_recipe_agent(
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
+    # AgentMiddleware는 상태 타입에 불변이고 미들웨어마다 자기 상태를 덧붙이므로
+    # 섞어 쌓은 목록에는 Any 말고 공통 상위 타입이 없다.
+    middleware: list[AgentMiddleware[Any, Any]] = [
+        ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
+        StandardAgentMiddleware(),
+        _tool_retry(),
+    ]
     return cast(
         CompiledStateGraph[Any, Any, Any, Any],
         create_agent(
             chat,
             tools=list(tools),
             system_prompt=system,
-            middleware=cast(
-                Any,
-                [
-                    ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
-                    StandardAgentMiddleware(),
-                    _tool_retry(),
-                ],
-            ),
+            middleware=middleware,
             response_format=ToolStrategy(output, handle_errors=True),
             context_schema=RecipeAgentContext,
             name="recipe-scan-investigator",
