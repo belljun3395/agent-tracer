@@ -28,9 +28,10 @@ def build_task_summary(task: dict[str, Any], rows: list[dict[str, Any]], total: 
     for row in rows:
         event = slim_event(row)
         if first_user_message is None and event["kind"] == USER_MESSAGE_KIND:
-            first_user_message = {"title": event["title"]}
-            if "body" in event:
-                first_user_message["body"] = event["body"]
+            first_user_message = {
+                "title": event["title"],
+                **({"body": event["body"]} if "body" in event else {}),
+            }
         if "toolName" in event:
             tools[event["toolName"]] += 1
         for path in event["filePaths"]:

@@ -17,4 +17,4 @@ def _json_default(value: object) -> object:
         return value.model_dump(mode="json")
     if isinstance(value, set):
         return sorted(value)
-    return str(value)
+    raise TypeError(f"unsupported JSON value: {type(value).__name__}")
