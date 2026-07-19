@@ -10,8 +10,8 @@ from pydantic import ValidationError
 
 from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
-from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH
-from agent_graph.agents.task_cleanup.models import TaskCleanupRequest
+from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH, _dispatch
+from agent_graph.agents.task_cleanup.models import TaskCleanupRequest, TriagePlan
 from tests.fakes import FakeLedger, FakeToolLoopChat
 
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
@@ -89,6 +89,27 @@ def test_전용_그래프_위상을_고정한다() -> None:
     assert ("inspect", "investigate") in edges
     assert ("investigate", "validate_decisions") in edges
     assert ("repair", "validate_decisions") in edges
+
+
+def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:
+    plan = TriagePlan(
+        inspect=[
+            {"taskId": "task-1", "rounds": 3},  # type: ignore[list-item]
+            {"taskId": "task-2", "rounds": 1},  # type: ignore[list-item]
+        ]
+    )
+
+    sends = _dispatch({"plan": plan})  # type: ignore[typeddict-item]
+
+    shares = {send.arg["assignment"]["taskId"]: send.arg["cost_share"] for send in sends}
+    # 4라운드 중 3:1로 나눴으니 비용도 0.75:0.25로 갈린다.
+    assert shares == {"task-1": 0.75, "task-2": 0.25}
+
+
+def test_열어볼_후보가_없으면_조율자가_혼자_조사한다() -> None:
+    sends = _dispatch({"plan": TriagePlan(inspect=[])})  # type: ignore[typeddict-item]
+
+    assert [send.node for send in sends] == ["investigate"]
 
 
 def test_요청은_실행_봉투_밖의_정의를_거부한다() -> None:

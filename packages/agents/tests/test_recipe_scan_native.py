@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH
+from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH, _dispatch
 from agent_graph.agents.recipe_scan.models import (
+    DispatchPlan,
     ProvenanceCatalog,
     RecipeCandidate,
 )
@@ -24,6 +25,27 @@ def test_recipe_전용_그래프_위상을_명시한다() -> None:
         "empty",
         "__end__",
     }
+
+
+def test_전문가_비용_몫은_배분한_라운드에_비례한다() -> None:
+    plan = DispatchPlan(
+        probes=[
+            {"probe": "timeline", "rounds": 6, "question": "무엇을 했나"},  # type: ignore[list-item]
+            {"probe": "rules", "rounds": 2, "question": "어떤 규칙이"},  # type: ignore[list-item]
+        ]
+    )
+
+    sends = _dispatch({"plan": plan})  # type: ignore[typeddict-item]
+
+    shares = {send.arg["assignment"]["probe"]: send.arg["cost_share"] for send in sends}
+    # 8라운드 중 6:2로 나눴으니 비용도 0.75:0.25로 갈린다.
+    assert shares == {"timeline": 0.75, "rules": 0.25}
+
+
+def test_계획이_없으면_조율자가_혼자_조사한다() -> None:
+    sends = _dispatch({"plan": None})  # type: ignore[typeddict-item]
+
+    assert [send.node for send in sends] == ["investigate"]
 
 
 def test_anchor_slice는_실제_anchor_event를_인용해야_한다() -> None:
