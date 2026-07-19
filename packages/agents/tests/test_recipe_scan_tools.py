@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.recipe_scan.langchain_agent import RECIPE_LANGCHAIN_TOOLS
+from agent_graph.agents.recipe_scan.langchain_agent import PROBE_TOOLS, RECIPE_LANGCHAIN_TOOLS
 from agent_graph.agents.recipe_scan.models import (
     MAX_EXCERPT_CHARS,
     MAX_EXCERPTS_PER_PROBE,
@@ -331,3 +331,15 @@ def test_발췌는_상한을_넘으면_거부한다() -> None:
                 for index in range(MAX_EXCERPTS_PER_PROBE + 1)
             ],
         )
+
+
+def test_전문가는_자기_근거_원천의_도구만_쥔다() -> None:
+    rosters = {probe: {tool.name for tool in tools} for probe, tools in PROBE_TOOLS.items()}
+
+    assert rosters == {
+        "timeline": {"get_task_summary", "get_task_events", "check_citations"},
+        "rules": {"list_rules", "search_recipes", "check_citations"},
+        "repetition": {"search_events", "find_similar_tasks", "check_citations"},
+    }
+    # 세 전문가를 합치면 조율자가 혼자 쓸 때와 같은 도구 집합이라 계약이 안 바뀐다.
+    assert set().union(*rosters.values()) == {tool.name for tool in RECIPE_LANGCHAIN_TOOLS}

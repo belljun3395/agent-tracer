@@ -14,7 +14,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
-from .models import ProvenanceCatalog, RecipeDraft
+from .models import ProbeName, ProvenanceCatalog, RecipeDraft
 from .reader import RecipeLedgerReader
 from .search import RecipeSearchReader
 from .tools.client import invoke_tool, record_evidence
@@ -152,8 +152,19 @@ async def _invoke_and_record(context: RecipeAgentContext, name: str, args: dict[
     return content
 
 
+# 전문가는 자기 근거 원천에 닿는 도구만 쥔다. 인용 확인은 어느 전문가든 쓰므로 모두에게 준다.
+PROBE_TOOLS: dict[ProbeName, tuple[Any, ...]] = {
+    "timeline": (get_task_summary, get_task_events, check_citations),
+    "rules": (list_rules, search_recipes, check_citations),
+    "repetition": (search_events, find_similar_tasks, check_citations),
+}
+
+
 def build_recipe_agent(
-    chat: Any, system_prompt: str, max_rounds: int
+    chat: Any,
+    system_prompt: str,
+    max_rounds: int,
+    tools: tuple[Any, ...] = RECIPE_LANGCHAIN_TOOLS,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 recipe-scan agent를 컴파일한다."""
     system = SystemMessage(
@@ -163,7 +174,7 @@ def build_recipe_agent(
         CompiledStateGraph[Any, Any, Any, Any],
         create_agent(
             chat,
-            tools=list(RECIPE_LANGCHAIN_TOOLS),
+            tools=list(tools),
             system_prompt=system,
             middleware=cast(
                 Any,
