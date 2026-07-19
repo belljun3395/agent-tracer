@@ -1,8 +1,16 @@
-"""recipe-scan의 정적 LangGraph 위상을 제공한다."""
+"""recipe-scan의 정적 LangGraph 위상을 소유한다."""
 
 from __future__ import annotations
 
-from ..runtime.validation_graph import build_validation_graph
+from langgraph.graph import START
+
+from ..runtime.validation_graph import add_validation_tail, new_graph, observed
 from .models import RecipeScanState
 
-RECIPE_SCAN_GRAPH = build_validation_graph(RecipeScanState, "validate_candidate")
+_graph = new_graph(RecipeScanState)
+observed(_graph, "investigate")
+add_validation_tail(_graph, "validate_candidate")
+_graph.add_edge(START, "investigate")
+_graph.add_edge("investigate", "validate_candidate")
+
+RECIPE_SCAN_GRAPH = _graph.compile()
