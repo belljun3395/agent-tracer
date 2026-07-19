@@ -7,7 +7,7 @@ from typing import TypedDict
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..shared.models import AgentExecutionRequest, Language, ToolCallback, TrimmedStr
+from ..shared.models import AgentExecutionRequest, Language, TrimmedStr
 
 RECENT_TURN_LIMIT = 20
 # 워커는 최근 창에 최초 턴 하나를 더 얹어 보내므로 컨텍스트가 실을 수 있는 턴은 하나 더 많다.
@@ -42,9 +42,10 @@ class TitleSuggestionRequest(AgentExecutionRequest):
 
     deadlineMs: int = 180_000
     taskId: TrimmedStr = Field(min_length=1)
+    # 조회 범위를 정하는 값이라 도메인 입력이며 멱등 해시에 함께 든다.
+    userId: TrimmedStr = Field(min_length=1)
     language: Language = "auto"
     context: TitleSuggestionContext
-    toolCallback: ToolCallback
 
 
 class TitleSuggestion(BaseModel):

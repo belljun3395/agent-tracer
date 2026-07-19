@@ -5,11 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
-import httpx
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from ...shared.models import ToolCallback
 from ..errors import OutputTruncated
 from ..execution.trace import ExecutionTrace
 from .budget import ToolLoopBudget
@@ -31,8 +29,6 @@ class StandardAgentContext:
     """표준 agent 도구와 미들웨어가 공유하는 요청별 실행 의존성이다."""
 
     agent_name: str
-    client: httpx.AsyncClient
-    callback: ToolCallback
     trace: ExecutionTrace
     budget: ToolLoopBudget
     max_tool_rounds: int

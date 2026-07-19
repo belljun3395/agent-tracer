@@ -29,9 +29,9 @@ class TestTitleSuggestionRequest:
                 "model": "m",
                 "apiKey": "k",
                 "taskId": " task-1 ",
+                "userId": "user-1",
                 "language": "ko",
                 "context": _TITLE_CONTEXT,
-                "toolCallback": _CALLBACK,
                 "completionCallback": _COMPLETION,
             }
         )
@@ -47,8 +47,8 @@ class TestTitleSuggestionRequest:
                     "model": "m",
                     "apiKey": "k",
                     "taskId": "task-1",
+                    "userId": "user-1",
                     "context": _TITLE_CONTEXT,
-                    "toolCallback": _CALLBACK,
                     "completionCallback": _COMPLETION,
                     "systemPrompt": "injected",
                     "tools": [],
@@ -62,14 +62,13 @@ class TestTitleSuggestionRequest:
             "jobId": "job-1",
             "idempotencyKey": "key-1",
             "taskId": "task-1",
+            "userId": "user-1",
             "context": _TITLE_CONTEXT,
-            "toolCallback": _CALLBACK,
             "completionCallback": _COMPLETION,
         }
         changed_callbacks = {
             **base,
             "apiKey": "second-key",
-            "toolCallback": {"url": "http://worker:8810/tools/invoke", "token": "tok-2"},
             "completionCallback": {"url": "http://worker:8810/runs/complete", "token": "done-2"},
         }
         changed_input = {**base, "language": "ko"}

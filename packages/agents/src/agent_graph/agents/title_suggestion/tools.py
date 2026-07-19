@@ -1,15 +1,15 @@
-"""title-suggestion의 도구 계약과 콜백 실행."""
+"""title-suggestion의 도구 계약과 원장 뷰 실행."""
 
 from __future__ import annotations
 
+import json
 from typing import Any, Literal
 
-import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..runtime.callback import invoke_remote_tool
 from ..runtime.telemetry.spans import tool_span
-from ..shared.models import ToolCallback, TrimmedStr
+from ..shared.models import TrimmedStr
+from .reader import TitleLedgerReader
 
 GET_TASK_EVENTS_TOOL_NAME = "get_task_events"
 DEFAULT_EVENT_LIMIT = 100
@@ -35,20 +35,23 @@ class GetTaskEventsArgs(BaseModel):
 
 
 def validate_tool_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
-    """모델이 고른 도구 인자를 소유 스키마로 검증해 콜백 인자를 만든다."""
+    """모델이 고른 도구 인자를 소유 스키마로 검증해 조회 인자를 만든다."""
     if name != GET_TASK_EVENTS_TOOL_NAME:
         raise ValueError(f"unknown title-suggestion tool: {name}")
     validated: dict[str, Any] = GetTaskEventsArgs.model_validate(args).model_dump(exclude_none=True)
     return validated
 
 
-async def invoke_tool(
-    client: httpx.AsyncClient,
-    callback: ToolCallback,
-    name: str,
-    args: dict[str, Any],
-) -> str:
-    """모델이 고른 도구를 인자 검증 뒤 워커 콜백으로 실행한다."""
+async def invoke_tool(reader: TitleLedgerReader, name: str, args: dict[str, Any]) -> str:
+    """모델이 고른 도구를 인자 검증 뒤 원장 뷰에서 실행한다."""
     validated = validate_tool_args(name, args)
     async with tool_span(name, agent_name="title-suggestion", parameters=validated):
-        return await invoke_remote_tool(client, callback, name, validated)
+        page = await reader.task_events(
+            validated["taskId"],
+            validated["limit"],
+            validated.get("cursor"),
+            validated["order"],
+        )
+    if page is None:
+        return f"Task {validated['taskId']} not found."
+    return json.dumps(page, ensure_ascii=False)

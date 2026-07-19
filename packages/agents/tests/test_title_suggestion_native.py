@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -12,9 +13,8 @@ from agent_graph.agents.shared.models import AgentResponse
 from agent_graph.agents.title_suggestion import agent as title_mod
 from agent_graph.agents.title_suggestion.models import TitleSuggestionContext, TitleSuggestionRequest
 from agent_graph.agents.title_suggestion.prompts import build_user_prompt
-from tests.fakes import FakeToolClient, FakeToolLoopChat
+from tests.fakes import FakeLedger, FakeToolLoopChat
 
-_CALLBACK = {"url": "http://worker:8810/tools/invoke", "token": "tok-title"}
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-title"}
 _CONTEXT = {
     "title": "Untitled",
@@ -39,12 +39,18 @@ _SUGGESTIONS = {
     ]
 }
 
-_EVENT_PAGE = {
-    "events": [{"id": "event-1", "title": "토큰 누수 수정"}],
-    "truncated": False,
-    "nextCursor": None,
-    "total": 1,
-}
+_EVENT_ROWS = [
+    {
+        "id": "event-1",
+        "seq": 41,
+        "kind": "agent_tracer.user.message",
+        "title": "토큰 누수 수정",
+        "body": None,
+        "tool_name": None,
+        "file_paths": ["src/auth.ts"],
+        "occurred_at": datetime(2026, 7, 19, 3, 0, tzinfo=UTC),
+    }
+]
 
 
 def _request(**overrides: Any) -> TitleSuggestionRequest:
@@ -55,7 +61,7 @@ def _request(**overrides: Any) -> TitleSuggestionRequest:
         "taskId": "task-1",
         "language": "ko",
         "context": _CONTEXT,
-        "toolCallback": _CALLBACK,
+        "userId": "user-1",
         "completionCallback": _COMPLETION,
     }
     values.update(overrides)
@@ -65,20 +71,20 @@ def _request(**overrides: Any) -> TitleSuggestionRequest:
 async def _run(
     monkeypatch: pytest.MonkeyPatch,
     turns: list[Any],
-    client: FakeToolClient | None = None,
+    ledger: FakeLedger | None = None,
     **request_overrides: Any,
-) -> tuple[AgentResponse, FakeToolClient]:
+) -> tuple[AgentResponse, FakeLedger]:
     chat = FakeToolLoopChat(turns)
     monkeypatch.setattr(title_mod, "make_chat", lambda *args, **kwargs: chat)
     req = _request(**request_overrides)
-    tool_client = client or FakeToolClient()
+    fake_ledger = ledger or FakeLedger()
     result = await execute(
         "title-suggestion",
         req.model,
         req.deadlineMs,
-        lambda usage: title_mod.run_title_suggestion(req, tool_client, usage),
+        lambda usage: title_mod.run_title_suggestion(req, fake_ledger, usage),
     )
-    return result, tool_client
+    return result, fake_ledger
 
 
 def test_실행_envelope만_받고_주입된_정의를_거부한다() -> None:
@@ -111,7 +117,7 @@ async def test_대화_발췌로_충분하면_도구를_부르지_않고_제목�
     res, client = await _run(monkeypatch, [_SUGGESTIONS])
 
     assert res.error is None
-    assert client.calls == []
+    assert client.queries == []
     assert [item["title"] for item in res.data["suggestions"]] == [
         "인증 토큰 누수 수정",
         "인증 회귀 테스트 추가",
@@ -127,17 +133,17 @@ async def test_현재_제목이_적절하면_빈_결과를_낸다(monkeypatch: p
 async def test_발췌가_부족하면_모델이_스스로_이벤트를_읽는다(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = FakeToolClient({"get_task_events": _EVENT_PAGE})
+    ledger = FakeLedger(_EVENT_ROWS)
     turns: list[Any] = [
         [{"name": "get_task_events", "args": {"taskId": "task-1"}}],
         _SUGGESTIONS,
     ]
 
-    res, tool_client = await _run(monkeypatch, turns, client)
+    res, fake_ledger = await _run(monkeypatch, turns, ledger)
 
     assert res.error is None
-    assert tool_client.calls == ["get_task_events"]
-    assert tool_client.args == [{"taskId": "task-1", "limit": 100, "order": "asc"}]
+    # 조회는 태스크와 사용자 범위로 좁혀지고 상한보다 한 행 더 읽어 truncated를 판단한다.
+    assert fake_ledger.queries == [{"desc": False, "args": ["task-1", "user-1", None, 101]}]
     assert [step.toolName for step in res.steps if step.role == "tool"] == ["get_task_events"]
 
 

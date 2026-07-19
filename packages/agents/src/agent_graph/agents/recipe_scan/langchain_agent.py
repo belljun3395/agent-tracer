@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, cast
 
+import httpx
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware
 from langchain.agents.structured_output import ToolStrategy
@@ -14,6 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
+from ..shared.models import ToolCallback
 from .models import ProvenanceCatalog, RecipeDraft
 from .tools.client import invoke_tool, record_evidence
 from .tools.contracts import (
@@ -33,8 +35,10 @@ from .tools.contracts import (
 
 @dataclass
 class RecipeAgentContext(StandardAgentContext):
-    """recipe-scan 도구에 요청별 인용 가능 근거 장부를 제공한다."""
+    """recipe-scan 도구에 워커 콜백 창구와 요청별 인용 가능 근거 장부를 제공한다."""
 
+    client: httpx.AsyncClient
+    callback: ToolCallback
     provenance: ProvenanceCatalog
 
 

@@ -43,11 +43,11 @@ def create_candidate_nodes(
         )
         context = RecipeAgentContext(
             agent_name,
-            client,
-            req.toolCallback,
             usage,
             budget,
             MAX_TOOL_ROUNDS,
+            client,
+            req.toolCallback,
             state["provenance"],
         )
         output = await recipe_agent.ainvoke(

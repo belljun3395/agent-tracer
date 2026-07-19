@@ -45,11 +45,11 @@ def create_decision_nodes(
         )
         context = CleanupAgentContext(
             agent_name,
-            client,
-            req.toolCallback,
             usage,
             budget,
             MAX_TOOL_ROUNDS,
+            client,
+            req.toolCallback,
             state["exposed_candidates"],
             state["event_ids_by_task"],
         )

@@ -16,6 +16,7 @@ from pydantic import Field
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import TitleSuggestionDraft
 from .policy import MAX_TOOL_ROUNDS
+from .reader import TitleLedgerReader
 from .tools import (
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
@@ -28,7 +29,9 @@ from .tools import (
 
 @dataclass
 class TitleAgentContext(StandardAgentContext):
-    """title-suggestion 도구에 요청별 실행 의존성을 제공한다."""
+    """title-suggestion 도구에 사용자 범위가 묶인 원장 조회 진입점을 제공한다."""
+
+    reader: TitleLedgerReader
 
 
 @tool("get_task_events", description=GET_TASK_EVENTS_DESCRIPTION)
@@ -40,11 +43,10 @@ async def get_task_events(
     order: Literal["asc", "desc"] = DEFAULT_EVENT_ORDER,
 ) -> str:
     """대화 발췌만으로 작업을 특정할 수 없을 때 태스크 이벤트 한 페이지를 읽는다."""
-    args = {"taskId": taskId, "limit": limit, "order": order}
+    args: dict[str, Any] = {"taskId": taskId, "limit": limit, "order": order}
     if cursor is not None:
         args["cursor"] = cursor
-    context = runtime.context
-    return await invoke_tool(context.client, context.callback, "get_task_events", args)
+    return await invoke_tool(runtime.context.reader, "get_task_events", args)
 
 
 def build_title_agent(chat: Any, system_prompt: str) -> CompiledStateGraph[Any, Any, Any, Any]:

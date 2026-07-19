@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import httpx
-
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ..langchain_agent import TitleAgentContext, build_title_agent
@@ -18,13 +16,14 @@ from ..policy import (
     validate_title_candidate,
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
+from ..reader import TitleLedgerReader
 
 type TitleNode = Callable[[TitleSuggestionState], Awaitable[dict[str, Any]]]
 
 
 def create_candidate_nodes(
     req: TitleSuggestionRequest,
-    client: httpx.AsyncClient,
+    reader: TitleLedgerReader,
     usage: ExecutionTrace,
     chat: Any,
     *,
@@ -38,9 +37,7 @@ def create_candidate_nodes(
         messages: list[Any], spent: float
     ) -> tuple[TitleSuggestionDraft, list[Any], float]:
         budget = ToolLoopBudget(agent_name, req.model, MAX_TITLE_MODEL_COST_USD, spent)
-        context = TitleAgentContext(
-            agent_name, client, req.toolCallback, usage, budget, MAX_TOOL_ROUNDS
-        )
+        context = TitleAgentContext(agent_name, usage, budget, MAX_TOOL_ROUNDS, reader)
         output = await title_agent.ainvoke(
             {"messages": messages},
             context=context,

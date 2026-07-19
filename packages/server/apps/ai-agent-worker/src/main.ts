@@ -128,7 +128,7 @@ async function bootstrap(): Promise<void> {
     const titleRepository = new TitleRepositoryAdapter(jobs, tasks, events, turns, settings, tx);
     const titleNotification = new TitleNotificationAdapter(publish);
     const titleAgents = {
-        [AGENT_BACKEND.python]: new TitleGraphAgentAdapter(graphClient, callbacks, titleTools),
+        [AGENT_BACKEND.python]: new TitleGraphAgentAdapter(graphClient),
         [AGENT_BACKEND.claudeSdk]: new TitleSdkAgentAdapter(claudeRunner, titleTools),
     };
     const title = new TitleActivity(

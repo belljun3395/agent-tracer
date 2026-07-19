@@ -73,7 +73,7 @@ def _title_body(*, api_key: bool = True) -> dict[str, object]:
         "taskId": "task-1",
         "language": "ko",
         "context": _TITLE_CONTEXT,
-        "toolCallback": _TOOLS["toolCallback"],
+        "userId": "user-1",
         "completionCallback": _TOOLS["completionCallback"],
     }
     if api_key:
@@ -99,18 +99,23 @@ def _post(
     body: dict[str, object],
     *,
     tools: object | None = None,
+    ledger: object | None = None,
     headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     original_tools = client.app.state.tool_client
     original_completions = client.app.state.completion_client
+    original_ledger = client.app.state.ledger
     client.app.state.completion_client = completions
     if tools is not None:
         client.app.state.tool_client = tools
+    if ledger is not None:
+        client.app.state.ledger = ledger
     try:
         return client.post(path, json=body, headers=headers or {})
     finally:
         client.app.state.tool_client = original_tools
         client.app.state.completion_client = original_completions
+        client.app.state.ledger = original_ledger
 
 
 def test_health_ok(client: TestClient) -> None:

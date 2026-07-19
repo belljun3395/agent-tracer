@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, cast
 
+import httpx
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware
 from langchain.agents.structured_output import ToolStrategy
@@ -15,6 +16,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import Field
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
+from ..shared.models import ToolCallback
 from .models import CleanupCandidate, CleanupDraft
 from .policy import MAX_TOOL_ROUNDS
 from .tools import (
@@ -31,8 +33,10 @@ from .tools import (
 
 @dataclass
 class CleanupAgentContext(StandardAgentContext):
-    """task-cleanup 도구에 근거 장부와 순차 실행 경계를 제공한다."""
+    """task-cleanup 도구에 워커 콜백 창구와 근거 장부와 순차 실행 경계를 제공한다."""
 
+    client: httpx.AsyncClient
+    callback: ToolCallback
     exposed_candidates: dict[str, CleanupCandidate]
     event_ids_by_task: dict[str, set[str]]
     tool_lock: asyncio.Lock = field(default_factory=asyncio.Lock)

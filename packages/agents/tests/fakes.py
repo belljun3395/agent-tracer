@@ -121,3 +121,53 @@ class FakeToolClient:
 
     async def aclose(self) -> None:
         return None
+
+
+class FakeLedgerConnection:
+    """원장 뷰 조회 대역. 소유 확인과 페이지와 총계를 캔 데이터로 돌려준다."""
+
+    def __init__(self, ledger: FakeLedger) -> None:
+        self._ledger = ledger
+
+    async def fetchval(self, statement: str, *args: Any) -> Any:
+        if "count(*)" in statement:
+            return self._ledger.total
+        return 1 if self._ledger.owned else None
+
+    async def fetch(self, statement: str, *args: Any) -> list[Any]:
+        self._ledger.queries.append({"desc": "ORDER BY seq DESC" in statement, "args": list(args)})
+        return list(self._ledger.rows)
+
+
+class FakeLedgerAcquire:
+    """asyncpg 풀의 연결 획득 비동기 컨텍스트 대역."""
+
+    def __init__(self, ledger: FakeLedger) -> None:
+        self._ledger = ledger
+
+    async def __aenter__(self) -> FakeLedgerConnection:
+        return FakeLedgerConnection(self._ledger)
+
+    async def __aexit__(self, *_exc: Any) -> None:
+        return None
+
+
+class FakeLedger:
+    """원장 연결 풀 공급자 대역. 조회 인자를 기록하고 캔 행을 돌려준다."""
+
+    def __init__(
+        self, rows: list[dict[str, Any]] | None = None, *, owned: bool = True, total: int | None = None
+    ) -> None:
+        self.rows = rows or []
+        self.owned = owned
+        self.total = len(self.rows) if total is None else total
+        self.queries: list[dict[str, Any]] = []
+
+    async def pool(self) -> FakeLedger:
+        return self
+
+    def acquire(self) -> FakeLedgerAcquire:
+        return FakeLedgerAcquire(self)
+
+    async def close(self) -> None:
+        return None
