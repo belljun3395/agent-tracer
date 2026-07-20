@@ -843,12 +843,14 @@ function createMessageId() {
 
 // src/config/spool.ts
 var SPOOL_MAX_BYTES = 50 * 1024 * 1024;
+var SPOOL_BATCH_MAX = 100;
 var SEGMENT_PREFIX = "seg-";
 var SEGMENT_SUFFIX = ".jsonl";
 var TMP_PREFIX = ".tmp-";
-function appendSpoolLines(lines, paths = resolveAgentTracerPaths(), segmentId = generateUlid()) {
-  if (lines.length === 0) return;
-  ensureSpoolDir(paths);
+function chunkSegmentId(segmentId, index) {
+  return `${segmentId}-${String(index).padStart(3, "0")}`;
+}
+function writeSegment(lines, paths, segmentId) {
   const payload = lines.map((line) => `${line}
 `).join("");
   const tmpPath = path7.join(paths.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
@@ -861,6 +863,17 @@ function appendSpoolLines(lines, paths = resolveAgentTracerPaths(), segmentId = 
     fs9.closeSync(fd);
   }
   fs9.renameSync(tmpPath, finalPath);
+}
+function appendSpoolLines(lines, paths = resolveAgentTracerPaths(), segmentId = generateUlid()) {
+  if (lines.length === 0) return;
+  ensureSpoolDir(paths);
+  if (lines.length <= SPOOL_BATCH_MAX) {
+    writeSegment(lines, paths, segmentId);
+    return;
+  }
+  for (let offset = 0, index = 0; offset < lines.length; offset += SPOOL_BATCH_MAX, index += 1) {
+    writeSegment(lines.slice(offset, offset + SPOOL_BATCH_MAX), paths, chunkSegmentId(segmentId, index));
+  }
 }
 
 // src/domain/ingest/adapter/spool.event.sink.adapter.ts

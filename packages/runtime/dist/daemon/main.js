@@ -28139,9 +28139,10 @@ var SEGMENT_PREFIX = "seg-";
 var SEGMENT_SUFFIX = ".jsonl";
 var TMP_PREFIX = ".tmp-";
 var SPOOL_LOG_PREFIX = "[spool]";
-function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId = generateUlid()) {
-  if (lines.length === 0) return;
-  ensureSpoolDir(paths2);
+function chunkSegmentId(segmentId, index) {
+  return `${segmentId}-${String(index).padStart(3, "0")}`;
+}
+function writeSegment(lines, paths2, segmentId) {
   const payload = lines.map((line) => `${line}
 `).join("");
   const tmpPath = path2.join(paths2.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
@@ -28154,6 +28155,17 @@ function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId =
     fs3.closeSync(fd);
   }
   fs3.renameSync(tmpPath, finalPath);
+}
+function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId = generateUlid()) {
+  if (lines.length === 0) return;
+  ensureSpoolDir(paths2);
+  if (lines.length <= SPOOL_BATCH_MAX) {
+    writeSegment(lines, paths2, segmentId);
+    return;
+  }
+  for (let offset = 0, index = 0; offset < lines.length; offset += SPOOL_BATCH_MAX, index += 1) {
+    writeSegment(lines.slice(offset, offset + SPOOL_BATCH_MAX), paths2, chunkSegmentId(segmentId, index));
+  }
 }
 function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
   let entries;
@@ -28177,6 +28189,20 @@ function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
     }
   }
   return segments;
+}
+function splitOversizedSegments(paths2 = resolveAgentTracerPaths()) {
+  let split = 0;
+  for (const segment of listSpoolSegments(paths2)) {
+    const lines = readSpoolSegment(segment.path);
+    if (lines.length <= SPOOL_BATCH_MAX) continue;
+    const baseId = segment.name.slice(SEGMENT_PREFIX.length, -SEGMENT_SUFFIX.length);
+    for (let offset = 0, index = 0; offset < lines.length; offset += SPOOL_BATCH_MAX, index += 1) {
+      writeSegment(lines.slice(offset, offset + SPOOL_BATCH_MAX), paths2, chunkSegmentId(baseId, index));
+    }
+    removeSpoolSegment(segment.path);
+    split += 1;
+  }
+  return split;
 }
 function spoolBacklogBytes(paths2 = resolveAgentTracerPaths()) {
   return listSpoolSegments(paths2).reduce((sum2, segment) => sum2 + segment.size, 0);
@@ -32117,6 +32143,7 @@ async function readErrorReason(response) {
 
 // src/daemon/delivery/spool.batch.ts
 function collectSpoolBatch(paths2, segmentLimit) {
+  splitOversizedSegments(paths2);
   const all = listSpoolSegments(paths2);
   if (all.length === 0) return null;
   const segments = [];
@@ -32124,7 +32151,7 @@ function collectSpoolBatch(paths2, segmentLimit) {
   for (const segment of all) {
     if (segments.length >= segmentLimit) break;
     const segmentLines = readSpoolSegment(segment.path);
-    if (segments.length > 0 && lines.length + segmentLines.length > SPOOL_BATCH_MAX) break;
+    if (lines.length > 0 && lines.length + segmentLines.length > SPOOL_BATCH_MAX) break;
     segments.push(segment);
     lines.push(...segmentLines);
     if (lines.length >= SPOOL_BATCH_MAX) break;
@@ -32179,6 +32206,9 @@ var INITIAL_BACKOFF_MS = 1e3;
 var SEGMENT_BATCH_MAX = 50;
 var FINAL_FLUSH_MAX_ITERATIONS = 2e3;
 var HEALTH_REPORT_MIN_INTERVAL_MS = 6e4;
+function baseSegmentId(segmentName) {
+  return segmentName.replace(/^seg-/, "").replace(/\.jsonl$/, "");
+}
 var SpoolSender = class {
   #options;
   #backoffMs = 0;
@@ -32241,9 +32271,8 @@ var SpoolSender = class {
       const batch = collectSpoolBatch(this.#options.paths, SEGMENT_BATCH_MAX);
       if (!batch) break;
       const result = await sendIngestBatch(batch.lines, this.#options.daemonVersion);
-      if (result.outcome !== "ok" && result.outcome !== "dead") break;
-      if (result.outcome === "dead") appendDeadLetter(batch.lines, this.#options.paths);
-      else this.#parkRejected(batch, result.rejectedIds, "rejected by id");
+      if (result.outcome !== "ok") break;
+      this.#parkRejected(batch, result.rejectedIds, "rejected by id");
       this.#removeSegments(batch.segments);
     }
   }
@@ -32298,6 +32327,10 @@ var SpoolSender = class {
     }
     if (result.outcome === "dead") {
       this.#lastDeadReason = result.reason;
+      if (batch.lines.length > 1) {
+        this.#bisectRejectedBatch(batch, result.reason);
+        return;
+      }
       appendDeadLetter(batch.lines, this.#options.paths);
       this.#options.health.recordDeadLetter(result.reason, batch.lines.length);
       daemonLog(`batch rejected (${result.reason}) \u2014 ${batch.lines.length} event(s) to dead-letter`);
@@ -32305,6 +32338,18 @@ var SpoolSender = class {
       this.#parkRejected(batch, result.rejectedIds, "rejected by id");
     }
     this.#removeSegments(batch.segments);
+    this.#resetPoisonState();
+    this.#backoffMs = 0;
+    this.#scheduleFlush(0);
+  }
+  /** 거절당한 배치를 절반씩 되돌려 나쁜 이벤트 하나가 같은 배치의 멀쩡한 이벤트를 끌고 가지 않게 한다. */
+  #bisectRejectedBatch(batch, reason) {
+    const baseId = baseSegmentId(batch.segments[0]?.name ?? "");
+    const half = Math.ceil(batch.lines.length / 2);
+    appendSpoolLines(batch.lines.slice(0, half), this.#options.paths, `${baseId}-a`);
+    appendSpoolLines(batch.lines.slice(half), this.#options.paths, `${baseId}-b`);
+    this.#removeSegments(batch.segments);
+    daemonLog(`batch rejected (${reason}) \u2014 splitting ${batch.lines.length} event(s) to isolate the cause`);
     this.#resetPoisonState();
     this.#backoffMs = 0;
     this.#scheduleFlush(0);
