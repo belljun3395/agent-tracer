@@ -21,14 +21,11 @@ function manualApplication(userId: string, recipeId: string, taskId: string, now
     application.note = null;
     application.anchorEventId = null;
     application.anchorSeq = null;
-    application.verdict = null;
-    application.verdictEvidence = null;
     application.createdAt = now;
-    application.resolvedAt = null;
     return application;
 }
 
-/** 권위가 관측에 있는 자기보고이며 이 태스크에 열린 적용 이력이 없으면 즉석에서 하나 만들되 판정은 종결시키지 않는다. */
+/** 에이전트의 자기보고이며 이 태스크에 이미 열린 적용 이력이 없으면 즉석에서 하나 만든다. */
 @Injectable()
 export class ReportRecipeOutcomeUseCase {
     constructor(
@@ -51,8 +48,8 @@ export class ReportRecipeOutcomeUseCase {
         if (recipe === null || recipe.userId !== userId) throw new NotFoundException("Recipe not found");
 
         const now = this.clock.now();
-        const open = (await this.applications.findOpenByTask(taskId)).find((a) => a.recipeId === recipeId);
-        const application = open ?? manualApplication(userId, recipeId, taskId, now);
+        const existing = (await this.applications.findByTask(taskId)).find((a) => a.recipeId === recipeId);
+        const application = existing ?? manualApplication(userId, recipeId, taskId, now);
         application.reportOutcome(outcome, note ?? null);
         await this.applications.upsert(application);
 

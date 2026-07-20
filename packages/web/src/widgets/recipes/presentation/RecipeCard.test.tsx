@@ -42,7 +42,6 @@ function recipe(): Recipe {
     userEdited: false,
     lastEditedBy: "agent",
     applicationCount: 0,
-    verdicts: { followedAndHelped: 0, followedNotHelped: 0, abandoned: 0, unknown: 0 },
     language: "ko",
     rationale: "성공 흐름이 재사용 가능하다.",
     createdAt: "2026-07-01T00:00:00.000Z",

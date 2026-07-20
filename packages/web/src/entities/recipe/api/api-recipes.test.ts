@@ -48,7 +48,6 @@ describe("fetchRecipes", () => {
           applicationCount: 3,
           decidedCount: 3,
           successRate: 2 / 3,
-          verdicts: { followedAndHelped: 2, followedNotHelped: 0, abandoned: 1, unknown: 0 },
         },
       }],
       taskTitles: { "task-1": "Task one" },
@@ -62,7 +61,6 @@ describe("fetchRecipes", () => {
       sourceCandidateId: null,
       sourceJobId: "job-1",
       applicationCount: 3,
-      verdicts: { followedAndHelped: 2, followedNotHelped: 0, abandoned: 1, unknown: 0 },
       touchedFiles: [{ path: "src/index.ts", role: "write" }],
     });
     expect(response.taskTitleById.get("task-1")).toBe("Task one");

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { RECIPE_VERDICT } from "@monitor/kernel";
 import { RecipeApplicationEntity, RecipeEntity, type RecipeCandidateInput } from "@monitor/tracer-domain";
 import { InMemoryRecipeApplicationRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.application.repository.js";
 import { InMemoryRecipeRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.repository.js";
@@ -23,21 +22,18 @@ function candidateInput(id: string): RecipeCandidateInput {
     };
 }
 
-function makeApplication(recipeId: string, verdict: RecipeApplicationEntity["verdict"]): RecipeApplicationEntity {
+function makeApplication(recipeId: string, outcome: RecipeApplicationEntity["outcome"]): RecipeApplicationEntity {
     const app = new RecipeApplicationEntity();
     app.id = `app-${Math.random()}`;
     app.userId = "u1";
     app.recipeId = recipeId;
     app.taskId = "task-1";
     app.injectedVia = "pull";
-    app.outcome = null;
+    app.outcome = outcome;
     app.note = null;
     app.anchorEventId = null;
     app.anchorSeq = null;
-    app.verdict = verdict;
-    app.verdictEvidence = null;
     app.createdAt = new Date("2026-01-01T00:00:00.000Z");
-    app.resolvedAt = null;
     return app;
 }
 
@@ -54,8 +50,8 @@ describe("GetRecipeUseCase", () => {
         const applications = new InMemoryRecipeApplicationRepository();
         recipes.seed(RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z")));
         applications.seed(
-            makeApplication("r1", RECIPE_VERDICT.followedAndHelped),
-            makeApplication("r1", RECIPE_VERDICT.abandoned),
+            makeApplication("r1", "completed"),
+            makeApplication("r1", "abandoned"),
         );
         const useCase = new GetRecipeUseCase(recipes, applications);
         const detail = await useCase.execute("u1", "r1");
@@ -65,7 +61,6 @@ describe("GetRecipeUseCase", () => {
             applicationCount: 2,
             decidedCount: 2,
             successRate: 0.5,
-            verdicts: { followedAndHelped: 1, followedNotHelped: 0, abandoned: 1, unknown: 0 },
         });
     });
 });

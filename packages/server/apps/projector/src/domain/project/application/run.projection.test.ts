@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { KIND } from "@monitor/kernel";
 import {
     SessionEntity,
@@ -7,20 +7,19 @@ import {
     TaskRepository,
 } from "@monitor/tracer-domain";
 import { asRepository, createInMemoryRepository } from "@monitor/tracer-domain/__fixtures__/in-memory-repository.js";
-import type { RunEventProjectionRepositories } from "~projector/domain/project/port/projection.repositories.port.js";
+import type { RunProjectionRepositories } from "~projector/domain/project/port/projection.repositories.port.js";
 import type { LedgerRecord } from "~projector/support/ledger.record.js";
 import { RunSessionProjection } from "~projector/domain/project/application/run.session.projection.js";
 import { RunTaskProjection } from "~projector/domain/project/application/run.task.projection.js";
-import type { RecipeProjection } from "./recipe.projection.js";
 import { RunProjection } from "./run.projection.js";
 
 function makeRepositories() {
     const tasksFake = createInMemoryRepository<TaskEntity>();
     const sessionsFake = createInMemoryRepository<SessionEntity>();
-    const repositories = {
+    const repositories: RunProjectionRepositories = {
         tasks: new TaskRepository(asRepository(tasksFake)),
         sessions: new SessionRepository(asRepository(sessionsFake)),
-    } as unknown as RunEventProjectionRepositories;
+    };
     return { repositories, sessionsFake, tasksFake };
 }
 
@@ -77,11 +76,9 @@ function makeRecord(overrides: Partial<LedgerRecord> = {}): LedgerRecord {
 }
 
 function makeProjection() {
-    const resolveForTask = vi.fn().mockResolvedValue(undefined);
-    const recipes = { resolveForTask } as unknown as RecipeProjection;
     const tasks = new RunTaskProjection();
     const sessions = new RunSessionProjection(tasks);
-    return { projection: new RunProjection(tasks, sessions, recipes), resolveForTask };
+    return { projection: new RunProjection(tasks, sessions) };
 }
 
 describe("RunProjection", () => {
@@ -197,9 +194,9 @@ describe("RunProjection", () => {
         expect(notifications[0]?.notification.type).toBe("task.updated");
     });
 
-    it("태스크 종결 상태를 투영하고 레시피 적용 상태를 함께 해소한다", async () => {
+    it("태스크 종결 상태를 투영한다", async () => {
         const { repositories, tasksFake } = makeRepositories();
-        const { projection, resolveForTask } = makeProjection();
+        const { projection } = makeProjection();
 
         const completed = await projection.project(
             repositories,
@@ -213,19 +210,5 @@ describe("RunProjection", () => {
         expect(tasksFake.all()[0]).toMatchObject({ status: "errored", lastAppliedSeq: "11" });
         expect(completed[0]?.notification.type).toBe("task.completed");
         expect(errored[0]?.notification.type).toBe("task.updated");
-        expect(resolveForTask).toHaveBeenNthCalledWith(
-            1,
-            repositories,
-            "task-1",
-            "completed",
-            new Date("2026-01-01T00:01:00.000Z"),
-        );
-        expect(resolveForTask).toHaveBeenNthCalledWith(
-            2,
-            repositories,
-            "task-1",
-            "errored",
-            new Date("2026-01-01T00:02:00.000Z"),
-        );
     });
 });

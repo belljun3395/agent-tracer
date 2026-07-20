@@ -1,19 +1,11 @@
 import type { RecipeInjectedVia } from "../ingest/event.kind.const.js";
-import type { RecipeEditor, RecipeOutcome, RecipeStatus, RecipeVerdict } from "./recipe.const.js";
+import type { RecipeEditor, RecipeOutcome, RecipeStatus } from "./recipe.const.js";
 
-export interface RecipeVerdictBreakdownDto {
-    readonly followedAndHelped: number;
-    readonly followedNotHelped: number;
-    readonly abandoned: number;
-    readonly unknown: number;
-}
-
-/** applicationCount는 판정과 무관한 적용 행 총 수이고, decidedCount는 그중 unknown을 뺀 종결 판정 수다. */
+/** applicationCount는 자기보고 여부와 무관한 적용 행 총 수이고, decidedCount는 그중 자기보고가 붙은 수다. */
 export interface RecipeStatsDto {
     readonly applicationCount: number;
     readonly decidedCount: number;
     readonly successRate: number;
-    readonly verdicts: RecipeVerdictBreakdownDto;
 }
 
 export interface RecipeCorrectionDto {
@@ -93,15 +85,6 @@ export interface RecipeWithStatsDto extends RecipeDto {
     readonly stats: RecipeStatsDto;
 }
 
-/** 레시피 적용의 최종 판정이 어떤 근거로 나왔는지 사람이 볼 수 있게 남기는 값이다. */
-export interface RecipeVerdictEvidenceDto {
-    readonly verifiableStepCount: number;
-    readonly followedStepOrders: readonly number[];
-    readonly unclassifiedEventCount: number;
-    readonly windowComplete: boolean;
-    readonly source: "observed" | "self-report";
-}
-
 export interface RecipeApplicationDto {
     readonly id: string;
     readonly userId: string;
@@ -110,8 +93,5 @@ export interface RecipeApplicationDto {
     readonly injectedVia: RecipeInjectedVia;
     readonly outcome: RecipeOutcome | null;
     readonly note: string | null;
-    readonly verdict: RecipeVerdict | null;
-    readonly verdictEvidence: RecipeVerdictEvidenceDto | null;
     readonly createdAt: string;
-    readonly resolvedAt: string | null;
 }

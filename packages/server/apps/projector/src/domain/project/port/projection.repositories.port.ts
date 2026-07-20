@@ -2,7 +2,6 @@ import type {
     EventEntity,
     EventRepository,
     RecipeApplicationRepository,
-    RecipeRepository,
     RuleEvaluationPorts,
     RuleRepository,
     SessionRepository,
@@ -16,11 +15,9 @@ export interface RunProjectionRepositories {
     readonly sessions: SessionRepository;
 }
 
-/** 레시피 적용과 성과를 투영하는 저장소 경계다. */
+/** 레시피 적용 이력을 투영하는 저장소 경계다. */
 export interface RecipeProjectionRepositories {
-    readonly recipes: RecipeRepository;
     readonly recipeApplications: RecipeApplicationRepository;
-    readonly events: Pick<EventRepository, "findByTaskSinceSeq">;
 }
 
 /** 실행 이벤트 라우팅에 필요한 실행·레시피 저장소 경계다. */

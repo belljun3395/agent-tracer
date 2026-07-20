@@ -38,10 +38,7 @@ function application(overrides: Partial<RecipeApplicationEntity>): RecipeApplica
     entity.note = null;
     entity.anchorEventId = "anchor-1";
     entity.anchorSeq = "1";
-    entity.verdict = null;
-    entity.verdictEvidence = null;
     entity.createdAt = new Date("2026-01-01T00:00:00.000Z");
-    entity.resolvedAt = null;
     return Object.assign(entity, overrides);
 }
 
@@ -63,7 +60,7 @@ describe("ReportRecipeOutcomeUseCase", () => {
         await expect(useCase.execute("intruder", "r1", "t1", RECIPE_OUTCOME.completed)).rejects.toThrow(NotFoundException);
     });
 
-    it("이 태스크에 열린 적용 이력이 있으면 그것을 확정한다", async () => {
+    it("이 태스크에 이미 열린 적용 이력이 있으면 그 행에 자기보고를 붙인다", async () => {
         const recipes = new InMemoryRecipeRepository();
         recipes.seed(RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z")));
         const applications = new InMemoryRecipeApplicationRepository();
@@ -78,7 +75,7 @@ describe("ReportRecipeOutcomeUseCase", () => {
         expect(applications.all()).toHaveLength(1);
     });
 
-    it("열린 적용 이력이 없으면 manual로 새로 만들어 즉시 확정한다", async () => {
+    it("열린 적용 이력이 없으면 manual로 새로 만들어 자기보고를 붙인다", async () => {
         const recipes = new InMemoryRecipeRepository();
         recipes.seed(RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z")));
         const applications = new InMemoryRecipeApplicationRepository();

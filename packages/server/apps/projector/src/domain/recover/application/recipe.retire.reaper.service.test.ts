@@ -50,10 +50,7 @@ function makeApplication(recipeId: string): RecipeApplicationEntity {
     application.note = null;
     application.anchorEventId = "event-1";
     application.anchorSeq = "1";
-    application.verdict = null;
-    application.verdictEvidence = null;
     application.createdAt = STALE_CREATED_AT;
-    application.resolvedAt = null;
     return application;
 }
 

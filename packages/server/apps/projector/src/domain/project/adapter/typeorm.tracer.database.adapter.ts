@@ -8,8 +8,6 @@ import {
     EventRepository,
     RecipeApplicationEntity,
     RecipeApplicationRepository,
-    RecipeEntity,
-    RecipeRepository,
     RuleEntity,
     RuleRepository,
     SessionEntity,
@@ -60,7 +58,6 @@ export class TypeOrmTracerDatabaseAdapter implements TracerDatabase {
             turns: new TurnRepository(manager.getRepository(TurnEntity)),
             rules: new RuleRepository(manager.getRepository(RuleEntity)),
             verdicts: new VerdictRepository(manager.getRepository(VerdictEntity)),
-            recipes: new RecipeRepository(manager.getRepository(RecipeEntity)),
             recipeApplications: new RecipeApplicationRepository(manager.getRepository(RecipeApplicationEntity)),
             findEventById: (id) => events.findOne({ where: { id } }),
             findRunningAsyncAction: (taskId, asyncTaskId) =>

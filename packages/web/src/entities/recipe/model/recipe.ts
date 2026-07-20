@@ -33,13 +33,6 @@ export interface RecipePitfall {
 export type RecipeStatus = "candidate" | "active" | "superseded" | "retired" | "dismissed";
 export type RecipeStatusFilter = RecipeStatus | "all";
 
-export interface RecipeVerdictBreakdown {
-  readonly followedAndHelped: number;
-  readonly followedNotHelped: number;
-  readonly abandoned: number;
-  readonly unknown: number;
-}
-
 export interface Recipe {
   readonly id: string;
   readonly sourceCandidateId: string | null;
@@ -61,7 +54,6 @@ export interface Recipe {
   readonly userEdited: boolean;
   readonly lastEditedBy: string;
   readonly applicationCount: number;
-  readonly verdicts: RecipeVerdictBreakdown;
   readonly language: string | null;
   readonly rationale?: string;
   readonly createdAt: string;

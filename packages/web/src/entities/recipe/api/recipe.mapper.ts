@@ -23,7 +23,6 @@ export function toRecipe(item: RecipeWithStatsDto): Recipe {
     userEdited: item.userEdited,
     lastEditedBy: item.lastEditedBy,
     applicationCount: item.stats.applicationCount,
-    verdicts: item.stats.verdicts,
     language: item.language,
     ...(item.rationale !== null ? { rationale: item.rationale } : {}),
     createdAt: item.createdAt,

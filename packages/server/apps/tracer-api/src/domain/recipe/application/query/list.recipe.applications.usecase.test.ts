@@ -34,10 +34,7 @@ function application(id: string, recipeId: string, createdAt: string): RecipeApp
     entity.note = null;
     entity.anchorEventId = null;
     entity.anchorSeq = null;
-    entity.verdict = null;
-    entity.verdictEvidence = null;
     entity.createdAt = new Date(createdAt);
-    entity.resolvedAt = null;
     return entity;
 }
 

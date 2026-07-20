@@ -66,9 +66,6 @@ export function mapRecipeApplication(application: RecipeApplicationEntity): Reci
         injectedVia: application.injectedVia,
         outcome: application.outcome,
         note: application.note,
-        verdict: application.verdict,
-        verdictEvidence: application.verdictEvidence,
         createdAt: application.createdAt.toISOString(),
-        resolvedAt: application.resolvedAt !== null ? application.resolvedAt.toISOString() : null,
     };
 }
