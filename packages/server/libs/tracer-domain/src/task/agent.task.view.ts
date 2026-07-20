@@ -17,7 +17,6 @@ import type { MonitoringTaskKind, TaskOrigin, TaskStatus } from "@monitor/kernel
             t.created_at AS created_at,
             t.updated_at AS updated_at,
             t.last_event_at AS last_event_at,
-            s.custom_title AS custom_title,
             s.archived_at AS archived_at,
             s.hidden_at AS hidden_at
         FROM tasks t
@@ -57,10 +56,6 @@ export class AgentTaskView {
 
     @ViewColumn({ name: "last_event_at" })
     lastEventAt!: Date | null;
-
-    // 사용자가 붙인 제목이며 없으면 title이 표시 제목이다.
-    @ViewColumn({ name: "custom_title" })
-    customTitle!: string | null;
 
     // 보관과 숨김의 판단 기준은 읽는 쪽마다 다르므로 뷰는 표시만 싣고 거르지 않는다.
     @ViewColumn({ name: "archived_at" })

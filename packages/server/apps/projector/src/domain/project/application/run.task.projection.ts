@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
+    AUTO_TITLE_RANK,
+    KIND,
     MONITORING_TASK_KIND,
     RUNNING_TASK_STATUS,
     TASK_ORIGINS,
@@ -7,7 +9,7 @@ import {
     type TaskStatus,
 } from "@monitor/kernel";
 import { parseStoredEventPayload } from "@monitor/kernel/ingest/stored-event.schema.js";
-import { TaskEntity } from "@monitor/tracer-domain";
+import { deriveTaskSlug, TaskEntity } from "@monitor/tracer-domain";
 import type { RunProjectionRepositories } from "~projector/domain/project/port/projection.repositories.port.js";
 import type { LedgerRecord } from "~projector/support/ledger.record.js";
 
@@ -16,16 +18,6 @@ const DEFAULT_ORIGIN: TaskOrigin = TASK_ORIGINS[0];
 export interface EnsuredTask {
     readonly task: TaskEntity;
     readonly created: boolean;
-}
-
-function slugify(title: string): string {
-    const base = title
-        .toLowerCase()
-        .normalize("NFKD")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 80);
-    return base.length > 0 ? base : "task";
 }
 
 /** 실행 이벤트의 태스크 읽기 모델 생성과 상태 전이를 투영한다. */
@@ -68,8 +60,13 @@ export class RunTaskProjection {
         const existing = await repositories.tasks.findById(record.taskId);
         if (existing !== null) {
             if (title !== undefined) {
-                existing.title = title;
-                existing.slug = slugify(title);
+                // 원장의 taskLinked는 항상 auto 순위이므로 taskLinked만 순위 판정을 받는다.
+                if (record.kind === KIND.taskLinked) {
+                    existing.applyRankedTitle(title, AUTO_TITLE_RANK, record.occurredAt);
+                } else {
+                    existing.title = title;
+                    existing.slug = deriveTaskSlug(title);
+                }
             }
             if (taskKind !== undefined) existing.taskKind = taskKind;
             if (workspacePath !== undefined) existing.workspacePath = workspacePath;
@@ -83,7 +80,8 @@ export class RunTaskProjection {
         task.id = record.taskId;
         task.userId = record.userId;
         task.title = title ?? record.taskId;
-        task.slug = slugify(task.title);
+        task.titleRank = AUTO_TITLE_RANK;
+        task.slug = deriveTaskSlug(task.title);
         task.workspacePath = workspacePath ?? null;
         task.status = RUNNING_TASK_STATUS;
         task.taskKind = taskKind ?? MONITORING_TASK_KIND.primary;

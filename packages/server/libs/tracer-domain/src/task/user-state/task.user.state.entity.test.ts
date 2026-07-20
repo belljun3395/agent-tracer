@@ -43,16 +43,4 @@ describe("TaskUserStateEntity", () => {
         });
     });
 
-    describe("rename", () => {
-        it("제목을 바꾸면 customTitle에 반영된다", () => {
-            const state = TaskUserStateEntity.init("t", "u", new Date());
-            state.rename("새 제목", new Date("2026-01-01T00:05:00.000Z"));
-            expect(state.customTitle).toBe("새 제목");
-        });
-
-        it("빈 제목으로는 이름을 바꿀 수 없다", () => {
-            const state = TaskUserStateEntity.init("t", "u", new Date());
-            expect(() => state.rename("   ", new Date())).toThrow(InvariantViolationError);
-        });
-    });
 });

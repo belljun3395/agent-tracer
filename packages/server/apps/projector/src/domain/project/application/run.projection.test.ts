@@ -28,6 +28,7 @@ function makeTask(overrides: Partial<TaskEntity> = {}): TaskEntity {
     task.id = "task-1";
     task.userId = "u1";
     task.title = "Task";
+    task.titleRank = "auto";
     task.slug = "task";
     task.workspacePath = null;
     task.status = "running";
@@ -192,6 +193,19 @@ describe("RunProjection", () => {
             backgroundOfTaskId: "background-task",
         });
         expect(notifications[0]?.notification.type).toBe("task.updated");
+    });
+
+    it("사용자가 이미 순위 높은 제목을 붙인 태스크는 뒤늦은 taskLinked로 덮이지 않는다", async () => {
+        const { repositories, tasksFake } = makeRepositories();
+        tasksFake.seed(makeTask({ title: "사용자 제목", titleRank: "user" }));
+        const { projection } = makeProjection();
+
+        await projection.project(
+            repositories,
+            makeRecord({ kind: KIND.taskLinked, payload: { title: "뒤늦은 자동 제목" } }),
+        );
+
+        expect(tasksFake.all()[0]).toMatchObject({ title: "사용자 제목", titleRank: "user" });
     });
 
     it("태스크 종결 상태를 투영한다", async () => {

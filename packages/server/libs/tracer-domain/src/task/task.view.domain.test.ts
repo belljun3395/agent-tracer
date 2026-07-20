@@ -30,21 +30,13 @@ function makeAnchorTask(): TaskEntity {
 
 describe("TaskView", () => {
     describe("visibleTitle", () => {
-        it("state에 customTitle이 있으면 그것을 우선한다", () => {
-            const state = TaskUserStateEntity.init("t1", "u1", new Date());
-            state.customTitle = "커스텀 제목";
-            const view = new TaskView(makeTask(), state);
-            expect(view.visibleTitle()).toBe("커스텀 제목");
-        });
-
-        it("state가 없으면 task의 원본 title을 쓴다", () => {
+        it("task의 title을 그대로 쓴다", () => {
             const view = new TaskView(makeTask(), null);
             expect(view.visibleTitle()).toBe("원본 제목");
         });
 
-        it("customTitle이 빈 문자열이면 원본 title로 폴백한다", () => {
+        it("state가 있어도 title은 task 쪽 값을 쓴다", () => {
             const state = TaskUserStateEntity.init("t1", "u1", new Date());
-            state.customTitle = "";
             const view = new TaskView(makeTask(), state);
             expect(view.visibleTitle()).toBe("원본 제목");
         });

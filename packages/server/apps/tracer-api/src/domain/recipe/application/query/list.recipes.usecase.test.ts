@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { RecipeEntity, TaskEntity, TaskUserStateEntity } from "@monitor/tracer-domain";
+import { RecipeEntity, TaskEntity } from "@monitor/tracer-domain";
 import { InMemoryRecipeApplicationRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.application.repository.js";
 import { InMemoryRecipeRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.repository.js";
 import { InMemoryRecipeTaskReader } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.task.reader.js";
-import { InMemoryRecipeTaskUserStateReader } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.task.user.state.reader.js";
 import { ListRecipesUseCase } from "./list.recipes.usecase.js";
 
 const NOW = new Date("2026-07-01T00:00:00.000Z");
@@ -49,16 +48,13 @@ function makeTask(id: string, userId: string, title: string): TaskEntity {
 function makeUseCase(args: {
     readonly recipes: readonly RecipeEntity[];
     readonly tasks: readonly TaskEntity[];
-    readonly states?: readonly TaskUserStateEntity[];
     readonly taskReader?: InMemoryRecipeTaskReader;
 }): ListRecipesUseCase {
     const recipes = new InMemoryRecipeRepository();
     recipes.seed(...args.recipes);
     const tasks = args.taskReader ?? new InMemoryRecipeTaskReader();
     tasks.seed(...args.tasks);
-    const states = new InMemoryRecipeTaskUserStateReader();
-    states.seed(...(args.states ?? []));
-    return new ListRecipesUseCase(recipes, new InMemoryRecipeApplicationRepository(), tasks, states);
+    return new ListRecipesUseCase(recipes, new InMemoryRecipeApplicationRepository(), tasks);
 }
 
 describe("ListRecipesUseCase", () => {
@@ -85,20 +81,6 @@ describe("ListRecipesUseCase", () => {
 
         expect(taskReader.findByIdsCalls).toHaveLength(1);
         expect([...(taskReader.findByIdsCalls[0] ?? [])].sort()).toEqual(["t1", "t2"]);
-    });
-
-    it("사용자가 이름을 바꾼 태스크는 바뀐 제목을 내려준다", async () => {
-        const state = TaskUserStateEntity.init("t1", "u1", NOW);
-        state.customTitle = "바뀐 제목";
-        const usecase = makeUseCase({
-            recipes: [makeRecipe("r1", ["t1"])],
-            tasks: [makeTask("t1", "u1", "원본 제목")],
-            states: [state],
-        });
-
-        const result = await usecase.execute("u1", "candidate");
-
-        expect(result.taskTitles.t1).toBe("바뀐 제목");
     });
 
     it("다른 사용자의 태스크를 인용한 슬라이스는 제목을 내려주지 않는다", async () => {

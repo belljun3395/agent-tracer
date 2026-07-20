@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { COMPLETED_TASK_STATUS, DEFAULT_USER_ID, MONITOR_USER_HEADER } from "@monitor/kernel";
+import { COMPLETED_TASK_STATUS, MONITOR_USER_HEADER } from "@monitor/kernel";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArchiveTaskUseCase } from "~tracer-api/domain/task/application/command/archive.task.usecase.js";
@@ -101,12 +101,26 @@ describe("태스크 HTTP 컨트롤러", () => {
         });
 
         expect(response.status).toBe(200);
-        expect(renameTask.execute).toHaveBeenCalledWith(DEFAULT_USER_ID, "task-1", "새 제목");
+        expect(renameTask.execute).toHaveBeenCalledWith("task-1", "새 제목", "user");
         expect(setTaskStatus.execute).toHaveBeenCalledWith("task-1", COMPLETED_TASK_STATUS);
         await expect(response.json()).resolves.toEqual({
             taskId: "task-1",
             title: "새 제목",
             status: COMPLETED_TASK_STATUS,
         });
+    });
+
+    it("titleRank을 명시하면 그 순위를 개명 명령에 그대로 전달한다", async () => {
+        app = await NestFactory.create(TestModule, { logger: false });
+        await app.listen(0, "127.0.0.1");
+
+        const response = await fetch(`${await app.getUrl()}/api/v1/tasks/task-1`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ title: "에이전트 제목", titleRank: "agent" }),
+        });
+
+        expect(response.status).toBe(200);
+        expect(renameTask.execute).toHaveBeenCalledWith("task-1", "에이전트 제목", "agent");
     });
 });

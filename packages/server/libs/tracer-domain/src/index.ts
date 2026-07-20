@@ -4,6 +4,7 @@ export * from "./error/transition.lost.error.js";
 // task
 export * from "./task/task.const.js";
 export * from "./task/task.entity.js";
+export * from "./task/task.slug.js";
 export * from "./task/task.status.policy.js";
 export * from "./task/user-state/task.user.state.entity.js";
 export * from "./task/session/session.entity.js";

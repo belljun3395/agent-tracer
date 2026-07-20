@@ -1,11 +1,19 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 import {
+    AUTO_TITLE_RANK,
     COMPLETED_TASK_STATUS,
+    TITLE_RANKS,
     USER_TASK_ORIGIN,
     type MonitoringTaskKind,
     type TaskOrigin,
     type TaskStatus,
+    type TitleRank,
 } from "@monitor/kernel";
+import { deriveTaskSlug } from "./task.slug.js";
+
+const TITLE_RANK_ORDER: Readonly<Record<TitleRank, number>> = Object.fromEntries(
+    TITLE_RANKS.map((rank, index) => [rank, index]),
+) as Record<TitleRank, number>;
 
 /** 태스크 읽기 모델의 상태와 원장 적용 순서를 관리한다. */
 @Entity({ name: "tasks" })
@@ -20,6 +28,9 @@ export class TaskEntity {
 
     @Column({ type: "text" })
     title!: string;
+
+    @Column({ name: "title_rank", type: "text", default: AUTO_TITLE_RANK })
+    titleRank!: TitleRank;
 
     @Column({ type: "text" })
     slug!: string;
@@ -77,6 +88,16 @@ export class TaskEntity {
         this.status = status;
         this.updatedAt = at;
         return changed;
+    }
+
+    /** 들어오는 제목의 순위가 저장된 순위보다 낮으면 무시하고, 그 이상이면 제목과 순위를 함께 갱신한다. */
+    applyRankedTitle(title: string, rank: TitleRank, at: Date): boolean {
+        if (TITLE_RANK_ORDER[rank] < TITLE_RANK_ORDER[this.titleRank]) return false;
+        this.title = title;
+        this.slug = deriveTaskSlug(title);
+        this.titleRank = rank;
+        this.updatedAt = at;
+        return true;
     }
 
     isStaleSeq(seq: string): boolean {

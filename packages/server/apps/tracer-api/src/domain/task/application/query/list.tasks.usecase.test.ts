@@ -26,10 +26,9 @@ function makeTask(id: string, parentTaskId: string | null, updatedAt: string): T
 
 function stateFor(
     taskId: string,
-    options: { readonly userId?: string; readonly customTitle?: string; readonly archived?: boolean; readonly hidden?: boolean } = {},
+    options: { readonly userId?: string; readonly archived?: boolean; readonly hidden?: boolean } = {},
 ): TaskUserStateEntity {
     const state = TaskUserStateEntity.init(taskId, options.userId ?? "u1", new Date("2026-01-02T00:00:00.000Z"));
-    state.customTitle = options.customTitle ?? null;
     state.archivedAt = options.archived === true ? new Date("2026-01-02T00:00:00.000Z") : null;
     state.hiddenAt = options.hidden === true ? new Date("2026-01-02T00:00:00.000Z") : null;
     return state;
@@ -132,13 +131,13 @@ describe("ListTasksUseCase", () => {
         expect(tasks.lastPageFilter?.cursor).toEqual({ updatedAt: "2026-01-01T00:00:00.000Z", id: "t9" });
     });
 
-    it("custom title과 archived 상태를 한 페이지 조회 결과에서 직렬화한다", async () => {
+    it("archived 상태를 한 페이지 조회 결과에서 직렬화한다", async () => {
         const tasks = makeTasks(
             makeTask("active", null, "2026-01-02T00:00:00.000Z"),
             makeTask("archived", null, "2026-01-01T00:00:00.000Z"),
         );
         tasks.seedUserStates(
-            stateFor("active", { customTitle: "사용자 제목" }),
+            stateFor("active", {}),
             stateFor("archived", { archived: true }),
         );
         const useCase = new ListTasksUseCase(tasks);
@@ -147,14 +146,14 @@ describe("ListTasksUseCase", () => {
         const archived = await useCase.execute({ userId: "u1", archived: true });
 
         expect(active.items).toHaveLength(1);
-        expect(active.items[0]).toMatchObject({ id: "active", title: "사용자 제목", archived: false });
+        expect(active.items[0]).toMatchObject({ id: "active", title: "active", archived: false });
         expect(archived.items).toHaveLength(1);
         expect(archived.items[0]).toMatchObject({ id: "archived", archived: true });
     });
 
     it("다른 사용자의 상태 행은 같은 task id여도 목록에 영향을 주지 않는다", async () => {
         const tasks = makeTasks(makeTask("shared-id", null, "2026-01-01T00:00:00.000Z"));
-        tasks.seedUserStates(stateFor("shared-id", { userId: "u2", customTitle: "다른 사용자 제목", hidden: true }));
+        tasks.seedUserStates(stateFor("shared-id", { userId: "u2", hidden: true }));
         const useCase = new ListTasksUseCase(tasks);
 
         const result = await useCase.execute({ userId: "u1" });

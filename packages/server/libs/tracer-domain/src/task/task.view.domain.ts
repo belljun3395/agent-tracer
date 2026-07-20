@@ -10,8 +10,7 @@ export class TaskView {
     ) {}
 
     visibleTitle(): string {
-        const custom = this.state?.customTitle;
-        return custom !== null && custom !== undefined && custom.length > 0 ? custom : this.task.title;
+        return this.task.title;
     }
 
     isArchived(): boolean {

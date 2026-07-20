@@ -9,9 +9,6 @@ export class TaskUserStateEntity {
     @Column({ name: "user_id", type: "text" })
     userId!: string;
 
-    @Column({ name: "custom_title", type: "text", nullable: true })
-    customTitle!: string | null;
-
     @Column({ name: "archived_at", type: "timestamptz", nullable: true })
     archivedAt!: Date | null;
 
@@ -38,13 +35,6 @@ export class TaskUserStateEntity {
         this.updatedAt = now;
     }
 
-    rename(title: string, now: Date): void {
-        // 빈 제목으로는 이름을 바꿀 수 없다.
-        if (title.trim().length === 0) throw new InvariantViolationError("task.title-empty", 400);
-        this.customTitle = title;
-        this.updatedAt = now;
-    }
-
     isArchived(): boolean {
         return this.archivedAt !== null;
     }
@@ -57,7 +47,6 @@ export class TaskUserStateEntity {
         const state = new TaskUserStateEntity();
         state.taskId = taskId;
         state.userId = userId;
-        state.customTitle = null;
         state.archivedAt = null;
         state.hiddenAt = null;
         state.updatedAt = now;

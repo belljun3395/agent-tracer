@@ -33,13 +33,12 @@ export class TaskCommandController {
 
     @Patch(":taskId")
     async update(
-        @Headers(MONITOR_USER_HEADER) user: string | undefined,
         @Param("taskId", pathParamPipe) taskId: string,
         @Body(new SchemaValidationPipe(updateBodySchema)) body: UpdateBody,
     ) {
         const results: Record<string, unknown> = { taskId };
         if (body.title !== undefined) {
-            Object.assign(results, await this.renameTask.execute(resolveUserId(user), taskId, body.title));
+            Object.assign(results, await this.renameTask.execute(taskId, body.title, body.titleRank));
         }
         if (body.status !== undefined) {
             Object.assign(results, await this.setTaskStatus.execute(taskId, body.status));

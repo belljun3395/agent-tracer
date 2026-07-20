@@ -31,10 +31,6 @@ export class TaskUserStateService {
         }
     }
 
-    async rename(userId: string, taskId: string, title: string): Promise<void> {
-        await this.mutate(userId, taskId, (state, now) => state.rename(title, now), { title });
-    }
-
     private async mutate(
         userId: string,
         taskId: string,

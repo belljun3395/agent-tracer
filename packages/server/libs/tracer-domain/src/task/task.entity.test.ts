@@ -84,6 +84,54 @@ describe("TaskEntity", () => {
         });
     });
 
+    describe("applyRankedTitle", () => {
+        function makeTitledTask(title: string, titleRank: TaskEntity["titleRank"]): TaskEntity {
+            const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));
+            task.title = title;
+            task.slug = "slug";
+            task.titleRank = titleRank;
+            return task;
+        }
+
+        it("저장된 순위보다 높은 순위가 오면 제목과 순위를 바꾼다", () => {
+            const task = makeTitledTask("자동 제목", "auto");
+
+            const changed = task.applyRankedTitle("사용자 제목", "user", new Date("2026-01-01T00:01:00.000Z"));
+
+            expect(changed).toBe(true);
+            expect(task.title).toBe("사용자 제목");
+            expect(task.titleRank).toBe("user");
+            expect(task.updatedAt).toEqual(new Date("2026-01-01T00:01:00.000Z"));
+        });
+
+        it("저장된 순위보다 낮은 순위가 오면 제목을 그대로 둔다", () => {
+            const task = makeTitledTask("사용자 제목", "user");
+
+            const changed = task.applyRankedTitle("자동 제목", "auto", new Date("2026-01-01T00:01:00.000Z"));
+
+            expect(changed).toBe(false);
+            expect(task.title).toBe("사용자 제목");
+            expect(task.titleRank).toBe("user");
+        });
+
+        it("같은 순위는 나중 값이 이긴다", () => {
+            const task = makeTitledTask("이전 제목", "auto");
+
+            const changed = task.applyRankedTitle("나중 제목", "auto", new Date("2026-01-01T00:01:00.000Z"));
+
+            expect(changed).toBe(true);
+            expect(task.title).toBe("나중 제목");
+        });
+
+        it("제목에서 파생한 슬러그도 함께 갱신한다", () => {
+            const task = makeTitledTask("Old Title", "auto");
+
+            task.applyRankedTitle("New Title", "auto", new Date("2026-01-01T00:01:00.000Z"));
+
+            expect(task.slug).toBe("new-title");
+        });
+    });
+
     describe("recordEventArrival", () => {
         it("lastEventAt이 없으면 도착 시각으로 채운다", () => {
             const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));

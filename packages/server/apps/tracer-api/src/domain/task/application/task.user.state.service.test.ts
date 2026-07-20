@@ -77,20 +77,4 @@ describe("TaskUserStateService", () => {
         ]);
     });
 
-    it("개명하면 사용자 제목을 저장하고 색인 제목을 바꾼다", async () => {
-        const harness = makeService([TaskUserStateEntity.init("t1", "u1", NOW)]);
-
-        await harness.service.rename("u1", "t1", "새 제목");
-
-        expect(harness.stored("t1")?.customTitle).toBe("새 제목");
-        expect(harness.indexed).toEqual([{ taskId: "t1", title: "새 제목" }]);
-    });
-
-    it("도메인 불변식을 어기면 색인을 건드리지 않는다", async () => {
-        const harness = makeService([TaskUserStateEntity.init("t1", "u1", NOW)]);
-
-        await expect(harness.service.rename("u1", "t1", "   ")).rejects.toThrow();
-
-        expect(harness.indexed).toEqual([]);
-    });
 });

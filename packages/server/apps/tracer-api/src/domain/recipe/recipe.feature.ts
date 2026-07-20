@@ -3,7 +3,6 @@ import {
     RecipeApplicationRepository,
     RecipeRepository,
     TaskRepository,
-    TaskUserStateRepository,
     TransactionRunner,
 } from "@monitor/tracer-domain";
 import { SystemClock } from "@monitor/platform";
@@ -23,7 +22,6 @@ import { RECIPE_REPOSITORY } from "~tracer-api/domain/recipe/port/recipe.reposit
 import { RECIPE_SEARCH } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
 import { RECIPE_TRANSACTION } from "~tracer-api/domain/recipe/port/recipe.transaction.port.js";
 import { RECIPE_TASK_READER } from "~tracer-api/domain/recipe/port/task.reader.port.js";
-import { RECIPE_TASK_USER_STATE_READER } from "~tracer-api/domain/recipe/port/task.user.state.reader.port.js";
 import { OpenSearchRecipeSearch } from "~tracer-api/domain/recipe/adapter/opensearch.recipe.search.js";
 import { RecipeController } from "~tracer-api/domain/recipe/inbound/recipe.controller.js";
 
@@ -47,6 +45,5 @@ export const recipeFeature: { readonly controllers: readonly Type[]; readonly pr
         { provide: RECIPE_SEARCH, useExisting: OpenSearchRecipeSearch },
         { provide: RECIPE_TRANSACTION, useExisting: TransactionRunner },
         { provide: RECIPE_TASK_READER, useExisting: TaskRepository },
-        { provide: RECIPE_TASK_USER_STATE_READER, useExisting: TaskUserStateRepository },
     ],
 };

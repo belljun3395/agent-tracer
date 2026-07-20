@@ -15,6 +15,7 @@ import { Tag1784472971884 } from "./0014-Tag.js";
 import { RemoveRecipeApplicationScore1784513440481 } from "./0015-RemoveRecipeApplicationScore.js";
 import { RecipeVerdict1784516563637 } from "./0016-RecipeVerdict.js";
 import { RemoveRecipeVerdict1784535700023 } from "./0017-RemoveRecipeVerdict.js";
+import { TaskTitleRank1784538084713 } from "./0018-TaskTitleRank.js";
 
 /** 읽기 모델 스키마의 마이그레이션 순서다. */
 export const TRACER_MIGRATIONS = [
@@ -35,4 +36,5 @@ export const TRACER_MIGRATIONS = [
     RemoveRecipeApplicationScore1784513440481,
     RecipeVerdict1784516563637,
     RemoveRecipeVerdict1784535700023,
+    TaskTitleRank1784538084713,
 ] as const;

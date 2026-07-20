@@ -1,16 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { RECIPE_STATUSES, type RecipeStatus } from "@monitor/kernel";
-import { RecipeLifecycle, TaskView, type RecipeEntity } from "@monitor/tracer-domain";
+import { RecipeLifecycle, type RecipeEntity } from "@monitor/tracer-domain";
 import {
     RECIPE_APPLICATION_REPOSITORY,
     type RecipeApplicationRepositoryPort,
 } from "~tracer-api/domain/recipe/port/recipe.application.repository.port.js";
 import { RECIPE_REPOSITORY, type RecipeRepositoryPort } from "~tracer-api/domain/recipe/port/recipe.repository.port.js";
 import { RECIPE_TASK_READER, type RecipeTaskReaderPort } from "~tracer-api/domain/recipe/port/task.reader.port.js";
-import {
-    RECIPE_TASK_USER_STATE_READER,
-    type RecipeTaskUserStateReaderPort,
-} from "~tracer-api/domain/recipe/port/task.user.state.reader.port.js";
 import { citedTaskIds, mapRecipe, type RecipeWithStatsDto } from "~tracer-api/domain/recipe/application/recipe.support.js";
 
 export interface ListRecipesResult {
@@ -27,8 +23,6 @@ export class ListRecipesUseCase {
         private readonly applications: RecipeApplicationRepositoryPort,
         @Inject(RECIPE_TASK_READER)
         private readonly tasks: RecipeTaskReaderPort,
-        @Inject(RECIPE_TASK_USER_STATE_READER)
-        private readonly taskStates: RecipeTaskUserStateReaderPort,
     ) {}
 
     async execute(userId: string, status?: RecipeStatus): Promise<ListRecipesResult> {
@@ -49,11 +43,9 @@ export class ListRecipesUseCase {
         const ids = citedTaskIds(recipes);
         if (ids.length === 0) return {};
         const tasks = (await this.tasks.findByIds(ids)).filter((task) => task.isOwnedBy(userId));
-        const states = await this.taskStates.findByIds(tasks.map((task) => task.id));
-        const stateByTaskId = new Map(states.map((state) => [state.taskId, state]));
         const titles: Record<string, string> = {};
         for (const task of tasks) {
-            titles[task.id] = new TaskView(task, stateByTaskId.get(task.id) ?? null).visibleTitle();
+            titles[task.id] = task.title;
         }
         return titles;
     }

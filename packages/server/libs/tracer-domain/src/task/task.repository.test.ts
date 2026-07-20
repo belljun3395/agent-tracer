@@ -143,19 +143,18 @@ describe("TaskRepository.findVisiblePage", () => {
         expect(harness.calls).toContainEqual({ method: "andWhere", args: [condition] });
     });
 
-    it("join된 state를 기존 TaskView로 매핑해 custom title과 archived를 보존한다", async () => {
+    it("join된 state를 기존 TaskView로 매핑해 archived를 보존한다", async () => {
         const task = makeTask("task", "2026-01-01T00:00:00.000Z") as TaskEntity & {
             listState?: TaskUserStateEntity;
         };
         const state = TaskUserStateEntity.init("task", "u1", new Date("2026-01-02T00:00:00.000Z"));
-        state.customTitle = "사용자 제목";
         state.archivedAt = new Date("2026-01-02T00:00:00.000Z");
         task.listState = state;
         const harness = visiblePageHarness(task);
 
         const [view] = await harness.repository.findVisiblePage("u1", { limit: 30 });
 
-        expect(view?.toListItem()).toMatchObject({ id: "task", title: "사용자 제목", archived: true });
+        expect(view?.toListItem()).toMatchObject({ id: "task", title: "task", archived: true });
     });
 });
 
