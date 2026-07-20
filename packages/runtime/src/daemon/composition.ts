@@ -10,6 +10,7 @@ import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.bind
 import {FindActiveBindingUsecase} from "~runtime/domain/binding/application/find.active.binding.usecase.js";
 import {ReadBindingUsecase} from "~runtime/domain/binding/application/read.binding.usecase.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
+import {AppendEventsUsecase} from "~runtime/domain/ingest/application/append.events.usecase.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {HttpMemoSearchAdapter} from "~runtime/domain/memo/adapter/http.memo.search.adapter.js";
 import {HttpMemoWriteAdapter} from "~runtime/domain/memo/adapter/http.memo.write.adapter.js";
@@ -19,7 +20,8 @@ import type {MemoHook} from "~runtime/domain/memo/inbound/memo.hook.js";
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
-import {BuildRecipeContextUsecase} from "~runtime/domain/recipe/application/build.recipe.context.usecase.js";
+import {BuildRecipeMenuUsecase} from "~runtime/domain/recipe/application/build.recipe.menu.usecase.js";
+import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
 import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
@@ -50,6 +52,7 @@ export interface DaemonHooks {
     readonly findActiveBinding: FindActiveBindingUsecase;
     readonly findTaskIdBySession: (sessionId: string) => string | undefined;
     readonly setTaskTitle: SetTaskTitleUsecase;
+    readonly appendIngestEvents: AppendEventsUsecase;
     readonly memo: MemoHook;
 }
 
@@ -80,7 +83,8 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
     const recipe: RecipeHook = {
         refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-        buildContext: new BuildRecipeContextUsecase(recipeCache),
+        buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+        getRecipe: new GetRecipeUsecase(recipeCache),
         requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
         reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
     };
@@ -90,7 +94,9 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const findTaskIdBySession = (sessionId: string): string | undefined =>
         readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId)?.taskId;
     const ids: IdGeneratorPort = {next: generateUlid};
-    const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
+    const sink = new SpoolEventSinkAdapter();
+    const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
+    const appendIngestEvents = new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE);
 
     const memo: MemoHook = {
         createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
@@ -118,5 +124,16 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache),
     };
 
-    return {guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, findTaskIdBySession, setTaskTitle, memo};
+    return {
+        guardrail,
+        hint,
+        recipe,
+        rulegen,
+        recipeCache,
+        findActiveBinding,
+        findTaskIdBySession,
+        setTaskTitle,
+        appendIngestEvents,
+        memo,
+    };
 }

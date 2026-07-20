@@ -1,15 +1,13 @@
 import {RECIPE_OUTCOMES, type RecipeOutcome} from "@monitor/kernel/recipe/recipe.const.js";
-import type {RecipeMatch} from "~runtime/domain/recipe/model/recipe.model.js";
 import type {MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
 /** MCP 브리지가 데몬에 위임하는 도구 호출 전용 소켓 메시지이며 daemon.socket.port가 이 계약을 얹어 쓴다. */
 
-/** MCP search_recipes 도구가 데몬에 묻는 캐시 검색 요청이다. */
-export interface DaemonRecipeSearchRequest {
-    readonly type: "recipe-search";
-    readonly query: string;
-    readonly limit?: number;
+/** MCP get_recipe 도구가 데몬에 묻는 캐시 조회 요청이며 성공하면 데몬이 그 시점에 적용을 연다. */
+export interface DaemonRecipeGetRequest {
+    readonly type: "recipe-get";
+    readonly recipeId: string;
 }
 
 /** MCP report_recipe_outcome 도구가 데몬에 보고하는 레시피 성과이며 taskId는 데몬이 활성 바인딩으로 채운다. */
@@ -47,15 +45,16 @@ export interface DaemonMemoSearchRequest {
 }
 
 export type McpSocketRequest =
-    | DaemonRecipeSearchRequest
+    | DaemonRecipeGetRequest
     | DaemonRecipeOutcomeRequest
     | DaemonRecipeScanRequest
     | DaemonSetTaskTitleRequest
     | DaemonMemoCreateRequest
     | DaemonMemoSearchRequest;
 
-export interface DaemonRecipeSearchResponse {
-    readonly matches: readonly RecipeMatch[];
+/** 캐시에 없으면 body가 null이다. */
+export interface DaemonRecipeGetResponse {
+    readonly body: string | null;
 }
 
 /** 활성 태스크를 못 찾았거나 서버가 거절하면 ok가 false이고 reason에 이유가 담긴다. */
@@ -89,7 +88,7 @@ export interface DaemonMemoSearchResponse {
 }
 
 export type McpSocketResponse =
-    | DaemonRecipeSearchResponse
+    | DaemonRecipeGetResponse
     | DaemonRecipeOutcomeResponse
     | DaemonRecipeScanResponse
     | DaemonSetTaskTitleResponse
@@ -99,13 +98,9 @@ export type McpSocketResponse =
 /** daemon.socket.port의 parseDaemonRequest가 자기 타입을 못 찾을 때 넘기는 자리다. */
 export function parseMcpSocketRequest(type: string, value: Record<string, unknown>): McpSocketRequest | null {
     switch (type) {
-        case "recipe-search":
-            return typeof value["query"] === "string"
-                ? {
-                    type: "recipe-search",
-                    query: value["query"],
-                    ...(typeof value["limit"] === "number" ? {limit: value["limit"]} : {}),
-                }
+        case "recipe-get":
+            return typeof value["recipeId"] === "string"
+                ? {type: "recipe-get", recipeId: value["recipeId"]}
                 : null;
         case "recipe-outcome":
             return typeof value["recipeId"] === "string"
@@ -143,10 +138,10 @@ export function parseMcpSocketRequest(type: string, value: Record<string, unknow
     }
 }
 
-export function parseDaemonRecipeSearchResponse(value: unknown): DaemonRecipeSearchResponse | null {
-    return isRecord(value) && Array.isArray(value["matches"])
-        ? {matches: value["matches"] as RecipeMatch[]}
-        : null;
+export function parseDaemonRecipeGetResponse(value: unknown): DaemonRecipeGetResponse | null {
+    if (!isRecord(value)) return null;
+    const body = value["body"];
+    return typeof body === "string" || body === null ? {body} : null;
 }
 
 export function parseDaemonRecipeOutcomeResponse(value: unknown): DaemonRecipeOutcomeResponse | null {

@@ -22,7 +22,6 @@ export class RecipeProjection {
         application.recipeId = recipeId;
         application.taskId = record.taskId;
         application.injectedVia = payload.injectedVia ?? DEFAULT_INJECTED_VIA;
-        application.score = payload.score ?? null;
         application.outcome = null;
         application.note = null;
         application.createdAt = record.occurredAt;

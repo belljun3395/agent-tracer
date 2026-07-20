@@ -10,7 +10,6 @@ import {
 
 const optionalNonEmptyString = z.string().min(1).optional().catch(undefined);
 const optionalBoolean = z.boolean().optional().catch(undefined);
-const optionalFiniteNumber = z.number().finite().optional().catch(undefined);
 
 const filePathsField = z.array(z.unknown()).optional().catch(undefined)
     .transform((value) => (value ?? []).filter((entry): entry is string => typeof entry === "string"));
@@ -44,7 +43,6 @@ export const storedEventPayloadSchema = z.object({
     injectedVia: z.enum(RECIPE_INJECTED_VIA).optional().catch(undefined),
     applicationId: optionalNonEmptyString,
     recipeId: optionalNonEmptyString,
-    score: optionalFiniteNumber,
     promptOrigin: z.enum(USER_MESSAGE_PROMPT_ORIGINS).optional().catch(undefined),
 });
 

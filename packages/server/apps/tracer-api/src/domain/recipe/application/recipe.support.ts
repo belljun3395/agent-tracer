@@ -52,7 +52,6 @@ export function mapRecipeApplication(application: RecipeApplicationEntity): Reci
         recipeId: application.recipeId,
         taskId: application.taskId,
         injectedVia: application.injectedVia,
-        score: application.score,
         outcome: application.outcome,
         note: application.note,
         createdAt: application.createdAt.toISOString(),

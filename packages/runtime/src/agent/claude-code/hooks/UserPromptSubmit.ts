@@ -1,25 +1,19 @@
-/** 사용자가 프롬프트를 내면 Claude가 처리하기 전에 실행되는 훅으로 발화를 남기고 규칙과 힌트와 레시피를 컨텍스트로 낸다. */
+/** 사용자가 프롬프트를 내면 Claude가 처리하기 전에 실행되는 훅으로 발화를 남기고 규칙과 힌트와 레시피 메뉴를 컨텍스트로 낸다. */
 import {emitAgentContext} from "~runtime/agent/claude-code/hook.output.js";
 import {readUserPromptSubmit} from "~runtime/agent/claude-code/payload/session.payload.js";
 import {claudeRuntime, ensureClaudeSession, runHook} from "~runtime/agent/claude-code/runtime.js";
-import {
-    queryDaemonHints,
-    queryDaemonRules,
-    reportRecipeInjection,
-} from "~runtime/daemon/ipc/hook.client.js";
+import {queryDaemonHints, queryDaemonRules} from "~runtime/daemon/ipc/hook.client.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
 import {TITLE_MAX, userMessageEvent} from "~runtime/domain/ingest/model/message.event.model.js";
-import {recipeInjectedEvent} from "~runtime/domain/ingest/model/recipe.injection.event.model.js";
 import {isSystemNotificationPrompt} from "~runtime/domain/ingest/model/system.notification.model.js";
-import {onPromptRecipes, onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import {onRecipeMenu, onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {formatTitleNudge} from "~runtime/domain/session/model/task.title.nudge.model.js";
 import {onTurnOpen} from "~runtime/domain/turn/inbound/turn.hook.js";
 import {ellipsize} from "~runtime/support/text.js";
 import {createMessageId, deterministicUlid, generateUlid} from "~runtime/support/ulid.js";
 
 const EXIT_PROMPTS: ReadonlySet<string> = new Set(["/exit", "exit"]);
-const INJECTED_VIA_AUTO = "auto";
 
 await runHook("UserPromptSubmit", {
     parse: readUserPromptSubmit,
@@ -76,25 +70,13 @@ await runHook("UserPromptSubmit", {
             queryDaemonRules(target.taskId),
             queryDaemonHints(target.taskId, {trigger: "user_prompt"}),
         ]);
-        // 알림 텍스트를 레시피와 매칭하면 소음이라 시스템 알림에는 레시피 컨텍스트를 비운다.
-        const recipes = systemNotification ? undefined : onPromptRecipes(claudeRuntime.recipe, payload.prompt);
-        const emission = emitAgentContext("UserPromptSubmit", {
+        // 시스템 알림 프롬프트에는 사용자가 볼 일이 없는 레시피 메뉴를 싣지 않는다.
+        const recipeMenu = systemNotification ? "" : onRecipeMenu(claudeRuntime.recipe);
+        emitAgentContext("UserPromptSubmit", {
             rules,
             hints,
-            recipeContext: recipes?.context ?? "",
+            recipeContext: recipeMenu,
             titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge(payload.sessionId) : "",
         });
-        if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
-
-        await reportRecipeInjection(target.taskId, recipes.titles, emission.recipeBytes);
-        await onLifecycleEvent(
-            claudeRuntime.ingest,
-            recipes.matches.map((match) => recipeInjectedEvent({...target, turnId}, {
-                recipeId: match.recipeId,
-                applicationId: generateUlid(),
-                score: match.score,
-                injectedVia: INJECTED_VIA_AUTO,
-            })),
-        );
     },
 });

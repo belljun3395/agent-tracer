@@ -1,31 +1,29 @@
-export {matchRecipes} from "@monitor/kernel/recipe/recipe.matching.js";
-export type {
-    RecipeMatchCandidate as CachedRecipe,
-    RecipeMatch,
-} from "@monitor/kernel/recipe/recipe.matching.js";
+export interface CachedRecipeStep {
+    readonly order: number;
+    readonly action: string;
+    readonly rationale?: string;
+}
 
-import type {RecipeMatch} from "@monitor/kernel/recipe/recipe.matching.js";
-import {truncate} from "~runtime/support/text.js";
+export interface CachedRecipeCorrection {
+    readonly whatAgentDid: string;
+    readonly howCorrected: string;
+}
 
-const SUMMARY_MAX = 600;
+export interface CachedRecipePitfall {
+    readonly pitfall: string;
+    readonly whyNonObvious: string;
+}
 
-/** 매칭된 레시피를 에이전트가 읽는 컨텍스트 블록으로 만든다. */
-export function formatRecipeContext(matches: readonly RecipeMatch[]): string {
-    if (matches.length === 0) return "";
-    const lines = [
-        "<agent-tracer-recipes>",
-        "Past patterns in this workspace that match this prompt (score 0..1):",
-    ];
-    for (const match of matches) {
-        lines.push("");
-        lines.push(`• ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})`);
-        lines.push(`  intent: ${match.intent}`);
-        lines.push(`  ${match.description}`);
-        const summary = match.summaryMd.trim();
-        if (summary.length === 0) continue;
-        const compact = summary.length > SUMMARY_MAX ? `${truncate(summary, SUMMARY_MAX)}…` : summary;
-        for (const line of compact.split("\n")) lines.push(`  ${line}`);
-    }
-    lines.push("</agent-tracer-recipes>");
-    return lines.join("\n");
+/** 캐시가 담는 레시피는 본문 전체이며 활성화 판단은 에이전트가 get_recipe로 직접 열어본 뒤 내린다. */
+export interface CachedRecipe {
+    readonly id: string;
+    readonly title: string;
+    readonly intent: string;
+    readonly description: string;
+    readonly summaryMd: string;
+    readonly steps: readonly CachedRecipeStep[];
+    readonly pitfalls: readonly CachedRecipePitfall[];
+    readonly corrections: readonly CachedRecipeCorrection[];
+    readonly touchedFiles: readonly string[];
+    readonly governingRules: readonly string[];
 }

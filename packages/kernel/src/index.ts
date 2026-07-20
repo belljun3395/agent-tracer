@@ -25,7 +25,6 @@ export * from "./observability/openinference.dto.js";
 export * from "./notification/notification.const.js";
 export * from "./kafka/topic.const.js";
 export * from "./user/user.header.const.js";
-export * from "./recipe/recipe.matching.js";
 export * from "./rule/definition/rule.vocabulary.js";
 export * from "./rule/definition/rule.review.js";
 export * from "./rule/definition/rule.expectation.js";

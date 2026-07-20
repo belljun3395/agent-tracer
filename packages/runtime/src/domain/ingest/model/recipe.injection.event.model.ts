@@ -1,13 +1,13 @@
+import type {RecipeInjectedVia} from "@monitor/kernel/ingest/event.kind.const.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
 import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import type {RunEventInput} from "~runtime/domain/ingest/model/ingest.event.model.js";
 
-/** 프롬프트 앞에 레시피 한 건이 주입된 사실이며 applicationId가 그 주입의 식별자다. */
+/** get_recipe 호출로 레시피 적용이 열린 사실이며 applicationId가 그 적용의 식별자다. */
 export interface RecipeInjectionInput {
     readonly recipeId: string;
     readonly applicationId: string;
-    readonly score: number;
-    readonly injectedVia: string;
+    readonly injectedVia: RecipeInjectedVia;
 }
 
 export function recipeInjectedEvent(
@@ -23,7 +23,6 @@ export function recipeInjectedEvent(
             recipeId: input.recipeId,
             applicationId: input.applicationId,
             injectedVia: input.injectedVia,
-            score: input.score,
         },
     };
 }

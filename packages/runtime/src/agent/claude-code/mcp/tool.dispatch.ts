@@ -1,13 +1,12 @@
 import {
     createMemoViaDaemon,
+    getRecipeViaDaemon,
     reportRecipeOutcomeViaDaemon,
     requestRecipeScanViaDaemon,
     searchMemosViaDaemon,
-    searchRecipesViaDaemon,
     setTaskTitleViaDaemon,
 } from "~runtime/daemon/ipc/mcp.client.js";
 import {ensureDaemonRunning} from "~runtime/daemon/ipc/hook.client.js";
-import type {RecipeMatch} from "~runtime/domain/recipe/model/recipe.model.js";
 import {
     CREATE_MEMO_TOOL,
     parseCreateMemoArgs,
@@ -17,15 +16,12 @@ import {
     parseSearchMemosArgs,
 } from "~runtime/domain/memo/model/search.memos.tool.model.js";
 import type {MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
+import {GET_RECIPE_TOOL, parseGetRecipeArgs} from "~runtime/domain/recipe/model/get.recipe.tool.model.js";
 import {
     REPORT_RECIPE_OUTCOME_TOOL,
     parseReportRecipeOutcomeArgs,
 } from "~runtime/domain/recipe/model/report.recipe.outcome.tool.model.js";
 import {REQUEST_RECIPE_SCAN_TOOL} from "~runtime/domain/recipe/model/request.recipe.scan.tool.model.js";
-import {
-    SEARCH_RECIPES_TOOL,
-    parseSearchRecipesArgs,
-} from "~runtime/domain/recipe/model/search.recipes.tool.model.js";
 import {
     SET_TASK_TITLE_TOOL,
     parseSetTaskTitleArgs,
@@ -34,7 +30,7 @@ import type {McpToolSpec} from "~runtime/support/mcp.tool.js";
 
 /** MCP tools/list가 광고하는 도구 전부다. */
 export const MCP_TOOLS: readonly McpToolSpec[] = [
-    SEARCH_RECIPES_TOOL,
+    GET_RECIPE_TOOL,
     REPORT_RECIPE_OUTCOME_TOOL,
     REQUEST_RECIPE_SCAN_TOOL,
     SET_TASK_TITLE_TOOL,
@@ -51,16 +47,6 @@ function invalidArgs(): ToolCallResult {
     return {text: "Invalid arguments.", isError: true};
 }
 
-function formatSearchResult(matches: readonly RecipeMatch[]): string {
-    if (matches.length === 0) return "No matching recipes found in this workspace.";
-    return matches
-        .map((match) => (
-            `## ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})\n`
-            + `intent: ${match.intent}\n${match.description}\n\n${match.summaryMd}`
-        ))
-        .join("\n\n---\n\n");
-}
-
 function formatMemoSearchResult(items: readonly MemoSearchResultItem[]): string {
     if (items.length === 0) return "No memos found on the active task.";
     return items
@@ -72,11 +58,13 @@ function formatMemoSearchResult(items: readonly MemoSearchResultItem[]): string 
 export async function callTool(name: string, args: unknown): Promise<ToolCallResult> {
     await ensureDaemonRunning();
     switch (name) {
-        case SEARCH_RECIPES_TOOL.name: {
-            const parsed = parseSearchRecipesArgs(args);
+        case GET_RECIPE_TOOL.name: {
+            const parsed = parseGetRecipeArgs(args);
             if (!parsed) return invalidArgs();
-            const {matches} = await searchRecipesViaDaemon(parsed.query, parsed.limit);
-            return {text: formatSearchResult(matches), isError: false};
+            const {body} = await getRecipeViaDaemon(parsed.recipeId);
+            return body !== null
+                ? {text: body, isError: false}
+                : {text: `Recipe not found: ${parsed.recipeId}`, isError: true};
         }
         case REPORT_RECIPE_OUTCOME_TOOL.name: {
             const parsed = parseReportRecipeOutcomeArgs(args);

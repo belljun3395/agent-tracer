@@ -33,8 +33,7 @@ function application(overrides: Partial<RecipeApplicationEntity>): RecipeApplica
     entity.userId = "u1";
     entity.recipeId = "r1";
     entity.taskId = "t1";
-    entity.injectedVia = "auto";
-    entity.score = 0.9;
+    entity.injectedVia = "pull";
     entity.outcome = null;
     entity.note = null;
     entity.createdAt = new Date("2026-01-01T00:00:00.000Z");

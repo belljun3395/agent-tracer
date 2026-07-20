@@ -29,8 +29,7 @@ function application(id: string, recipeId: string, createdAt: string): RecipeApp
     entity.userId = "u1";
     entity.recipeId = recipeId;
     entity.taskId = "t1";
-    entity.injectedVia = "auto";
-    entity.score = null;
+    entity.injectedVia = "pull";
     entity.outcome = null;
     entity.createdAt = new Date(createdAt);
     entity.resolvedAt = null;

@@ -15,23 +15,26 @@ import {
 import type {
     DaemonMemoCreateResponse,
     DaemonMemoSearchResponse,
+    DaemonRecipeGetResponse,
     DaemonRecipeOutcomeResponse,
     DaemonRecipeScanResponse,
-    DaemonRecipeSearchResponse,
     DaemonSetTaskTitleResponse,
 } from "~runtime/daemon/port/mcp.socket.port.js";
 import {onTurnStop, type GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {formatGuardrailLog} from "~runtime/domain/guardrail/model/enforce.model.js";
 import {isEnforceableRule, type GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {onHintsRequested, type HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
+import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
+import {recipeInjectedEvent} from "~runtime/domain/ingest/model/recipe.injection.event.model.js";
 import type {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
+import type {RunEventInput} from "~runtime/domain/ingest/model/ingest.event.model.js";
 import {
     onMemoCreateRequested,
     onMemoSearchRequested,
     type MemoHook,
 } from "~runtime/domain/memo/inbound/memo.hook.js";
 import {
-    onPromptRecipes,
+    onGetRecipe,
     onRecipeOutcomeReported,
     onRecipeScanRequested,
     type RecipeHook,
@@ -53,9 +56,12 @@ export interface DaemonSocketContext {
     readonly readDelivery: () => DaemonDeliveryResponse;
     /** MCP 도구처럼 자기 세션을 모르는 호출자를 위해 가장 최근 활성 태스크를 추정한다. */
     readonly findActiveTaskId: () => string | undefined;
+    /** get_recipe가 이벤트를 붙일 세션과 턴까지 함께 필요할 때 쓰는 전체 활성 타깃이다. */
+    readonly findActiveTarget: () => IngestTarget | undefined;
     /** 넛지가 박아 준 sessionId로 바인딩을 정확히 찾는다. */
     readonly findTaskIdBySession: (sessionId: string) => string | undefined;
     readonly setTaskTitle: (taskId: string, title: string) => Promise<boolean>;
+    readonly appendIngestEvents: (events: readonly RunEventInput[]) => Promise<void>;
     readonly refreshHistory: () => void;
     readonly onHookVersion: (version: string) => void;
     readonly onActivity: () => void;
@@ -151,9 +157,21 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 send(socket, {verdicts: blocking} satisfies DaemonGuardrailResponse);
                 return;
             }
-            case "recipe-search": {
-                const {matches} = onPromptRecipes(context.recipe, request.query, request.limit);
-                send(socket, {matches} satisfies DaemonRecipeSearchResponse);
+            case "recipe-get": {
+                const body = onGetRecipe(context.recipe, request.recipeId);
+                if (body !== null) {
+                    const target = context.findActiveTarget();
+                    if (target !== undefined) {
+                        await context.appendIngestEvents([
+                            recipeInjectedEvent(target, {
+                                recipeId: request.recipeId,
+                                applicationId: generateUlid(),
+                                injectedVia: "pull",
+                            }),
+                        ]);
+                    }
+                }
+                send(socket, {body} satisfies DaemonRecipeGetResponse);
                 return;
             }
             case "recipe-outcome": {

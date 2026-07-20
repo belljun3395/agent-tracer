@@ -35,7 +35,6 @@ export * from "./recipe/recipe.types.js";
 export * from "./recipe/recipe.entity.js";
 export * from "./recipe/application/recipe.application.entity.js";
 export * from "./recipe/recipe.lifecycle.domain.js";
-export * from "./recipe/recipe.matching.domain.js";
 export * from "./recipe/recipe.repository.js";
 export * from "./recipe/application/recipe.application.repository.js";
 

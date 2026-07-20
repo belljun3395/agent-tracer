@@ -57,7 +57,6 @@ export interface RecipeApplicationDto {
     readonly recipeId: string;
     readonly taskId: string;
     readonly injectedVia: RecipeInjectedVia;
-    readonly score: number | null;
     readonly outcome: RecipeOutcome | null;
     readonly note: string | null;
     readonly createdAt: string;

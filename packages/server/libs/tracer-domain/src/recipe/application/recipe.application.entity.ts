@@ -20,9 +20,6 @@ export class RecipeApplicationEntity {
     @Column({ name: "injected_via", type: "text" })
     injectedVia!: RecipeInjectedVia;
 
-    @Column({ type: "real", nullable: true })
-    score!: number | null;
-
     @Column({ type: "text", nullable: true })
     outcome!: RecipeOutcome | null;
 

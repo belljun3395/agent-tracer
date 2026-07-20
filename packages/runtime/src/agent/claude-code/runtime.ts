@@ -28,7 +28,8 @@ import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.por
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
-import {BuildRecipeContextUsecase} from "~runtime/domain/recipe/application/build.recipe.context.usecase.js";
+import {BuildRecipeMenuUsecase} from "~runtime/domain/recipe/application/build.recipe.menu.usecase.js";
+import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
 import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
@@ -95,7 +96,8 @@ const binding: BindingHook = {
 
 const recipe: RecipeHook = {
     refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-    buildContext: new BuildRecipeContextUsecase(recipeCache),
+    buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+    getRecipe: new GetRecipeUsecase(recipeCache),
     requestScan: new RequestRecipeScanUsecase(recipeJobs),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
 };

@@ -9,7 +9,6 @@ describe("parseStoredEventPayload", () => {
             filePaths: ["a.ts", "b.ts"],
             metadata: { key: "value" },
             completeTask: true,
-            score: 0.5,
         });
 
         expect(result.title).toBe("파일 변경");
@@ -17,7 +16,6 @@ describe("parseStoredEventPayload", () => {
         expect(result.filePaths).toEqual(["a.ts", "b.ts"]);
         expect(result.metadata).toEqual({ key: "value" });
         expect(result.completeTask).toBe(true);
-        expect(result.score).toBe(0.5);
     });
 
     it("모르는 키는 무시하고 알려진 필드만 남긴다", () => {

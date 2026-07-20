@@ -135,7 +135,6 @@ const recipeInjectedPayloadSchema = z.object({
     recipeId: z.string().min(1),
     applicationId: z.string().min(1),
     injectedVia: z.enum(RECIPE_INJECTED_VIA),
-    score: z.number(),
 }).strict();
 
 /** kind별 payload 스키마이며, 여기 없는 kind는 인제스트에서 거부된다. */

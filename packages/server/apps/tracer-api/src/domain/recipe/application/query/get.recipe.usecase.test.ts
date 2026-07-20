@@ -29,8 +29,7 @@ function makeApplication(recipeId: string, outcome: RecipeApplicationEntity["out
     app.userId = "u1";
     app.recipeId = recipeId;
     app.taskId = "task-1";
-    app.injectedVia = "auto";
-    app.score = null;
+    app.injectedVia = "pull";
     app.outcome = outcome;
     app.createdAt = new Date("2026-01-01T00:00:00.000Z");
     app.resolvedAt = null;

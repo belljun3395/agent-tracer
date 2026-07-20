@@ -17,7 +17,6 @@ function manualApplication(userId: string, recipeId: string, taskId: string, now
     application.recipeId = recipeId;
     application.taskId = taskId;
     application.injectedVia = "manual";
-    application.score = null;
     application.outcome = null;
     application.note = null;
     application.createdAt = now;

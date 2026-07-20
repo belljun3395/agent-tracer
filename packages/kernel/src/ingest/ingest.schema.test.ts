@@ -85,8 +85,7 @@ describe("parseIngestBatch", () => {
         const valid = batchOf(KIND.recipeInjected, {
             recipeId: "r1",
             applicationId: "a1",
-            injectedVia: "auto",
-            score: 0.9,
+            injectedVia: "pull",
         });
         expect(parseIngestBatch(valid).accepted).toHaveLength(1);
 
@@ -94,7 +93,6 @@ describe("parseIngestBatch", () => {
             recipeId: "r1",
             applicationId: "a1",
             injectedVia: "not-a-real-source",
-            score: 0.9,
         });
         expect(parseIngestBatch(invalid).rejected).toHaveLength(1);
     });
