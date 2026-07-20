@@ -9,8 +9,9 @@ import type {
 import type {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import type {SearchRecipesInput, SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
 import type {RecipePendingMark} from "~runtime/domain/recipe/model/recipe.pending.mark.model.js";
-import type {RecipeOutcomeReportInput} from "~runtime/domain/recipe/port/recipe.outcome.report.port.js";
+import type {RecipeOutcomeReportInput, RecipeOutcomeReportResult} from "~runtime/domain/recipe/port/recipe.outcome.report.port.js";
 import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
+import type {Fetched} from "~runtime/support/fetched.js";
 
 /** 레시피 도메인이 어댑터에 제공하는 진입점 묶음이다. */
 export interface RecipeHook {
@@ -27,14 +28,14 @@ export interface RecipeOutcomeMarkHook {
     readonly readPendingMark: ReadPendingRecipeMarkUsecase;
 }
 
-export function onGetRecipe(hook: RecipeHook, recipeId: string): Promise<string | null> {
+export function onGetRecipe(hook: RecipeHook, recipeId: string): Promise<Fetched<string>> {
     return hook.getRecipe.execute(recipeId);
 }
 
 export function onRecipeSearchRequested(
     hook: RecipeHook,
     input: SearchRecipesInput,
-): Promise<readonly RecipeSearchResultItem[]> {
+): Promise<Fetched<readonly RecipeSearchResultItem[]>> {
     return hook.searchRecipes.execute(input);
 }
 
@@ -42,7 +43,10 @@ export function onRecipeScanRequested(hook: RecipeHook, request: RecipeScanReque
     return hook.requestScan.execute(request);
 }
 
-export function onRecipeOutcomeReported(hook: RecipeHook, input: RecipeOutcomeReportInput): Promise<boolean> {
+export function onRecipeOutcomeReported(
+    hook: RecipeHook,
+    input: RecipeOutcomeReportInput,
+): Promise<RecipeOutcomeReportResult> {
     return hook.reportOutcome.execute(input);
 }
 

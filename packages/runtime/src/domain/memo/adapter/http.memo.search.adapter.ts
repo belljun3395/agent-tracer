@@ -1,5 +1,5 @@
 import {MEMOS_PATH} from "@monitor/kernel/api/memo.query.const.js";
-import {getJson} from "~runtime/config/http.js";
+import {getJson, type Fetched} from "~runtime/config/http.js";
 import type {MemoSearchPort, MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
@@ -16,15 +16,19 @@ export class HttpMemoSearchAdapter implements MemoSearchPort {
         private readonly headers: Record<string, string>,
     ) {}
 
-    async listByTask(taskId: string): Promise<readonly MemoSearchResultItem[]> {
+    async listByTask(taskId: string): Promise<Fetched<readonly MemoSearchResultItem[]>> {
         const fetched = await getJson<MemosEnvelope>(
             `${this.baseUrl}${MEMOS_PATH}?taskId=${encodeURIComponent(taskId)}`,
             this.headers,
             FETCH_TIMEOUT_MS,
         );
-        const rawItems = fetched.kind === "found" ? fetched.value.data?.items : undefined;
+        if (fetched.kind !== "found") return fetched;
+        const rawItems = fetched.value.data?.items;
         const items = Array.isArray(rawItems) ? rawItems : [];
-        return items.map(parseMemoItem).filter((item): item is MemoSearchResultItem => item !== null);
+        return {
+            kind: "found",
+            value: items.map(parseMemoItem).filter((item): item is MemoSearchResultItem => item !== null),
+        };
     }
 }
 

@@ -8,6 +8,9 @@ export interface RecipeOutcomeReportInput {
     readonly note?: string;
 }
 
+/** `accepted`는 서버가 받아들임, `rejected`는 그 레시피가 이미 없다는 확답(404), `unavailable`은 확답을 못 받음이다. */
+export type RecipeOutcomeReportResult = "accepted" | "rejected" | "unavailable";
+
 export interface RecipeOutcomeReportPort {
-    report(input: RecipeOutcomeReportInput): Promise<boolean>;
+    report(input: RecipeOutcomeReportInput): Promise<RecipeOutcomeReportResult>;
 }

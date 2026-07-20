@@ -30,9 +30,9 @@ describe("SearchRecipesUsecase", () => {
         const search = new InMemoryRecipeSearch();
         const usecase = new SearchRecipesUsecase(search);
 
-        const items = await usecase.execute({query: "   "});
+        const fetched = await usecase.execute({query: "   "});
 
-        expect(items).toEqual([]);
+        expect(fetched).toEqual({kind: "found", value: []});
         expect(search.calls).toEqual([]);
     });
 
@@ -41,16 +41,24 @@ describe("SearchRecipesUsecase", () => {
         search.seed([item("r1"), item("r2")]);
         const usecase = new SearchRecipesUsecase(search);
 
-        const items = await usecase.execute({query: "린트"});
+        const fetched = await usecase.execute({query: "린트"});
 
-        expect(items.map((i) => i.recipeId)).toEqual(["r1", "r2"]);
+        expect(fetched.kind === "found" && fetched.value.map((i) => i.recipeId)).toEqual(["r1", "r2"]);
     });
 
-    it("서버 조회가 실패해도 예외를 삼키고 빈 목록을 낸다", async () => {
+    it("서버가 확답을 못 하면 unavailable을 낸다", async () => {
+        const search = new InMemoryRecipeSearch();
+        search.respondUnavailableNext();
+        const usecase = new SearchRecipesUsecase(search);
+
+        expect(await usecase.execute({query: "린트"})).toEqual({kind: "unavailable"});
+    });
+
+    it("서버 조회가 예외로 튀어도 삼키고 unavailable을 낸다", async () => {
         const search = new InMemoryRecipeSearch();
         search.failNext();
         const usecase = new SearchRecipesUsecase(search);
 
-        expect(await usecase.execute({query: "린트"})).toEqual([]);
+        expect(await usecase.execute({query: "린트"})).toEqual({kind: "unavailable"});
     });
 });

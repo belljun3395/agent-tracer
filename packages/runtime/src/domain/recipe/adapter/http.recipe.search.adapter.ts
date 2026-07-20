@@ -1,4 +1,4 @@
-import {getJson} from "~runtime/config/http.js";
+import {getJson, type Fetched} from "~runtime/config/http.js";
 import type {RecipeSearchPort, RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
@@ -11,10 +11,10 @@ export class HttpRecipeSearchAdapter implements RecipeSearchPort {
         private readonly headers: Record<string, string>,
     ) {}
 
-    async search(query: string, limit: number): Promise<readonly RecipeSearchResultItem[]> {
+    async search(query: string, limit: number): Promise<Fetched<readonly RecipeSearchResultItem[]>> {
         const url = `${this.baseUrl}/api/v1/recipes/search?q=${encodeURIComponent(query)}&limit=${limit}`;
         const fetched = await getJson<Record<string, unknown>>(url, this.headers, REQUEST_TIMEOUT_MS);
-        return fetched.kind === "found" ? extractItems(fetched.value) : [];
+        return fetched.kind === "found" ? {kind: "found", value: extractItems(fetched.value)} : fetched;
     }
 }
 

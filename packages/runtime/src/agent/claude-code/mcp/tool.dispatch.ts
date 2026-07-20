@@ -105,11 +105,17 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
         case GET_RECIPE_TOOL.name: {
             const parsed = parseGetRecipeArgs(args);
             if (!parsed) return invalidArgs();
-            const body = await onGetRecipe(mcpRuntime.recipe, parsed.recipeId);
-            if (body === null) return {text: `Recipe not found: ${parsed.recipeId}`, isError: true};
+            const fetched = await onGetRecipe(mcpRuntime.recipe, parsed.recipeId);
+            if (fetched.kind === "unavailable") {
+                return {text: "Could not reach the recipe server. Try again.", isError: true};
+            }
             const target = resolveTarget();
+            if (fetched.kind === "absent") {
+                if (target !== undefined) onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
+                return {text: `Recipe not found: ${parsed.recipeId}`, isError: true};
+            }
             if (target !== undefined) await recordRecipeInjection(target, parsed.recipeId);
-            return {text: body, isError: false};
+            return {text: fetched.value, isError: false};
         }
         case REPORT_RECIPE_OUTCOME_TOOL.name: {
             const parsed = parseReportRecipeOutcomeArgs(args);
@@ -118,16 +124,19 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
             if (target === undefined) {
                 return {text: `Could not record outcome (${UNKNOWN_SESSION}).`, isError: true};
             }
-            const ok = await onRecipeOutcomeReported(mcpRuntime.recipe, {
+            const result = await onRecipeOutcomeReported(mcpRuntime.recipe, {
                 recipeId: parsed.recipeId,
                 taskId: target.taskId,
                 outcome: parsed.outcome,
                 ...(parsed.note !== undefined ? {note: parsed.note} : {}),
             });
-            if (ok) onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
-            return ok
+            if (result === "unavailable") {
+                return {text: "Could not reach the server to record the outcome. Try again.", isError: true};
+            }
+            onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
+            return result === "accepted"
                 ? {text: "Outcome recorded.", isError: false}
-                : {text: "Could not record outcome.", isError: true};
+                : {text: `Recipe no longer exists: ${parsed.recipeId}`, isError: true};
         }
         case REQUEST_RECIPE_SCAN_TOOL.name: {
             const target = resolveTarget();
@@ -172,21 +181,27 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
             if (!parsed) return invalidArgs();
             const target = resolveTarget();
             if (target === undefined) return {text: formatMemoSearchResult([]), isError: false};
-            const items = await onMemoSearchRequested(mcpRuntime.memo, {
+            const fetched = await onMemoSearchRequested(mcpRuntime.memo, {
                 taskId: target.taskId,
                 ...(parsed.query !== undefined ? {query: parsed.query} : {}),
                 ...(parsed.limit !== undefined ? {limit: parsed.limit} : {}),
             });
-            return {text: formatMemoSearchResult(items), isError: false};
+            if (fetched.kind === "unavailable") {
+                return {text: "Could not reach the memo server. Try again.", isError: true};
+            }
+            return {text: formatMemoSearchResult(fetched.kind === "found" ? fetched.value : []), isError: false};
         }
         case SEARCH_RECIPES_TOOL.name: {
             const parsed = parseSearchRecipesArgs(args);
             if (!parsed) return invalidArgs();
-            const items = await onRecipeSearchRequested(mcpRuntime.recipe, {
+            const fetched = await onRecipeSearchRequested(mcpRuntime.recipe, {
                 query: parsed.query,
                 ...(parsed.limit !== undefined ? {limit: parsed.limit} : {}),
             });
-            return {text: formatRecipeSearchResult(items), isError: false};
+            if (fetched.kind === "unavailable") {
+                return {text: "Could not reach the recipe server to search. Try again.", isError: true};
+            }
+            return {text: formatRecipeSearchResult(fetched.kind === "found" ? fetched.value : []), isError: false};
         }
         default:
             return {text: `Unknown tool: ${name}`, isError: true};

@@ -1,4 +1,7 @@
+import type {Fetched} from "~runtime/support/fetched.js";
 import {isRecord} from "~runtime/support/json.js";
+
+export type {Fetched};
 
 const DEFAULT_TIMEOUT_MS = 5000;
 
@@ -16,12 +19,6 @@ export function jsonHeaders(headers: Record<string, string>): Record<string, str
 export function resolveTimeoutSignal(timeoutMs: number = DEFAULT_TIMEOUT_MS, signal?: AbortSignal): AbortSignal {
     return signal ?? AbortSignal.timeout(timeoutMs);
 }
-
-/** 서버에게 물은 결과이며 `found`는 응답값, `absent`는 서버의 확답(404), `unavailable`은 확답을 못 받음(그 외 상태·타임아웃·네트워크 실패)이다. */
-export type Fetched<T> =
-    | {readonly kind: "found"; readonly value: T}
-    | {readonly kind: "absent"}
-    | {readonly kind: "unavailable"};
 
 /** 봉투(`{data: ...}`)에서 데이터를 꺼내며 응답 확답과 못 받음을 구분해 낸다. */
 export async function getJson<T>(

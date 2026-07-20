@@ -13,9 +13,9 @@ describe("SearchMemosUsecase", () => {
         search.seed("t1", [item("m1", "첫 메모"), item("m2", "둘째 메모")]);
         const usecase = new SearchMemosUsecase(search);
 
-        const items = await usecase.execute({taskId: "t1"});
+        const fetched = await usecase.execute({taskId: "t1"});
 
-        expect(items.map((i) => i.id)).toEqual(["m1", "m2"]);
+        expect(fetched.kind === "found" && fetched.value.map((i) => i.id)).toEqual(["m1", "m2"]);
     });
 
     it("query가 있으면 본문 부분일치로 좁힌다", async () => {
@@ -23,9 +23,9 @@ describe("SearchMemosUsecase", () => {
         search.seed("t1", [item("m1", "배포 절차 메모"), item("m2", "무관한 메모")]);
         const usecase = new SearchMemosUsecase(search);
 
-        const items = await usecase.execute({taskId: "t1", query: "배포"});
+        const fetched = await usecase.execute({taskId: "t1", query: "배포"});
 
-        expect(items.map((i) => i.id)).toEqual(["m1"]);
+        expect(fetched.kind === "found" && fetched.value.map((i) => i.id)).toEqual(["m1"]);
     });
 
     it("limit만큼만 반환한다", async () => {
@@ -33,23 +33,31 @@ describe("SearchMemosUsecase", () => {
         search.seed("t1", [item("m1", "a"), item("m2", "b"), item("m3", "c")]);
         const usecase = new SearchMemosUsecase(search);
 
-        const items = await usecase.execute({taskId: "t1", limit: 2});
+        const fetched = await usecase.execute({taskId: "t1", limit: 2});
 
-        expect(items).toHaveLength(2);
+        expect(fetched.kind === "found" && fetched.value).toHaveLength(2);
     });
 
     it("taskId가 없으면 빈 목록을 낸다", async () => {
         const search = new InMemoryMemoSearch();
         const usecase = new SearchMemosUsecase(search);
 
-        expect(await usecase.execute({taskId: ""})).toEqual([]);
+        expect(await usecase.execute({taskId: ""})).toEqual({kind: "found", value: []});
     });
 
-    it("서버 조회가 실패해도 예외를 삼키고 빈 목록을 낸다", async () => {
+    it("서버가 확답을 못 하면 unavailable을 낸다", async () => {
+        const search = new InMemoryMemoSearch();
+        search.respondUnavailableNext();
+        const usecase = new SearchMemosUsecase(search);
+
+        expect(await usecase.execute({taskId: "t1"})).toEqual({kind: "unavailable"});
+    });
+
+    it("서버 조회가 예외로 튀어도 삼키고 unavailable을 낸다", async () => {
         const search = new InMemoryMemoSearch();
         search.failNext();
         const usecase = new SearchMemosUsecase(search);
 
-        expect(await usecase.execute({taskId: "t1"})).toEqual([]);
+        expect(await usecase.execute({taskId: "t1"})).toEqual({kind: "unavailable"});
     });
 });

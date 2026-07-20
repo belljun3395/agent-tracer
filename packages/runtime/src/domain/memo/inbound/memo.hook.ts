@@ -2,6 +2,7 @@ import type {CreateMemoUsecase} from "~runtime/domain/memo/application/create.me
 import type {SearchMemosInput, SearchMemosUsecase} from "~runtime/domain/memo/application/search.memos.usecase.js";
 import type {MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
 import type {MemoWriteInput} from "~runtime/domain/memo/port/memo.write.port.js";
+import type {Fetched} from "~runtime/support/fetched.js";
 
 /** 메모 도메인이 어댑터에 제공하는 진입점 묶음이다. */
 export interface MemoHook {
@@ -13,6 +14,6 @@ export function onMemoCreateRequested(hook: MemoHook, input: MemoWriteInput): Pr
     return hook.createMemo.execute(input);
 }
 
-export function onMemoSearchRequested(hook: MemoHook, input: SearchMemosInput): Promise<readonly MemoSearchResultItem[]> {
+export function onMemoSearchRequested(hook: MemoHook, input: SearchMemosInput): Promise<Fetched<readonly MemoSearchResultItem[]>> {
     return hook.searchMemos.execute(input);
 }

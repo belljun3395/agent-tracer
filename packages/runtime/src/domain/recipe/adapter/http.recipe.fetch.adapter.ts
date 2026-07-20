@@ -1,4 +1,4 @@
-import {getJson} from "~runtime/config/http.js";
+import {getJson, type Fetched} from "~runtime/config/http.js";
 import type {
     CachedRecipe,
     CachedRecipeCorrection,
@@ -18,15 +18,16 @@ export class HttpRecipeFetchAdapter implements RecipeFetchPort {
         private readonly headers: Record<string, string>,
     ) {}
 
-    async fetch(recipeId: string): Promise<CachedRecipe | null> {
+    async fetch(recipeId: string): Promise<Fetched<CachedRecipe>> {
         const fetched = await getJson<Record<string, unknown>>(
             `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(recipeId)}`,
             this.headers,
             REQUEST_TIMEOUT_MS,
         );
-        if (fetched.kind !== "found") return null;
+        if (fetched.kind !== "found") return fetched;
         const payload = "data" in fetched.value ? fetched.value["data"] : fetched.value;
-        return toCachedRecipe(payload);
+        const recipe = toCachedRecipe(payload);
+        return recipe === null ? {kind: "unavailable"} : {kind: "found", value: recipe};
     }
 }
 
