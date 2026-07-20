@@ -35,4 +35,15 @@ describe("parseMcpSocketRequest", () => {
         expect(parseMcpSocketRequest("recipe-get", {recipeId: "r1", sessionId: "cc-1"}))
             .toEqual({type: "recipe-get", recipeId: "r1", sessionId: "cc-1"});
     });
+
+    it("레시피 검색은 태스크에 귀속되지 않아 sessionId 없이도 통과한다", () => {
+        expect(parseMcpSocketRequest("recipe-search", {query: "린트"}))
+            .toEqual({type: "recipe-search", query: "린트"});
+        expect(parseMcpSocketRequest("recipe-search", {query: "린트", limit: 5}))
+            .toEqual({type: "recipe-search", query: "린트", limit: 5});
+    });
+
+    it("레시피 검색은 query가 없으면 거절한다", () => {
+        expect(parseMcpSocketRequest("recipe-search", {})).toBeNull();
+    });
 });

@@ -19,11 +19,13 @@ import type {MemoHook} from "~runtime/domain/memo/inbound/memo.hook.js";
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
-import {BuildRecipeMenuUsecase} from "~runtime/domain/recipe/application/build.recipe.menu.usecase.js";
+import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
+import {BuildRecipeNudgeUsecase} from "~runtime/domain/recipe/application/build.recipe.nudge.usecase.js";
 import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
 import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
+import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
 import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {AgentRuleGeneratorAdapter} from "~runtime/domain/rulegen/adapter/agent.rule.generator.adapter.js";
 import {ClaudeRuleAgentRunnerAdapter} from "~runtime/domain/rulegen/adapter/claude.rule.agent.runner.adapter.js";
@@ -81,10 +83,11 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
     const recipe: RecipeHook = {
         refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-        buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+        buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
         getRecipe: new GetRecipeUsecase(recipeCache),
         requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
         reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
+        searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(baseUrl, headers)),
     };
 
     const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());

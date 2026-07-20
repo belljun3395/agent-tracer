@@ -1,5 +1,6 @@
 import {RECIPE_OUTCOMES, type RecipeOutcome} from "@monitor/kernel/recipe/recipe.const.js";
 import type {MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
+import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
 /** MCP 브리지가 데몬에 위임하는 도구 호출 전용 소켓 메시지이며 daemon.socket.port가 이 계약을 얹어 쓴다. */
@@ -50,13 +51,21 @@ export interface DaemonMemoSearchRequest {
     readonly limit?: number;
 }
 
+/** MCP search_recipes 도구가 보내는 조회 요청이며 태스크에 귀속되지 않아 sessionId가 필요 없다. */
+export interface DaemonRecipeSearchRequest {
+    readonly type: "recipe-search";
+    readonly query: string;
+    readonly limit?: number;
+}
+
 export type McpSocketRequest =
     | DaemonRecipeGetRequest
     | DaemonRecipeOutcomeRequest
     | DaemonRecipeScanRequest
     | DaemonSetTaskTitleRequest
     | DaemonMemoCreateRequest
-    | DaemonMemoSearchRequest;
+    | DaemonMemoSearchRequest
+    | DaemonRecipeSearchRequest;
 
 /** 캐시에 없으면 body가 null이다. */
 export interface DaemonRecipeGetResponse {
@@ -93,13 +102,19 @@ export interface DaemonMemoSearchResponse {
     readonly reason?: string;
 }
 
+/** 검색 실패는 삼키고 빈 items로 낸다. */
+export interface DaemonRecipeSearchResponse {
+    readonly items: readonly RecipeSearchResultItem[];
+}
+
 export type McpSocketResponse =
     | DaemonRecipeGetResponse
     | DaemonRecipeOutcomeResponse
     | DaemonRecipeScanResponse
     | DaemonSetTaskTitleResponse
     | DaemonMemoCreateResponse
-    | DaemonMemoSearchResponse;
+    | DaemonMemoSearchResponse
+    | DaemonRecipeSearchResponse;
 
 /** daemon.socket.port의 parseDaemonRequest가 자기 타입을 못 찾을 때 넘기는 자리다. */
 export function parseMcpSocketRequest(type: string, value: Record<string, unknown>): McpSocketRequest | null {
@@ -148,6 +163,14 @@ export function parseMcpSocketRequest(type: string, value: Record<string, unknow
                     type: "memo-search",
                     sessionId: value["sessionId"],
                     ...(typeof value["query"] === "string" ? {query: value["query"]} : {}),
+                    ...(typeof value["limit"] === "number" ? {limit: value["limit"]} : {}),
+                }
+                : null;
+        case "recipe-search":
+            return typeof value["query"] === "string"
+                ? {
+                    type: "recipe-search",
+                    query: value["query"],
                     ...(typeof value["limit"] === "number" ? {limit: value["limit"]} : {}),
                 }
                 : null;
@@ -200,4 +223,9 @@ export function parseDaemonMemoSearchResponse(value: unknown): DaemonMemoSearchR
         items: value["items"] as MemoSearchResultItem[],
         ...(typeof value["reason"] === "string" ? {reason: value["reason"]} : {}),
     };
+}
+
+export function parseDaemonRecipeSearchResponse(value: unknown): DaemonRecipeSearchResponse | null {
+    if (!isRecord(value) || !Array.isArray(value["items"])) return null;
+    return {items: value["items"] as RecipeSearchResultItem[]};
 }

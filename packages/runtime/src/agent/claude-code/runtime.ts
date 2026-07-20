@@ -28,11 +28,13 @@ import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.por
 import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
-import {BuildRecipeMenuUsecase} from "~runtime/domain/recipe/application/build.recipe.menu.usecase.js";
+import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
+import {BuildRecipeNudgeUsecase} from "~runtime/domain/recipe/application/build.recipe.nudge.usecase.js";
 import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
 import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
+import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
 import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {ClearSessionUsecase} from "~runtime/domain/session/application/clear.session.usecase.js";
 import {EndSessionUsecase} from "~runtime/domain/session/application/end.session.usecase.js";
@@ -96,10 +98,11 @@ const binding: BindingHook = {
 
 const recipe: RecipeHook = {
     refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-    buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+    buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
     getRecipe: new GetRecipeUsecase(recipeCache),
     requestScan: new RequestRecipeScanUsecase(recipeJobs),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
+    searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(transport.baseUrl, headers)),
 };
 
 const logger: HookLogger = createHookLogger({

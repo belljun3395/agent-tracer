@@ -18,6 +18,7 @@ import type {
     DaemonRecipeGetResponse,
     DaemonRecipeOutcomeResponse,
     DaemonRecipeScanResponse,
+    DaemonRecipeSearchResponse,
     DaemonSetTaskTitleResponse,
 } from "~runtime/daemon/port/mcp.socket.port.js";
 import {onTurnStop, type GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
@@ -37,6 +38,7 @@ import {
     onGetRecipe,
     onRecipeOutcomeReported,
     onRecipeScanRequested,
+    onRecipeSearchRequested,
     type RecipeHook,
 } from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {generateUlid} from "~runtime/support/ulid.js";
@@ -244,6 +246,14 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                     ...(request.limit !== undefined ? {limit: request.limit} : {}),
                 });
                 send(socket, {items} satisfies DaemonMemoSearchResponse);
+                return;
+            }
+            case "recipe-search": {
+                const items = await onRecipeSearchRequested(context.recipe, {
+                    query: request.query,
+                    ...(request.limit !== undefined ? {limit: request.limit} : {}),
+                });
+                send(socket, {items} satisfies DaemonRecipeSearchResponse);
                 return;
             }
         }

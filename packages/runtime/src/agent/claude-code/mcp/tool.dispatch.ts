@@ -4,6 +4,7 @@ import {
     reportRecipeOutcomeViaDaemon,
     requestRecipeScanViaDaemon,
     searchMemosViaDaemon,
+    searchRecipesViaDaemon,
     setTaskTitleViaDaemon,
 } from "~runtime/daemon/ipc/mcp.client.js";
 import {ensureDaemonRunning} from "~runtime/daemon/ipc/hook.client.js";
@@ -23,6 +24,11 @@ import {
 } from "~runtime/domain/recipe/model/report.recipe.outcome.tool.model.js";
 import {REQUEST_RECIPE_SCAN_TOOL} from "~runtime/domain/recipe/model/request.recipe.scan.tool.model.js";
 import {
+    SEARCH_RECIPES_TOOL,
+    parseSearchRecipesArgs,
+} from "~runtime/domain/recipe/model/search.recipes.tool.model.js";
+import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
+import {
     SET_TASK_TITLE_TOOL,
     parseSetTaskTitleArgs,
 } from "~runtime/domain/session/model/set.task.title.tool.model.js";
@@ -31,6 +37,7 @@ import type {McpToolSpec} from "~runtime/support/mcp.tool.js";
 /** MCP tools/list가 광고하는 도구 전부다. */
 export const MCP_TOOLS: readonly McpToolSpec[] = [
     GET_RECIPE_TOOL,
+    SEARCH_RECIPES_TOOL,
     REPORT_RECIPE_OUTCOME_TOOL,
     REQUEST_RECIPE_SCAN_TOOL,
     SET_TASK_TITLE_TOOL,
@@ -51,6 +58,13 @@ function formatMemoSearchResult(items: readonly MemoSearchResultItem[]): string 
     if (items.length === 0) return "No memos found on the active task.";
     return items
         .map((item) => `## memo ${item.id} (author: ${item.author}${item.eventId ? `, event: ${item.eventId}` : ""})\n${item.body}`)
+        .join("\n\n---\n\n");
+}
+
+function formatRecipeSearchResult(items: readonly RecipeSearchResultItem[]): string {
+    if (items.length === 0) return "Nothing saved here fits that.";
+    return items
+        .map((item) => `## ${item.title} (recipeId: ${item.recipeId})\nintent: ${item.intent}\n${item.description}`)
         .join("\n\n---\n\n");
 }
 
@@ -101,6 +115,12 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
             if (!parsed) return invalidArgs();
             const result = await searchMemosViaDaemon(parsed.query, parsed.limit);
             return {text: formatMemoSearchResult(result.items), isError: false};
+        }
+        case SEARCH_RECIPES_TOOL.name: {
+            const parsed = parseSearchRecipesArgs(args);
+            if (!parsed) return invalidArgs();
+            const result = await searchRecipesViaDaemon(parsed.query, parsed.limit);
+            return {text: formatRecipeSearchResult(result.items), isError: false};
         }
         default:
             return {text: `Unknown tool: ${name}`, isError: true};

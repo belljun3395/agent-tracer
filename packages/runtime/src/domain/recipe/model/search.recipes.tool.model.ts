@@ -1,25 +1,21 @@
 import type {McpToolSpec} from "~runtime/support/mcp.tool.js";
 import {isRecord} from "~runtime/support/json.js";
 
-const DEFAULT_LIMIT = 3;
-const MAX_LIMIT = 10;
-
-/** 레시피를 고를 만큼만 보여주는 검색 도구이며, 설명 문구가 부를 시점과 다음 단계를 못박는다. */
+/** 워크스페이스 레시피를 질의어로 찾는 도구이며 결정 수준 정보만 돌려준다는 것을 설명에 못박는다. */
 export const SEARCH_RECIPES_TOOL: McpToolSpec = {
     name: "search_recipes",
     description:
         "Search this workspace's saved recipes — workflows distilled from how past tasks here were "
-        + "actually solved. Call this before you start substantive work whenever the request plausibly "
-        + "repeats something this workspace has handled before: a familiar setup, a migration, a "
-        + "recurring fix, a multi-step workflow. Results carry only what you need to choose — id, "
-        + "title, intent, description. They do not carry the steps, so call get_recipe(recipeId) once "
-        + "you have picked one you intend to follow. Skip this for requests that are clearly one-off, "
-        + "novel, or trivial. An empty result means nothing saved here fits; proceed on your own.",
+        + "actually solved — by describing the current task in your own words. Returns decision-level "
+        + "info only (recipeId, title, intent, description, relevance score), not the steps, pitfalls, "
+        + "or corrections. Call this before starting work whenever the request plausibly repeats "
+        + "something already solved here. If a result looks like a fit, call get_recipe(recipeId) next "
+        + "to pull its full workflow before you act on it.",
     inputSchema: {
         type: "object",
         properties: {
-            query: {type: "string", description: "The task you are about to do, in your own words."},
-            limit: {type: "number", description: `Max recipes to return (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT}).`},
+            query: {type: "string", description: "The current task described in your own words."},
+            limit: {type: "number", description: "Max recipes to return (default 3)."},
         },
         required: ["query"],
     },
@@ -35,6 +31,8 @@ export function parseSearchRecipesArgs(value: unknown): SearchRecipesArgs | null
     const query = value["query"];
     if (typeof query !== "string" || query.trim() === "") return null;
     const limit = value["limit"];
-    if (typeof limit !== "number" || !Number.isFinite(limit)) return {query: query.trim()};
-    return {query: query.trim(), limit: Math.min(Math.max(Math.trunc(limit), 1), MAX_LIMIT)};
+    return {
+        query,
+        ...(typeof limit === "number" && Number.isFinite(limit) ? {limit} : {}),
+    };
 }

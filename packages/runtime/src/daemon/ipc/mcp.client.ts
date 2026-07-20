@@ -8,6 +8,7 @@ import {
     parseDaemonRecipeGetResponse,
     parseDaemonRecipeOutcomeResponse,
     parseDaemonRecipeScanResponse,
+    parseDaemonRecipeSearchResponse,
     parseDaemonSetTaskTitleResponse,
     type DaemonMemoCreateRequest,
     type DaemonMemoCreateResponse,
@@ -19,6 +20,8 @@ import {
     type DaemonRecipeOutcomeResponse,
     type DaemonRecipeScanRequest,
     type DaemonRecipeScanResponse,
+    type DaemonRecipeSearchRequest,
+    type DaemonRecipeSearchResponse,
     type DaemonSetTaskTitleRequest,
     type DaemonSetTaskTitleResponse,
 } from "~runtime/daemon/port/mcp.socket.port.js";
@@ -30,6 +33,7 @@ const NO_DAEMON_SCAN: DaemonRecipeScanResponse = {queued: false, reason: "daemon
 const NO_DAEMON_TITLE: DaemonSetTaskTitleResponse = {ok: false, reason: "daemon_unreachable"};
 const NO_DAEMON_MEMO_CREATE: DaemonMemoCreateResponse = {ok: false, reason: "daemon_unreachable"};
 const NO_DAEMON_MEMO_SEARCH: DaemonMemoSearchResponse = {items: [], reason: "daemon_unreachable"};
+const NO_DAEMON_RECIPE_SEARCH: DaemonRecipeSearchResponse = {items: []};
 const UNKNOWN_SESSION = "unknown_session";
 
 /** MCP 브리지가 데몬에 캐시된 레시피 본문 조회를 위임하며, 성공하면 데몬이 그 시점에 적용을 연다. */
@@ -160,5 +164,25 @@ export async function searchMemosViaDaemon(query?: string, limit?: number): Prom
         );
     } catch {
         return NO_DAEMON_MEMO_SEARCH;
+    }
+}
+
+/** MCP search_recipes 도구가 데몬에 레시피 검색을 위임하며 태스크에 귀속되지 않아 세션을 싣지 않는다. */
+export async function searchRecipesViaDaemon(query: string, limit?: number): Promise<DaemonRecipeSearchResponse> {
+    const paths = resolveAgentTracerPaths();
+    try {
+        return await requestDaemon(
+            paths.socketPath,
+            {
+                type: "recipe-search",
+                query,
+                ...(limit !== undefined ? {limit} : {}),
+            } satisfies DaemonRecipeSearchRequest,
+            REQUEST_TIMEOUT_MS,
+            (parsed) => parseDaemonRecipeSearchResponse(parsed) ?? NO_DAEMON_RECIPE_SEARCH,
+            NO_DAEMON_RECIPE_SEARCH,
+        );
+    } catch {
+        return NO_DAEMON_RECIPE_SEARCH;
     }
 }
