@@ -1,5 +1,5 @@
 import { IsNull, type Repository } from "typeorm";
-import type { RecipeStatus } from "@monitor/kernel";
+import { RECIPE_STATUS, type RecipeStatus } from "@monitor/kernel";
 import type { RecipeEntity } from "./recipe.entity.js";
 import { upsertByKeys } from "../persistence/repository.upsert.js";
 
@@ -17,6 +17,18 @@ export class RecipeRepository {
 
     async findByUser(userId: string): Promise<RecipeEntity[]> {
         return this.repo.find({ where: { userId, deletedAt: IsNull() }, order: { updatedAt: "DESC" } });
+    }
+
+    /** 노후 회수 스윕의 후보이며, 실제로 적용된 적이 없는지는 호출자가 적용 이력을 따로 확인해야 한다. */
+    async findStaleActiveCandidates(before: Date, limit: number): Promise<RecipeEntity[]> {
+        return this.repo
+            .createQueryBuilder("recipe")
+            .where("recipe.status = :status", { status: RECIPE_STATUS.active })
+            .andWhere("recipe.deleted_at IS NULL")
+            .andWhere("recipe.created_at < :before", { before })
+            .orderBy("recipe.created_at", "ASC")
+            .limit(limit)
+            .getMany();
     }
 
     async upsert(recipe: RecipeEntity): Promise<void> {

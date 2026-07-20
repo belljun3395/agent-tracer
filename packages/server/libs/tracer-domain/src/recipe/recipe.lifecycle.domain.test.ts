@@ -8,7 +8,7 @@ import type { RecipeVerifyWindowEvent } from "./model/recipe.compliance.model.js
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
 
-function makeRecipe(input: Partial<RecipeCandidateInput> = {}): RecipeEntity {
+function makeRecipe(input: Partial<RecipeCandidateInput> = {}, createdAt: Date = NOW): RecipeEntity {
     const base: RecipeCandidateInput = {
         id: "r1",
         userId: "u1",
@@ -25,8 +25,8 @@ function makeRecipe(input: Partial<RecipeCandidateInput> = {}): RecipeEntity {
         contributingSlices: [],
         ...input,
     };
-    const recipe = RecipeEntity.candidate(base, NOW);
-    recipe.accept(NOW);
+    const recipe = RecipeEntity.candidate(base, createdAt);
+    recipe.accept(createdAt);
     return recipe;
 }
 
@@ -57,9 +57,14 @@ const FOLLOWED_EVENT: RecipeVerifyWindowEvent = {
 
 describe("RecipeLifecycle", () => {
     describe("stats", () => {
-        it("적용 이력이 없으면 successRate는 0이다", () => {
+        it("적용 이력이 없으면 applicationCount와 successRate가 모두 0이다", () => {
             const lifecycle = new RecipeLifecycle(makeRecipe(), []);
-            expect(lifecycle.stats()).toEqual({ applied: 0, success: 0, successRate: 0 });
+            expect(lifecycle.stats()).toEqual({
+                applicationCount: 0,
+                decidedCount: 0,
+                successRate: 0,
+                verdicts: { followedAndHelped: 0, followedNotHelped: 0, abandoned: 0, unknown: 0 },
+            });
         });
 
         it("followed_and_helped 비율로 successRate를 계산한다", () => {
@@ -69,17 +74,47 @@ describe("RecipeLifecycle", () => {
                 makeApplication({ id: "c", verdict: RECIPE_VERDICT.followedAndHelped }),
             ];
             const lifecycle = new RecipeLifecycle(makeRecipe(), applications);
-            expect(lifecycle.stats()).toEqual({ applied: 3, success: 2, successRate: 2 / 3 });
+            expect(lifecycle.stats()).toEqual({
+                applicationCount: 3,
+                decidedCount: 3,
+                successRate: 2 / 3,
+                verdicts: { followedAndHelped: 2, followedNotHelped: 0, abandoned: 1, unknown: 0 },
+            });
         });
 
-        it("unknown과 아직 열린 적용은 분모에서 뺀다", () => {
+        it("unknown은 decidedCount와 successRate의 분모에서 빠지지만 applicationCount에는 들어간다", () => {
             const applications = [
                 makeApplication({ id: "a", verdict: RECIPE_VERDICT.followedAndHelped }),
                 makeApplication({ id: "b", verdict: RECIPE_VERDICT.unknown }),
                 makeApplication({ id: "c", verdict: null }),
             ];
             const lifecycle = new RecipeLifecycle(makeRecipe(), applications);
-            expect(lifecycle.stats()).toEqual({ applied: 1, success: 1, successRate: 1 });
+            expect(lifecycle.stats()).toEqual({
+                applicationCount: 3,
+                decidedCount: 1,
+                successRate: 1,
+                verdicts: { followedAndHelped: 1, followedNotHelped: 0, abandoned: 0, unknown: 1 },
+            });
+        });
+    });
+
+    describe("shouldRetire", () => {
+        const OLD = new Date(NOW.getTime() - 20 * 24 * 60 * 60 * 1000);
+
+        it("당겨졌으나 전부 unknown으로 판정된 레시피는 오래돼도 은퇴 대상이 아니다", () => {
+            const recipe = makeRecipe({}, OLD);
+            const applications = [
+                makeApplication({ id: "a", verdict: RECIPE_VERDICT.unknown }),
+                makeApplication({ id: "b", verdict: RECIPE_VERDICT.unknown }),
+            ];
+            const lifecycle = new RecipeLifecycle(recipe, applications);
+            expect(lifecycle.shouldRetire(NOW)).toBe(false);
+        });
+
+        it("한 번도 당겨지지 않고 오래된 레시피는 은퇴 대상이다", () => {
+            const recipe = makeRecipe({}, OLD);
+            const lifecycle = new RecipeLifecycle(recipe, []);
+            expect(lifecycle.shouldRetire(NOW)).toBe(true);
         });
     });
 

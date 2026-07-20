@@ -13,6 +13,7 @@ export interface ProjectorRuntimeConfig {
     };
     readonly searchOutboxDrainIntervalMs: number;
     readonly jobLeaseReapIntervalMs: number;
+    readonly recipeRetireReaperIntervalMs: number;
     readonly eventsOtlp: { readonly endpoint: string } | undefined;
 }
 
@@ -27,6 +28,7 @@ const DEFAULTS = {
     searchEventsRetentionMs: 90 * 24 * 3_600_000,
     searchOutboxDrainIntervalMs: 5_000,
     jobLeaseReapIntervalMs: 30_000,
+    recipeRetireReaperIntervalMs: 3_600_000,
 } as const;
 
 /** Projector 프로세스의 외부 운영 설정을 부트스트랩 입력으로 변환한다. */
@@ -72,6 +74,11 @@ export function loadProjectorRuntimeConfig(
             environment,
             "PROJECTOR_JOB_LEASE_REAP_INTERVAL_MS",
             DEFAULTS.jobLeaseReapIntervalMs,
+        ),
+        recipeRetireReaperIntervalMs: positiveInt(
+            environment,
+            "PROJECTOR_RECIPE_RETIRE_REAP_INTERVAL_MS",
+            DEFAULTS.recipeRetireReaperIntervalMs,
         ),
         eventsOtlp: otlpEndpoint ? { endpoint: otlpEndpoint.replace(/\/$/, "") } : undefined,
     };

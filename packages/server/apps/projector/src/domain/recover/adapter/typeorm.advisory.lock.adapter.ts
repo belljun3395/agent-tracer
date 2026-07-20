@@ -5,6 +5,10 @@ import {
     AiJobRepository,
     AiJobStepEntity,
     AiJobStepRepository,
+    RecipeApplicationEntity,
+    RecipeApplicationRepository,
+    RecipeEntity,
+    RecipeRepository,
     TaskEntity,
     TaskRepository,
 } from "@monitor/tracer-domain";
@@ -12,10 +16,14 @@ import { TRACER_DATA_SOURCE } from "~projector/config/tracer.datasource.token.js
 import type { AdvisoryLockPort } from "~projector/domain/recover/port/advisory.lock.port.js";
 import type { AiJobStepReaperRepositories } from "~projector/domain/recover/port/ai.job.step.reaper.repository.port.js";
 import type { JobLeaseReaperRepositories } from "~projector/domain/recover/port/job.lease.reaper.repository.port.js";
+import type { RecipeRetireReaperRepositories } from "~projector/domain/recover/port/recipe.retire.reaper.repository.port.js";
 import type { TaskReaperRepositories } from "~projector/domain/recover/port/task.reaper.repository.port.js";
 
 /** 회수 작업 셋이 한 어드바이저리 락 트랜잭션에서 요구하는 저장소 전량이다. */
-export type RecoverLockScope = TaskReaperRepositories & AiJobStepReaperRepositories & JobLeaseReaperRepositories;
+export type RecoverLockScope = TaskReaperRepositories &
+    AiJobStepReaperRepositories &
+    JobLeaseReaperRepositories &
+    RecipeRetireReaperRepositories;
 
 /** Postgres 어드바이저리 락으로 회수 슬라이스의 동시 실행을 하나로 좁히는 어댑터다. */
 @Injectable()
@@ -38,6 +46,8 @@ export class TypeOrmAdvisoryLockAdapter implements AdvisoryLockPort<RecoverLockS
             tasks: new TaskRepository(manager.getRepository(TaskEntity)),
             aiJobSteps: new AiJobStepRepository(manager.getRepository(AiJobStepEntity)),
             jobs: new AiJobRepository(manager.getRepository(AiJobEntity)),
+            recipes: new RecipeRepository(manager.getRepository(RecipeEntity)),
+            recipeApplications: new RecipeApplicationRepository(manager.getRepository(RecipeApplicationEntity)),
         };
     }
 }

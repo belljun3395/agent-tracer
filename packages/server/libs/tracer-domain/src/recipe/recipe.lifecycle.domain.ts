@@ -18,13 +18,21 @@ export class RecipeLifecycle {
         private readonly applications: readonly RecipeApplicationEntity[],
     ) {}
 
-    /** unknown은 관측 실패이지 성과가 아니므로 분모에서 뺀다. */
+    /** applicationCount는 판정과 무관한 적용 행 총 수이고, unknown은 관측 실패이지 성과가 아니므로 successRate의 분모에서 뺀다. */
     stats(): RecipeStats {
-        const decided = this.applications.filter(
-            (a) => a.verdict !== null && a.verdict !== RECIPE_VERDICT.unknown,
-        );
-        const success = decided.filter((a) => a.verdict === RECIPE_VERDICT.followedAndHelped).length;
-        return { applied: decided.length, success, successRate: decided.length > 0 ? success / decided.length : 0 };
+        const verdicts = {
+            followedAndHelped: this.applications.filter((a) => a.verdict === RECIPE_VERDICT.followedAndHelped).length,
+            followedNotHelped: this.applications.filter((a) => a.verdict === RECIPE_VERDICT.followedNotHelped).length,
+            abandoned: this.applications.filter((a) => a.verdict === RECIPE_VERDICT.abandoned).length,
+            unknown: this.applications.filter((a) => a.verdict === RECIPE_VERDICT.unknown).length,
+        };
+        const decidedCount = verdicts.followedAndHelped + verdicts.followedNotHelped + verdicts.abandoned;
+        return {
+            applicationCount: this.applications.length,
+            decidedCount,
+            successRate: decidedCount > 0 ? verdicts.followedAndHelped / decidedCount : 0,
+            verdicts,
+        };
     }
 
     shouldRetire(now: Date): boolean {

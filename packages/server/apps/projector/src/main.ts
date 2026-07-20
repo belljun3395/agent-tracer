@@ -17,6 +17,7 @@ import { DbConsumer } from "~projector/domain/project/inbound/db.consumer.js";
 import { TypeOrmAdvisoryLockAdapter } from "~projector/domain/recover/adapter/typeorm.advisory.lock.adapter.js";
 import { AiJobStepReaperService } from "~projector/domain/recover/application/ai.job.step.reaper.service.js";
 import { JobLeaseReaperService } from "~projector/domain/recover/application/job.lease.reaper.service.js";
+import { RecipeRetireReaperService } from "~projector/domain/recover/application/recipe.retire.reaper.service.js";
 import { TaskReaperService } from "~projector/domain/recover/application/task.reaper.service.js";
 import { OpenSearchIndexAdapter } from "~projector/domain/index/adapter/open.search.index.adapter.js";
 import { TypeOrmSearchOutboxLockAdapter } from "~projector/domain/index/adapter/typeorm.search.outbox.lock.adapter.js";
@@ -96,6 +97,7 @@ async function bootstrap(): Promise<void> {
     const reaper = app.get(TaskReaperService);
     const aiJobStepReaper = app.get(AiJobStepReaperService);
     const jobLeaseReaper = app.get(JobLeaseReaperService);
+    const recipeRetireReaper = app.get(RecipeRetireReaperService);
     const searchOutboxDrain = app.get(SearchOutboxDrainService);
     const searchEventsReaper = app.get(SearchEventsReaperService);
 
@@ -111,6 +113,9 @@ async function bootstrap(): Promise<void> {
         aiJobStepReaper.runOnce(now, runtimeConfig.aiJobStepReaper.retentionMs),
     );
     scheduler.every("job_lease_reaper", runtimeConfig.jobLeaseReapIntervalMs, (now) => jobLeaseReaper.runOnce(now));
+    scheduler.every("recipe_retire_reaper", runtimeConfig.recipeRetireReaperIntervalMs, (now) =>
+        recipeRetireReaper.runOnce(now),
+    );
     scheduler.every("search_outbox_drain", runtimeConfig.searchOutboxDrainIntervalMs, () => searchOutboxDrain.runOnce());
     scheduler.every("search_events_reaper", runtimeConfig.searchEventsReaper.intervalMs, (now) =>
         searchEventsReaper.runOnce(now, runtimeConfig.searchEventsReaper.retentionMs),

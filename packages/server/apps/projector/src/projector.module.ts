@@ -16,6 +16,7 @@ import { KafkaNotificationPublisher } from "~projector/domain/notify/adapter/kaf
 import { NOTIFICATION_PUBLISHER as NOTIFY_NOTIFICATION_PUBLISHER } from "~projector/domain/notify/port/notification.publisher.port.js";
 import { AiJobStepReaperService } from "~projector/domain/recover/application/ai.job.step.reaper.service.js";
 import { JobLeaseReaperService } from "~projector/domain/recover/application/job.lease.reaper.service.js";
+import { RecipeRetireReaperService } from "~projector/domain/recover/application/recipe.retire.reaper.service.js";
 import { TaskReaperService } from "~projector/domain/recover/application/task.reaper.service.js";
 import { ADVISORY_LOCK as RECOVER_ADVISORY_LOCK, type AdvisoryLockPort as RecoverAdvisoryLockPort } from "~projector/domain/recover/port/advisory.lock.port.js";
 import { NOTIFICATION_PUBLISHER as RECOVER_NOTIFICATION_PUBLISHER } from "~projector/domain/recover/port/notification.publisher.port.js";
@@ -92,6 +93,7 @@ export class ProjectorModule {
                 TaskReaperService,
                 AiJobStepReaperService,
                 JobLeaseReaperService,
+                RecipeRetireReaperService,
                 { provide: RECOVER_ADVISORY_LOCK, useValue: deps.recoverLock },
                 { provide: RECOVER_NOTIFICATION_PUBLISHER, useExisting: KafkaNotificationPublisher },
 
@@ -114,6 +116,7 @@ export class ProjectorModule {
                 TaskReaperService,
                 AiJobStepReaperService,
                 JobLeaseReaperService,
+                RecipeRetireReaperService,
                 SearchOutboxDrainService,
                 SearchEventsReaperService,
                 ...(deps.otlp ? [OtlpConsumer] : []),

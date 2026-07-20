@@ -61,6 +61,11 @@ describe("GetRecipeUseCase", () => {
         const detail = await useCase.execute("u1", "r1");
         expect(detail?.recipe.id).toBe("r1");
         expect(detail?.applications).toHaveLength(2);
-        expect(detail?.stats).toEqual({ applied: 2, success: 1, successRate: 0.5 });
+        expect(detail?.stats).toEqual({
+            applicationCount: 2,
+            decidedCount: 2,
+            successRate: 0.5,
+            verdicts: { followedAndHelped: 1, followedNotHelped: 0, abandoned: 1, unknown: 0 },
+        });
     });
 });

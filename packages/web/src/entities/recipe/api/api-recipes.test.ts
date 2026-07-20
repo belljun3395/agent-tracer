@@ -44,7 +44,12 @@ describe("fetchRecipes", () => {
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-02T00:00:00.000Z",
         resolvedAt: null,
-        stats: { applied: 3, success: 2, successRate: 2 / 3 },
+        stats: {
+          applicationCount: 3,
+          decidedCount: 3,
+          successRate: 2 / 3,
+          verdicts: { followedAndHelped: 2, followedNotHelped: 0, abandoned: 1, unknown: 0 },
+        },
       }],
       taskTitles: { "task-1": "Task one" },
     });
@@ -56,8 +61,8 @@ describe("fetchRecipes", () => {
       id: "recipe-1",
       sourceCandidateId: null,
       sourceJobId: "job-1",
-      appliedCount: 3,
-      successCount: 2,
+      applicationCount: 3,
+      verdicts: { followedAndHelped: 2, followedNotHelped: 0, abandoned: 1, unknown: 0 },
       touchedFiles: [{ path: "src/index.ts", role: "write" }],
     });
     expect(response.taskTitleById.get("task-1")).toBe("Task one");

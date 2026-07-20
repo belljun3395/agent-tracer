@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Recipe } from "~web/entities/recipe/model/recipe.js";
+import type { Recipe, RecipeVerdictBreakdown } from "~web/entities/recipe/model/recipe.js";
 import { Button, EmptyHint, GuidanceText, Modal } from "~web/shared/ui/index.js";
 import {
   useDeleteRecipeMutation,
@@ -126,7 +126,8 @@ function ActiveRecipeCard({
             <Pill>rev {recipe.rev}</Pill>
             <Pill>{recipe.status}</Pill>
             <Pill>{recipe.userEdited ? "provenance user" : "provenance agent"}</Pill>
-            <Pill>applied {recipe.successCount}/{recipe.appliedCount}</Pill>
+            <Pill>applied {recipe.applicationCount}</Pill>
+            <VerdictPills verdicts={recipe.verdicts} />
           </div>
         }
         actions={
@@ -239,6 +240,25 @@ function Field({ label, children }: { readonly label: string; readonly children:
       <span>{label}</span>
       {children}
     </label>
+  );
+}
+
+// followed_and_helped/followed_not_helped/abandoned/unknown 중 0인 갈래는 접어 카드를 짧게 유지한다.
+function VerdictPills({ verdicts }: { readonly verdicts: RecipeVerdictBreakdown }) {
+  const entries: readonly [string, number][] = [
+    ["helped", verdicts.followedAndHelped],
+    ["not helped", verdicts.followedNotHelped],
+    ["abandoned", verdicts.abandoned],
+    ["unknown", verdicts.unknown],
+  ];
+  return (
+    <>
+      {entries
+        .filter(([, count]) => count > 0)
+        .map(([label, count]) => (
+          <Pill key={label}>{label} {count}</Pill>
+        ))}
+    </>
   );
 }
 

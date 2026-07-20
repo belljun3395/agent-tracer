@@ -3,4 +3,5 @@ export const ADVISORY_LOCK_KEY = {
     taskReaper: 918_273_645,
     aiJobStepReaper: 741_852_963,
     jobLeaseReaper: 526_374_819,
+    recipeRetireReaper: 384_756_129,
 } as const;

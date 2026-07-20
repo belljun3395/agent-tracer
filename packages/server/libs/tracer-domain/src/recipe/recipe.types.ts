@@ -1,8 +1,24 @@
-export interface RecipeStats {
-    readonly applied: number;
-    readonly success: number;
-    readonly successRate: number;
+export interface RecipeVerdictBreakdown {
+    readonly followedAndHelped: number;
+    readonly followedNotHelped: number;
+    readonly abandoned: number;
+    readonly unknown: number;
 }
+
+/** applicationCount는 판정과 무관한 적용 행 총 수이고, decidedCount는 그중 unknown을 뺀 종결 판정 수다. */
+export interface RecipeStats {
+    readonly applicationCount: number;
+    readonly decidedCount: number;
+    readonly successRate: number;
+    readonly verdicts: RecipeVerdictBreakdown;
+}
+
+export const EMPTY_RECIPE_STATS: RecipeStats = {
+    applicationCount: 0,
+    decidedCount: 0,
+    successRate: 0,
+    verdicts: { followedAndHelped: 0, followedNotHelped: 0, abandoned: 0, unknown: 0 },
+};
 
 export interface RecipeCorrection {
     readonly whatAgentDid: string;

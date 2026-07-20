@@ -9,6 +9,7 @@ describe("loadProjectorRuntimeConfig", () => {
             searchEventsReaper: { intervalMs: 6 * 3_600_000, retentionMs: 90 * 24 * 3_600_000 },
             searchOutboxDrainIntervalMs: 5_000,
             jobLeaseReapIntervalMs: 30_000,
+            recipeRetireReaperIntervalMs: 3_600_000,
             eventsOtlp: undefined,
         });
     });
@@ -23,12 +24,14 @@ describe("loadProjectorRuntimeConfig", () => {
             PROJECTOR_SEARCH_EVENTS_RETENTION_MS: "6",
             PROJECTOR_SEARCH_OUTBOX_DRAIN_INTERVAL_MS: "7",
             PROJECTOR_JOB_LEASE_REAP_INTERVAL_MS: "8",
+            PROJECTOR_RECIPE_RETIRE_REAP_INTERVAL_MS: "9",
         })).toMatchObject({
             taskReaper: { intervalMs: 1, idleMs: 2 },
             aiJobStepReaper: { intervalMs: 3, retentionMs: 4 },
             searchEventsReaper: { intervalMs: 5, retentionMs: 6 },
             searchOutboxDrainIntervalMs: 7,
             jobLeaseReapIntervalMs: 8,
+            recipeRetireReaperIntervalMs: 9,
         });
     });
 

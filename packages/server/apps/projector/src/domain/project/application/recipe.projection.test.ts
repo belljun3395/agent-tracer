@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_TRACER_ATTR, KIND, RECIPE_VERDICT } from "@monitor/kernel";
+import { AGENT_TRACER_ATTR, KIND, RECIPE_STATUS, RECIPE_VERDICT } from "@monitor/kernel";
 import {
     EventEntity,
     EventRepository,
@@ -86,6 +86,13 @@ function makeOpenApplication(overrides: Partial<RecipeApplicationEntity> = {}): 
     return application;
 }
 
+function makeResolvedApplication(overrides: Partial<RecipeApplicationEntity> & { readonly id: string }): RecipeApplicationEntity {
+    const application = makeOpenApplication(overrides);
+    application.verdict = overrides.verdict ?? RECIPE_VERDICT.abandoned;
+    application.resolvedAt = new Date("2026-01-01T00:00:00.000Z");
+    return application;
+}
+
 describe("RecipeProjection.projectInjected", () => {
     it("주입 이벤트를 앵커와 함께 새 적용 이력으로 연다", async () => {
         const { repositories, applicationsFake } = makeRepositories();
@@ -163,5 +170,34 @@ describe("RecipeProjection.resolveForTask", () => {
         await projection.resolveForTask(repositories, "task-1", "completed", new Date("2026-01-01T00:03:00.000Z"));
 
         expect(applicationsFake.all()).toEqual([]);
+    });
+
+    it("종결 판정이 실패 임계값을 넘기면 판정 갱신과 함께 레시피를 은퇴시킨다", async () => {
+        const { repositories, recipesFake, applicationsFake } = makeRepositories();
+        recipesFake.seed(
+            makeRecipe("r1", [{ order: 1, action: "명령을 돌린다", verify: { kind: "command", commandMatches: ["npm test"] } }]),
+        );
+        for (let i = 0; i < 4; i += 1) {
+            applicationsFake.seed(makeResolvedApplication({ id: `closed-${i}`, taskId: `task-old-${i}` }));
+        }
+        applicationsFake.seed(makeOpenApplication());
+        const projection = new RecipeProjection();
+
+        await projection.resolveForTask(repositories, "task-1", "completed", new Date("2026-01-01T00:03:00.000Z"));
+
+        const recipe = recipesFake.all().find((r) => r.id === "r1");
+        expect(recipe?.status).toBe(RECIPE_STATUS.retired);
+    });
+
+    it("판정이 전부 unknown이면 관측 실패이지 실패가 아니므로 은퇴시키지 않는다", async () => {
+        const { repositories, recipesFake, applicationsFake } = makeRepositories();
+        recipesFake.seed(makeRecipe("r1", []));
+        applicationsFake.seed(makeOpenApplication());
+        const projection = new RecipeProjection();
+
+        await projection.resolveForTask(repositories, "task-1", "completed", new Date("2026-01-01T00:03:00.000Z"));
+
+        const recipe = recipesFake.all().find((r) => r.id === "r1");
+        expect(recipe?.status).toBe(RECIPE_STATUS.active);
     });
 });

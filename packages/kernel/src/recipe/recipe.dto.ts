@@ -1,10 +1,19 @@
 import type { RecipeInjectedVia } from "../ingest/event.kind.const.js";
 import type { RecipeEditor, RecipeOutcome, RecipeStatus, RecipeVerdict } from "./recipe.const.js";
 
+export interface RecipeVerdictBreakdownDto {
+    readonly followedAndHelped: number;
+    readonly followedNotHelped: number;
+    readonly abandoned: number;
+    readonly unknown: number;
+}
+
+/** applicationCount는 판정과 무관한 적용 행 총 수이고, decidedCount는 그중 unknown을 뺀 종결 판정 수다. */
 export interface RecipeStatsDto {
-    readonly applied: number;
-    readonly success: number;
+    readonly applicationCount: number;
+    readonly decidedCount: number;
     readonly successRate: number;
+    readonly verdicts: RecipeVerdictBreakdownDto;
 }
 
 export interface RecipeCorrectionDto {
