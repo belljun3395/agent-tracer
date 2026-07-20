@@ -20,8 +20,7 @@ export class CancelJobUseCase {
         if (job === null || !job.isOwnedBy(userId)) return null;
         if (!job.isCancelable()) throw new InvariantViolationError("job.not-cancelable");
 
-        // 워크플로를 먼저 멈춘다. 전이를 먼저 하면 취소에 실패했을 때 취소됐다고
-        // 기록해 둔 채 유료 실행이 계속된다. 이미 끝난 워크플로는 absent로 걸러진다.
+        // 전이를 먼저 하면 취소에 실패했을 때 취소됐다고 기록해 둔 채 유료 실행이 계속된다.
         if (!job.runsLocally()) {
             await this.dispatcher.cancel(job.kind, job.id);
         }
