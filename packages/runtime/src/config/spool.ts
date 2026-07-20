@@ -9,6 +9,7 @@ export const SPOOL_BATCH_MAX = 100;
 const SEGMENT_PREFIX = "seg-";
 const SEGMENT_SUFFIX = ".jsonl";
 const TMP_PREFIX = ".tmp-";
+const SPOOL_LOG_PREFIX = "[spool]";
 
 /** 스풀에 쌓인 닫힌 세그먼트 파일 하나다. */
 export interface SpoolSegment {
@@ -41,7 +42,11 @@ export function listSpoolSegments(paths: AgentTracerPaths = resolveAgentTracerPa
     let entries: string[];
     try {
         entries = fs.readdirSync(paths.spoolDir);
-    } catch {
+    } catch (error) {
+        // 디렉터리가 아직 없는 것은 정상이고, 그 밖의 실패는 backlog를 0으로 오보한다.
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+            process.stderr.write(`${SPOOL_LOG_PREFIX} failed to list ${paths.spoolDir}: ${String(error)}\n`);
+        }
         return [];
     }
     const names = entries

@@ -31,6 +31,8 @@ export interface TranscriptTail {
     readonly nextCursor: TranscriptCursor;
 }
 
+const TRANSCRIPT_LOG_PREFIX = "[transcript]";
+
 /** 커서 이후의 중간 발화를 모으고 첫 수집이면 마지막 사용자 프롬프트 이후만 본다. */
 export function tailTranscriptCommentary(
     sourceSessionId: string,
@@ -54,7 +56,9 @@ export function tailTranscriptCommentary(
         const nextCursor = createTranscriptCursor(transcriptPath, read.byteOffset, fileSize);
         const entries = cursor ? read.entries : entriesAfterLatestUserPrompt(read.entries);
         return {events: toTranscriptEvents(entries, sourceSessionId, target), nextCursor};
-    } catch {
+    } catch (error) {
+        // 트랜스크립트가 있는데 읽히지 않는 것은 발화가 통째로 사라지는 경우라 흔적을 남긴다.
+        process.stderr.write(`${TRANSCRIPT_LOG_PREFIX} failed to read ${transcriptPath}: ${String(error)}\n`);
         return null;
     }
 }

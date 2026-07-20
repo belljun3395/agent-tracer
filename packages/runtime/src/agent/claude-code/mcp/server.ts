@@ -1,4 +1,4 @@
-/** Claude Code가 세션마다 띄우는 stdio MCP 서버 진입점이며 대부분의 도구는 서버를 직접 호출하고 제목 갱신만 데몬 소켓을 거친다. */
+/** Claude Code가 세션마다 띄우는 stdio MCP 서버 진입점이며 모든 도구가 서버를 직접 호출한다. */
 import {resolveDaemonVersion} from "~runtime/daemon/lifecycle/daemon.health.js";
 import {callTool, MCP_TOOLS} from "~runtime/agent/claude-code/mcp/tool.dispatch.js";
 import {readJsonRpcRequests, writeJsonRpcMessage, type JsonRpcRequest} from "~runtime/agent/claude-code/mcp/rpc.js";

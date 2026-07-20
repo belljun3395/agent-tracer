@@ -1,5 +1,6 @@
 import type {RecentEvent} from "~runtime/domain/ingest/model/recent.event.model.js";
 import {selectBlockingVerdicts} from "~runtime/domain/guardrail/model/enforce.model.js";
+import {guardrailLogLine} from "~runtime/domain/guardrail/model/guardrail.log.model.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {TurnContext} from "~runtime/domain/guardrail/model/turn.window.model.js";
 import {evaluateTurnAgainstRules, type GuardrailVerdict} from "~runtime/domain/guardrail/model/verdict.model.js";
@@ -24,7 +25,10 @@ export class EvaluateTurnUsecase {
         const verdicts = evaluateTurnAgainstRules(events, rules, taskId, context);
         const blocking = selectBlockingVerdicts(verdicts);
         for (const verdict of blocking) {
-            void this.rules.recordNudge(verdict.ruleId).catch(() => undefined);
+            // 넛지 집계는 규칙 수명 판정의 입력이라 조용히 새면 규칙이 영영 도태되지 않는다.
+            void this.rules.recordNudge(verdict.ruleId).catch(() => {
+                process.stderr.write(guardrailLogLine(`failed to record nudge for rule ${verdict.ruleId}`));
+            });
         }
         return {verdicts, blocking};
     }
