@@ -48,10 +48,23 @@ describe("evaluateRecipeCompliance", () => {
         expect(evaluateRecipeCompliance(steps, events).followedStepOrders).toEqual([1]);
     });
 
-    it("pattern verify의 정규식이 유효하지 않으면 던지지 않고 미이행으로 본다", () => {
+    it("pattern verify의 정규식이 유효하지 않으면 미이행이 아니라 판정 대상에서 뺀다", () => {
         const steps = [step(1, { kind: "pattern", pattern: "[" })];
         const events = [toolEvent({ filePaths: ["src/foo.ts"] })];
-        expect(evaluateRecipeCompliance(steps, events).followedStepOrders).toEqual([]);
+        const result = evaluateRecipeCompliance(steps, events);
+        expect(result.followedStepOrders).toEqual([]);
+        expect(result.verifiableStepCount).toBe(0);
+    });
+
+    it("깨진 정규식이 섞여도 남은 스텝의 이행 비율은 그대로 계산한다", () => {
+        const steps = [
+            step(1, { kind: "pattern", pattern: "[" }),
+            step(2, { kind: "action", tool: "file-write" }),
+        ];
+        const events = [toolEvent({ toolName: "Edit" })];
+        const result = evaluateRecipeCompliance(steps, events);
+        expect(result.verifiableStepCount).toBe(1);
+        expect(result.followedStepOrders).toEqual([2]);
     });
 
     it.each([

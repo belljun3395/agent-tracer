@@ -38,14 +38,22 @@ function classifyToolFamily(event: RecipeVerifyWindowEvent): RecipeVerifyTool | 
     return null;
 }
 
-function matchesPattern(pattern: string, event: RecipeVerifyWindowEvent): boolean {
-    let regex: RegExp;
+function compilePattern(pattern: string): RegExp | null {
     try {
-        regex = new RegExp(pattern);
+        return new RegExp(pattern);
     } catch {
-        // 레시피가 낸 정규식이 유효하지 않으면 이행 증거 없음으로 취급한다.
-        return false;
+        return null;
     }
+}
+
+/** 깨진 정규식은 이행하지 않았다는 증거가 아니라 판정할 수 없다는 뜻이므로 판정 대상에서 뺀다. */
+function isJudgeableVerify(verify: RecipeVerifyDto): boolean {
+    return verify.kind !== "pattern" || compilePattern(verify.pattern) !== null;
+}
+
+function matchesPattern(pattern: string, event: RecipeVerifyWindowEvent): boolean {
+    const regex = compilePattern(pattern);
+    if (regex === null) return false;
     const command = readCommand(event);
     if (command !== undefined && regex.test(command)) return true;
     return event.filePaths.some((path) => regex.test(path));
@@ -72,7 +80,7 @@ export function evaluateRecipeCompliance(
     windowEvents: readonly RecipeVerifyWindowEvent[],
 ): RecipeComplianceResult {
     const verifiableSteps = steps.filter((step): step is RecipeStepDto & { readonly verify: RecipeVerifyDto } =>
-        step.verify !== undefined);
+        step.verify !== undefined && isJudgeableVerify(step.verify));
     const followedStepOrders = verifiableSteps
         .filter((step) => windowEvents.some((event) => stepSatisfiedBy(step.verify, event)))
         .map((step) => step.order);
