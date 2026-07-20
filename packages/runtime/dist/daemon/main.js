@@ -28025,7 +28025,7 @@ function resolveAgentTracerPaths(env = process.env) {
     configPath: path.join(homeDir, "config.json"),
     bindingsPath: path.join(homeDir, "bindings.json"),
     bindingsLockPath: path.join(homeDir, "bindings.lock"),
-    recipePendingPath: path.join(homeDir, "recipe-pending.json"),
+    recipePendingDir: path.join(homeDir, "recipe-pending"),
     socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
     logPath: path.join(homeDir, "daemon.log"),
     resumeTokenPath: path.join(homeDir, "resume.token"),
@@ -28138,6 +28138,7 @@ var SPOOL_BATCH_MAX = 100;
 var SEGMENT_PREFIX = "seg-";
 var SEGMENT_SUFFIX = ".jsonl";
 var TMP_PREFIX = ".tmp-";
+var SPOOL_LOG_PREFIX = "[spool]";
 function appendSpoolLines(lines, paths2 = resolveAgentTracerPaths(), segmentId = generateUlid()) {
   if (lines.length === 0) return;
   ensureSpoolDir(paths2);
@@ -28158,7 +28159,11 @@ function listSpoolSegments(paths2 = resolveAgentTracerPaths()) {
   let entries;
   try {
     entries = fs3.readdirSync(paths2.spoolDir);
-  } catch {
+  } catch (error2) {
+    if (error2.code !== "ENOENT") {
+      process.stderr.write(`${SPOOL_LOG_PREFIX} failed to list ${paths2.spoolDir}: ${String(error2)}
+`);
+    }
     return [];
   }
   const names = entries.filter((name) => name.startsWith(SEGMENT_PREFIX) && name.endsWith(SEGMENT_SUFFIX)).sort();
@@ -28371,6 +28376,13 @@ function formatGuardrailLog(taskId, verdicts) {
   return `[guardrail] task=${taskId} :: ${parts.join("; ")}`;
 }
 
+// src/domain/guardrail/model/guardrail.log.model.ts
+var GUARDRAIL_LOG_PREFIX = "[guardrail]";
+function guardrailLogLine(message) {
+  return `${GUARDRAIL_LOG_PREFIX} ${message}
+`;
+}
+
 // ../kernel/src/observability/semconv.const.ts
 var SEMCONV_ATTR = {
   operationName: "gen_ai.operation.name",
@@ -28477,7 +28489,6 @@ var KIND = {
   planLogged: GEN_AI_OPERATION.plan,
   tokenUsage: "gen_ai.client.inference.operation.details",
   actionLogged: "agent_tracer.action.logged",
-  verificationLogged: "agent_tracer.verification.logged",
   ruleLogged: "agent_tracer.rule.logged",
   thoughtLogged: "agent_tracer.thought.logged",
   contextSaved: "agent_tracer.context.saved",
@@ -28490,10 +28501,7 @@ var KIND = {
   sessionEnded: "agent_tracer.session.ended",
   instructionsLoaded: "agent_tracer.instructions.loaded",
   contextSnapshot: "agent_tracer.context.snapshot",
-  taskStart: "agent_tracer.task.start",
   taskLinked: "agent_tracer.task.linked",
-  taskComplete: "agent_tracer.task.complete",
-  taskError: "agent_tracer.task.error",
   fileChanged: "agent_tracer.file.changed",
   userPromptExpansion: "agent_tracer.user.prompt.expansion",
   worktreeRemove: "agent_tracer.worktree.remove",
@@ -28516,7 +28524,6 @@ var TOOL_ACTIVITY_EVENT_KINDS = [KIND.executeTool];
 var WORKFLOW_EVENT_KINDS = [
   KIND.planLogged,
   KIND.actionLogged,
-  KIND.verificationLogged,
   KIND.ruleLogged,
   KIND.thoughtLogged,
   KIND.contextSaved,
@@ -28540,10 +28547,7 @@ var TELEMETRY_EVENT_KINDS = [KIND.tokenUsage];
 var RUN_EVENT_KINDS = [
   KIND.sessionStarted,
   KIND.sessionEnded,
-  KIND.taskStart,
-  KIND.taskLinked,
-  KIND.taskComplete,
-  KIND.taskError
+  KIND.taskLinked
 ];
 var TIMELINE_EVENT_KINDS = [
   ...TOOL_ACTIVITY_EVENT_KINDS,
@@ -28904,7 +28908,9 @@ var EvaluateTurnUsecase = class {
     const verdicts = evaluateTurnAgainstRules(events, rules, taskId, context);
     const blocking = selectBlockingVerdicts(verdicts);
     for (const verdict of blocking) {
-      void this.rules.recordNudge(verdict.ruleId).catch(() => void 0);
+      void this.rules.recordNudge(verdict.ruleId).catch(() => {
+        process.stderr.write(guardrailLogLine(`failed to record nudge for rule ${verdict.ruleId}`));
+      });
     }
     return { verdicts, blocking };
   }
@@ -28940,10 +28946,20 @@ function resolveTimeoutSignal(timeoutMs = DEFAULT_TIMEOUT_MS, signal) {
   return signal ?? AbortSignal.timeout(timeoutMs);
 }
 async function getJson(url, headers, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const response = await fetch(url, { headers, signal: resolveTimeoutSignal(timeoutMs) });
-  if (!response.ok) return null;
-  const parsed = await response.json();
-  return isRecord(parsed) ? parsed : null;
+  let response;
+  try {
+    response = await fetch(url, { headers, signal: resolveTimeoutSignal(timeoutMs) });
+  } catch {
+    return { kind: "unavailable" };
+  }
+  if (response.status === 404) return { kind: "absent" };
+  if (!response.ok) return { kind: "unavailable" };
+  try {
+    const parsed = await response.json();
+    return isRecord(parsed) ? { kind: "found", value: parsed } : { kind: "unavailable" };
+  } catch {
+    return { kind: "unavailable" };
+  }
 }
 async function postJson(url, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
   return fetch(url, {
@@ -28964,12 +28980,13 @@ var HttpRuleSourceAdapter = class {
   baseUrl;
   headers;
   async fetchAll() {
-    const body = await getJson(
+    const fetched = await getJson(
       `${this.baseUrl}${RULES_ALL_PATH}`,
       this.headers,
       FETCH_TIMEOUT_MS
     );
-    const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+    const rawItems = fetched.kind === "found" ? fetched.value.data?.items : void 0;
+    const items = Array.isArray(rawItems) ? rawItems : [];
     return items.map(parseRule).filter((rule) => rule !== null);
   }
   async recordNudge(ruleId) {
@@ -29140,8 +29157,8 @@ var HttpRecipeScanJobAdapter = class {
   headers;
   async hasActiveScan(taskId) {
     const url = `${this.baseUrl}/api/v1/jobs/latest?kind=${encodeURIComponent(JOB_KIND.recipeScan)}&taskId=${encodeURIComponent(taskId)}`;
-    const body = await getJson(url, this.headers);
-    const status = body?.data?.job?.status;
+    const fetched = await getJson(url, this.headers);
+    const status = fetched.kind === "found" ? fetched.value.data?.job?.status : void 0;
     return status !== void 0 && ACTIVE_STATUSES.has(status);
   }
   async enqueue(taskId, idempotencyKey, userPrompt) {
@@ -29822,19 +29839,20 @@ var HttpRuleJobAdapter = class {
   leaseHeaders;
   async pendingJobs() {
     const url = `${this.baseUrl}/api/v1/jobs?kind=${encodeURIComponent(JOB_KIND.ruleGeneration)}&status=${encodeURIComponent(JOB_STATUS.pending)}`;
-    const body = await getJson(url, this.headers);
-    return body?.data?.items ?? [];
+    const fetched = await getJson(url, this.headers);
+    return fetched.kind === "found" ? fetched.value.data?.items ?? [] : [];
   }
   async workspacePath(taskId) {
     const url = `${this.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`;
-    const body = await getJson(url, this.headers);
-    return body?.data?.task?.workspacePath ?? null;
+    const fetched = await getJson(url, this.headers);
+    return (fetched.kind === "found" ? fetched.value.data?.task?.workspacePath : void 0) ?? null;
   }
   async anchorText(taskId, anchorEventId) {
     try {
       const url = `${this.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/user-inputs`;
-      const body = await getJson(url, this.headers);
-      return body?.data?.items?.find((item) => item.eventId === anchorEventId)?.text;
+      const fetched = await getJson(url, this.headers);
+      if (fetched.kind !== "found") return void 0;
+      return fetched.value.data?.items?.find((item) => item.eventId === anchorEventId)?.text;
     } catch {
       return void 0;
     }
@@ -29873,8 +29891,8 @@ var HttpRuleJobAdapter = class {
   }
   async hasActiveJob(taskId) {
     const url = `${this.baseUrl}/api/v1/jobs/latest?kind=${encodeURIComponent(JOB_KIND.ruleGeneration)}&taskId=${encodeURIComponent(taskId)}`;
-    const body = await getJson(url, this.headers);
-    const status = body?.data?.job?.status;
+    const fetched = await getJson(url, this.headers);
+    const status = fetched.kind === "found" ? fetched.value.data?.job?.status : void 0;
     return status !== void 0 && ACTIVE_STATUSES2.has(status);
   }
   async enqueue(taskId, anchorEventId, maxRules) {
@@ -29946,8 +29964,8 @@ var HttpRuleSettingAdapter = class {
   baseUrl;
   headers;
   async fetchMaxRulesPerTask() {
-    const body = await getJson(`${this.baseUrl}/api/v1/settings`, this.headers);
-    const items = body?.data?.items;
+    const fetched = await getJson(`${this.baseUrl}/api/v1/settings`, this.headers);
+    const items = fetched.kind === "found" ? fetched.value.data?.items : void 0;
     if (items === void 0) return null;
     const maxRules = items.find((item) => item.key === APP_SETTING_KEYS.ruleGenMaxRulesPerTask);
     return parseMaxRulesPerTask(maxRules?.maskedValue);

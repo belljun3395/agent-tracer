@@ -69,7 +69,7 @@ function resolveAgentTracerPaths(env = process.env) {
     configPath: path2.join(homeDir, "config.json"),
     bindingsPath: path2.join(homeDir, "bindings.json"),
     bindingsLockPath: path2.join(homeDir, "bindings.lock"),
-    recipePendingPath: path2.join(homeDir, "recipe-pending.json"),
+    recipePendingDir: path2.join(homeDir, "recipe-pending"),
     socketPath: explicitSocket || path2.join(homeDir, "daemon.sock"),
     logPath: path2.join(homeDir, "daemon.log"),
     resumeTokenPath: path2.join(homeDir, "resume.token"),
@@ -89,6 +89,10 @@ function ensureAgentTracerHome(paths = resolveAgentTracerPaths()) {
 function ensureSpoolDir(paths = resolveAgentTracerPaths()) {
   mkdirSecure(paths.homeDir);
   mkdirSecure(paths.spoolDir);
+}
+function ensureRecipePendingDir(paths = resolveAgentTracerPaths()) {
+  mkdirSecure(paths.homeDir);
+  mkdirSecure(paths.recipePendingDir);
 }
 
 // src/config/monitor.identity.ts
@@ -570,10 +574,20 @@ function resolveTimeoutSignal(timeoutMs = DEFAULT_TIMEOUT_MS, signal) {
   return signal ?? AbortSignal.timeout(timeoutMs);
 }
 async function getJson(url, headers2, timeoutMs = DEFAULT_TIMEOUT_MS) {
-  const response = await fetch(url, { headers: headers2, signal: resolveTimeoutSignal(timeoutMs) });
-  if (!response.ok) return null;
-  const parsed = await response.json();
-  return isRecord(parsed) ? parsed : null;
+  let response;
+  try {
+    response = await fetch(url, { headers: headers2, signal: resolveTimeoutSignal(timeoutMs) });
+  } catch {
+    return { kind: "unavailable" };
+  }
+  if (response.status === 404) return { kind: "absent" };
+  if (!response.ok) return { kind: "unavailable" };
+  try {
+    const parsed = await response.json();
+    return isRecord(parsed) ? { kind: "found", value: parsed } : { kind: "unavailable" };
+  } catch {
+    return { kind: "unavailable" };
+  }
 }
 async function postJson(url, headers2, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
   return fetch(url, {
@@ -602,13 +616,18 @@ var HttpMemoSearchAdapter = class {
   baseUrl;
   headers;
   async listByTask(taskId) {
-    const body = await getJson(
+    const fetched = await getJson(
       `${this.baseUrl}${MEMOS_PATH}?taskId=${encodeURIComponent(taskId)}`,
       this.headers,
       FETCH_TIMEOUT_MS
     );
-    const items = Array.isArray(body?.data?.items) ? body.data.items : [];
-    return items.map(parseMemoItem).filter((item) => item !== null);
+    if (fetched.kind !== "found") return fetched;
+    const rawItems = fetched.value.data?.items;
+    const items = Array.isArray(rawItems) ? rawItems : [];
+    return {
+      kind: "found",
+      value: items.map(parseMemoItem).filter((item) => item !== null)
+    };
   }
 };
 function parseMemoItem(item) {
@@ -680,16 +699,17 @@ var SearchMemosUsecase = class {
   }
   reader;
   async execute(input) {
-    if (input.taskId === "") return [];
-    let items;
+    if (input.taskId === "") return { kind: "found", value: [] };
+    let fetched;
     try {
-      items = await this.reader.listByTask(input.taskId);
+      fetched = await this.reader.listByTask(input.taskId);
     } catch {
-      return [];
+      return { kind: "unavailable" };
     }
-    const filtered = filterByQuery(items, input.query);
+    if (fetched.kind !== "found") return fetched;
+    const filtered = filterByQuery(fetched.value, input.query);
     const limit = input.limit ?? DEFAULT_LIMIT;
-    return filtered.slice(0, limit);
+    return { kind: "found", value: filtered.slice(0, limit) };
   }
 };
 function filterByQuery(items, query) {
@@ -700,28 +720,33 @@ function filterByQuery(items, query) {
 
 // src/domain/recipe/adapter/file.recipe.pending.mark.adapter.ts
 import * as fs6 from "node:fs";
+import * as path4 from "node:path";
 var FileRecipePendingMarkAdapter = class {
   constructor(paths = resolveAgentTracerPaths()) {
     this.paths = paths;
   }
   paths;
-  read() {
+  read(taskId) {
     try {
-      const parsed = JSON.parse(fs6.readFileSync(this.paths.recipePendingPath, "utf8"));
-      return isRecord(parsed) ? parsed : {};
+      const parsed = JSON.parse(fs6.readFileSync(this.filePath(taskId), "utf8"));
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return {};
+      return [];
     }
   }
-  write(store) {
+  write(taskId, marks) {
     try {
-      ensureAgentTracerHome(this.paths);
-      const tmp = `${this.paths.recipePendingPath}.tmp`;
-      fs6.writeFileSync(tmp, JSON.stringify(store));
-      fs6.renameSync(tmp, this.paths.recipePendingPath);
+      ensureRecipePendingDir(this.paths);
+      const target = this.filePath(taskId);
+      const tmp = `${target}.tmp`;
+      fs6.writeFileSync(tmp, JSON.stringify(marks));
+      fs6.renameSync(tmp, target);
     } catch {
       return;
     }
+  }
+  filePath(taskId) {
+    return path4.join(this.paths.recipePendingDir, `${encodeURIComponent(taskId)}.json`);
   }
 };
 
@@ -735,14 +760,15 @@ var HttpRecipeFetchAdapter = class {
   baseUrl;
   headers;
   async fetch(recipeId) {
-    const body = await getJson(
+    const fetched = await getJson(
       `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(recipeId)}`,
       this.headers,
       REQUEST_TIMEOUT_MS
     );
-    if (body === null) return null;
-    const payload = isRecord(body) && "data" in body ? body["data"] : body;
-    return toCachedRecipe(payload);
+    if (fetched.kind !== "found") return fetched;
+    const payload = "data" in fetched.value ? fetched.value["data"] : fetched.value;
+    const recipe2 = toCachedRecipe(payload);
+    return recipe2 === null ? { kind: "unavailable" } : { kind: "found", value: recipe2 };
   }
 };
 function toCachedRecipe(value) {
@@ -803,9 +829,9 @@ function readTouchedFiles(value) {
   const files = [];
   for (const entry of value) {
     if (!isRecord(entry)) continue;
-    const path4 = readString(entry, "path");
+    const path5 = readString(entry, "path");
     const role = entry["role"];
-    if (path4 && (role === "read" || role === "write" || role === "both")) files.push({ path: path4, role });
+    if (path5 && (role === "read" || role === "write" || role === "both")) files.push({ path: path5, role });
   }
   return files;
 }
@@ -828,12 +854,18 @@ var HttpRecipeOutcomeReportAdapter = class {
   headers;
   async report(input) {
     const url = `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(input.recipeId)}/outcome`;
-    const response = await postJson(url, this.headers, {
-      taskId: input.taskId,
-      outcome: input.outcome,
-      ...input.note !== void 0 ? { note: input.note } : {}
-    });
-    return response.ok;
+    let response;
+    try {
+      response = await postJson(url, this.headers, {
+        taskId: input.taskId,
+        outcome: input.outcome,
+        ...input.note !== void 0 ? { note: input.note } : {}
+      });
+    } catch {
+      return "unavailable";
+    }
+    if (response.ok) return "accepted";
+    return response.status === 404 ? "rejected" : "unavailable";
   }
 };
 
@@ -879,8 +911,8 @@ var HttpRecipeScanJobAdapter = class {
   headers;
   async hasActiveScan(taskId) {
     const url = `${this.baseUrl}/api/v1/jobs/latest?kind=${encodeURIComponent(JOB_KIND.recipeScan)}&taskId=${encodeURIComponent(taskId)}`;
-    const body = await getJson(url, this.headers);
-    const status = body?.data?.job?.status;
+    const fetched = await getJson(url, this.headers);
+    const status = fetched.kind === "found" ? fetched.value.data?.job?.status : void 0;
     return status !== void 0 && ACTIVE_STATUSES.has(status);
   }
   async enqueue(taskId, idempotencyKey, userPrompt) {
@@ -908,8 +940,8 @@ var HttpRecipeSearchAdapter = class {
   headers;
   async search(query, limit) {
     const url = `${this.baseUrl}/api/v1/recipes/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-    const body = await getJson(url, this.headers, REQUEST_TIMEOUT_MS2);
-    return body === null ? [] : extractItems(body);
+    const fetched = await getJson(url, this.headers, REQUEST_TIMEOUT_MS2);
+    return fetched.kind === "found" ? { kind: "found", value: extractItems(fetched.value) } : fetched;
   }
 };
 function extractItems(body) {
@@ -942,18 +974,17 @@ function toItem(value) {
 }
 
 // src/domain/recipe/model/recipe.pending.mark.model.ts
-function pendingRecipeMarkFor(store, taskId) {
-  return store[taskId];
+var MAX_PENDING_MARKS_PER_TASK = 3;
+var PENDING_MARK_TTL_MS = 24 * 60 * 60 * 1e3;
+function markRecipeOpened(marks, recipeId, openedAt) {
+  const appended = [...marks.filter((mark) => mark.recipeId !== recipeId), { recipeId, openedAt }];
+  return appended.length > MAX_PENDING_MARKS_PER_TASK ? appended.slice(appended.length - MAX_PENDING_MARKS_PER_TASK) : appended;
 }
-function markRecipeOpened(store, taskId, recipeId, openedAt) {
-  return { ...store, [taskId]: { taskId, recipeId, openedAt } };
+function clearRecipeMark(marks, recipeId) {
+  return marks.filter((mark) => mark.recipeId !== recipeId);
 }
-function clearRecipeMark(store, taskId, recipeId) {
-  const existing = store[taskId];
-  if (existing === void 0 || existing.recipeId !== recipeId) return store;
-  const rest = { ...store };
-  delete rest[taskId];
-  return rest;
+function dropExpiredMarks(marks, nowMs, ttlMs) {
+  return marks.filter((mark) => nowMs - Date.parse(mark.openedAt) < ttlMs);
 }
 
 // src/domain/recipe/application/clear.recipe.mark.usecase.ts
@@ -964,7 +995,9 @@ var ClearRecipeMarkUsecase = class {
   marks;
   execute(taskId, recipeId) {
     if (taskId === "" || recipeId === "") return;
-    this.marks.write(clearRecipeMark(this.marks.read(), taskId, recipeId));
+    const marks = this.marks.read(taskId);
+    const next = clearRecipeMark(marks, recipeId);
+    if (next.length !== marks.length) this.marks.write(taskId, next);
   }
 };
 
@@ -1006,10 +1039,10 @@ var GetRecipeUsecase = class {
   fetcher;
   async execute(recipeId) {
     try {
-      const recipe2 = await this.fetcher.fetch(recipeId);
-      return recipe2 ? buildRecipeBody(recipe2) : null;
+      const fetched = await this.fetcher.fetch(recipeId);
+      return fetched.kind === "found" ? { kind: "found", value: buildRecipeBody(fetched.value) } : fetched;
     } catch {
-      return null;
+      return { kind: "unavailable" };
     }
   }
 };
@@ -1025,19 +1058,24 @@ var MarkRecipeOpenedUsecase = class {
   execute(taskId, recipeId) {
     if (taskId === "" || recipeId === "") return;
     const openedAt = new Date(this.clock.now()).toISOString();
-    this.marks.write(markRecipeOpened(this.marks.read(), taskId, recipeId, openedAt));
+    this.marks.write(taskId, markRecipeOpened(this.marks.read(taskId), recipeId, openedAt));
   }
 };
 
 // src/domain/recipe/application/read.pending.recipe.mark.usecase.ts
 var ReadPendingRecipeMarkUsecase = class {
-  constructor(marks) {
+  constructor(marks, clock2) {
     this.marks = marks;
+    this.clock = clock2;
   }
   marks;
+  clock;
   execute(taskId) {
     if (taskId === "") return void 0;
-    return pendingRecipeMarkFor(this.marks.read(), taskId);
+    const marks = this.marks.read(taskId);
+    const alive = dropExpiredMarks(marks, this.clock.now(), PENDING_MARK_TTL_MS);
+    if (alive.length !== marks.length) this.marks.write(taskId, alive);
+    return alive[0];
   }
 };
 
@@ -1048,11 +1086,11 @@ var ReportRecipeOutcomeUsecase = class {
   }
   reports;
   async execute(input) {
-    if (input.recipeId === "" || input.taskId === "") return false;
+    if (input.recipeId === "" || input.taskId === "") return "rejected";
     try {
       return await this.reports.report(input);
     } catch {
-      return false;
+      return "unavailable";
     }
   }
 };
@@ -1097,11 +1135,11 @@ var SearchRecipesUsecase = class {
   search;
   async execute(input) {
     const query = input.query.trim();
-    if (query === "") return [];
+    if (query === "") return { kind: "found", value: [] };
     try {
       return await this.search.search(query, input.limit ?? DEFAULT_LIMIT2);
     } catch {
-      return [];
+      return { kind: "unavailable" };
     }
   }
 };
@@ -1156,7 +1194,7 @@ var recipe = {
 var recipeOutcomeMark = {
   markOpened: new MarkRecipeOpenedUsecase(new FileRecipePendingMarkAdapter(), clock),
   clearMark: new ClearRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
-  readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter())
+  readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter(), clock)
 };
 var memo = {
   createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
@@ -1244,7 +1282,6 @@ var KIND = {
   planLogged: GEN_AI_OPERATION.plan,
   tokenUsage: "gen_ai.client.inference.operation.details",
   actionLogged: "agent_tracer.action.logged",
-  verificationLogged: "agent_tracer.verification.logged",
   ruleLogged: "agent_tracer.rule.logged",
   thoughtLogged: "agent_tracer.thought.logged",
   contextSaved: "agent_tracer.context.saved",
@@ -1257,10 +1294,7 @@ var KIND = {
   sessionEnded: "agent_tracer.session.ended",
   instructionsLoaded: "agent_tracer.instructions.loaded",
   contextSnapshot: "agent_tracer.context.snapshot",
-  taskStart: "agent_tracer.task.start",
   taskLinked: "agent_tracer.task.linked",
-  taskComplete: "agent_tracer.task.complete",
-  taskError: "agent_tracer.task.error",
   fileChanged: "agent_tracer.file.changed",
   userPromptExpansion: "agent_tracer.user.prompt.expansion",
   worktreeRemove: "agent_tracer.worktree.remove",
@@ -1272,7 +1306,6 @@ var TOOL_ACTIVITY_EVENT_KINDS = [KIND.executeTool];
 var WORKFLOW_EVENT_KINDS = [
   KIND.planLogged,
   KIND.actionLogged,
-  KIND.verificationLogged,
   KIND.ruleLogged,
   KIND.thoughtLogged,
   KIND.contextSaved,
@@ -1296,10 +1329,7 @@ var TELEMETRY_EVENT_KINDS = [KIND.tokenUsage];
 var RUN_EVENT_KINDS = [
   KIND.sessionStarted,
   KIND.sessionEnded,
-  KIND.taskStart,
-  KIND.taskLinked,
-  KIND.taskComplete,
-  KIND.taskError
+  KIND.taskLinked
 ];
 var TIMELINE_EVENT_KINDS = [
   ...TOOL_ACTIVITY_EVENT_KINDS,
@@ -1519,21 +1549,26 @@ async function recordRecipeInjection(target, recipeId) {
         injectedVia: "pull"
       })
     ]);
-    onRecipeOpened(mcpRuntime.recipeOutcomeMark, target.taskId, recipeId);
   } catch {
-    return;
   }
+  onRecipeOpened(mcpRuntime.recipeOutcomeMark, target.taskId, recipeId);
 }
 async function callTool(name, args) {
   switch (name) {
     case GET_RECIPE_TOOL.name: {
       const parsed = parseGetRecipeArgs(args);
       if (!parsed) return invalidArgs();
-      const body = await onGetRecipe(mcpRuntime.recipe, parsed.recipeId);
-      if (body === null) return { text: `Recipe not found: ${parsed.recipeId}`, isError: true };
+      const fetched = await onGetRecipe(mcpRuntime.recipe, parsed.recipeId);
+      if (fetched.kind === "unavailable") {
+        return { text: "Could not reach the recipe server. Try again.", isError: true };
+      }
       const target = resolveTarget();
+      if (fetched.kind === "absent") {
+        if (target !== void 0) onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
+        return { text: `Recipe not found: ${parsed.recipeId}`, isError: true };
+      }
       if (target !== void 0) await recordRecipeInjection(target, parsed.recipeId);
-      return { text: body, isError: false };
+      return { text: fetched.value, isError: false };
     }
     case REPORT_RECIPE_OUTCOME_TOOL.name: {
       const parsed = parseReportRecipeOutcomeArgs(args);
@@ -1542,14 +1577,17 @@ async function callTool(name, args) {
       if (target === void 0) {
         return { text: `Could not record outcome (${UNKNOWN_SESSION}).`, isError: true };
       }
-      const ok = await onRecipeOutcomeReported(mcpRuntime.recipe, {
+      const result = await onRecipeOutcomeReported(mcpRuntime.recipe, {
         recipeId: parsed.recipeId,
         taskId: target.taskId,
         outcome: parsed.outcome,
         ...parsed.note !== void 0 ? { note: parsed.note } : {}
       });
-      if (ok) onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
-      return ok ? { text: "Outcome recorded.", isError: false } : { text: "Could not record outcome.", isError: true };
+      if (result === "unavailable") {
+        return { text: "Could not reach the server to record the outcome. Try again.", isError: true };
+      }
+      onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
+      return result === "accepted" ? { text: "Outcome recorded.", isError: false } : { text: `Recipe no longer exists: ${parsed.recipeId}`, isError: true };
     }
     case REQUEST_RECIPE_SCAN_TOOL.name: {
       const target = resolveTarget();
@@ -1588,21 +1626,27 @@ async function callTool(name, args) {
       if (!parsed) return invalidArgs();
       const target = resolveTarget();
       if (target === void 0) return { text: formatMemoSearchResult([]), isError: false };
-      const items = await onMemoSearchRequested(mcpRuntime.memo, {
+      const fetched = await onMemoSearchRequested(mcpRuntime.memo, {
         taskId: target.taskId,
         ...parsed.query !== void 0 ? { query: parsed.query } : {},
         ...parsed.limit !== void 0 ? { limit: parsed.limit } : {}
       });
-      return { text: formatMemoSearchResult(items), isError: false };
+      if (fetched.kind === "unavailable") {
+        return { text: "Could not reach the memo server. Try again.", isError: true };
+      }
+      return { text: formatMemoSearchResult(fetched.kind === "found" ? fetched.value : []), isError: false };
     }
     case SEARCH_RECIPES_TOOL.name: {
       const parsed = parseSearchRecipesArgs(args);
       if (!parsed) return invalidArgs();
-      const items = await onRecipeSearchRequested(mcpRuntime.recipe, {
+      const fetched = await onRecipeSearchRequested(mcpRuntime.recipe, {
         query: parsed.query,
         ...parsed.limit !== void 0 ? { limit: parsed.limit } : {}
       });
-      return { text: formatRecipeSearchResult(items), isError: false };
+      if (fetched.kind === "unavailable") {
+        return { text: "Could not reach the recipe server to search. Try again.", isError: true };
+      }
+      return { text: formatRecipeSearchResult(fetched.kind === "found" ? fetched.value : []), isError: false };
     }
     default:
       return { text: `Unknown tool: ${name}`, isError: true };
