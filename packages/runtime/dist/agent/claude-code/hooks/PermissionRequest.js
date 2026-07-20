@@ -685,6 +685,20 @@ function toBoundSession(binding2) {
 function activityTimestamp(binding2) {
   return Date.parse(binding2.turnStartedAt ?? binding2.createdAt);
 }
+function resolveLiveBinding(bindings2, runtimeSource, runtimeSessionId) {
+  const seen = /* @__PURE__ */ new Set();
+  let key = bindingKey(runtimeSource, runtimeSessionId);
+  let binding2 = bindings2[key];
+  while (binding2?.supersededBy !== void 0) {
+    if (seen.has(key)) return void 0;
+    seen.add(key);
+    key = bindingKey(runtimeSource, binding2.supersededBy);
+    const next = bindings2[key];
+    if (next === void 0) return void 0;
+    binding2 = next;
+  }
+  return binding2;
+}
 function mostRecentBindingWhere(bindings2, predicate) {
   const matches = Object.values(bindings2).filter(predicate);
   if (matches.length === 0) return void 0;
@@ -698,7 +712,7 @@ var ReadBindingUsecase = class {
   }
   bindings;
   execute(runtimeSource, runtimeSessionId) {
-    const binding2 = this.bindings.read()[bindingKey(runtimeSource, runtimeSessionId)];
+    const binding2 = resolveLiveBinding(this.bindings.read(), runtimeSource, runtimeSessionId);
     return binding2 ? toBoundSession(binding2) : void 0;
   }
 };
@@ -3504,17 +3518,24 @@ var ClearSessionUsecase = class {
     let predecessor;
     try {
       const store = this.bindings.read();
-      predecessor = input.workspacePath ? mostRecentBindingWhere(store, (candidate) => candidate.workspacePath === input.workspacePath && bindingKey(candidate.runtimeSource, candidate.runtimeSessionId) !== key && !isSubagentSession(candidate.runtimeSessionId)) : void 0;
+      predecessor = input.runtimePid === void 0 ? void 0 : mostRecentBindingWhere(store, (candidate) => candidate.runtimePid === input.runtimePid && candidate.supersededBy === void 0 && bindingKey(candidate.runtimeSource, candidate.runtimeSessionId) !== key && !isSubagentSession(candidate.runtimeSessionId));
       created = {
         taskId: this.ids.next(),
         sessionId: this.ids.next(),
         runtimeSource: input.runtimeSource,
         runtimeSessionId: input.runtimeSessionId,
         ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
+        ...input.runtimePid !== void 0 ? { runtimePid: input.runtimePid } : {},
         createdAt: new Date(this.clock.now()).toISOString(),
         titled: input.titled ?? true
       };
       store[key] = created;
+      if (predecessor) {
+        store[bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId)] = {
+          ...predecessor,
+          supersededBy: input.runtimeSessionId
+        };
+      }
       this.bindings.write(capBindingStore(store));
     } finally {
       this.bindings.releaseLock();
@@ -3602,6 +3623,7 @@ var EnsureSessionUsecase = class {
           runtimeSource: input.runtimeSource,
           runtimeSessionId: input.runtimeSessionId,
           ...input.workspacePath ? { workspacePath: input.workspacePath } : {},
+          ...input.runtimePid !== void 0 ? { runtimePid: input.runtimePid } : {},
           createdAt: new Date(this.clock.now()).toISOString(),
           titled,
           ...resumedFromPrior ? { resumed: true } : {}
@@ -3894,6 +3916,7 @@ async function ensureClaudeSession(runtimeSessionId, title, options = {}) {
     title: explicitTitle ?? defaultTaskTitle(projectDir),
     titled: explicitTitle !== void 0,
     workspacePath: projectDir,
+    runtimePid: process.ppid,
     ...transport.taskIdOverride !== void 0 ? { taskId: transport.taskIdOverride } : {},
     ...transport.taskOriginOverride !== void 0 ? { origin: transport.taskOriginOverride } : {},
     ...options.parentTaskId !== void 0 ? { parentTaskId: options.parentTaskId } : {},

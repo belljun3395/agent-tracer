@@ -29972,29 +29972,20 @@ function toBoundSession(binding) {
     ...turn ? { turnId: turn.turnId, turn } : {}
   };
 }
-function activityTimestamp(binding) {
-  return Date.parse(binding.turnStartedAt ?? binding.createdAt);
-}
-function mostRecentActiveBinding(bindings) {
-  return mostRecentBindingWhere(bindings, () => true);
-}
-function mostRecentBindingWhere(bindings, predicate) {
-  const matches = Object.values(bindings).filter(predicate);
-  if (matches.length === 0) return void 0;
-  return matches.reduce((latest, candidate) => activityTimestamp(candidate) > activityTimestamp(latest) ? candidate : latest);
-}
-
-// src/domain/binding/application/find.active.binding.usecase.ts
-var FindActiveBindingUsecase = class {
-  constructor(bindings) {
-    this.bindings = bindings;
+function resolveLiveBinding(bindings, runtimeSource, runtimeSessionId) {
+  const seen = /* @__PURE__ */ new Set();
+  let key = bindingKey(runtimeSource, runtimeSessionId);
+  let binding = bindings[key];
+  while (binding?.supersededBy !== void 0) {
+    if (seen.has(key)) return void 0;
+    seen.add(key);
+    key = bindingKey(runtimeSource, binding.supersededBy);
+    const next = bindings[key];
+    if (next === void 0) return void 0;
+    binding = next;
   }
-  bindings;
-  execute() {
-    const binding = mostRecentActiveBinding(this.bindings.read());
-    return binding ? toBoundSession(binding) : void 0;
-  }
-};
+  return binding;
+}
 
 // src/domain/binding/application/read.binding.usecase.ts
 var ReadBindingUsecase = class {
@@ -30003,7 +29994,7 @@ var ReadBindingUsecase = class {
   }
   bindings;
   execute(runtimeSource, runtimeSessionId) {
-    const binding = this.bindings.read()[bindingKey(runtimeSource, runtimeSessionId)];
+    const binding = resolveLiveBinding(this.bindings.read(), runtimeSource, runtimeSessionId);
     return binding ? toBoundSession(binding) : void 0;
   }
 };
@@ -32099,9 +32090,8 @@ function composeDaemonHooks(leaseOwner) {
     requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers))
   };
-  const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
   const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
-  const findTaskIdBySession = (sessionId) => readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId)?.taskId;
+  const findTargetBySession = (sessionId) => readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId);
   const ids = { next: generateUlid };
   const sink = new SpoolEventSinkAdapter();
   const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
@@ -32136,8 +32126,7 @@ function composeDaemonHooks(leaseOwner) {
     recipe,
     rulegen,
     recipeCache,
-    findActiveBinding,
-    findTaskIdBySession,
+    findTargetBySession,
     setTaskTitle,
     appendIngestEvents,
     memo
@@ -33884,30 +33873,37 @@ var RECIPE_VERDICTS = [
 function parseMcpSocketRequest(type, value) {
   switch (type) {
     case "recipe-get":
-      return typeof value["recipeId"] === "string" ? { type: "recipe-get", recipeId: value["recipeId"] } : null;
+      return typeof value["recipeId"] === "string" ? {
+        type: "recipe-get",
+        recipeId: value["recipeId"],
+        ...typeof value["sessionId"] === "string" ? { sessionId: value["sessionId"] } : {}
+      } : null;
     case "recipe-outcome":
-      return typeof value["recipeId"] === "string" && typeof value["outcome"] === "string" && RECIPE_OUTCOMES.includes(value["outcome"]) ? {
+      return typeof value["recipeId"] === "string" && typeof value["sessionId"] === "string" && typeof value["outcome"] === "string" && RECIPE_OUTCOMES.includes(value["outcome"]) ? {
         type: "recipe-outcome",
         recipeId: value["recipeId"],
         outcome: value["outcome"],
+        sessionId: value["sessionId"],
         ...typeof value["note"] === "string" ? { note: value["note"] } : {}
       } : null;
     case "recipe-scan-request":
-      return { type: "recipe-scan-request" };
+      return typeof value["sessionId"] === "string" ? { type: "recipe-scan-request", sessionId: value["sessionId"] } : null;
     case "set-task-title":
       return typeof value["title"] === "string" && typeof value["sessionId"] === "string" ? { type: "set-task-title", title: value["title"], sessionId: value["sessionId"] } : null;
     case "memo-create":
-      return typeof value["body"] === "string" ? {
+      return typeof value["body"] === "string" && typeof value["sessionId"] === "string" ? {
         type: "memo-create",
         body: value["body"],
+        sessionId: value["sessionId"],
         ...typeof value["eventId"] === "string" ? { eventId: value["eventId"] } : {}
       } : null;
     case "memo-search":
-      return {
+      return typeof value["sessionId"] === "string" ? {
         type: "memo-search",
+        sessionId: value["sessionId"],
         ...typeof value["query"] === "string" ? { query: value["query"] } : {},
         ...typeof value["limit"] === "number" ? { limit: value["limit"] } : {}
-      };
+      } : null;
     default:
       return null;
   }
@@ -34078,7 +34074,7 @@ async function handleMessage(socket, line, context) {
       case "recipe-get": {
         const body = onGetRecipe(context.recipe, request.recipeId);
         if (body !== null) {
-          const target = context.findActiveTarget();
+          const target = request.sessionId === void 0 ? void 0 : context.findTargetBySession(request.sessionId);
           if (target !== void 0) {
             context.interventions.recordRecipeInjected(
               Date.now(),
@@ -34099,9 +34095,9 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "recipe-outcome": {
-        const taskId = context.findActiveTaskId();
+        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
         if (taskId === void 0) {
-          send(socket, { ok: false, reason: "no_active_task" });
+          send(socket, { ok: false, reason: "unknown_session" });
           return;
         }
         const ok2 = await onRecipeOutcomeReported(context.recipe, {
@@ -34114,9 +34110,9 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "recipe-scan-request": {
-        const taskId = context.findActiveTaskId();
+        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
         if (taskId === void 0) {
-          send(socket, { queued: false, reason: "no_active_task" });
+          send(socket, { queued: false, reason: "unknown_session" });
           return;
         }
         const queued = await onRecipeScanRequested(context.recipe, {
@@ -34128,7 +34124,7 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "set-task-title": {
-        const taskId = context.findTaskIdBySession(request.sessionId);
+        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
         if (taskId === void 0) {
           send(socket, { ok: false, reason: "unknown_session" });
           return;
@@ -34138,9 +34134,9 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "memo-create": {
-        const taskId = context.findActiveTaskId();
+        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
         if (taskId === void 0) {
-          send(socket, { ok: false, reason: "no_active_task" });
+          send(socket, { ok: false, reason: "unknown_session" });
           return;
         }
         const ok2 = await onMemoCreateRequested(context.memo, {
@@ -34152,9 +34148,9 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "memo-search": {
-        const taskId = context.findActiveTaskId();
+        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
         if (taskId === void 0) {
-          send(socket, { items: [], reason: "no_active_task" });
+          send(socket, { items: [], reason: "unknown_session" });
           return;
         }
         const items = await onMemoSearchRequested(context.memo, {
@@ -34729,9 +34725,7 @@ var servers = createDaemonServers({
     memo: hooks.memo,
     readRules: () => cachedRules,
     readDelivery: currentDelivery,
-    findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,
-    findActiveTarget: () => hooks.findActiveBinding.execute(),
-    findTaskIdBySession: hooks.findTaskIdBySession,
+    findTargetBySession: hooks.findTargetBySession,
     setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
     appendIngestEvents: (events) => hooks.appendIngestEvents.execute(events),
     refreshHistory: () => spoolSender.feedHistory(),

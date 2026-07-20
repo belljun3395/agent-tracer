@@ -80,6 +80,12 @@ function ensureAgentTracerHome(paths = resolveAgentTracerPaths()) {
   mkdirSecure(paths.homeDir);
 }
 
+// src/config/env.ts
+function resolveClaudeSessionId(env = process.env) {
+  const sessionId = (env.CLAUDE_CODE_SESSION_ID ?? "").trim();
+  return sessionId || void 0;
+}
+
 // src/daemon/ipc/socket.client.ts
 import * as net from "node:net";
 
@@ -233,12 +239,18 @@ var NO_DAEMON_SCAN = { queued: false, reason: "daemon_unreachable" };
 var NO_DAEMON_TITLE = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_MEMO_CREATE = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_MEMO_SEARCH = { items: [], reason: "daemon_unreachable" };
+var UNKNOWN_SESSION = "unknown_session";
 async function getRecipeViaDaemon(recipeId) {
+  const sessionId = resolveClaudeSessionId();
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
       paths.socketPath,
-      { type: "recipe-get", recipeId },
+      {
+        type: "recipe-get",
+        recipeId,
+        ...sessionId !== void 0 ? { sessionId } : {}
+      },
       REQUEST_TIMEOUT_MS,
       (parsed) => parseDaemonRecipeGetResponse(parsed) ?? EMPTY_GET,
       EMPTY_GET
@@ -248,6 +260,8 @@ async function getRecipeViaDaemon(recipeId) {
   }
 }
 async function reportRecipeOutcomeViaDaemon(recipeId, outcome, note) {
+  const sessionId = resolveClaudeSessionId();
+  if (sessionId === void 0) return { ok: false, reason: UNKNOWN_SESSION };
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
@@ -256,6 +270,7 @@ async function reportRecipeOutcomeViaDaemon(recipeId, outcome, note) {
         type: "recipe-outcome",
         recipeId,
         outcome,
+        sessionId,
         ...note !== void 0 ? { note } : {}
       },
       REQUEST_TIMEOUT_MS,
@@ -267,11 +282,13 @@ async function reportRecipeOutcomeViaDaemon(recipeId, outcome, note) {
   }
 }
 async function requestRecipeScanViaDaemon() {
+  const sessionId = resolveClaudeSessionId();
+  if (sessionId === void 0) return { queued: false, reason: UNKNOWN_SESSION };
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
       paths.socketPath,
-      { type: "recipe-scan-request" },
+      { type: "recipe-scan-request", sessionId },
       REQUEST_TIMEOUT_MS,
       (parsed) => parseDaemonRecipeScanResponse(parsed) ?? NO_DAEMON_SCAN,
       NO_DAEMON_SCAN
@@ -295,6 +312,8 @@ async function setTaskTitleViaDaemon(title, sessionId) {
   }
 }
 async function createMemoViaDaemon(body, eventId) {
+  const sessionId = resolveClaudeSessionId();
+  if (sessionId === void 0) return { ok: false, reason: UNKNOWN_SESSION };
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
@@ -302,6 +321,7 @@ async function createMemoViaDaemon(body, eventId) {
       {
         type: "memo-create",
         body,
+        sessionId,
         ...eventId !== void 0 ? { eventId } : {}
       },
       REQUEST_TIMEOUT_MS,
@@ -313,12 +333,15 @@ async function createMemoViaDaemon(body, eventId) {
   }
 }
 async function searchMemosViaDaemon(query, limit) {
+  const sessionId = resolveClaudeSessionId();
+  if (sessionId === void 0) return { items: [], reason: UNKNOWN_SESSION };
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
       paths.socketPath,
       {
         type: "memo-search",
+        sessionId,
         ...query !== void 0 ? { query } : {},
         ...limit !== void 0 ? { limit } : {}
       },
@@ -499,7 +522,7 @@ async function ensureDaemonRunning(env = process.env) {
 // src/domain/memo/model/create.memo.tool.model.ts
 var CREATE_MEMO_TOOL = {
   name: "create_memo",
-  description: "Leave a short note on the current task in Agent Tracer, visible to the human operator later. Call this when you notice something worth flagging for a human but that does not belong in your normal response \u2014 an assumption you made, a workaround you had to use, or a risk you could not resolve yourself. Best-effort: this tool cannot see which session it is attached to, so it attaches to whichever task in this workspace was most recently active. If several sessions or subagents may be active at once, expect it to occasionally land on the wrong task.",
+  description: "Leave a short note on this session's task in Agent Tracer, visible to the human operator later. Call this when you notice something worth flagging for a human but that does not belong in your normal response \u2014 an assumption you made, a workaround you had to use, or a risk you could not resolve yourself. The note is attached to the task of the session this tool runs in, which it identifies on its own \u2014 you do not pass a session or task id. If you are a subagent, the note lands on the task of the session that launched you, not on your own subagent task.",
   inputSchema: {
     type: "object",
     properties: {
@@ -526,7 +549,7 @@ function parseCreateMemoArgs(value) {
 // src/domain/memo/model/search.memos.tool.model.ts
 var SEARCH_MEMOS_TOOL = {
   name: "search_memos",
-  description: "Read notes left on the current task in Agent Tracer. Call this when you want to check what a human or a prior agent run already flagged before you repeat work or make a decision. Omit query to list every memo on the active task; pass query to narrow to memos whose text matches.",
+  description: "Read notes left on this session's task in Agent Tracer. Call this when you want to check what a human or a prior agent run already flagged before you repeat work or make a decision. Omit query to list every memo on that task; pass query to narrow to memos whose text matches. The task is the one belonging to the session this tool runs in, which it identifies on its own \u2014 you do not pass a session or task id. If you are a subagent, this reads the task of the session that launched you, not your own subagent task.",
   inputSchema: {
     type: "object",
     properties: {
@@ -567,7 +590,7 @@ function parseGetRecipeArgs(value) {
 // src/domain/recipe/model/report.recipe.outcome.tool.model.ts
 var REPORT_RECIPE_OUTCOME_TOOL = {
   name: "report_recipe_outcome",
-  description: "Report whether a recipe you followed actually helped on this task. Call this once you can judge the result \u2014 right after finishing the work the recipe guided, or as soon as you abandon the recipe partway through because it did not fit. This is the only feedback signal recipe effectiveness is measured by: call it every time you acted on a recipe, whether you opened it with get_recipe or judged it from the menu alone, even when the outcome was mixed or negative.",
+  description: "Report whether a recipe you followed actually helped on this task. Call this once you can judge the result \u2014 right after finishing the work the recipe guided, or as soon as you abandon the recipe partway through because it did not fit. This is the only feedback signal recipe effectiveness is measured by: call it every time you acted on a recipe, whether you opened it with get_recipe or judged it from the menu alone, even when the outcome was mixed or negative. The report is filed against the task of the session this tool runs in, which it identifies on its own \u2014 you do not pass a session or task id; if you are a subagent, it is filed against the task of the session that launched you.",
   inputSchema: {
     type: "object",
     properties: {
@@ -603,7 +626,7 @@ function parseReportRecipeOutcomeArgs(value) {
 // src/domain/recipe/model/request.recipe.scan.tool.model.ts
 var REQUEST_RECIPE_SCAN_TOOL = {
   name: "request_recipe_scan",
-  description: "Ask Agent Tracer to scan this task for reusable patterns and turn them into a recipe candidate for later review. Call this near the end of a task, once you judge that the approach you used \u2014 a non-obvious fix, a multi-step setup, a workaround worth remembering \u2014 would be worth reusing the next time this kind of work comes up in this workspace. Equivalent to the user typing /recipe. Runs in the background and does not return the recipe itself, so don't call this expecting immediate output.",
+  description: "Ask Agent Tracer to scan this task for reusable patterns and turn them into a recipe candidate for later review. Call this near the end of a task, once you judge that the approach you used \u2014 a non-obvious fix, a multi-step setup, a workaround worth remembering \u2014 would be worth reusing the next time this kind of work comes up in this workspace. Equivalent to the user typing /recipe. The task scanned is the one belonging to the session this tool runs in, which it identifies on its own \u2014 you do not pass a session or task id; if you are a subagent, it scans the task of the session that launched you. Runs in the background and does not return the recipe itself, so don't call this expecting immediate output.",
   inputSchema: { type: "object", properties: {} }
 };
 
