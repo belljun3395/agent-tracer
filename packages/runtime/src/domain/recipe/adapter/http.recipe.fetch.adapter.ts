@@ -19,13 +19,13 @@ export class HttpRecipeFetchAdapter implements RecipeFetchPort {
     ) {}
 
     async fetch(recipeId: string): Promise<CachedRecipe | null> {
-        const body = await getJson<Record<string, unknown>>(
+        const fetched = await getJson<Record<string, unknown>>(
             `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(recipeId)}`,
             this.headers,
             REQUEST_TIMEOUT_MS,
         );
-        if (body === null) return null;
-        const payload = isRecord(body) && "data" in body ? body["data"] : body;
+        if (fetched.kind !== "found") return null;
+        const payload = "data" in fetched.value ? fetched.value["data"] : fetched.value;
         return toCachedRecipe(payload);
     }
 }

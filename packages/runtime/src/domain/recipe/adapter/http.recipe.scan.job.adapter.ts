@@ -17,8 +17,8 @@ export class HttpRecipeScanJobAdapter implements RecipeScanJobPort {
 
     async hasActiveScan(taskId: string): Promise<boolean> {
         const url = `${this.baseUrl}/api/v1/jobs/latest?kind=${encodeURIComponent(JOB_KIND.recipeScan)}&taskId=${encodeURIComponent(taskId)}`;
-        const body = await getJson<LatestJobEnvelope>(url, this.headers);
-        const status = body?.data?.job?.status;
+        const fetched = await getJson<LatestJobEnvelope>(url, this.headers);
+        const status = fetched.kind === "found" ? fetched.value.data?.job?.status : undefined;
         return status !== undefined && ACTIVE_STATUSES.has(status);
     }
 

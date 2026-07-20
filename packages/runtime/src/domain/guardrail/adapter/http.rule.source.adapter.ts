@@ -21,12 +21,13 @@ export class HttpRuleSourceAdapter implements RuleSourcePort {
     ) {}
 
     async fetchAll(): Promise<readonly GuardrailRule[]> {
-        const body = await getJson<RulesEnvelope>(
+        const fetched = await getJson<RulesEnvelope>(
             `${this.baseUrl}${RULES_ALL_PATH}`,
             this.headers,
             FETCH_TIMEOUT_MS,
         );
-        const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+        const rawItems = fetched.kind === "found" ? fetched.value.data?.items : undefined;
+        const items = Array.isArray(rawItems) ? rawItems : [];
         return items.map(parseRule).filter((rule): rule is GuardrailRule => rule !== null);
     }
 

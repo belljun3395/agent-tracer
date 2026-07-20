@@ -49,21 +49,22 @@ export class HttpRuleJobAdapter implements RuleJobPort {
 
     async pendingJobs(): Promise<readonly PendingRuleJob[]> {
         const url = `${this.baseUrl}/api/v1/jobs?kind=${encodeURIComponent(JOB_KIND.ruleGeneration)}&status=${encodeURIComponent(JOB_STATUS.pending)}`;
-        const body = await getJson<JobListEnvelope>(url, this.headers);
-        return body?.data?.items ?? [];
+        const fetched = await getJson<JobListEnvelope>(url, this.headers);
+        return fetched.kind === "found" ? (fetched.value.data?.items ?? []) : [];
     }
 
     async workspacePath(taskId: string): Promise<string | null> {
         const url = `${this.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`;
-        const body = await getJson<TaskEnvelope>(url, this.headers);
-        return body?.data?.task?.workspacePath ?? null;
+        const fetched = await getJson<TaskEnvelope>(url, this.headers);
+        return (fetched.kind === "found" ? fetched.value.data?.task?.workspacePath : undefined) ?? null;
     }
 
     async anchorText(taskId: string, anchorEventId: string): Promise<string | undefined> {
         try {
             const url = `${this.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}/user-inputs`;
-            const body = await getJson<UserInputEnvelope>(url, this.headers);
-            return body?.data?.items?.find((item) => item.eventId === anchorEventId)?.text;
+            const fetched = await getJson<UserInputEnvelope>(url, this.headers);
+            if (fetched.kind !== "found") return undefined;
+            return fetched.value.data?.items?.find((item) => item.eventId === anchorEventId)?.text;
         } catch {
             return undefined;
         }
@@ -108,8 +109,8 @@ export class HttpRuleJobAdapter implements RuleJobPort {
 
     async hasActiveJob(taskId: string): Promise<boolean> {
         const url = `${this.baseUrl}/api/v1/jobs/latest?kind=${encodeURIComponent(JOB_KIND.ruleGeneration)}&taskId=${encodeURIComponent(taskId)}`;
-        const body = await getJson<LatestJobEnvelope>(url, this.headers);
-        const status = body?.data?.job?.status;
+        const fetched = await getJson<LatestJobEnvelope>(url, this.headers);
+        const status = fetched.kind === "found" ? fetched.value.data?.job?.status : undefined;
         return status !== undefined && ACTIVE_STATUSES.has(status);
     }
 

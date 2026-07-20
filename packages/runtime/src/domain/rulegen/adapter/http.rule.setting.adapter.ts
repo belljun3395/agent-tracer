@@ -15,8 +15,8 @@ export class HttpRuleSettingAdapter implements RuleSettingPort {
     ) {}
 
     async fetchMaxRulesPerTask(): Promise<number | null> {
-        const body = await getJson<SettingsEnvelope>(`${this.baseUrl}/api/v1/settings`, this.headers);
-        const items = body?.data?.items;
+        const fetched = await getJson<SettingsEnvelope>(`${this.baseUrl}/api/v1/settings`, this.headers);
+        const items = fetched.kind === "found" ? fetched.value.data?.items : undefined;
         if (items === undefined) return null;
         const maxRules = items.find((item) => item.key === APP_SETTING_KEYS.ruleGenMaxRulesPerTask);
         return parseMaxRulesPerTask(maxRules?.maskedValue);

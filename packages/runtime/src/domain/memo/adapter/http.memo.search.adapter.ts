@@ -17,12 +17,13 @@ export class HttpMemoSearchAdapter implements MemoSearchPort {
     ) {}
 
     async listByTask(taskId: string): Promise<readonly MemoSearchResultItem[]> {
-        const body = await getJson<MemosEnvelope>(
+        const fetched = await getJson<MemosEnvelope>(
             `${this.baseUrl}${MEMOS_PATH}?taskId=${encodeURIComponent(taskId)}`,
             this.headers,
             FETCH_TIMEOUT_MS,
         );
-        const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+        const rawItems = fetched.kind === "found" ? fetched.value.data?.items : undefined;
+        const items = Array.isArray(rawItems) ? rawItems : [];
         return items.map(parseMemoItem).filter((item): item is MemoSearchResultItem => item !== null);
     }
 }

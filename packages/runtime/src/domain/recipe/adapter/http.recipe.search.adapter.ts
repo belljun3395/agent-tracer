@@ -13,8 +13,8 @@ export class HttpRecipeSearchAdapter implements RecipeSearchPort {
 
     async search(query: string, limit: number): Promise<readonly RecipeSearchResultItem[]> {
         const url = `${this.baseUrl}/api/v1/recipes/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-        const body = await getJson<Record<string, unknown>>(url, this.headers, REQUEST_TIMEOUT_MS);
-        return body === null ? [] : extractItems(body);
+        const fetched = await getJson<Record<string, unknown>>(url, this.headers, REQUEST_TIMEOUT_MS);
+        return fetched.kind === "found" ? extractItems(fetched.value) : [];
     }
 }
 
