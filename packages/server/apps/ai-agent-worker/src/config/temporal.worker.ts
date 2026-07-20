@@ -1,6 +1,6 @@
 import { NativeConnection, Runtime, Worker } from "@temporalio/worker";
 import { AI_GENERATE_QUEUE, AI_JOB_QUEUE, TEMPORAL_SDK_METRICS_PORT } from "~ai-agent-worker/support/task.queue.const.js";
-import { logInfo } from "./log.js";
+import { logInfo } from "~ai-agent-worker/support/log.js";
 
 /** 활동 이름을 활동 구현에 잇는 등록표다. */
 export type ActivityTable = Record<string, (...args: never[]) => Promise<unknown>>;
