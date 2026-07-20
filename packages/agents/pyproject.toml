@@ -52,7 +52,7 @@ line-length = 110
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = ["E", "F", "I", "UP", "B", "A", "SLF", "ARG", "SIM", "C4", "PIE", "PERF", "RET", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 # 테스트는 캔 데이터 한 줄 표현을 위해 긴 줄을 허용한다.

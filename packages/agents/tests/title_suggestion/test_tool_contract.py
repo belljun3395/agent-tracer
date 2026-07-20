@@ -62,21 +62,21 @@ def _context(turn_count: int) -> dict[str, Any]:
 
 
 def test_턴_예산이_골든_계약과_같다() -> None:
-    assert MAX_TOOL_ROUNDS == _contract()["maxTurns"]
+    assert _contract()["maxTurns"] == MAX_TOOL_ROUNDS
 
 
 def test_토큰과_비용_예산이_골든_계약과_같다() -> None:
     limits = _contract()["limits"]
 
-    assert TITLE_MAX_OUTPUT_TOKENS == limits["maxOutputTokens"]
-    assert MAX_TITLE_MODEL_COST_USD == limits["maxBudgetUsd"]
+    assert limits["maxOutputTokens"] == TITLE_MAX_OUTPUT_TOKENS
+    assert limits["maxBudgetUsd"] == MAX_TITLE_MODEL_COST_USD
 
 
 def test_최근_턴_창과_컨텍스트가_싣는_턴_수의_상한이_골든_계약과_같다() -> None:
     limits = _contract()["limits"]
 
-    assert RECENT_TURN_LIMIT == limits["recentTurnLimit"]
-    assert MAX_CONTEXT_TURNS == limits["maxContextTurns"]
+    assert limits["recentTurnLimit"] == RECENT_TURN_LIMIT
+    assert limits["maxContextTurns"] == MAX_CONTEXT_TURNS
     accepted = TitleSuggestionContext.model_validate(_context(limits["maxContextTurns"]))
     assert len(accepted.turns) == limits["maxContextTurns"]
     with pytest.raises(ValidationError):
@@ -107,9 +107,9 @@ def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> 
 def test_limit의_기본값과_최소와_최대가_골든_계약과_같다() -> None:
     limit = _contract()["getTaskEvents"]["limit"]
 
-    assert DEFAULT_EVENT_LIMIT == limit["default"]
-    assert MIN_EVENT_LIMIT == limit["min"]
-    assert MAX_EVENT_LIMIT == limit["max"]
+    assert limit["default"] == DEFAULT_EVENT_LIMIT
+    assert limit["min"] == MIN_EVENT_LIMIT
+    assert limit["max"] == MAX_EVENT_LIMIT
     assert GetTaskEventsArgs.model_validate({"taskId": "task-1"}).limit == limit["default"]
     assert GetTaskEventsArgs.model_validate({"taskId": "task-1", "limit": limit["max"]}).limit == limit["max"]
     with pytest.raises(ValidationError):
@@ -120,7 +120,7 @@ def test_읽기_방향의_기본값과_허용_값이_골든_계약과_같다() -
     order = _contract()["getTaskEvents"]["order"]
     field = GetTaskEventsArgs.model_fields["order"]
 
-    assert DEFAULT_EVENT_ORDER == order["default"]
+    assert order["default"] == DEFAULT_EVENT_ORDER
     assert GetTaskEventsArgs.model_validate({"taskId": "task-1"}).order == order["default"]
     assert list(get_args(field.annotation)) == order["values"]
 
@@ -128,4 +128,4 @@ def test_읽기_방향의_기본값과_허용_값이_골든_계약과_같다() -
 def test_도구_설명이_골든_계약과_같다() -> None:
     contract = _contract()["descriptions"]
 
-    assert {GET_TASK_EVENTS: GET_TASK_EVENTS_DESCRIPTION} == contract
+    assert contract == {GET_TASK_EVENTS: GET_TASK_EVENTS_DESCRIPTION}

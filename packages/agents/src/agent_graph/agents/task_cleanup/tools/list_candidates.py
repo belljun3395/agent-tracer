@@ -81,6 +81,6 @@ class ListCandidateTasksTool(AgentTool[ListCandidateTasksArgs]):
             del dumped["nextCursor"]
         return json.dumps(dumped, ensure_ascii=False)
 
-    def record(self, args: ListCandidateTasksArgs, content: str) -> None:
+    def record(self, _args: ListCandidateTasksArgs, content: str, /) -> None:
         for candidate in CandidatePage.model_validate_json(content).candidates:
             self._exposed[candidate.id] = candidate

@@ -78,8 +78,8 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         async with self._tool_lock:
             return await self._invoke_tool(request, handler)
 
+    @staticmethod
     async def _invoke_tool(
-        self,
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
     ) -> ToolMessage | Command[Any]:

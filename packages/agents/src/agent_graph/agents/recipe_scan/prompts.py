@@ -151,8 +151,7 @@ def render_reports(reports: Sequence[ProbeReport] | None) -> str:
     for report in reports:
         lines = [f"### {report.probe}" + (" (rounds exhausted)" if report.exhausted else "")]
         lines.append(report.verdict)
-        for excerpt in report.excerpts:
-            lines.append(f"- [{excerpt.taskId}/{excerpt.eventId}] {excerpt.text}")
+        lines.extend(f"- [{excerpt.taskId}/{excerpt.eventId}] {excerpt.text}" for excerpt in report.excerpts)
         blocks.append("\n".join(lines))
     return "\n\nWhat your specialists reported:\n\n" + "\n\n".join(blocks)
 

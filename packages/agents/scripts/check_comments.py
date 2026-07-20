@@ -14,7 +14,7 @@ KOREAN = re.compile(r"[가-힣]")
 ENGLISH_WORD = re.compile(r"[A-Za-z]{2,}")
 DECISION_REFERENCE = re.compile(r"(?:\bADR-\d+\b|(?<![A-Za-z0-9])D-?\d+(?!\d)|§\d+)", re.IGNORECASE)
 DIRECTIVE = re.compile(
-    r"^\s*(?:noqa\b|type:\s*ignore\b|pyright:|ruff:|fmt:|pragma:|coding[:=]|mypy:)",
+    r"^\s*(?:noqa\b|type:\s*ignore\b|pyright:|ruff:|fmt:|pragma:|coding[:=]|mypy:|noinspection\b)",
     re.IGNORECASE,
 )
 DIVIDER = re.compile(r"^[\s\-=*─━#/.|+]+$")
@@ -121,9 +121,7 @@ def comment_block_findings(entries: list[tuple[int, bool, str]], path: Path) -> 
     for line, full_line, text in sorted(entries):
         if not full_line or _skippable(text):
             continue
-        if SENTENCE_BREAK.search(text):
-            findings.append(f"{path}:{line}: 줄 주석은 한 줄 한 문장으로 적는다")
-        elif line == previous_full_line + 1:
+        if SENTENCE_BREAK.search(text) or line == previous_full_line + 1:
             findings.append(f"{path}:{line}: 줄 주석은 한 줄 한 문장으로 적는다")
         previous_full_line = line
     return findings

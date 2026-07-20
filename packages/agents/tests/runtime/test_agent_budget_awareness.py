@@ -52,7 +52,7 @@ class GreedyChat:
     def bind(self, **_kwargs: Any) -> GreedyChat:
         return self
 
-    def with_structured_output(self, schema: Any, **_kwargs: Any) -> Any:
+    def with_structured_output(self, _schema: Any, **_kwargs: Any) -> Any:
         return self
 
     async def ainvoke(self, messages: list[Any]) -> Any:
@@ -118,7 +118,7 @@ def _request() -> TaskCleanupRequest:
     )
 
 
-async def _run(chat: GreedyChat, ledger: FakeLedger) -> Any:
+async def _run(_chat: GreedyChat, ledger: FakeLedger) -> Any:
     req = _request()
     return await execute(
         "task-cleanup",
@@ -131,7 +131,7 @@ async def _run(chat: GreedyChat, ledger: FakeLedger) -> Any:
 async def test_예산을_다_써도_모은_근거로_결론을_낸다(monkeypatch: pytest.MonkeyPatch) -> None:
     chat = GreedyChat()
     ledger = FakeLedger()
-    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
 
     res = await _run(chat, ledger)
 
@@ -141,7 +141,7 @@ async def test_예산을_다_써도_모은_근거로_결론을_낸다(monkeypatc
 
 async def test_남은_라운드를_매_턴_알려준다(monkeypatch: pytest.MonkeyPatch) -> None:
     chat = GreedyChat()
-    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
 
     await _run(chat, FakeLedger())
 
@@ -153,7 +153,7 @@ async def test_남은_라운드를_매_턴_알려준다(monkeypatch: pytest.Monk
 
 async def test_비용_상한에_닿기_전에_결론을_받아낸다(monkeypatch: pytest.MonkeyPatch) -> None:
     chat = GreedyChat(usage=_EXPENSIVE_USAGE)
-    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
 
     res = await _run(chat, FakeLedger())
 
@@ -167,7 +167,7 @@ async def test_마지막_라운드에는_조사_도구를_거두고_출력만_�
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     chat = GreedyChat()
-    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
 
     await _run(chat, FakeLedger())
 

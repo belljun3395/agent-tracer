@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -33,7 +34,7 @@ from ..reader import TitleLedgerReader
 from ..tools import build_title_registry
 
 
-class _CandidateAgent(GraphNode):
+class _CandidateAgent(GraphNode, ABC):
     def __init__(
         self,
         req: TitleSuggestionRequest,

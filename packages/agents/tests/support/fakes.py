@@ -134,7 +134,7 @@ class FakeLedgerConnection:
     def __init__(self, ledger: FakeLedger) -> None:
         self._ledger = ledger
 
-    async def fetchval(self, statement: str, *args: Any) -> Any:
+    async def fetchval(self, statement: str, *_args: Any) -> Any:
         if "count(*)" in statement:
             return self._ledger.total
         return 1 if self._ledger.owned else None

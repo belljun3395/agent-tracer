@@ -28,19 +28,19 @@ COMPLETION_CALLBACK_TIMEOUT_S = 30.0
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     shutdown_observability = configure_observability()
-    app.state.completion_client = httpx.AsyncClient(timeout=COMPLETION_CALLBACK_TIMEOUT_S)
+    application.state.completion_client = httpx.AsyncClient(timeout=COMPLETION_CALLBACK_TIMEOUT_S)
     settings = get_settings()
-    app.state.ledger = LedgerPoolProvider(settings.tracer_dsn())
-    app.state.search = create_search_client(settings.opensearch_node)
+    application.state.ledger = LedgerPoolProvider(settings.tracer_dsn())
+    application.state.search = create_search_client(settings.opensearch_node)
     try:
         yield
     finally:
         shutdown_observability()
-        await app.state.completion_client.aclose()
-        await app.state.ledger.close()
-        await app.state.search.close()
+        await application.state.completion_client.aclose()
+        await application.state.ledger.close()
+        await application.state.search.close()
 
 
 def accept(

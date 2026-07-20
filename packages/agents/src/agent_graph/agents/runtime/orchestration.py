@@ -34,7 +34,7 @@ def clamp_rounds[Assignment: RoundAssignment](assignments: Sequence[Assignment],
     granted = [1 + ((assignment.rounds - 1) * spare // over if over else 0) for assignment in assignments]
     priority = sorted(
         range(len(granted)),
-        key=lambda position: assignments[position].rounds,
+        key=lambda index: assignments[index].rounds,
         reverse=True,
     )
     for position in priority[: max(available - sum(granted), 0)]:

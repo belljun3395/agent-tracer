@@ -74,7 +74,7 @@ async def _execute(
             error = classify_exception(DeadlineExceeded(f"agent {label} exceeded {deadline_ms}ms"))
         except asyncio.CancelledError:
             raise
-        except BaseException as err:  # noqa: BLE001
+        except BaseException as err:
             # classify_exception은 요약 문자열만 남기므로 원인 추적은 스팬의 exception 레코드에 맡긴다.
             span.record_exception(err)
             error = classify_exception(err)

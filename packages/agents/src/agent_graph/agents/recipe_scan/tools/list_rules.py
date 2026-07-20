@@ -50,5 +50,5 @@ class ListRulesTool(AgentTool[ListRulesArgs]):
         rules = await self._reader.applicable_rules(args.taskId)
         return json.dumps(rules, ensure_ascii=False)
 
-    def record(self, args: ListRulesArgs, content: str) -> None:
+    def record(self, _args: ListRulesArgs, content: str, /) -> None:
         add_rule_ids(self._catalog, loaded(content))

@@ -113,7 +113,7 @@ async def _run(
     ledger: FakeLedger | None = None,
 ) -> AgentResponse:
     req = _request()
-    monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: chat)
+    monkeypatch.setattr(recipe_mod, "make_chat", lambda *_a, **_k: chat)
     fake_ledger = ledger if ledger is not None else _default_ledger()
     return await execute(
         "recipe-scan",
@@ -197,7 +197,7 @@ def test_종합_라운드는_최소_몫_아래로_내려가지_않는다() -> No
 
 async def test_전문가_실행_예외는_실패_보고로_강등된다() -> None:
     class BoomChat(FakeToolLoopChat):
-        async def ainvoke(self, messages: list[object]) -> object:
+        async def ainvoke(self, _messages: list[object]) -> object:
             raise RuntimeError("agent blew up")
 
     req = _request()
@@ -397,7 +397,7 @@ async def test_모델_호출_실패는_완료가_아니라_노드_실패로_기�
         def with_structured_output(self, _schema: object, **_kwargs: object) -> object:
             return self
 
-        async def ainvoke(self, messages: list[object]) -> object:
+        async def ainvoke(self, _messages: list[object]) -> object:
             raise AuthenticationError(
                 "bad key",
                 response=httpx.Response(401, request=httpx.Request("POST", "https://api.anthropic.com")),

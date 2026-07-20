@@ -36,7 +36,7 @@ def _flaky_tool(fail_times: int, error: BaseException) -> tuple[Any, list[int]]:
     calls = [0]
 
     @tool("get_task_events")
-    def get_task_events(taskId: str) -> str:  # noqa: N803
+    def get_task_events(taskId: str) -> str:  # noqa: ARG001
         """맡은 태스크 이벤트를 읽되 앞선 몇 번은 오류를 낸다."""
         calls[0] += 1
         if calls[0] <= fail_times:

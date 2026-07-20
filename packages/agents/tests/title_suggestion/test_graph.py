@@ -76,7 +76,7 @@ async def _run(
     **request_overrides: Any,
 ) -> tuple[FakeToolLoopChat, AgentResponse, FakeLedger]:
     chat = FakeToolLoopChat(turns)
-    monkeypatch.setattr(title_mod, "make_chat", lambda *args, **kwargs: chat)
+    monkeypatch.setattr(title_mod, "make_chat", lambda *_args, **_kwargs: chat)
     req = _request(**request_overrides)
     fake_ledger = ledger or FakeLedger()
     result = await execute(

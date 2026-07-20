@@ -135,7 +135,7 @@ def test_health_ok(client: TestClient) -> None:
 def test_요청별_대역은_앱_상태에_남지_않는다(
     client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(title_mod, "make_chat", lambda *a, **k: FakeToolLoopChat([{"suggestions": []}]))
+    monkeypatch.setattr(title_mod, "make_chat", lambda *_a, **_k: FakeToolLoopChat([{"suggestions": []}]))
 
     original_ledger = client.app.state.ledger
     original_completions = client.app.state.completion_client
@@ -150,7 +150,7 @@ def test_실행을_접수하고_결과는_완료_창구로_돌려준다(
     monkeypatch.setattr(
         title_mod,
         "make_chat",
-        lambda *a, **k: FakeToolLoopChat(
+        lambda *_a, **_k: FakeToolLoopChat(
             [
                 {
                     "suggestions": [
@@ -176,7 +176,7 @@ def test_실행을_접수하고_결과는_완료_창구로_돌려준다(
 def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
     client: TestClient, completions: CapturingCompletionClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(recipe_mod, "make_chat", lambda *a, **k: FakeToolLoopChat([{"recipes": []}]))
+    monkeypatch.setattr(recipe_mod, "make_chat", lambda *_a, **_k: FakeToolLoopChat([{"recipes": []}]))
     body = {
         "model": "claude-sonnet-4-6",
         "apiKey": "sk-test",
@@ -222,7 +222,7 @@ def test_worker가_보낸_traceparent를_이어받아_같은_trace로_invoke_age
     monkeypatch.setattr(
         title_mod,
         "make_chat",
-        lambda *a, **k: FakeToolLoopChat([{"suggestions": []}]),
+        lambda *_a, **_k: FakeToolLoopChat([{"suggestions": []}]),
     )
     SHARED_SPAN_EXPORTER.clear()
 

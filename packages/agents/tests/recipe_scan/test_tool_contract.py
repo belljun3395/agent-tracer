@@ -89,15 +89,15 @@ def _candidate(orders: list[int]) -> RecipeCandidate:
 
 
 def test_턴_예산이_골든_계약과_같다() -> None:
-    assert MAX_TOOL_ROUNDS == _contract()["maxTurns"]
+    assert _contract()["maxTurns"] == MAX_TOOL_ROUNDS
 
 
 def test_후보_상한과_토큰과_비용_예산이_골든_계약과_같다() -> None:
     limits = _contract()["limits"]
 
-    assert MAX_RECIPE_CANDIDATES == limits["candidateLimit"]
-    assert RECIPE_MAX_OUTPUT_TOKENS == limits["maxOutputTokens"]
-    assert MAX_RECIPE_MODEL_COST_USD == limits["maxBudgetUsd"]
+    assert limits["candidateLimit"] == MAX_RECIPE_CANDIDATES
+    assert limits["maxOutputTokens"] == RECIPE_MAX_OUTPUT_TOKENS
+    assert limits["maxBudgetUsd"] == MAX_RECIPE_MODEL_COST_USD
 
 
 def test_모델에게_노출하는_도구_이름이_골든_계약과_같다() -> None:
@@ -108,7 +108,7 @@ def test_전문가_역할과_도구와_보고가_골든_계약과_같다() -> No
     orchestration = _contract()["orchestration"]
     roles = {name: list(names) for name, names in PROBE_TOOLS.items()}
 
-    assert MAX_PROBE_ROUNDS == orchestration["workerMaxTurns"]
+    assert orchestration["workerMaxTurns"] == MAX_PROBE_ROUNDS
     assert roles == orchestration["roles"]
     assert list(ProbeReport.model_fields) == orchestration["workerReport"]["required"]
     assert list(Excerpt.model_fields) == orchestration["workerReport"]["excerptRequired"]
@@ -161,7 +161,7 @@ def test_search_events가_거르는_이벤트_종류가_골든_계약과_같다(
 def test_search_events_응답의_taskId로_태스크를_가로지른_근거를_기록한다() -> None:
     response = _tools()["search_events"]["responseEvent"]
     catalog = ProvenanceCatalog()
-    hit = {name: "" for name in response["required"]} | {"id": "event-9", "taskId": "other-task"}
+    hit = dict.fromkeys(response["required"], "") | {"id": "event-9", "taskId": "other-task"}
     tool = SearchEventsTool(RecipeSearchReader(FakeSearch(), "user-1"), catalog)  # type: ignore[arg-type]
 
     tool.record(SearchEventsArgs(q="migration"), json.dumps({"events": [hit]}))

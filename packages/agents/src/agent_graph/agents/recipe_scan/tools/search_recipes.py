@@ -58,5 +58,5 @@ class SearchRecipesTool(AgentTool[SearchRecipesArgs]):
         recipes = await self._search.search_recipes(args.q, args.limit)
         return json.dumps(recipes, ensure_ascii=False)
 
-    def record(self, args: SearchRecipesArgs, content: str) -> None:
+    def record(self, _args: SearchRecipesArgs, content: str, /) -> None:
         add_recipe_ids(self._catalog, loaded(content))

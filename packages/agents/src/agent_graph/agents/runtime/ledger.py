@@ -9,6 +9,7 @@ from typing import Any
 import asyncpg
 
 # 런타임의 Pool은 첨자를 받지 않으므로 평가가 지연되는 별칭으로만 제네릭 형태를 쓴다.
+# noinspection PyUnresolvedReferences
 type LedgerPool = asyncpg.Pool[asyncpg.Record]
 
 MIN_POOL_SIZE = 1
@@ -31,14 +32,15 @@ class LedgerPoolProvider:
     async def pool(self) -> LedgerPool:
         """원장 뷰에 붙는 연결 풀을 돌려준다."""
         async with self._lock:
-            if self._pool is None:
-                opened = await asyncpg.create_pool(
+            pool = self._pool
+            if pool is None:
+                pool = await asyncpg.create_pool(
                     self._dsn, min_size=MIN_POOL_SIZE, max_size=MAX_POOL_SIZE, init=_decode_json
                 )
-                if opened is None:
+                if pool is None:
                     raise RuntimeError("원장 연결 풀을 열지 못했다")
-                self._pool = opened
-            return self._pool
+                self._pool = pool
+            return pool
 
     async def close(self) -> None:
         """열린 적이 있으면 연결 풀을 닫는다."""

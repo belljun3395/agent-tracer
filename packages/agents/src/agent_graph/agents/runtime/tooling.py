@@ -18,15 +18,16 @@ class AgentTool[ArgsT: BaseModel](ABC):
     name: ClassVar[str]
     description: ClassVar[str]
     transient_errors: ClassVar[tuple[type[Exception], ...]] = ()
-    args_model: type[ArgsT]
+    # ClassVar는 타입 변수를 담지 못해 인자 모델의 구체 타입은 execute 시그니처가 말한다.
+    args_model: ClassVar[type[BaseModel]]
 
     @abstractmethod
     async def execute(self, args: ArgsT) -> str:
         """검증된 인자로 자기 백엔드에서 도구를 실행해 응답 본문을 낸다."""
 
-    def record(self, args: ArgsT, content: str) -> None:
+    def record(self, _args: ArgsT, _content: str, /) -> None:
         """도구가 실제로 돌려준 값만 인용 가능한 근거로 자기 장부에 올린다."""
-        return None
+        return
 
 
 class ToolRegistry:

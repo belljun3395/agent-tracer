@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -31,7 +32,7 @@ from ..reader import CleanupLedgerReader
 from ..tools import build_cleanup_registry
 
 
-class _DecisionAgent(GraphNode):
+class _DecisionAgent(GraphNode, ABC):
     def __init__(
         self,
         req: TaskCleanupRequest,
