@@ -42,3 +42,17 @@ export async function postJson(
         signal: resolveTimeoutSignal(timeoutMs),
     });
 }
+
+export async function patchJson(
+    url: string,
+    headers: Record<string, string>,
+    body: unknown,
+    timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<Response> {
+    return fetch(url, {
+        method: "PATCH",
+        headers: jsonHeaders(headers),
+        body: JSON.stringify(body),
+        signal: resolveTimeoutSignal(timeoutMs),
+    });
+}

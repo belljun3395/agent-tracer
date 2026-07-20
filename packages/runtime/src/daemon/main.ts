@@ -181,8 +181,6 @@ const servers = createDaemonServers({
         hint: hooks.hint,
         readRules: () => cachedRules,
         readDelivery: currentDelivery,
-        findTargetBySession: hooks.findTargetBySession,
-        setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
         refreshHistory: () => spoolSender.feedHistory(),
         onHookVersion: (hookVersion) => {
             lastHookVersion = hookVersion;

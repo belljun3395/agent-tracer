@@ -34,19 +34,11 @@
   구현했다 — 프로토콜이 `initialize`·`tools/list`·`tools/call` 세 메서드뿐이라 SDK를
   들이는 비용이 자립 번들 원칙에 비해 더 크다. `get_recipe`는 레시피 본문을 가져온 뒤
   `recipeInjected` 이벤트를 훅과 같은 방식으로 스풀에 직접 남겨 적용 이력을 연다.
-  `set_task_title`만 예외로 데몬 소켓을 거친다.
+  `set_task_title`도 다른 도구와 같은 방식으로 태스크 커맨드 API를 agent 순위로 직접
+  부른다 — 서버가 제목의 순위를 지키므로 뒤늦게 도착하는 조악한 초기 제목이 더는 덮어쓰지
+  않는다.
 - `daemon/`: 조립 근원과 제어 화면. `daemon/port/`가 훅과 데몬 사이 소켓 계약을
-  단독 소유하고 클라이언트와 서버가 같은 타입을 쓴다. `daemon/port/mcp.socket.port.ts`는
-  `set_task_title` 재제목 메시지 하나만 얹으며, `daemon.socket.port.ts`의
-  `parseDaemonRequest`가 못 찾은 타입을 이쪽에 넘긴다.
-
-`set_task_title`이 데몬 소켓을 거치는 이유는 원장 순서 때문이다. 한 태스크의 첫 발화에서
-`EnsureSessionUsecase`가 조악한 초기 제목으로 `taskLinked` 이벤트를 스풀에 큐잉하고, 그
-즉시 같은 턴 안에서 에이전트에게 `set_task_title`을 지금 부르라는 넛지가 간다. 그 스풀
-이벤트가 아직 서버에 배출되기 전에 `set_task_title`이 읽기 모델을 직접 덮어쓰면, 나중에
-배출된 `taskLinked`가 순서 없이 다시 덮어써 에이전트가 지은 제목을 지울 수 있다 — 투영이
-`title`을 무조건 마지막 쓰기로 덮기 때문이다. 데몬 소켓 경로는 이 순서 위험을 만들지 않는
-유일한 경로다.
+  단독 소유하고 클라이언트와 서버가 같은 타입을 쓴다.
 
 MCP 도구가 묻는 "지금 태스크가 뭔가"는 추정하지 않는다. Claude Code가 세션마다 띄우는
 MCP 서버 프로세스의 환경변수 `CLAUDE_CODE_SESSION_ID`에 그 서버가 딸린 세션의 식별자가

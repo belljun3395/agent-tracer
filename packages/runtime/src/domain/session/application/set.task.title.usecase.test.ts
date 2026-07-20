@@ -1,31 +1,32 @@
-import {KIND} from "@monitor/kernel";
 import {describe, expect, it} from "vitest";
-import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
-import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
-import {FixedClock} from "~runtime/domain/session/port/__fakes__/fixed.clock.js";
+import {InMemoryTaskRename} from "~runtime/domain/session/port/__fakes__/in-memory.task.rename.js";
 import {SetTaskTitleUsecase} from "~runtime/domain/session/application/set.task.title.usecase.js";
 
-const NOW = Date.parse("2026-07-14T04:00:00.000Z");
-
 describe("SetTaskTitleUsecase", () => {
-    it("태스크와 제목이 있으면 taskLinked 이벤트를 남긴다", async () => {
-        const sink = new InMemoryEventSink();
-        const usecase = new SetTaskTitleUsecase(sink, new SequentialIdGenerator(), new FixedClock(NOW));
+    it("태스크와 제목이 있으면 앞뒤 공백을 지워 개명 포트로 보낸다", async () => {
+        const renamer = new InMemoryTaskRename();
+        const usecase = new SetTaskTitleUsecase(renamer);
 
         const ok = await usecase.execute("task-1", "  로그인 흐름 리팩터링  ");
 
         expect(ok).toBe(true);
-        expect(sink.events[0]?.kind).toBe(KIND.taskLinked);
-        expect(sink.events[0]?.taskId).toBe("task-1");
-        expect(sink.events[0]?.payload["title"]).toBe("로그인 흐름 리팩터링");
+        expect(renamer.renamed).toEqual([{taskId: "task-1", title: "로그인 흐름 리팩터링"}]);
     });
 
-    it("태스크나 제목이 비어 있으면 이벤트를 남기지 않는다", async () => {
-        const sink = new InMemoryEventSink();
-        const usecase = new SetTaskTitleUsecase(sink, new SequentialIdGenerator(), new FixedClock(NOW));
+    it("태스크나 제목이 비어 있으면 보내지 않는다", async () => {
+        const renamer = new InMemoryTaskRename();
+        const usecase = new SetTaskTitleUsecase(renamer);
 
         expect(await usecase.execute("", "제목")).toBe(false);
         expect(await usecase.execute("task-1", "   ")).toBe(false);
-        expect(sink.events).toHaveLength(0);
+        expect(renamer.renamed).toEqual([]);
+    });
+
+    it("서버 쓰기가 실패해도 예외를 삼키고 false를 낸다", async () => {
+        const renamer = new InMemoryTaskRename();
+        renamer.failNext();
+        const usecase = new SetTaskTitleUsecase(renamer);
+
+        expect(await usecase.execute("task-1", "제목")).toBe(false);
     });
 });

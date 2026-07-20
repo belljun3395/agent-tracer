@@ -1,8 +1,6 @@
 import type {BoundSession} from "~runtime/domain/binding/application/read.binding.usecase.js";
 import {readBinding, appendIngestEvents, mcpRuntime} from "~runtime/agent/claude-code/mcp/composition.js";
 import {CLAUDE_RUNTIME_SOURCE, resolveClaudeSessionId} from "~runtime/config/env.js";
-import {ensureDaemonRunning} from "~runtime/daemon/ipc/hook.client.js";
-import {setTaskTitleViaDaemon} from "~runtime/daemon/ipc/mcp.client.js";
 import {
     CREATE_MEMO_TOOL,
     parseCreateMemoArgs,
@@ -33,6 +31,7 @@ import {
     onRecipeSearchRequested,
 } from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
+import {onSetTaskTitleRequested} from "~runtime/domain/session/inbound/session.hook.js";
 import {
     SET_TASK_TITLE_TOOL,
     parseSetTaskTitleArgs,
@@ -145,11 +144,14 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
         case SET_TASK_TITLE_TOOL.name: {
             const parsed = parseSetTaskTitleArgs(args);
             if (!parsed) return invalidArgs();
-            await ensureDaemonRunning();
-            const result = await setTaskTitleViaDaemon(parsed.title);
-            return result.ok
+            const target = resolveTarget();
+            if (target === undefined) {
+                return {text: `Could not update title (${UNKNOWN_SESSION}).`, isError: true};
+            }
+            const ok = await onSetTaskTitleRequested(mcpRuntime.session, target.taskId, parsed.title);
+            return ok
                 ? {text: "Task title updated.", isError: false}
-                : {text: `Could not update title${result.reason ? ` (${result.reason})` : ""}.`, isError: true};
+                : {text: "Could not update title.", isError: true};
         }
         case CREATE_MEMO_TOOL.name: {
             const parsed = parseCreateMemoArgs(args);

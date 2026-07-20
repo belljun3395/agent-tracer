@@ -1,15 +1,10 @@
 import {monitorUserHeaders, resolveMonitorIdentity} from "~runtime/config/monitor.identity.js";
-import {CLAUDE_RUNTIME_SOURCE} from "~runtime/config/env.js";
 import {EvaluateTurnUsecase} from "~runtime/domain/guardrail/application/evaluate.turn.usecase.js";
 import {RefreshRulesUsecase} from "~runtime/domain/guardrail/application/refresh.rules.usecase.js";
 import {HttpRuleSourceAdapter} from "~runtime/domain/guardrail/adapter/http.rule.source.adapter.js";
 import type {GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {ComputeHintsUsecase} from "~runtime/domain/hint/application/compute.hints.usecase.js";
 import type {HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
-import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.binding.store.adapter.js";
-import {ReadBindingUsecase, type BoundSession} from "~runtime/domain/binding/application/read.binding.usecase.js";
-import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
-import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import {AgentRuleGeneratorAdapter} from "~runtime/domain/rulegen/adapter/agent.rule.generator.adapter.js";
@@ -24,8 +19,6 @@ import {RunRuleJobUsecase} from "~runtime/domain/rulegen/application/run.rule.jo
 import type {RulegenHook} from "~runtime/domain/rulegen/inbound/rulegen.hook.js";
 import {RuleGenerationSettingCache} from "~runtime/domain/rulegen/model/rule.command.model.js";
 import type {SchedulerPort} from "~runtime/domain/rulegen/port/scheduler.port.js";
-import {SetTaskTitleUsecase} from "~runtime/domain/session/application/set.task.title.usecase.js";
-import {generateUlid} from "~runtime/support/ulid.js";
 
 /** 데몬이 부르는 도메인 진입점 묶음 전체다. */
 export interface DaemonHooks {
@@ -34,8 +27,6 @@ export interface DaemonHooks {
     /** 스풀에서 관찰한 사용자 발화가 /recipe 명령이면 스캔을 큐잉하는 자체 자동화 전용이다. */
     readonly requestScan: RequestRecipeScanUsecase;
     readonly rulegen: RulegenHook;
-    readonly findTargetBySession: (sessionId: string) => BoundSession | undefined;
-    readonly setTaskTitle: SetTaskTitleUsecase;
 }
 
 /** 데몬 프로세스가 쓰는 어댑터와 유스케이스를 한 곳에서 조립한다. */
@@ -64,13 +55,6 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
 
     const requestScan = new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers));
 
-    const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
-    const findTargetBySession = (sessionId: string): BoundSession | undefined =>
-        readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId);
-    const ids: IdGeneratorPort = {next: generateUlid};
-    const sink = new SpoolEventSinkAdapter();
-    const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
-
     const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
     const runRuleJob = new RunRuleJobUsecase(
         new HttpRuleEvidenceAdapter(baseUrl, headers),
@@ -97,7 +81,5 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         hint,
         requestScan,
         rulegen,
-        findTargetBySession,
-        setTaskTitle,
     };
 }

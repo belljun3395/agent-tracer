@@ -1,7 +1,6 @@
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {GuardrailVerdict} from "~runtime/domain/guardrail/model/verdict.model.js";
 import type {PreprocessingHint, PreprocessingHintsRequest} from "~runtime/domain/hint/model/hint.model.js";
-import {parseMcpSocketRequest, type McpSocketRequest, type McpSocketResponse} from "~runtime/daemon/port/mcp.socket.port.js";
 import {isRecord} from "~runtime/support/json.js";
 
 /** 훅과 데몬이 유닉스 소켓으로 주고받는 개행 종결 JSON 한 줄의 계약이며 클라이언트와 서버가 같은 타입을 쓴다. */
@@ -46,8 +45,7 @@ export type DaemonRequest =
     | DaemonHintsRequest
     | DaemonPromptContextRequest
     | DaemonGuardrailRequest
-    | DaemonDeliveryRequest
-    | McpSocketRequest;
+    | DaemonDeliveryRequest;
 
 export interface DaemonVersionResponse {
     readonly version: string;
@@ -84,8 +82,7 @@ export type DaemonResponse =
     | DaemonHintsResponse
     | DaemonPromptContextResponse
     | DaemonGuardrailResponse
-    | DaemonDeliveryResponse
-    | McpSocketResponse;
+    | DaemonDeliveryResponse;
 
 export function parseDaemonRequest(value: unknown): DaemonRequest | null {
     if (!isRecord(value) || typeof value["type"] !== "string") return null;
@@ -130,7 +127,7 @@ export function parseDaemonRequest(value: unknown): DaemonRequest | null {
                 }
                 : null;
         default:
-            return parseMcpSocketRequest(value["type"], value);
+            return null;
     }
 }
 

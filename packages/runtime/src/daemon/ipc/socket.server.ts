@@ -12,12 +12,10 @@ import {
     type DaemonPromptContextResponse,
     type DaemonVersionResponse,
 } from "~runtime/daemon/port/daemon.socket.port.js";
-import type {DaemonSetTaskTitleResponse} from "~runtime/daemon/port/mcp.socket.port.js";
 import {onTurnStop, type GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
 import {formatGuardrailLog} from "~runtime/domain/guardrail/model/enforce.model.js";
 import {isEnforceableRule, type GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {onHintsRequested, type HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
-import type {IngestTarget} from "~runtime/domain/ingest/model/event.model.js";
 import type {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
 
 /** 데몬이 소켓 요청을 처리하는 데 필요한 도메인 진입점과 상태다. */
@@ -29,9 +27,6 @@ export interface DaemonSocketContext {
     readonly hint: HintHook;
     readonly readRules: () => readonly GuardrailRule[];
     readonly readDelivery: () => DaemonDeliveryResponse;
-    /** MCP 도구가 실은 자기 세션 식별자로 바인딩을 지목하며 못 찾으면 undefined이고 추정하지 않는다. */
-    readonly findTargetBySession: (sessionId: string) => IngestTarget | undefined;
-    readonly setTaskTitle: (taskId: string, title: string) => Promise<boolean>;
     readonly refreshHistory: () => void;
     readonly onHookVersion: (version: string) => void;
     readonly onActivity: () => void;
@@ -49,14 +44,14 @@ export function createDaemonConnectionHandler(context: DaemonSocketContext): (so
         const frame = createLineFramer();
         socket.on("data", (chunk) => {
             const line = frame(chunk);
-            if (line) void handleMessage(socket, line, context);
+            if (line) handleMessage(socket, line, context);
         });
         socket.on("close", context.onConnectionClosed);
         socket.on("error", () => undefined);
     };
 }
 
-async function handleMessage(socket: net.Socket, line: string, context: DaemonSocketContext): Promise<void> {
+function handleMessage(socket: net.Socket, line: string, context: DaemonSocketContext): void {
     try {
         const request = parseDaemonRequest(JSON.parse(line) as unknown);
         if (request === null) {
@@ -125,16 +120,6 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                     process.stderr.write(`${formatGuardrailLog(request.taskId, verdicts)}\n`);
                 }
                 send(socket, {verdicts: blocking} satisfies DaemonGuardrailResponse);
-                return;
-            }
-            case "set-task-title": {
-                const taskId = context.findTargetBySession(request.sessionId)?.taskId;
-                if (taskId === undefined) {
-                    send(socket, {ok: false, reason: "unknown_session"} satisfies DaemonSetTaskTitleResponse);
-                    return;
-                }
-                const ok = await context.setTaskTitle(taskId, request.title);
-                send(socket, {ok} satisfies DaemonSetTaskTitleResponse);
                 return;
             }
         }

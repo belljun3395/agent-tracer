@@ -24,6 +24,9 @@ import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/rep
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
 import type {RecipeHook, RecipeOutcomeMarkHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import {HttpTaskRenameAdapter} from "~runtime/domain/session/adapter/http.task.rename.adapter.js";
+import {SetTaskTitleUsecase} from "~runtime/domain/session/application/set.task.title.usecase.js";
+import type {SetTaskTitleHook} from "~runtime/domain/session/inbound/session.hook.js";
 import {generateUlid} from "~runtime/support/ulid.js";
 
 const identity = resolveMonitorIdentity();
@@ -50,6 +53,10 @@ const memo: MemoHook = {
     searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers)),
 };
 
+const session: SetTaskTitleHook = {
+    setTaskTitle: new SetTaskTitleUsecase(new HttpTaskRenameAdapter(baseUrl, headers)),
+};
+
 /** MCP 도구가 자기 세션의 바인딩을 스스로 찾을 때 쓴다. */
 export const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
 
@@ -66,4 +73,5 @@ export const mcpRuntime = {
     recipe,
     recipeOutcomeMark,
     memo,
+    session,
 } as const;
