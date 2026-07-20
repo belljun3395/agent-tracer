@@ -22,8 +22,7 @@ from agent_graph.agents.title_suggestion.policy import (
     AGENT_RECURSION_LIMIT as TITLE_RECURSION_LIMIT,
 )
 from agent_graph.agents.title_suggestion.policy import MAX_TOOL_ROUNDS as TITLE_ROUNDS
-
-from .fakes import FakeToolLoopChat
+from tests.support.fakes import FakeToolLoopChat
 
 
 def _loop_supersteps(agent: CompiledStateGraph[Any, Any, Any, Any]) -> int:

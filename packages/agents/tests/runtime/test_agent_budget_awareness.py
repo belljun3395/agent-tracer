@@ -12,7 +12,7 @@ from agent_graph.agents.runtime.llm.standard_agent import FINALIZE_DIRECTIVE
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
 from agent_graph.agents.task_cleanup.models import TaskCleanupRequest, TriagePlan
 from agent_graph.agents.task_cleanup.policy import MAX_TOOL_ROUNDS, decision_rounds
-from tests.fakes import FakeLedger, mk_ai
+from tests.support.fakes import FakeLedger, mk_ai
 
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
 

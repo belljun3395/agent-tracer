@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, get_args
 
 import pytest
@@ -29,9 +28,7 @@ from agent_graph.agents.recipe_scan.tools.contracts import (
     TimelineEventKind,
     validate_tool_args,
 )
-
-# 두 언어가 같은 파일을 읽어야 한쪽만 바뀌는 드리프트가 남지 않는다.
-GOLDEN = Path(__file__).parents[2] / "kernel" / "src" / "agent" / "__fixtures__"
+from tests.support.golden import load_contract
 
 VALID_ARGS: dict[str, dict[str, Any]] = {
     "get_task_summary": {"taskId": "task-1"},
@@ -44,7 +41,7 @@ VALID_ARGS: dict[str, dict[str, Any]] = {
 
 
 def _contract() -> Any:
-    return json.loads((GOLDEN / "recipe.scan.tool.contract.json").read_text(encoding="utf-8"))
+    return load_contract("recipe.scan.tool.contract.json")
 
 
 def _tools() -> Any:

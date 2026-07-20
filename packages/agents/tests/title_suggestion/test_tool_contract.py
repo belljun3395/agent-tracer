@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any, get_args
 
 import pytest
@@ -29,13 +27,13 @@ from agent_graph.agents.title_suggestion.tools import (
     MIN_EVENT_LIMIT,
     GetTaskEventsArgs,
 )
+from tests.support.golden import load_contract
 
-# 두 언어가 같은 파일을 읽어야 한쪽만 바뀌는 드리프트가 남지 않는다.
-GOLDEN = Path(__file__).parents[2] / "kernel" / "src" / "agent" / "__fixtures__"
+_CONTRACT_NAME = "title.suggestion.tool.contract.json"
 
 
 def _contract() -> Any:
-    return json.loads((GOLDEN / "title.suggestion.tool.contract.json").read_text(encoding="utf-8"))
+    return load_contract(_CONTRACT_NAME)
 
 
 def _turns(count: int) -> list[dict[str, Any]]:

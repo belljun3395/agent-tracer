@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from agent_graph import app as app_module
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.title_suggestion import agent as title_mod
-from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
-from tests.test_observability import SHARED_SPAN_EXPORTER
+from tests.conftest import SHARED_SPAN_EXPORTER
+from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 _TOOLS: dict[str, object] = {
     "tools": [

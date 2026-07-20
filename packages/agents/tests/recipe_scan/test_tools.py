@@ -30,7 +30,7 @@ from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools.client import invoke_tool, record_evidence
 from agent_graph.agents.recipe_scan.tools.contracts import validate_tool_args
 from agent_graph.agents.recipe_scan.tools.provenance import add_provenance
-from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
+from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 
 def test_Python이_도구_이름_설명_인자스키마를_소유한다() -> None:
@@ -132,20 +132,22 @@ def test_revision이_있는_recipe만_수정_근거로_인정한다() -> None:
 
 
 async def test_모델이_생략한_인자는_도구_기본값으로_채워_조회한다() -> None:
-    ledger = FakeLedger([
-        {
-            "id": "event-1",
-            "seq": 1,
-            "turn_id": None,
-            "kind": "execute_tool",
-            "title": "x",
-            "body": None,
-            "tool_name": None,
-            "file_paths": [],
-            "metadata": {},
-            "occurred_at": datetime(2026, 7, 14, tzinfo=UTC),
-        }
-    ])
+    ledger = FakeLedger(
+        [
+            {
+                "id": "event-1",
+                "seq": 1,
+                "turn_id": None,
+                "kind": "execute_tool",
+                "title": "x",
+                "body": None,
+                "tool_name": None,
+                "file_paths": [],
+                "metadata": {},
+                "occurred_at": datetime(2026, 7, 14, tzinfo=UTC),
+            }
+        ]
+    )
 
     content = await invoke_tool(
         RecipeLedgerReader(ledger, "user-1"),  # type: ignore[arg-type]
@@ -227,9 +229,7 @@ def test_이름만_돌려준_태스크는_근거_원장에_오르지_않는다(
     parsed: Any,
 ) -> None:
     catalog = ProvenanceCatalog()
-    record = EvidenceRecord.model_validate(
-        {"tool": tool, "args": args, "content": "{}", "parsed": parsed}
-    )
+    record = EvidenceRecord.model_validate({"tool": tool, "args": args, "content": "{}", "parsed": parsed})
 
     add_provenance(catalog, record)
 
@@ -317,9 +317,7 @@ def test_전문가의_장부가_조율자의_장부로_합쳐진다() -> None:
 
 def test_병합된_장부는_인용_확인이_그대로_읽는다() -> None:
     coordinator = ProvenanceCatalog()
-    coordinator = merged_provenance(
-        coordinator, ProvenanceCatalog(eventIdsByTask={"task-1": {"event-9"}})
-    )
+    coordinator = merged_provenance(coordinator, ProvenanceCatalog(eventIdsByTask={"task-1": {"event-9"}}))
 
     # 전문가가 읽은 것을 조율자가 인용해도 되는지 같은 술어로 확인된다.
     assert "event-9" in coordinator.eventIdsByTask["task-1"]
@@ -334,8 +332,7 @@ def test_발췌는_상한을_넘으면_거부한다() -> None:
             probe="timeline",
             verdict="v",
             excerpts=[
-                Excerpt(taskId="t", eventId=f"e{index}", text="x")
-                for index in range(MAX_EXCERPTS_PER_PROBE + 1)
+                Excerpt(taskId="t", eventId=f"e{index}", text="x") for index in range(MAX_EXCERPTS_PER_PROBE + 1)
             ],
         )
 

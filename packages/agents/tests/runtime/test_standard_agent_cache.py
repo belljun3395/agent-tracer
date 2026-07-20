@@ -1,4 +1,4 @@
-"""title-suggestion 표준 agent의 캐시 경계 계약을 검증한다."""
+"""표준 agent 미들웨어가 도구 결과 캐시 경계를 두는 방식을 검증한다."""
 
 from langchain_core.messages import ToolMessage
 

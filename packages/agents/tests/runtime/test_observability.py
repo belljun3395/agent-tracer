@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 from opentelemetry import trace as trace_api
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from agent_graph.agents.runtime.telemetry import attributes, spans
 from agent_graph.agents.runtime.telemetry.attributes import (
@@ -30,13 +27,7 @@ from agent_graph.agents.runtime.telemetry.propagation import (
 from agent_graph.agents.runtime.telemetry.spans import invoke_agent_span
 from agent_graph.agents.shared.models import UsageDTO
 
-# 이 모듈이 유일하게 전역 TracerProvider를 등록한다. OTel Python은 프로세스당 한 번만
-# 등록을 허용하므로(재호출은 무시된다) test_app.py의 trace 전파 e2e 검증도 이 exporter를
-# 그대로 가져다 쓴다.
-SHARED_SPAN_EXPORTER = InMemorySpanExporter()
-_PROVIDER = TracerProvider()
-_PROVIDER.add_span_processor(SimpleSpanProcessor(SHARED_SPAN_EXPORTER))
-trace_api.set_tracer_provider(_PROVIDER)
+# 전역 TracerProvider는 conftest.py가 한 번만 등록한다(app/test_app.py가 같은 exporter를 공유).
 
 
 class TestAttributes:

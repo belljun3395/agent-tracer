@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any, get_args
 
 import pytest
@@ -42,13 +40,13 @@ from agent_graph.agents.task_cleanup.tools import (
     candidate_page,
     validate_tool_args,
 )
+from tests.support.golden import load_contract
 
-# 두 언어가 같은 파일을 읽어야 한쪽만 바뀌는 드리프트가 남지 않는다.
-GOLDEN = Path(__file__).parents[2] / "kernel" / "src" / "agent" / "__fixtures__"
+CONTRACT_FIXTURE = "task.cleanup.tool.contract.json"
 
 
 def _contract() -> Any:
-    return json.loads((GOLDEN / "task.cleanup.tool.contract.json").read_text(encoding="utf-8"))
+    return load_contract(CONTRACT_FIXTURE)
 
 
 def _tool(name: str) -> Any:

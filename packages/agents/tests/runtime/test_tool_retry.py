@@ -24,7 +24,7 @@ from agent_graph.agents.runtime.llm.budget import ToolLoopBudget
 from agent_graph.agents.task_cleanup.langchain_agent import (
     _TRANSIENT_TOOL_ERRORS as CLEANUP_TRANSIENT,
 )
-from tests.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
+from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 _MODEL = "claude-sonnet-4-6"
 
