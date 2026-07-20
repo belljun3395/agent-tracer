@@ -39,23 +39,31 @@ export class ClearSessionUsecase {
         let predecessor: BindingRecord | undefined;
         try {
             const store = this.bindings.read();
-            predecessor = input.workspacePath
-                ? mostRecentBindingWhere(store, (candidate) => (
-                    candidate.workspacePath === input.workspacePath &&
+            predecessor = input.runtimePid === undefined
+                ? undefined
+                : mostRecentBindingWhere(store, (candidate) => (
+                    candidate.runtimePid === input.runtimePid &&
+                    candidate.supersededBy === undefined &&
                     bindingKey(candidate.runtimeSource, candidate.runtimeSessionId) !== key &&
                     !isSubagentSession(candidate.runtimeSessionId)
-                ))
-                : undefined;
+                ));
             created = {
                 taskId: this.ids.next(),
                 sessionId: this.ids.next(),
                 runtimeSource: input.runtimeSource,
                 runtimeSessionId: input.runtimeSessionId,
                 ...(input.workspacePath ? {workspacePath: input.workspacePath} : {}),
+                ...(input.runtimePid !== undefined ? {runtimePid: input.runtimePid} : {}),
                 createdAt: new Date(this.clock.now()).toISOString(),
                 titled: input.titled ?? true,
             };
             store[key] = created;
+            if (predecessor) {
+                store[bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId)] = {
+                    ...predecessor,
+                    supersededBy: input.runtimeSessionId,
+                };
+            }
             this.bindings.write(capBindingStore(store));
         } finally {
             this.bindings.releaseLock();

@@ -15,6 +15,8 @@ export interface SessionBindingInput {
     readonly title: string;
     readonly titled?: boolean;
     readonly workspacePath?: string;
+    /** 훅을 띄운 런타임 프로세스이며, /clear로 세션 식별자가 바뀌어도 같은 창을 가리킨다. */
+    readonly runtimePid?: number;
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly origin?: TaskOrigin;

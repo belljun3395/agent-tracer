@@ -1,5 +1,11 @@
 import {describe, expect, it} from "vitest";
-import {mostRecentBindingWhere, toBoundSession, type BindingRecord} from "~runtime/domain/binding/model/binding.model.js";
+import {
+    bindingKey,
+    mostRecentBindingWhere,
+    resolveLiveBinding,
+    toBoundSession,
+    type BindingRecord,
+} from "~runtime/domain/binding/model/binding.model.js";
 
 function binding(overrides: Partial<BindingRecord>): BindingRecord {
     return {
@@ -62,5 +68,41 @@ describe("toBoundSession", () => {
         }));
         expect(bound.turnId).toBe("turn-1");
         expect(bound.turn?.prompt).toBe("lint 돌려줘");
+    });
+});
+
+describe("resolveLiveBinding", () => {
+    function store(...records: BindingRecord[]) {
+        return Object.fromEntries(records.map((record) => [
+            bindingKey(record.runtimeSource, record.runtimeSessionId),
+            record,
+        ]));
+    }
+
+    it("승계가 없으면 그 바인딩을 그대로 낸다", () => {
+        const only = binding({taskId: "only", runtimeSessionId: "cc-1"});
+        expect(resolveLiveBinding(store(only), "claude-plugin", "cc-1")?.taskId).toBe("only");
+    });
+
+    it("낡은 식별자로 들어와도 후임 바인딩까지 따라간다", () => {
+        const old = binding({taskId: "old", runtimeSessionId: "cc-1", supersededBy: "cc-2"});
+        const mid = binding({taskId: "mid", runtimeSessionId: "cc-2", supersededBy: "cc-3"});
+        const live = binding({taskId: "live", runtimeSessionId: "cc-3"});
+        expect(resolveLiveBinding(store(old, mid, live), "claude-plugin", "cc-1")?.taskId).toBe("live");
+    });
+
+    it("후임이 사라졌으면 추측하지 않고 undefined다", () => {
+        const old = binding({taskId: "old", runtimeSessionId: "cc-1", supersededBy: "gone"});
+        expect(resolveLiveBinding(store(old), "claude-plugin", "cc-1")).toBeUndefined();
+    });
+
+    it("승계가 고리를 이루면 맴돌지 않고 undefined다", () => {
+        const first = binding({taskId: "first", runtimeSessionId: "cc-1", supersededBy: "cc-2"});
+        const second = binding({taskId: "second", runtimeSessionId: "cc-2", supersededBy: "cc-1"});
+        expect(resolveLiveBinding(store(first, second), "claude-plugin", "cc-1")).toBeUndefined();
+    });
+
+    it("모르는 세션이면 undefined다", () => {
+        expect(resolveLiveBinding({}, "claude-plugin", "cc-1")).toBeUndefined();
     });
 });

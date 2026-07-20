@@ -1,4 +1,4 @@
-import {bindingKey, toBoundSession, type BoundSession} from "~runtime/domain/binding/model/binding.model.js";
+import {resolveLiveBinding, toBoundSession, type BoundSession} from "~runtime/domain/binding/model/binding.model.js";
 import type {BindingStorePort} from "~runtime/domain/binding/port/binding.store.port.js";
 
 export type {BoundSession};
@@ -8,7 +8,7 @@ export class ReadBindingUsecase {
     constructor(private readonly bindings: BindingStorePort) {}
 
     execute(runtimeSource: string, runtimeSessionId: string): BoundSession | undefined {
-        const binding = this.bindings.read()[bindingKey(runtimeSource, runtimeSessionId)];
+        const binding = resolveLiveBinding(this.bindings.read(), runtimeSource, runtimeSessionId);
         return binding ? toBoundSession(binding) : undefined;
     }
 }

@@ -1,6 +1,6 @@
 import {KIND} from "@monitor/kernel";
 import {describe, expect, it} from "vitest";
-import {bindingKey, type BindingRecord} from "~runtime/domain/binding/model/binding.model.js";
+import {bindingKey, resolveLiveBinding, type BindingRecord} from "~runtime/domain/binding/model/binding.model.js";
 import {InMemoryBindingStore} from "~runtime/domain/binding/port/__fakes__/in-memory.binding.store.js";
 import {InMemoryEventSink} from "~runtime/domain/ingest/port/__fakes__/in-memory.event.sink.js";
 import {SequentialIdGenerator} from "~runtime/domain/ingest/port/__fakes__/sequential.id.generator.js";
@@ -61,7 +61,8 @@ describe("ClearSessionUsecase", () => {
 });
 
 const WORKSPACE = "/Users/dev/project-a";
-const CLEAR_INPUT = {...INPUT, runtimeSessionId: "cc-2", workspacePath: WORKSPACE};
+const RUNTIME_PID = 4242;
+const CLEAR_INPUT = {...INPUT, runtimeSessionId: "cc-2", workspacePath: WORKSPACE, runtimePid: RUNTIME_PID};
 
 function predecessorBinding(overrides: Partial<BindingRecord> = {}): BindingRecord {
     return {
@@ -70,13 +71,14 @@ function predecessorBinding(overrides: Partial<BindingRecord> = {}): BindingReco
         runtimeSource: "claude-plugin",
         runtimeSessionId: "cc-old",
         workspacePath: WORKSPACE,
+        runtimePid: RUNTIME_PID,
         createdAt: "2026-07-16T03:00:00.000Z",
         ...overrides,
     };
 }
 
 describe("ClearSessionUsecase - 직전 태스크 종료", () => {
-    it("같은 워크스페이스의 직전 태스크를 sessionEnded로 닫고 그 뒤에 새 태스크를 연다", async () => {
+    it("같은 프로세스의 직전 태스크를 sessionEnded로 닫고 그 뒤에 새 태스크를 연다", async () => {
         const predecessor = predecessorBinding();
         const bindings = new InMemoryBindingStore({[bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId)]: predecessor});
         const sink = new InMemoryEventSink();
@@ -100,8 +102,8 @@ describe("ClearSessionUsecase - 직전 태스크 종료", () => {
         expect(endedIndex).toBeLessThan(startedIndex);
     });
 
-    it("워크스페이스가 다른 바인딩은 닫지 않는다", async () => {
-        const predecessor = predecessorBinding({workspacePath: "/Users/dev/other-project"});
+    it("같은 워크스페이스라도 다른 창이 연 바인딩은 닫지 않는다", async () => {
+        const predecessor = predecessorBinding({runtimePid: 9999});
         const bindings = new InMemoryBindingStore({[bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId)]: predecessor});
         const sink = new InMemoryEventSink();
         await new ClearSessionUsecase(
@@ -155,7 +157,48 @@ describe("ClearSessionUsecase - 직전 태스크 종료", () => {
         expect(startedEvents(sink)).toHaveLength(1);
     });
 
-    it("워크스페이스에 직전 바인딩이 없으면 sessionStarted만 남긴다", async () => {
+    it("닫은 직전 바인딩에 후임을 새겨 낡은 식별자가 현재 태스크로 이어지게 한다", async () => {
+        const predecessor = predecessorBinding();
+        const key = bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId);
+        const bindings = new InMemoryBindingStore({[key]: predecessor});
+        const sink = new InMemoryEventSink();
+        const cleared = await new ClearSessionUsecase(
+            bindings, sink, new SequentialIdGenerator(), new FixedClock(NOW),
+        ).execute(CLEAR_INPUT);
+
+        expect(bindings.read()[key]?.supersededBy).toBe(CLEAR_INPUT.runtimeSessionId);
+        const live = resolveLiveBinding(bindings.read(), predecessor.runtimeSource, predecessor.runtimeSessionId);
+        expect(live?.taskId).toBe(cleared.taskId);
+    });
+
+    it("이미 후임에게 밀려난 바인딩은 다시 닫지 않는다", async () => {
+        const predecessor = predecessorBinding({supersededBy: "cc-other"});
+        const bindings = new InMemoryBindingStore({
+            [bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId)]: predecessor,
+        });
+        const sink = new InMemoryEventSink();
+        await new ClearSessionUsecase(
+            bindings, sink, new SequentialIdGenerator(), new FixedClock(NOW),
+        ).execute(CLEAR_INPUT);
+
+        expect(endedEvents(sink)).toHaveLength(0);
+    });
+
+    it("프로세스를 모르면 추측하지 않고 아무것도 닫지 않는다", async () => {
+        const predecessor = predecessorBinding();
+        const bindings = new InMemoryBindingStore({
+            [bindingKey(predecessor.runtimeSource, predecessor.runtimeSessionId)]: predecessor,
+        });
+        const sink = new InMemoryEventSink();
+        await new ClearSessionUsecase(
+            bindings, sink, new SequentialIdGenerator(), new FixedClock(NOW),
+        ).execute({...INPUT, runtimeSessionId: "cc-2", workspacePath: WORKSPACE});
+
+        expect(endedEvents(sink)).toHaveLength(0);
+        expect(startedEvents(sink)).toHaveLength(1);
+    });
+
+    it("직전 바인딩이 없으면 sessionStarted만 남긴다", async () => {
         const sink = new InMemoryEventSink();
         await new ClearSessionUsecase(
             new InMemoryBindingStore(), sink, new SequentialIdGenerator(), new FixedClock(NOW),
@@ -174,6 +217,7 @@ describe("ClearSessionUsecase - 직전 태스크 종료", () => {
 
         const key = bindingKey(CLEAR_INPUT.runtimeSource, CLEAR_INPUT.runtimeSessionId);
         expect(bindings.read()[key]?.workspacePath).toBe(WORKSPACE);
+        expect(bindings.read()[key]?.runtimePid).toBe(RUNTIME_PID);
         expect(bindings.read()[key]?.taskId).toBe(cleared.taskId);
     });
 });

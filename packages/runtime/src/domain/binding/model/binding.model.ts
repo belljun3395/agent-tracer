@@ -9,6 +9,10 @@ export interface BindingRecord {
     readonly runtimeSource: string;
     readonly runtimeSessionId: string;
     readonly workspacePath?: string;
+    /** 이 바인딩을 만든 런타임 프로세스이며, /clear를 가로질러 같은 창을 가리키는 유일한 신원이다. */
+    readonly runtimePid?: number;
+    /** /clear로 이 세션을 밀어낸 후임 런타임 세션이며, 낡은 식별자를 현재 바인딩으로 잇는다. */
+    readonly supersededBy?: string;
     readonly createdAt: string;
     readonly titled?: boolean;
     readonly resumed?: boolean;
@@ -77,6 +81,26 @@ export function toBoundSession(binding: BindingRecord): BoundSession {
 
 function activityTimestamp(binding: BindingRecord): number {
     return Date.parse(binding.turnStartedAt ?? binding.createdAt);
+}
+
+/** MCP 서버 프로세스는 /clear를 살아남아 옛 세션 식별자를 그대로 들고 오므로 승계를 따라 현재 바인딩까지 간다. */
+export function resolveLiveBinding(
+    bindings: BindingStore,
+    runtimeSource: string,
+    runtimeSessionId: string,
+): BindingRecord | undefined {
+    const seen = new Set<string>();
+    let key = bindingKey(runtimeSource, runtimeSessionId);
+    let binding = bindings[key];
+    while (binding?.supersededBy !== undefined) {
+        if (seen.has(key)) return undefined;
+        seen.add(key);
+        key = bindingKey(runtimeSource, binding.supersededBy);
+        const next = bindings[key];
+        if (next === undefined) return undefined;
+        binding = next;
+    }
+    return binding;
 }
 
 /** 조건을 만족하는 바인딩 중 가장 최근에 턴이 열린 것을 고른다. */

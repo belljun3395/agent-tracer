@@ -52,6 +52,7 @@ export class EnsureSessionUsecase {
                     runtimeSource: input.runtimeSource,
                     runtimeSessionId: input.runtimeSessionId,
                     ...(input.workspacePath ? {workspacePath: input.workspacePath} : {}),
+                    ...(input.runtimePid !== undefined ? {runtimePid: input.runtimePid} : {}),
                     createdAt: new Date(this.clock.now()).toISOString(),
                     titled,
                     ...(resumedFromPrior ? {resumed: true} : {}),

@@ -189,6 +189,7 @@ export async function ensureClaudeSession(
         title: explicitTitle ?? defaultTaskTitle(projectDir),
         titled: explicitTitle !== undefined,
         workspacePath: projectDir,
+        runtimePid: process.ppid,
         ...(transport.taskIdOverride !== undefined ? {taskId: transport.taskIdOverride} : {}),
         ...(transport.taskOriginOverride !== undefined ? {origin: transport.taskOriginOverride} : {}),
         ...(options.parentTaskId !== undefined ? {parentTaskId: options.parentTaskId} : {}),
@@ -207,6 +208,7 @@ export function clearClaudeSession(runtimeSessionId: string): Promise<EnsuredSes
         title: defaultTaskTitle(projectDir),
         titled: false,
         workspacePath: projectDir,
+        runtimePid: process.ppid,
     });
 }
 
