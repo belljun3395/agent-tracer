@@ -21,10 +21,10 @@ from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.runtime.execution.trace import ExecutionTrace
 from agent_graph.agents.runtime.llm.budget import ToolLoopBudget
-from agent_graph.agents.task_cleanup.langchain_agent import (
-    _TRANSIENT_TOOL_ERRORS as CLEANUP_TRANSIENT,
-)
+from agent_graph.agents.task_cleanup.tools import GetTaskEventsTool
 from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
+
+CLEANUP_TRANSIENT = GetTaskEventsTool.transient_errors
 
 _MODEL = "claude-sonnet-4-6"
 

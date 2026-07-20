@@ -10,12 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.structured_agent import invoke_structured_agent
-from ..langchain_agent import (
-    INSPECT_TOOLS,
-    TRIAGE_TOOLS,
-    CleanupAgentContext,
-    build_cleanup_agent,
-)
+from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
 from ..models import (
     CLEANUP_REVIEWER_ROLE,
     MAX_INSPECT_REASON_CHARS,
@@ -42,6 +37,7 @@ from ..prompts import (
     build_triage_prompt,
 )
 from ..reader import CleanupLedgerReader
+from ..tools import INSPECT_TOOL_NAMES, TRIAGE_TOOL_NAMES, build_cleanup_registry
 
 type TriageNode = Callable[[TaskCleanupState], Awaitable[TriageUpdate]]
 type InspectNode = Callable[[InspectDispatch], Awaitable[InspectUpdate]]
@@ -70,8 +66,16 @@ def create_triage_node(
         event_ids: dict[str, set[str]] = {}
         triage_name = f"{agent_name}:triage"
         budget = ToolLoopBudget(triage_name, req.model, TASK_CLEANUP_MAX_MODEL_COST_USD, 0.0)
+        registry = build_cleanup_registry(
+            reader, req.batch, exposed, event_ids, agent_name=agent_name
+        )
         agent = build_cleanup_agent(
-            chat, TRIAGE_SYSTEM_PROMPT, TRIAGE_ROUNDS, TRIAGE_TOOLS, TriagePlan
+            chat,
+            TRIAGE_SYSTEM_PROMPT,
+            registry.langchain_tools(TRIAGE_TOOL_NAMES),
+            registry.transient_errors(),
+            max_rounds=TRIAGE_ROUNDS,
+            output=TriagePlan,
         )
         result = await invoke_structured_agent(
             agent,
@@ -88,10 +92,6 @@ def create_triage_node(
                 trace=usage,
                 budget=budget,
                 max_tool_rounds=TRIAGE_ROUNDS,
-                reader=reader,
-                batch=req.batch,
-                exposed_candidates=exposed,
-                event_ids_by_task=event_ids,
             ),
             response_type=TriagePlan,
             recursion_limit=AGENT_RECURSION_LIMIT,
@@ -134,8 +134,16 @@ def create_inspect_node(
         # 후보 하나의 조사가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
         try:
+            registry = build_cleanup_registry(
+                reader, req.batch, {}, event_ids, agent_name=agent_name
+            )
             agent = build_cleanup_agent(
-                chat, INSPECT_SYSTEM_PROMPT, assignment.rounds, INSPECT_TOOLS, InspectReport
+                chat,
+                INSPECT_SYSTEM_PROMPT,
+                registry.langchain_tools(INSPECT_TOOL_NAMES),
+                registry.transient_errors(),
+                max_rounds=assignment.rounds,
+                output=InspectReport,
             )
             result = await invoke_structured_agent(
                 agent,
@@ -150,10 +158,6 @@ def create_inspect_node(
                     trace=usage,
                     budget=budget,
                     max_tool_rounds=assignment.rounds,
-                    reader=reader,
-                    batch=req.batch,
-                    exposed_candidates={},
-                    event_ids_by_task=event_ids,
                 ),
                 response_type=InspectReport,
                 recursion_limit=AGENT_RECURSION_LIMIT,

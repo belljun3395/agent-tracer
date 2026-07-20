@@ -13,16 +13,19 @@ from agent_graph.agents.recipe_scan.models import (
 )
 from agent_graph.agents.recipe_scan.models import MAX_TOOL_ROUNDS as RECIPE_ROUNDS
 from agent_graph.agents.task_cleanup.langchain_agent import build_cleanup_agent
+from agent_graph.agents.task_cleanup.models import CleanupBatch
 from agent_graph.agents.task_cleanup.policy import (
     AGENT_RECURSION_LIMIT as CLEANUP_RECURSION_LIMIT,
 )
 from agent_graph.agents.task_cleanup.policy import MAX_TOOL_ROUNDS as CLEANUP_ROUNDS
+from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
+from agent_graph.agents.task_cleanup.tools import build_cleanup_registry
 from agent_graph.agents.title_suggestion.langchain_agent import build_title_agent
 from agent_graph.agents.title_suggestion.policy import (
     AGENT_RECURSION_LIMIT as TITLE_RECURSION_LIMIT,
 )
 from agent_graph.agents.title_suggestion.policy import MAX_TOOL_ROUNDS as TITLE_ROUNDS
-from tests.support.fakes import FakeToolLoopChat
+from tests.support.fakes import FakeLedger, FakeToolLoopChat
 
 
 def _loop_supersteps(agent: CompiledStateGraph[Any, Any, Any, Any]) -> int:
@@ -31,10 +34,22 @@ def _loop_supersteps(agent: CompiledStateGraph[Any, Any, Any, Any]) -> int:
 
 def _agents() -> list[tuple[str, CompiledStateGraph[Any, Any, Any, Any], int, int]]:
     chat = FakeToolLoopChat([])
+    cleanup_registry = build_cleanup_registry(
+        CleanupLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        CleanupBatch(),
+        {},
+        {},
+        agent_name="task-cleanup",
+    )
     return [
         (
             "task-cleanup",
-            build_cleanup_agent(chat, "system"),
+            build_cleanup_agent(
+                chat,
+                "system",
+                cleanup_registry.langchain_tools(),
+                cleanup_registry.transient_errors(),
+            ),
             CLEANUP_ROUNDS,
             CLEANUP_RECURSION_LIMIT,
         ),

@@ -27,6 +27,7 @@ from ..policy import (
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import CleanupLedgerReader
+from ..tools import build_cleanup_registry
 
 type InvestigateNode = Callable[[TaskCleanupState], Awaitable[InvestigateUpdate]]
 type ValidateDecisionsNode = Callable[[TaskCleanupState], Awaitable[ValidateDecisionsUpdate]]
@@ -43,11 +44,9 @@ def create_decision_nodes(
 ) -> tuple[InvestigateNode, ValidateDecisionsNode, RepairNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    cleanup_agent = build_cleanup_agent(chat, INVESTIGATOR_SYSTEM_PROMPT)
-
     async def invoke_agent(
         messages: list[Any], state: TaskCleanupState
-    ) -> tuple[CleanupDraft, list[Any], CleanupAgentContext]:
+    ) -> tuple[CleanupDraft, list[Any], ToolLoopBudget]:
         budget = ToolLoopBudget(
             agent_name,
             req.model,
@@ -55,15 +54,25 @@ def create_decision_nodes(
             state["model_cost_usd"],
         )
         rounds = decision_rounds(state["plan"])
+        registry = build_cleanup_registry(
+            reader,
+            req.batch,
+            state["exposed_candidates"],
+            state["event_ids_by_task"],
+            agent_name=agent_name,
+        )
+        cleanup_agent = build_cleanup_agent(
+            chat,
+            INVESTIGATOR_SYSTEM_PROMPT,
+            registry.langchain_tools(),
+            registry.transient_errors(),
+            output=CleanupDraft,
+        )
         context = CleanupAgentContext(
             agent_name=agent_name,
             trace=usage,
             budget=budget,
             max_tool_rounds=rounds,
-            reader=reader,
-            batch=req.batch,
-            exposed_candidates=state["exposed_candidates"],
-            event_ids_by_task=state["event_ids_by_task"],
         )
         result = await invoke_structured_agent(
             cleanup_agent,
@@ -73,10 +82,10 @@ def create_decision_nodes(
             recursion_limit=AGENT_RECURSION_LIMIT,
             missing_response=f"{agent_name} produced no structured output",
         )
-        return result.response, result.messages, context
+        return result.response, result.messages, budget
 
     async def investigate(state: TaskCleanupState) -> InvestigateUpdate:
-        draft, messages, context = await invoke_agent(
+        draft, messages, budget = await invoke_agent(
             [
                 {
                     "role": "user",
@@ -93,9 +102,9 @@ def create_decision_nodes(
         return {
             "suggestions": draft.suggestions,
             "messages": messages,
-            "exposed_candidates": context.exposed_candidates,
-            "event_ids_by_task": context.event_ids_by_task,
-            "model_cost_usd": context.budget.spent,
+            "exposed_candidates": state["exposed_candidates"],
+            "event_ids_by_task": state["event_ids_by_task"],
+            "model_cost_usd": budget.spent,
         }
 
     async def validate_decisions(state: TaskCleanupState) -> ValidateDecisionsUpdate:
@@ -116,14 +125,14 @@ def create_decision_nodes(
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, context = await invoke_agent(repair_prompt, state)
+        draft, messages, budget = await invoke_agent(repair_prompt, state)
         return {
             "suggestions": draft.suggestions,
             "messages": messages,
-            "exposed_candidates": context.exposed_candidates,
-            "event_ids_by_task": context.event_ids_by_task,
+            "exposed_candidates": state["exposed_candidates"],
+            "event_ids_by_task": state["event_ids_by_task"],
             "repair_attempted": True,
-            "model_cost_usd": context.budget.spent,
+            "model_cost_usd": budget.spent,
         }
 
     return investigate, validate_decisions, repair

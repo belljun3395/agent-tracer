@@ -7,7 +7,6 @@ from typing import Any, get_args
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from agent_graph.agents.task_cleanup.langchain_agent import get_task_events, list_candidate_tasks
 from agent_graph.agents.task_cleanup.models import (
     CLEANUP_REVIEWER_ROLE,
     MAX_EVIDENCE_EVENT_IDS,
@@ -26,6 +25,7 @@ from agent_graph.agents.task_cleanup.policy import (
     TASK_CLEANUP_MAX_MODEL_COST_USD,
     TASK_CLEANUP_MAX_OUTPUT_TOKENS,
 )
+from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from agent_graph.agents.task_cleanup.tools import (
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
@@ -37,9 +37,11 @@ from agent_graph.agents.task_cleanup.tools import (
     EventOrder,
     GetTaskEventsArgs,
     ListCandidateTasksArgs,
+    build_cleanup_registry,
     candidate_page,
     validate_tool_args,
 )
+from tests.support.fakes import FakeLedger
 from tests.support.golden import load_contract
 
 CONTRACT_FIXTURE = "task.cleanup.tool.contract.json"
@@ -53,6 +55,17 @@ def _tool(name: str) -> Any:
     return _contract()["tools"][name]
 
 
+def _langchain_tools() -> dict[str, Any]:
+    registry = build_cleanup_registry(
+        CleanupLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        CleanupBatch(),
+        {},
+        {},
+        agent_name="task-cleanup",
+    )
+    return {tool.name: tool for tool in registry.langchain_tools()}
+
+
 def _partition(args_model: type[BaseModel]) -> tuple[set[str], set[str]]:
     required = {name for name, field in args_model.model_fields.items() if field.is_required()}
     return required, set(args_model.model_fields) - required
@@ -63,7 +76,7 @@ def test_턴_예산이_골든_계약과_같다() -> None:
 
 
 def test_모델에게_여는_도구_이름이_골든_계약과_같다() -> None:
-    assert {tool.name for tool in (list_candidate_tasks, get_task_events)} == set(_contract()["tools"])
+    assert set(_langchain_tools()) == set(_contract()["tools"])
 
 
 def test_정리_후보_검토_전문가의_역할과_보고가_골든_계약과_같다() -> None:
@@ -75,7 +88,7 @@ def test_정리_후보_검토_전문가의_역할과_보고가_골든_계약과_
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:
-    tools = {tool.name: tool for tool in (list_candidate_tasks, get_task_events)}
+    tools = _langchain_tools()
 
     assert set(tools) == set(_contract()["tools"])
     for name, tool in tools.items():
