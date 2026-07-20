@@ -119,15 +119,6 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 socket.end(`${body}\n`);
                 return;
             }
-            case "recipe-injected":
-                context.interventions.recordRecipeInjected(
-                    Date.now(),
-                    request.taskId,
-                    request.titles,
-                    request.injectedBytes,
-                );
-                send(socket, {ok: true} satisfies DaemonAckResponse);
-                return;
             case "rules":
                 send(socket, {
                     rules: context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId)),
@@ -162,6 +153,12 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 if (body !== null) {
                     const target = context.findActiveTarget();
                     if (target !== undefined) {
+                        context.interventions.recordRecipeInjected(
+                            Date.now(),
+                            target.taskId,
+                            [recipeTitleFromBody(body)],
+                            Buffer.byteLength(body, "utf8"),
+                        );
                         await context.appendIngestEvents([
                             recipeInjectedEvent(target, {
                                 recipeId: request.recipeId,
@@ -251,4 +248,10 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
 
 function send(socket: net.Socket, response: DaemonResponse): void {
     socket.end(`${JSON.stringify(response)}\n`);
+}
+
+/** 개입 로그의 상세 표시용으로 레시피 본문 첫 줄(`# 제목`)에서 제목만 뽑는다. */
+function recipeTitleFromBody(body: string): string {
+    const firstLine = body.split("\n", 1)[0] ?? "";
+    return firstLine.replace(/^#\s*/, "").trim() || firstLine;
 }

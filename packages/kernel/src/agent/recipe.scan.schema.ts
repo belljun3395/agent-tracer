@@ -10,10 +10,41 @@ function structuredOptional<T extends z.ZodTypeAny>(schema: T) {
 
 export const recipeFileRoleSchema = z.enum(["read", "write", "both"]);
 
+// 레시피 스텝의 이행을 원장 이벤트로 확인할 수 있게 하는 관측 가능한 신호이며, 규칙 도메인의 비슷한 어휘와는 독립된 어휘다.
+export const recipeVerifyToolSchema = z.enum(["command", "file-read", "file-write", "web"]);
+
+export const recipeVerifyCommandSchema = z
+    .object({
+        kind: z.literal("command"),
+        commandMatches: z.array(z.string().trim().min(1).max(200)).min(1).max(20),
+    })
+    .strict();
+
+export const recipeVerifyPatternSchema = z
+    .object({
+        kind: z.literal("pattern"),
+        pattern: z.string().trim().min(1).max(500),
+    })
+    .strict();
+
+export const recipeVerifyActionSchema = z
+    .object({
+        kind: z.literal("action"),
+        tool: recipeVerifyToolSchema,
+    })
+    .strict();
+
+export const recipeVerifySchema = z.discriminatedUnion("kind", [
+    recipeVerifyCommandSchema,
+    recipeVerifyPatternSchema,
+    recipeVerifyActionSchema,
+]);
+
 export const recipeStepSchema = z.object({
     order: z.number().int().min(1).max(50),
     action: z.string().trim().min(1).max(200),
     rationale: structuredOptional(z.string().trim().max(300)),
+    verify: structuredOptional(recipeVerifySchema),
 });
 
 export const recipeTouchedFileSchema = z.object({
@@ -76,3 +107,4 @@ export type RecipePitfallPayload = z.infer<typeof recipePitfallSchema>;
 export type RecipeSlicePayload = z.infer<typeof recipeSliceSchema>;
 export type RecipeStepPayload = z.infer<typeof recipeStepSchema>;
 export type RecipeTouchedFilePayload = z.infer<typeof recipeTouchedFileSchema>;
+export type RecipeVerifyPayload = z.infer<typeof recipeVerifySchema>;

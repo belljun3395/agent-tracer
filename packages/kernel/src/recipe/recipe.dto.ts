@@ -19,6 +19,39 @@ export interface RecipePitfallDto {
     readonly evidence: readonly string[];
 }
 
+export type RecipeFileRole = "read" | "write" | "both";
+
+export interface RecipeTouchedFileDto {
+    readonly path: string;
+    readonly role: RecipeFileRole;
+}
+
+export type RecipeVerifyTool = "command" | "file-read" | "file-write" | "web";
+
+export interface RecipeVerifyCommandDto {
+    readonly kind: "command";
+    readonly commandMatches: readonly string[];
+}
+
+export interface RecipeVerifyPatternDto {
+    readonly kind: "pattern";
+    readonly pattern: string;
+}
+
+export interface RecipeVerifyActionDto {
+    readonly kind: "action";
+    readonly tool: RecipeVerifyTool;
+}
+
+export type RecipeVerifyDto = RecipeVerifyCommandDto | RecipeVerifyPatternDto | RecipeVerifyActionDto;
+
+export interface RecipeStepDto {
+    readonly order: number;
+    readonly action: string;
+    readonly rationale?: string;
+    readonly verify?: RecipeVerifyDto;
+}
+
 export interface RecipeDto {
     readonly id: string;
     readonly userId: string;
@@ -31,8 +64,8 @@ export interface RecipeDto {
     readonly corrections: readonly RecipeCorrectionDto[];
     readonly pitfalls: readonly RecipePitfallDto[];
     readonly governingRules: readonly string[];
-    readonly steps: readonly unknown[];
-    readonly touchedFiles: readonly string[];
+    readonly steps: readonly RecipeStepDto[];
+    readonly touchedFiles: readonly RecipeTouchedFileDto[];
     readonly contributingSlices: readonly unknown[];
     readonly rationale: string | null;
     readonly language: string | null;

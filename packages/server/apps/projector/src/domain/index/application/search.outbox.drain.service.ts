@@ -29,12 +29,19 @@ function recipeDocument(recipe: RecipeEntity): Record<string, unknown> {
         intent: recipe.intent,
         description: recipe.description,
         summaryMd: recipe.summaryMd,
-        touchedFiles: recipe.touchedFiles,
+        touchedFiles: touchedFilePaths(recipe.touchedFiles),
         status: recipe.status,
         userEdited: recipe.userEdited,
         rev: recipe.rev,
         updatedAt: recipe.updatedAt.toISOString(),
     };
+}
+
+/** touchedFiles는 {path, role} 객체 배열이지만 검색 색인은 경로만 키워드로 걸러 쓴다. */
+function touchedFilePaths(touchedFiles: readonly unknown[]): string[] {
+    return touchedFiles
+        .map((entry) => (entry !== null && typeof entry === "object" ? (entry as { path?: unknown }).path : undefined))
+        .filter((path): path is string => typeof path === "string");
 }
 
 function memoDocument(memo: MemoEntity): Record<string, unknown> {

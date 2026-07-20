@@ -8,6 +8,19 @@
   "steps": {
     "consecutiveFromOne": true
   },
+  "verify": {
+    "kinds": ["command", "pattern", "action"],
+    "command": {
+      "matchesMin": 1,
+      "matchesMax": 20
+    },
+    "pattern": {
+      "maxLength": 500
+    },
+    "action": {
+      "tools": ["command", "file-read", "file-write", "web"]
+    }
+  },
   "orchestration": {
     "workerMaxTurns": 10,
     "roles": {

@@ -31,7 +31,7 @@ describe("fetchRecipes", () => {
         pitfalls: [],
         governingRules: [],
         steps: [{ order: 1, action: "inspect" }],
-        touchedFiles: ["src/index.ts"],
+        touchedFiles: [{ path: "src/index.ts", role: "write" }],
         contributingSlices: [{ taskId: "task-1", eventIds: ["event-1"] }],
         rationale: "evidence",
         language: "en",
@@ -58,7 +58,7 @@ describe("fetchRecipes", () => {
       sourceJobId: "job-1",
       appliedCount: 3,
       successCount: 2,
-      touchedFiles: [{ path: "src/index.ts", role: "both" }],
+      touchedFiles: [{ path: "src/index.ts", role: "write" }],
     });
     expect(response.taskTitleById.get("task-1")).toBe("Task one");
   });

@@ -1,10 +1,5 @@
 import type { RecipeWithStatsDto } from "@monitor/kernel";
-import type {
-  Recipe,
-  RecipeSlice,
-  RecipeStep,
-  RecipeTouchedFile,
-} from "~web/entities/recipe/model/recipe.js";
+import type { Recipe, RecipeSlice } from "~web/entities/recipe/model/recipe.js";
 
 export function toRecipe(item: RecipeWithStatsDto): Recipe {
   return {
@@ -19,8 +14,8 @@ export function toRecipe(item: RecipeWithStatsDto): Recipe {
     corrections: item.corrections,
     pitfalls: item.pitfalls,
     governingRules: item.governingRules,
-    steps: item.steps as readonly RecipeStep[],
-    touchedFiles: item.touchedFiles.map((path): RecipeTouchedFile => ({ path, role: "both" })),
+    steps: item.steps,
+    touchedFiles: item.touchedFiles,
     contributingSlices: item.contributingSlices as readonly RecipeSlice[],
     rev: item.rev,
     parentRecipeId: item.parentRecipeId,

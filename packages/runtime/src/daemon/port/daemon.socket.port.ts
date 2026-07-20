@@ -27,13 +27,6 @@ export interface DaemonRulesRequest {
     readonly taskId: string;
 }
 
-export interface DaemonRecipeInjectedRequest {
-    readonly type: "recipe-injected";
-    readonly taskId: string;
-    readonly titles: readonly string[];
-    readonly injectedBytes: number;
-}
-
 export interface DaemonGuardrailRequest {
     readonly type: "guardrail";
     readonly taskId: string;
@@ -50,7 +43,6 @@ export type DaemonRequest =
     | DaemonShutdownRequest
     | DaemonHintsRequest
     | DaemonRulesRequest
-    | DaemonRecipeInjectedRequest
     | DaemonGuardrailRequest
     | DaemonDeliveryRequest
     | McpSocketRequest;
@@ -117,17 +109,6 @@ export function parseDaemonRequest(value: unknown): DaemonRequest | null {
             return {type: "delivery"};
         case "rules":
             return typeof value["taskId"] === "string" ? {type: "rules", taskId: value["taskId"]} : null;
-        case "recipe-injected":
-            return typeof value["taskId"] === "string"
-                ? {
-                    type: "recipe-injected",
-                    taskId: value["taskId"],
-                    titles: Array.isArray(value["titles"])
-                        ? value["titles"].filter((title): title is string => typeof title === "string")
-                        : [],
-                    injectedBytes: typeof value["injectedBytes"] === "number" ? value["injectedBytes"] : 0,
-                }
-                : null;
         case "guardrail":
             return typeof value["taskId"] === "string"
                 ? {

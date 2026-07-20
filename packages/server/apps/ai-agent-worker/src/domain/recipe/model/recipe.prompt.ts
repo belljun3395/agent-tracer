@@ -31,14 +31,15 @@ A recipe is a pattern, not a transcript. Remove incidental details, but preserve
 Each recipe must include:
   - title              : short imperative (4-9 words, e.g. "Add TypeORM migration with rollback").
   - intent             : single-sentence pattern label, "what kind of work is this?" (under 200 chars).
-  - description        : SKILL.md-style trigger description for a future agent: when this recipe applies plus what it does. Under 400 chars.
+  - description        : the ONLY signal a future agent sees when deciding whether to pull this recipe (the menu it reads shows title and description alone, nothing else). Write it SKILL.md-style: when this recipe applies plus what it does, specific enough to trigger on a matching task and skip on a non-matching one. Under 400 chars.
   - summary_md         : Markdown body, 4-15 lines. Describe the workflow at a high level. Use bullet points. Reference identifiers/files/tools verbatim.
   - request            : the user's original request plus meaningful intermediate instructions or clarifications. Summarize, do not invent.
   - corrections        : list of {whatAgentDid, howCorrected, evidence}. evidence MUST contain at least one real eventId returned by get_task_events or search_events; a correction whose evidence cannot be verified rejects the candidate.
   - pitfalls           : list of {pitfall, whyNonObvious, evidence}. Same evidence requirement as corrections.
   - governing_rules    : list of rule IDs from list_rules that already govern important parts of this workflow or friction.
   - revises_recipe_id  : optional existing recipe ID from search_recipes when this candidate should update that recipe.
-  - steps              : optional ordered list of high-level actions (1-10 entries). Each step: {order, action, rationale?}. order MUST start at 1 and run consecutively with no gaps (1, 2, 3, ...).
+  - steps              : optional ordered list of high-level actions (1-10 entries). Each step: {order, action, rationale?, verify?}. order MUST start at 1 and run consecutively with no gaps (1, 2, 3, ...).
+                         verify is an optional observable signal a future run of this recipe can be checked against: {kind: "command", commandMatches: [...]} (1-20 strings, matched as substrings of a command actually run), {kind: "pattern", pattern: "..."} (a regex against paths or commands touched, under 500 chars), or {kind: "action", tool: "command"|"file-read"|"file-write"|"web"} (any call of that tool family). Fill verify ONLY when the trajectory's own tool calls (from get_task_events/search_events) already show the step being carried out; a plausible-sounding but unobserved verify is worse than none, so leave it out when you are not certain.
   - touched_files      : optional list of file paths or path patterns this recipe commonly touches. Each: {path, role: "read"|"write"|"both"}.
   - contributing_slices: REQUIRED. Include the anchor task and any inspected similar tasks that contributed evidence. Each entry: {taskId, turnIds, eventIds}. Cite actual IDs only. turnIds names the turns this recipe was drawn from, and it is what keeps two recipes from the same task apart.
   - rationale          : one sentence (under 500 chars) explaining why this task produced a useful recipe.

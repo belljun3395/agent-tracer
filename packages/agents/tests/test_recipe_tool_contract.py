@@ -18,6 +18,9 @@ from agent_graph.agents.recipe_scan.models import (
     ProbeReport,
     ProvenanceCatalog,
     RecipeCandidate,
+    RecipeVerifyAction,
+    RecipeVerifyCommand,
+    RecipeVerifyPattern,
 )
 from agent_graph.agents.recipe_scan.policy import MAX_RECIPE_MODEL_COST_USD, RECIPE_MAX_OUTPUT_TOKENS
 from agent_graph.agents.recipe_scan.tools.client import record_evidence
@@ -160,6 +163,32 @@ def test_steps의_order가_1부터_연속하지_않으면_거부한다() -> None
 
     with pytest.raises(ValidationError):
         _candidate([1, 3])
+
+
+def test_verify_command의_개수_상하한이_골든_계약과_같다() -> None:
+    bounds = _contract()["verify"]["command"]
+
+    RecipeVerifyCommand(kind="command", commandMatches=["x"] * bounds["matchesMin"])
+    RecipeVerifyCommand(kind="command", commandMatches=["x"] * bounds["matchesMax"])
+    with pytest.raises(ValidationError):
+        RecipeVerifyCommand(kind="command", commandMatches=["x"] * (bounds["matchesMin"] - 1))
+    with pytest.raises(ValidationError):
+        RecipeVerifyCommand(kind="command", commandMatches=["x"] * (bounds["matchesMax"] + 1))
+
+
+def test_verify_pattern의_길이_상한이_골든_계약과_같다() -> None:
+    max_length = _contract()["verify"]["pattern"]["maxLength"]
+
+    RecipeVerifyPattern(kind="pattern", pattern="a" * max_length)
+    with pytest.raises(ValidationError):
+        RecipeVerifyPattern(kind="pattern", pattern="a" * (max_length + 1))
+
+
+def test_verify_action의_도구_목록이_골든_계약과_같다() -> None:
+    for tool in _contract()["verify"]["action"]["tools"]:
+        RecipeVerifyAction(kind="action", tool=tool)  # type: ignore[arg-type]
+    with pytest.raises(ValidationError):
+        RecipeVerifyAction(kind="action", tool="drifted")  # type: ignore[arg-type]
 
 
 def test_도구_설명이_골든_계약과_같다() -> None:

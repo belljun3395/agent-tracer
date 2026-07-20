@@ -4,6 +4,7 @@ import type {
     RecipePitfallPayload,
     RecipeSlicePayload,
     RecipeStepPayload,
+    RecipeTouchedFilePayload,
 } from "@monitor/kernel";
 import {
     isEventVerified,
@@ -26,7 +27,7 @@ export interface GeneratedRecipeCandidate {
     readonly pitfalls: readonly RecipePitfallPayload[];
     readonly governingRules: readonly string[];
     readonly steps: readonly RecipeStepPayload[];
-    readonly touchedFiles: readonly string[];
+    readonly touchedFiles: readonly RecipeTouchedFilePayload[];
     readonly contributingSlices: readonly RecipeSlicePayload[];
     readonly rationale: string;
     readonly revisesRecipeId?: string;
@@ -128,7 +129,7 @@ export function assembleRecipeCandidates(
             pitfalls: filtered.pitfalls,
             governingRules: filtered.governingRules,
             steps: candidate.steps,
-            touchedFiles: candidate.touched_files.map((file) => file.path),
+            touchedFiles: candidate.touched_files,
             contributingSlices: filtered.contributingSlices,
             rationale: candidate.rationale,
             ...(filtered.revisesRecipeId !== undefined

@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from ..shared.models import Language
 from .models import MAX_RECIPE_CANDIDATES, DispatchPlan, ProbeReport
 
-PROMPT_VERSION = "recipe-scan-native-v5"
+PROMPT_VERSION = "recipe-scan-native-v6"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "auto": "Use the dominant language of the anchor task.",
@@ -57,8 +57,10 @@ How to work:
 Each recipe must include:
   - title              : short imperative, 4-9 words (e.g. "Add TypeORM migration with rollback").
   - intent             : single-sentence pattern label, "what kind of work is this?" (under 200 chars).
-  - description        : SKILL.md-style trigger description for a future agent: when this recipe applies
-                         plus what it does. Under 400 chars.
+  - description        : the ONLY signal a future agent sees when deciding whether to pull this recipe (the
+                         menu it reads shows title and description alone, nothing else). Write it
+                         SKILL.md-style: when this recipe applies plus what it does, specific enough to
+                         trigger on a matching task and skip on a non-matching one. Under 400 chars.
   - summary_md         : Markdown body, 4-15 lines, bullet points, identifiers/files/tools verbatim.
   - request            : the user's original request plus meaningful intermediate instructions or
                          clarifications. Summarize, do not invent.
@@ -70,8 +72,16 @@ Each recipe must include:
   - revises_recipe_id  : optional existing recipe ID from search_recipes when this candidate should
                          update that recipe.
   - steps              : optional ordered list of high-level actions (1-10 entries), each
-                         {{order, action, rationale?}}. order MUST start at 1 and run consecutively with
-                         no gaps (1, 2, 3, ...).
+                         {{order, action, rationale?, verify?}}. order MUST start at 1 and run
+                         consecutively with no gaps (1, 2, 3, ...).
+                         verify is an optional observable signal a future run of this recipe can be
+                         checked against: {{kind: "command", commandMatches: [...]}} (1-20 strings,
+                         matched as substrings of a command actually run), {{kind: "pattern",
+                         pattern: "..."}} (a regex against paths or commands touched, under 500 chars), or
+                         {{kind: "action", tool: "command"|"file-read"|"file-write"|"web"}} (any call of
+                         that tool family). Fill verify ONLY when the trajectory's own tool calls (from
+                         get_task_events/search_events) already show the step being carried out; an
+                         unobserved verify is worse than none, so leave it out when you are not certain.
   - touched_files      : optional list of {{path, role: "read"|"write"|"both"}}.
   - contributing_slices: REQUIRED. The anchor task plus any inspected similar tasks that contributed
                          evidence. Each entry: {{taskId, turnIds, eventIds}}, actual IDs only. turnIds

@@ -16,6 +16,11 @@ export interface RecipePitfall {
     readonly evidence: readonly string[];
 }
 
+export interface RecipeTouchedFile {
+    readonly path: string;
+    readonly role: "read" | "write" | "both";
+}
+
 export interface RecipeRevisionInput {
     readonly title?: string;
     readonly intent?: string;
@@ -26,7 +31,7 @@ export interface RecipeRevisionInput {
     readonly pitfalls?: readonly RecipePitfall[];
     readonly governingRules?: readonly string[];
     readonly steps?: readonly unknown[];
-    readonly touchedFiles?: readonly string[];
+    readonly touchedFiles?: readonly RecipeTouchedFile[];
     readonly contributingSlices?: readonly unknown[];
     readonly rationale?: string | null;
     readonly language?: string | null;
@@ -45,7 +50,7 @@ export interface RecipeCandidateInput {
     readonly pitfalls: readonly RecipePitfall[];
     readonly governingRules: readonly string[];
     readonly steps: readonly unknown[];
-    readonly touchedFiles: readonly string[];
+    readonly touchedFiles: readonly RecipeTouchedFile[];
     readonly contributingSlices: readonly unknown[];
     readonly rationale?: string;
     readonly language?: string;

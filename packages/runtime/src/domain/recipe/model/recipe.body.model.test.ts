@@ -55,13 +55,13 @@ describe("buildRecipeBody", () => {
         const body = buildRecipeBody(recipe({
             pitfalls: [{pitfall: "캐시가 비어 보인다", whyNonObvious: "필드 이름이 다르다"}],
             corrections: [{whatAgentDid: "score를 읽었다", howCorrected: "score를 지웠다"}],
-            touchedFiles: ["a.ts", "b.ts"],
+            touchedFiles: [{path: "a.ts", role: "write"}, {path: "b.ts", role: "read"}],
             governingRules: ["rule-1"],
         }));
 
         expect(body).toContain("캐시가 비어 보인다 — 필드 이름이 다르다");
         expect(body).toContain("score를 읽었다 → score를 지웠다");
-        expect(body).toContain("touched files: a.ts, b.ts");
+        expect(body).toContain("touched files: a.ts (write), b.ts (read)");
         expect(body).toContain("governing rules: rule-1");
     });
 

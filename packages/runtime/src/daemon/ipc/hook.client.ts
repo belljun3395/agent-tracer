@@ -14,7 +14,6 @@ import {
     type DaemonDeliveryResponse,
     type DaemonGuardrailRequest,
     type DaemonHintsRequest,
-    type DaemonRecipeInjectedRequest,
     type DaemonRulesRequest,
 } from "~runtime/daemon/port/daemon.socket.port.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
@@ -23,7 +22,6 @@ import type {PreprocessingHint, PreprocessingHintsRequest} from "~runtime/domain
 
 const HINTS_TIMEOUT_MS = 500;
 const GUARDRAIL_TIMEOUT_MS = 1000;
-const REPORT_TIMEOUT_MS = 300;
 const ASSISTANT_TEXT_MAX = 8_000;
 
 // swc-node 소스 실행이므로 컴파일된 진입점이 없으면 로더를 붙여 소스를 그대로 띄운다.
@@ -112,22 +110,6 @@ export async function queryDaemonDelivery(): Promise<DaemonDeliveryResponse | nu
         );
     } catch {
         return null;
-    }
-}
-
-/** 데몬에 레시피 주입 관측을 보고한다. */
-export async function reportRecipeInjection(
-    taskId: string,
-    titles: readonly string[],
-    injectedBytes: number,
-): Promise<void> {
-    if (!taskId || titles.length === 0) return;
-    const paths = resolveAgentTracerPaths();
-    const message: DaemonRecipeInjectedRequest = {type: "recipe-injected", taskId, titles, injectedBytes};
-    try {
-        await requestDaemon(paths.socketPath, message, REPORT_TIMEOUT_MS, () => true, true);
-    } catch {
-        return;
     }
 }
 

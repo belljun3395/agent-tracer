@@ -5,6 +5,7 @@ import type {
     CachedRecipeCorrection,
     CachedRecipePitfall,
     CachedRecipeStep,
+    CachedRecipeTouchedFile,
 } from "~runtime/domain/recipe/model/recipe.model.js";
 import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
 import {isRecord} from "~runtime/support/json.js";
@@ -68,7 +69,7 @@ function toCachedRecipe(value: unknown): CachedRecipe | null {
         steps: readSteps(value["steps"]),
         pitfalls: readPitfalls(value["pitfalls"]),
         corrections: readCorrections(value["corrections"]),
-        touchedFiles: readStringArray(value["touchedFiles"]),
+        touchedFiles: readTouchedFiles(value["touchedFiles"]),
         governingRules: readStringArray(value["governingRules"]),
     };
 }
@@ -109,6 +110,18 @@ function readCorrections(value: unknown): CachedRecipeCorrection[] {
         if (whatAgentDid && howCorrected) corrections.push({whatAgentDid, howCorrected});
     }
     return corrections;
+}
+
+function readTouchedFiles(value: unknown): CachedRecipeTouchedFile[] {
+    if (!Array.isArray(value)) return [];
+    const files: CachedRecipeTouchedFile[] = [];
+    for (const entry of value) {
+        if (!isRecord(entry)) continue;
+        const path = readString(entry, "path");
+        const role = entry["role"];
+        if (path && (role === "read" || role === "write" || role === "both")) files.push({path, role});
+    }
+    return files;
 }
 
 function readStringArray(value: unknown): string[] {

@@ -27,7 +27,10 @@ export function buildRecipeBody(recipe: CachedRecipe): string {
         }
     }
 
-    if (recipe.touchedFiles.length > 0) lines.push("", `touched files: ${recipe.touchedFiles.join(", ")}`);
+    if (recipe.touchedFiles.length > 0) {
+        const files = recipe.touchedFiles.map((file) => `${file.path} (${file.role})`).join(", ");
+        lines.push("", `touched files: ${files}`);
+    }
     if (recipe.governingRules.length > 0) lines.push("", `governing rules: ${recipe.governingRules.join(", ")}`);
 
     return lines.join("\n");

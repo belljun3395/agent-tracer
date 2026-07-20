@@ -26,7 +26,11 @@
         {
           "order": 1,
           "action": "Add and register the migration.",
-          "rationale": "The application never synchronizes schema at startup."
+          "rationale": "The application never synchronizes schema at startup.",
+          "verify": {
+            "kind": "command",
+            "commandMatches": ["migration:generate"]
+          }
         }
       ],
       "touched_files": [

@@ -110,10 +110,48 @@ class ProbeReport(BaseModel):
     exhausted: bool = False
 
 
+RecipeVerifyTool = Literal["command", "file-read", "file-write", "web"]
+
+
+class RecipeVerifyCommand(BaseModel):
+    """이 명령을 돌렸는지로 스텝 이행을 관측하는 신호다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["command"]
+    commandMatches: list[TrimmedStr] = Field(min_length=1, max_length=20)
+
+
+class RecipeVerifyPattern(BaseModel):
+    """이 경로·명령 정규식 패턴에 걸리는 것을 건드렸는지로 스텝 이행을 관측하는 신호다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["pattern"]
+    pattern: TrimmedStr = Field(min_length=1, max_length=500)
+
+
+class RecipeVerifyAction(BaseModel):
+    """이 도구 계열을 썼는지로 스텝 이행을 관측하는 신호다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["action"]
+    tool: RecipeVerifyTool
+
+
+# 규칙 도메인의 RuleExpectation과 모양이 비슷해도 독립된 어휘이며 공통 모듈로 묶지 않는다.
+RecipeVerify = Annotated[
+    RecipeVerifyCommand | RecipeVerifyPattern | RecipeVerifyAction,
+    Field(discriminator="kind"),
+]
+
+
 class RecipeStep(BaseModel):
     order: int = Field(ge=1, le=50)
     action: TrimmedStr = Field(min_length=1, max_length=200)
     rationale: TrimmedStr | None = Field(default=None, max_length=300)
+    verify: RecipeVerify | None = None
 
 
 class RecipeTouchedFile(BaseModel):

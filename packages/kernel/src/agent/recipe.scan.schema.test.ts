@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { RECIPE_CANDIDATE_LIMIT } from "./agent.const.js";
-import { recipeCandidateSchema, recipeCandidatesListSchema } from "./recipe.scan.schema.js";
+import {
+    recipeCandidateSchema,
+    recipeCandidatesListSchema,
+    recipeVerifySchema,
+} from "./recipe.scan.schema.js";
 
 function candidate(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -64,6 +68,26 @@ describe("recipeCandidateSchema", () => {
         ).toThrow();
     });
 
+    it("step의 verify로 세 종류의 판별 유니온을 받는다", () => {
+        const parsed = recipeCandidateSchema.parse(
+            candidate({
+                steps: [
+                    { order: 1, action: "a", verify: { kind: "command", commandMatches: ["npm test"] } },
+                    { order: 2, action: "b", verify: { kind: "pattern", pattern: "^src/.*\\.ts$" } },
+                    { order: 3, action: "c", verify: { kind: "action", tool: "file-write" } },
+                ],
+            }),
+        );
+
+        expect(parsed.steps.map((step) => step.verify?.kind)).toEqual(["command", "pattern", "action"]);
+    });
+
+    it("verify가 다른 arm의 필드를 섞어 받으면 거부한다", () => {
+        expect(() =>
+            recipeVerifySchema.parse({ kind: "command", commandMatches: ["npm test"], pattern: "leak" }),
+        ).toThrow();
+    });
+
     it("correction의 evidence가 비어 있으면 거부한다", () => {
         expect(() =>
             recipeCandidateSchema.parse(
@@ -123,5 +147,52 @@ describe("recipeCandidatesListSchema", () => {
         ) as unknown;
 
         expect(recipeCandidatesListSchema.parse(fixture).recipes[0]?.title).toBe("Add a safe migration");
+    });
+});
+
+describe("recipeVerifySchema", () => {
+    const contract = JSON.parse(
+        readFileSync(new URL("./__fixtures__/recipe.scan.tool.contract.json", import.meta.url), "utf8"),
+    ) as {
+        readonly verify: {
+            readonly kinds: readonly string[];
+            readonly command: { readonly matchesMin: number; readonly matchesMax: number };
+            readonly pattern: { readonly maxLength: number };
+            readonly action: { readonly tools: readonly string[] };
+        };
+    };
+
+    it("commandMatches 개수 상하한이 골든 계약과 같다", () => {
+        const { matchesMin, matchesMax } = contract.verify.command;
+        const matches = (count: number) => Array.from({ length: count }, (_, index) => `cmd-${index}`);
+
+        expect(recipeVerifySchema.safeParse({ kind: "command", commandMatches: matches(matchesMin) }).success).toBe(
+            true,
+        );
+        expect(recipeVerifySchema.safeParse({ kind: "command", commandMatches: matches(matchesMax) }).success).toBe(
+            true,
+        );
+        expect(
+            recipeVerifySchema.safeParse({ kind: "command", commandMatches: matches(matchesMin - 1) }).success,
+        ).toBe(false);
+        expect(
+            recipeVerifySchema.safeParse({ kind: "command", commandMatches: matches(matchesMax + 1) }).success,
+        ).toBe(false);
+    });
+
+    it("pattern 길이 상한이 골든 계약과 같다", () => {
+        const { maxLength } = contract.verify.pattern;
+
+        expect(recipeVerifySchema.safeParse({ kind: "pattern", pattern: "a".repeat(maxLength) }).success).toBe(true);
+        expect(recipeVerifySchema.safeParse({ kind: "pattern", pattern: "a".repeat(maxLength + 1) }).success).toBe(
+            false,
+        );
+    });
+
+    it("action의 도구 목록이 골든 계약과 같다", () => {
+        for (const tool of contract.verify.action.tools) {
+            expect(recipeVerifySchema.safeParse({ kind: "action", tool }).success).toBe(true);
+        }
+        expect(recipeVerifySchema.safeParse({ kind: "action", tool: "drifted" }).success).toBe(false);
     });
 });

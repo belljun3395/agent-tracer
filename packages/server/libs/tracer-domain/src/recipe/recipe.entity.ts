@@ -59,7 +59,7 @@ export class RecipeEntity {
     steps!: unknown[];
 
     @Column({ name: "touched_files", type: "jsonb", default: [] })
-    touchedFiles!: string[];
+    touchedFiles!: unknown[];
 
     @Column({ name: "contributing_slices", type: "jsonb", default: [] })
     contributingSlices!: unknown[];
