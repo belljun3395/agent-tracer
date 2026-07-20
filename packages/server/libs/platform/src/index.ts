@@ -22,3 +22,4 @@ export * from "./kafka/readiness.probe.js";
 export * from "./kafka/notification.producer.js";
 export * from "./opensearch/opensearch.factory.js";
 export * from "./temporal/temporal.factory.js";
+export * from "./temporal/temporal.error.js";

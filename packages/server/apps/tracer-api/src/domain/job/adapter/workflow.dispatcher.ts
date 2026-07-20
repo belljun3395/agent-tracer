@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleDestroy } from "@nestjs/common";
-import { createTemporalConnection, type TemporalHandle } from "@monitor/platform";
+import { createTemporalConnection, isWorkflowNotFound, type TemporalHandle } from "@monitor/platform";
 import { JOB_KIND, type JobKind } from "@monitor/kernel";
-import type { WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
+import type { WorkflowCancelOutcome, WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
 
 // ai-agent-worker가 등록한 큐 이름과 같아야 잡이 소비된다.
 const TASK_QUEUE = "llm-jobs";
@@ -33,9 +33,15 @@ export class WorkflowDispatcher implements WorkflowDispatcherPort, OnModuleDestr
     }
 
     /** 실행 중인 워크플로를 취소해 진행 중인 LLM 호출까지 중단시킨다. */
-    async cancel(kind: JobKind, jobId: string): Promise<void> {
+    async cancel(kind: JobKind, jobId: string): Promise<WorkflowCancelOutcome> {
         const { client } = await this.connection();
-        await client.workflow.getHandle(`${kind}:${jobId}`).cancel();
+        try {
+            await client.workflow.getHandle(`${kind}:${jobId}`).cancel();
+            return "canceled";
+        } catch (error) {
+            if (isWorkflowNotFound(error)) return "absent";
+            throw error;
+        }
     }
 
     async onModuleDestroy(): Promise<void> {

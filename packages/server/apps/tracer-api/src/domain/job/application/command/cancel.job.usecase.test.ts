@@ -36,14 +36,25 @@ describe("CancelJobUseCase", () => {
         expect(dispatcher.cancel).not.toHaveBeenCalled();
     });
 
-    it("워크플로 취소가 실패해도 잡 취소는 유지한다", async () => {
+    it("취소할 워크플로가 이미 없으면 잡 취소를 그대로 마친다", async () => {
         const job = pendingJob(JOB_KIND.recipeScan);
         const { useCase, dispatcher } = makeUseCase(job, true);
-        dispatcher.cancel.mockRejectedValueOnce(new Error("workflow not found"));
+        dispatcher.cancel.mockResolvedValueOnce("absent");
 
         const result = await useCase.execute("u1", job.id, NOW);
 
         expect(result?.status).toBe(JOB_STATUS.canceled);
+    });
+
+    it("워크플로에 닿지 못하면 잡을 취소로 기록하지 않는다", async () => {
+        const job = pendingJob(JOB_KIND.recipeScan);
+        const { useCase, jobs, dispatcher, notified } = makeUseCase(job, true);
+        dispatcher.cancel.mockRejectedValueOnce(new Error("connection refused"));
+
+        await expect(useCase.execute("u1", job.id, NOW)).rejects.toThrow();
+
+        expect((await jobs.findById(job.id))?.status).not.toBe(JOB_STATUS.canceled);
+        expect(notified).toHaveLength(0);
     });
 
     it("이미 종료된 잡은 취소할 수 없다", async () => {
@@ -57,10 +68,10 @@ describe("CancelJobUseCase", () => {
 
     it("조건부 전이에서 지면 이미 종결된 잡으로 보고 거절한다", async () => {
         const job = pendingJob(JOB_KIND.recipeScan);
-        const { useCase, dispatcher } = makeUseCase(job, false);
+        const { useCase, notified } = makeUseCase(job, false);
 
         await expect(useCase.execute("u1", job.id, NOW)).rejects.toThrow(InvariantViolationError);
-        expect(dispatcher.cancel).not.toHaveBeenCalled();
+        expect(notified).toHaveLength(0);
     });
 
     it("남의 잡은 존재하지 않는 것처럼 null을 반환한다", async () => {
@@ -83,7 +94,7 @@ function makeUseCase(job: AiJobEntity | null, transitionWins: boolean) {
     const jobs = new InMemoryAiJobRepository();
     if (job !== null) jobs.seed(job);
     if (!transitionWins) jobs.loseNextTransitionToCancel(NOW);
-    const dispatcher = { cancel: vi.fn().mockResolvedValue(undefined) };
+    const dispatcher = { cancel: vi.fn().mockResolvedValue("canceled") };
     const notified: JobStatusChange[] = [];
     const notifier: JobStatusNotifier = {
         notify: (_userId, change) => {
@@ -95,5 +106,5 @@ function makeUseCase(job: AiJobEntity | null, transitionWins: boolean) {
         dispatcher as unknown as WorkflowDispatcherPort,
         notifier,
     );
-    return { useCase, dispatcher, notified };
+    return { useCase, jobs, dispatcher, notified };
 }
