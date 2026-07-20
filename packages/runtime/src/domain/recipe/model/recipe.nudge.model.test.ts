@@ -15,6 +15,10 @@ describe("formatRecipeNudge", () => {
         expect(nudge).toContain("</agent-tracer-recipes>");
     });
 
+    it("레시피가 하나면 단수로 쓴다", () => {
+        expect(formatRecipeNudge(1)).toContain("1 saved recipe —");
+    });
+
     it("개별 레시피의 id나 title은 싣지 않는다", () => {
         const nudge = formatRecipeNudge(2);
 

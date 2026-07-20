@@ -3,8 +3,8 @@ export function formatRecipeNudge(count: number): string {
     if (count === 0) return "";
     return [
         "<agent-tracer-recipes>",
-        `This workspace has ${count} saved recipes — workflows distilled from how past tasks here were `
-            + "actually solved.",
+        `This workspace has ${count} saved ${count === 1 ? "recipe" : "recipes"} — workflows distilled `
+            + "from how past tasks here were actually solved.",
         "If this request plausibly repeats one, call `search_recipes` with the task in your own words "
             + "before starting.",
         "</agent-tracer-recipes>",

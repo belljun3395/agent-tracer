@@ -23,7 +23,7 @@ describe("BuildRecipeNudgeUsecase", () => {
         const nudge = usecase.execute();
 
         expect(nudge).toContain("<agent-tracer-recipes>");
-        expect(nudge).toContain("1 saved recipes");
+        expect(nudge).toContain("1 saved recipe —");
     });
 
     it("캐시가 비어 있으면 빈 문자열을 낸다", () => {
