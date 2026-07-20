@@ -33,6 +33,7 @@ async function bootstrap(): Promise<void> {
     const config = loadApplicationConfig();
     const runtimeConfig = loadProjectorRuntimeConfig();
 
+    const clock = new SystemClock();
     const dataSource = createDataSource({ db: config.tracerDb, entities: TRACER_ENTITIES, migrations: [], migrationsRun: false });
     const database = new TypeOrmTracerDatabaseAdapter(dataSource);
     const indexLock = new TypeOrmSearchOutboxLockAdapter(dataSource);
@@ -79,6 +80,7 @@ async function bootstrap(): Promise<void> {
             dbEventConsumer,
             searchEventConsumer,
             searchIndex,
+            clock,
             otlp,
         }),
         { logger: ["error", "warn"] },
@@ -94,12 +96,23 @@ async function bootstrap(): Promise<void> {
     await dbConsumer.start();
     await searchConsumer.start();
     if (otlpConsumer) await otlpConsumer.start();
-    const scheduler = new PeriodicScheduler(new SystemClock());
+    const scheduler = new PeriodicScheduler(clock);
     scheduler.every("search_outbox_drain", runtimeConfig.searchOutboxDrainIntervalMs, () => searchOutboxDrain.runOnce());
     scheduler.every("search_events_reaper", runtimeConfig.searchEventsReaper.intervalMs, (now) =>
         searchEventsReaper.runOnce(now, runtimeConfig.searchEventsReaper.retentionMs),
     );
-    logInfo({ msg: "projector.started", otlpExport: otlp !== undefined });
+    logInfo({
+        msg: "projector.started",
+        otlpExport: otlp !== undefined,
+        consumerGroups: {
+            db: CONSUMER_GROUP.projectorDb,
+            search: CONSUMER_GROUP.projectorSearch,
+            ...(otlp !== undefined ? { otlp: CONSUMER_GROUP.projectorOtlp } : {}),
+        },
+        consumerMaxBatchSize: CONSUMER_MAX_BATCH_SIZE,
+        searchOutboxDrainIntervalMs: runtimeConfig.searchOutboxDrainIntervalMs,
+        searchEventsReaperIntervalMs: runtimeConfig.searchEventsReaper.intervalMs,
+    });
 
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals): Promise<void> => {

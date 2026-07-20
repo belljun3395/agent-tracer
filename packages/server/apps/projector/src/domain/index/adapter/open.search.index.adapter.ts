@@ -7,6 +7,7 @@ import type {
     SearchIndexWriterPort,
 } from "~projector/domain/index/port/search.index.writer.port.js";
 import type { ReadinessProbe } from "~projector/support/health.server.js";
+import { errorMessage, logError } from "~projector/support/log.js";
 
 function isAlreadyExists(error: unknown): boolean {
     return error instanceof Error && error.message.includes("resource_already_exists");
@@ -14,6 +15,20 @@ function isAlreadyExists(error: unknown): boolean {
 
 function isNotFound(error: unknown): boolean {
     return typeof error === "object" && error !== null && "statusCode" in error && error.statusCode === 404;
+}
+
+interface BulkErrorItem {
+    readonly error?: { readonly type: string; readonly reason?: string };
+}
+
+// 개별 문서 오류를 전부 로그로 반복하지 않도록 벌크 응답에서 첫 실패 사유만 뽑는다.
+function firstBulkErrorReason(items: readonly Record<string, BulkErrorItem>[]): string | undefined {
+    for (const item of items) {
+        for (const result of Object.values(item)) {
+            if (result.error !== undefined) return result.error.reason ?? result.error.type;
+        }
+    }
+    return undefined;
 }
 
 function toBulkBody(operations: readonly SearchBulkOperation[]): Record<string, unknown>[] {
@@ -47,7 +62,10 @@ implements SearchIndexWriterPort, SearchIndexAdminPort, SearchIndexRetentionPort
         let exists = false;
         try {
             exists = Boolean((await this.client.indices.exists({ index: definition.index })).body);
-        } catch {
+        } catch (error) {
+            if (!isNotFound(error)) {
+                logError({ msg: "search.index.exists.check_failed", index: definition.index, error: errorMessage(error) });
+            }
             exists = false;
         }
         if (exists) return;
@@ -65,9 +83,17 @@ implements SearchIndexWriterPort, SearchIndexAdminPort, SearchIndexRetentionPort
         }
     }
 
-    async writeBulk(operations: readonly SearchBulkOperation[]): Promise<{ errors: boolean; itemCount: number }> {
+    async writeBulk(
+        operations: readonly SearchBulkOperation[],
+    ): Promise<{ errors: boolean; itemCount: number; firstErrorReason?: string }> {
         const response = await this.client.bulk({ body: toBulkBody(operations), refresh: false });
-        return { errors: response.body.errors, itemCount: response.body.items.length };
+        return {
+            errors: response.body.errors,
+            itemCount: response.body.items.length,
+            ...(response.body.errors
+                ? { firstErrorReason: firstBulkErrorReason(response.body.items) ?? "unknown" }
+                : {}),
+        };
     }
 
     async deleteBefore(index: string, field: string, cutoff: Date): Promise<number> {

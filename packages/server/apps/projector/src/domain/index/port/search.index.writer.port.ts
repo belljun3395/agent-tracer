@@ -21,7 +21,9 @@ export type SearchBulkOperation =
 /** 검색 인덱스에 문서를 쓰는 포트다. */
 export interface SearchIndexWriterPort {
     ensureIndex(definition: SearchIndexDefinition, attachAlias: boolean): Promise<void>;
-    writeBulk(operations: readonly SearchBulkOperation[]): Promise<{ readonly errors: boolean; readonly itemCount: number }>;
+    writeBulk(
+        operations: readonly SearchBulkOperation[],
+    ): Promise<{ readonly errors: boolean; readonly itemCount: number; readonly firstErrorReason?: string }>;
     indexDocument(index: string, id: string, document: Record<string, unknown>): Promise<void>;
     updateDocument(index: string, id: string, document: Record<string, unknown>): Promise<void>;
     /** 존재하지 않는 문서를 지워도 실패로 보지 않는다. */

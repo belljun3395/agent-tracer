@@ -3,6 +3,7 @@ import { KIND, type EventKind, type NotificationEnvelope } from "@monitor/kernel
 import type { ArrivalProjection } from "~projector/domain/project/application/arrival.projection.js";
 import type { RunProjection } from "~projector/domain/project/application/run.projection.js";
 import type { TimelineProjection } from "~projector/domain/project/application/timeline.projection.js";
+import type { IClock } from "~projector/domain/project/port/clock.port.js";
 import type { NotificationPublisherPort } from "~projector/domain/project/port/notification.publisher.port.js";
 import type { LedgerProjectionRepositories } from "~projector/domain/project/port/projection.repositories.port.js";
 import type { TracerDatabase } from "~projector/domain/project/port/tracer.database.port.js";
@@ -71,6 +72,8 @@ function makeHarness(): Harness {
         },
     };
 
+    const clock: IClock = { nowMs: () => 0, nowIso: () => "2026-07-10T00:00:00.000Z", now: () => new Date(0) };
+
     const usecase = new ApplyLedgerBatchUseCase(
         database as TracerDatabase,
         run as unknown as RunProjection,
@@ -79,6 +82,7 @@ function makeHarness(): Harness {
         recipe,
         arrival as unknown as ArrivalProjection,
         notifier,
+        clock,
     );
 
     return { usecase, run, timeline, ruleEvaluation, recipe, published, transactionEvents };

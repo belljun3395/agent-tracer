@@ -49,7 +49,7 @@ export class InMemorySearchIndex implements SearchIndexWriterPort, SearchIndexAd
 
     writeBulk(
         operations: readonly SearchBulkOperation[],
-    ): Promise<{ readonly errors: boolean; readonly itemCount: number }> {
+    ): Promise<{ readonly errors: boolean; readonly itemCount: number; readonly firstErrorReason?: string }> {
         this.bulks.push([...operations]);
         for (const operation of operations) {
             const store = this.ensureStore(operation.index);

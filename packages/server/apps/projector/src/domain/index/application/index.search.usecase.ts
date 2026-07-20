@@ -104,6 +104,8 @@ export class IndexSearchUseCase {
         if (operations.length === 0) return;
 
         const result = await this.searchIndex.writeBulk(operations);
-        if (result.errors) logError({ msg: "search.bulk.errors", items: result.itemCount });
+        if (result.errors) {
+            logError({ msg: "search.bulk.errors", items: result.itemCount, reason: result.firstErrorReason ?? null });
+        }
     }
 }

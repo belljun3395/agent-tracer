@@ -1,5 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import type { KafkaConsumer, KafkaProducer } from "@monitor/platform";
+import type { IClock, KafkaConsumer, KafkaProducer } from "@monitor/platform";
 import { ApplyLedgerBatchUseCase } from "~projector/domain/project/application/apply.ledger.batch.usecase.js";
 import { ArrivalProjection } from "~projector/domain/project/application/arrival.projection.js";
 import { RecipeProjection } from "~projector/domain/project/application/recipe.projection.js";
@@ -9,6 +9,7 @@ import { RunSessionProjection } from "~projector/domain/project/application/run.
 import { RunTaskProjection } from "~projector/domain/project/application/run.task.projection.js";
 import { TimelineProjection } from "~projector/domain/project/application/timeline.projection.js";
 import { DbConsumer } from "~projector/domain/project/inbound/db.consumer.js";
+import { CLOCK } from "~projector/domain/project/port/clock.port.js";
 import { NOTIFICATION_PUBLISHER as PROJECT_NOTIFICATION_PUBLISHER } from "~projector/domain/project/port/notification.publisher.port.js";
 import { TRACER_DATABASE, type TracerDatabase } from "~projector/domain/project/port/tracer.database.port.js";
 import { KafkaNotificationPublisher } from "~projector/domain/notify/adapter/kafka.notification.publisher.js";
@@ -44,6 +45,7 @@ export interface ProjectorDeps {
     readonly dbEventConsumer: KafkaConsumer;
     readonly searchEventConsumer: KafkaConsumer;
     readonly searchIndex: SearchIndexWriterPort & SearchIndexRetentionPort;
+    readonly clock: IClock;
     readonly otlp?: OtlpExportDeps | undefined;
 }
 
@@ -73,6 +75,7 @@ export class ProjectorModule {
                 ApplyLedgerBatchUseCase,
                 DbConsumer,
                 { provide: TRACER_DATABASE, useValue: deps.database },
+                { provide: CLOCK, useValue: deps.clock },
                 { provide: PROJECT_NOTIFICATION_PUBLISHER, useExisting: KafkaNotificationPublisher },
 
                 KafkaNotificationPublisher,

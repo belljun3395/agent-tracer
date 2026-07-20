@@ -16,7 +16,7 @@ import {
     SEARCH_INDEX_WRITER,
     type SearchIndexWriterPort,
 } from "~projector/domain/index/port/search.index.writer.port.js";
-import { logError } from "~projector/support/log.js";
+import { errorMessage, logError, logInfo } from "~projector/support/log.js";
 
 const RECIPES_ALIAS = "recipes";
 const TASKS_ALIAS = "tasks";
@@ -77,7 +77,12 @@ export class SearchOutboxDrainService {
             }
             return applied;
         });
-        return drained ?? 0;
+        if (drained === null) {
+            logInfo({ msg: "search.outbox.drain.skipped", reason: "lock_not_acquired" });
+            return 0;
+        }
+        if (drained > 0) logInfo({ msg: "search.outbox.drain.completed", count: drained });
+        return drained;
     }
 
     private async apply(row: SearchOutboxEntity, repos: SearchOutboxDrainRepositories): Promise<boolean> {
@@ -137,11 +142,11 @@ export class SearchOutboxDrainService {
 
     private logFailure(row: SearchOutboxEntity, error: unknown): void {
         logError({
-            event: "search_outbox_drain_failed",
+            msg: "search.outbox.drain.failed",
             target: row.target,
             targetId: row.targetId,
             attempts: row.attempts,
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMessage(error),
         });
     }
 }

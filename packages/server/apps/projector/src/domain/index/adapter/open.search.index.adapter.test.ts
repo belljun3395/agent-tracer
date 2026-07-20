@@ -26,6 +26,27 @@ describe("OpenSearchIndexAdapter", () => {
         expect(result).toEqual({ errors: false, itemCount: 2 });
     });
 
+    it("벌크 실패가 있으면 첫 실패 사유를 함께 돌려준다", async () => {
+        const bulk = vi.fn(async () => ({
+            body: {
+                errors: true,
+                items: [
+                    { index: {} },
+                    { update: { error: { type: "mapper_parsing_exception", reason: "필드 타입 불일치" } } },
+                ],
+            },
+        }));
+        const adapter = new OpenSearchIndexAdapter({ bulk } as unknown as Client);
+        const operations: SearchBulkOperation[] = [
+            { action: "index", index: "events-v1", id: "e1", document: {} },
+            { action: "update", index: "tasks-v1", id: "t1", document: {}, upsert: true },
+        ];
+
+        const result = await adapter.writeBulk(operations);
+
+        expect(result).toEqual({ errors: true, itemCount: 2, firstErrorReason: "필드 타입 불일치" });
+    });
+
     it("신규 인덱스 생성 시 요청받은 경우에만 alias를 붙인다", async () => {
         const create = vi.fn(async (_request: { index: string; body: Record<string, unknown> }) => ({}));
         const client = {

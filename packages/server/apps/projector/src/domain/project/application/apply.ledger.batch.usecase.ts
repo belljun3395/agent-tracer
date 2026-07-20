@@ -12,6 +12,7 @@ import { RecipeProjection } from "~projector/domain/project/application/recipe.p
 import { RuleEvaluationProjection } from "~projector/domain/project/application/rule.evaluation.projection.js";
 import { RunProjection } from "~projector/domain/project/application/run.projection.js";
 import { TimelineProjection } from "~projector/domain/project/application/timeline.projection.js";
+import { CLOCK, type IClock } from "~projector/domain/project/port/clock.port.js";
 import {
     NOTIFICATION_PUBLISHER,
     type NotificationPublisherPort,
@@ -20,7 +21,7 @@ import type { LedgerProjectionRepositories } from "~projector/domain/project/por
 import { TRACER_DATABASE, type TracerDatabase } from "~projector/domain/project/port/tracer.database.port.js";
 import { taskNotification } from "~projector/support/notification.factory.js";
 import { recordApplied } from "~projector/support/metrics.js";
-import { logError } from "~projector/support/log.js";
+import { errorMessage, logError, logInfo } from "~projector/support/log.js";
 import type { LedgerRecord } from "~projector/support/ledger.record.js";
 
 const RUN_KIND_SET = new Set<string>(RUN_EVENT_KINDS);
@@ -38,16 +39,30 @@ export class ApplyLedgerBatchUseCase {
         private readonly recipe: RecipeProjection,
         private readonly arrival: ArrivalProjection,
         @Inject(NOTIFICATION_PUBLISHER) private readonly notifier: NotificationPublisherPort,
+        @Inject(CLOCK) private readonly clock: IClock,
     ) {}
 
     async execute(records: Iterable<LedgerRecord>, recordProjected: () => Promise<void>): Promise<void> {
         const notifications: NotificationEnvelope[] = [];
         const applied: LedgerRecord[] = [];
         const arrivals = new Map<string, ArrivalCoalesced>();
+        const startedAt = this.clock.nowMs();
 
         await this.database.withTransaction(async (repositories) => {
             for (const record of records) {
-                notifications.push(...await this.projectRecord(repositories, record, arrivals));
+                try {
+                    notifications.push(...await this.projectRecord(repositories, record, arrivals));
+                } catch (error) {
+                    logError({
+                        msg: "ledger.batch.record.failed",
+                        eventId: record.id,
+                        kind: record.kind,
+                        taskId: record.taskId,
+                        seq: record.seq,
+                        error: errorMessage(error),
+                    });
+                    throw error;
+                }
                 applied.push(record);
                 await recordProjected();
             }
@@ -55,6 +70,13 @@ export class ApplyLedgerBatchUseCase {
             notifications.push(...changedTasks.map((task) => taskNotification(NOTIFICATION_TYPE.taskUpdated, task)));
         });
 
+        logInfo({
+            msg: "ledger.batch.applied",
+            count: applied.length,
+            seqFrom: applied[0]?.seq ?? null,
+            seqTo: applied[applied.length - 1]?.seq ?? null,
+            durationMs: this.clock.nowMs() - startedAt,
+        });
         for (const record of applied) recordApplied("db", record);
         for (const envelope of notifications) await this.notifier.publish(envelope);
     }
