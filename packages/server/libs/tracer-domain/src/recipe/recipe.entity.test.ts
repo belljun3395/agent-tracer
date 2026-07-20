@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RECIPE_STATUS } from "@monitor/kernel";
 import { RecipeEntity } from "./recipe.entity.js";
-import { EMPTY_RECIPE_STATS, type RecipeCandidateInput, type RecipeStats } from "./recipe.types.js";
+import { type RecipeCandidateInput } from "./recipe.types.js";
 import { InvariantViolationError } from "../error/invariant.error.js";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
@@ -158,51 +158,6 @@ describe("RecipeEntity", () => {
             recipe.accept(NOW);
             recipe.editByUser({ title: "사용자 제목" }, NOW);
             expect(recipe.isRevisionStale(1)).toBe(true);
-        });
-    });
-
-    describe("shouldRetire", () => {
-        function activeRecipe(createdAt: Date): RecipeEntity {
-            const recipe = RecipeEntity.candidate(makeInput(), createdAt);
-            recipe.accept(createdAt);
-            return recipe;
-        }
-
-        function stats(overrides: Partial<RecipeStats> = {}): RecipeStats {
-            return { ...EMPTY_RECIPE_STATS, ...overrides };
-        }
-
-        it("active가 아니면 통계와 무관하게 false를 반환한다", () => {
-            const recipe = RecipeEntity.candidate(makeInput(), NOW);
-            expect(recipe.shouldRetire(NOW, stats({ decidedCount: 10, successRate: 0 }))).toBe(false);
-        });
-
-        it("종결 판정이 충분히 쌓였고 성공률이 낮으면 폐기 대상이다", () => {
-            const recipe = activeRecipe(NOW);
-            expect(recipe.shouldRetire(NOW, stats({ applicationCount: 5, decidedCount: 5, successRate: 0.2 }))).toBe(true);
-        });
-
-        it("성공률이 충분히 높으면 종결 판정이 많아도 폐기 대상이 아니다", () => {
-            const recipe = activeRecipe(NOW);
-            expect(recipe.shouldRetire(NOW, stats({ applicationCount: 10, decidedCount: 10, successRate: 0.8 }))).toBe(false);
-        });
-
-        it("한 번도 당겨지지 않고(적용 행 0) 오래됐으면 폐기 대상이다", () => {
-            const oldCreatedAt = new Date(NOW.getTime() - 20 * 24 * 60 * 60 * 1000);
-            const recipe = activeRecipe(oldCreatedAt);
-            expect(recipe.shouldRetire(NOW, stats())).toBe(true);
-        });
-
-        it("한 번도 당겨지지 않았어도 아직 오래되지 않았으면 폐기 대상이 아니다", () => {
-            const recipe = activeRecipe(NOW);
-            expect(recipe.shouldRetire(NOW, stats())).toBe(false);
-        });
-
-        it("당겨졌으나 판정이 전부 unknown이면 오래돼도 폐기 대상이 아니다", () => {
-            const oldCreatedAt = new Date(NOW.getTime() - 20 * 24 * 60 * 60 * 1000);
-            const recipe = activeRecipe(oldCreatedAt);
-            const stale = stats({ applicationCount: 3, decidedCount: 0, successRate: 0 });
-            expect(recipe.shouldRetire(NOW, stale)).toBe(false);
         });
     });
 

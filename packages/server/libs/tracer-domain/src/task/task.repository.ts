@@ -56,18 +56,6 @@ export class TaskRepository {
             .getMany();
     }
 
-    // 부모가 있는 자식 작업 중 running/waiting인데 before 이전부터 조용한 것들로, 완료 신호를 놓쳐 고착된 서브에이전트·백그라운드 워커를 reaper가 회수하기 위한 후보다.
-    async findReapableChildren(before: Date, limit: number): Promise<TaskEntity[]> {
-        return this.repo
-            .createQueryBuilder("t")
-            .where("t.parent_task_id IS NOT NULL")
-            .andWhere("t.status IN (:...statuses)", { statuses: [RUNNING_TASK_STATUS, WAITING_TASK_STATUS] })
-            .andWhere("COALESCE(t.last_event_at, t.updated_at) < :before", { before })
-            .orderBy("t.updated_at", "ASC")
-            .limit(limit)
-            .getMany();
-    }
-
     async findPage(userId: string, filter: TaskPageFilter): Promise<TaskEntity[]> {
         const qb = this.buildPageQuery(userId, filter);
         if (filter.archived !== undefined) {

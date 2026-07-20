@@ -14,13 +14,6 @@ import { TRACER_DATABASE, type TracerDatabase } from "~projector/domain/project/
 import { NotifyUseCase } from "~projector/domain/notify/application/notify.usecase.js";
 import { KafkaNotificationPublisher } from "~projector/domain/notify/adapter/kafka.notification.publisher.js";
 import { NOTIFICATION_PUBLISHER as NOTIFY_NOTIFICATION_PUBLISHER } from "~projector/domain/notify/port/notification.publisher.port.js";
-import { AiJobStepReaperService } from "~projector/domain/recover/application/ai.job.step.reaper.service.js";
-import { JobLeaseReaperService } from "~projector/domain/recover/application/job.lease.reaper.service.js";
-import { RecipeRetireReaperService } from "~projector/domain/recover/application/recipe.retire.reaper.service.js";
-import { TaskReaperService } from "~projector/domain/recover/application/task.reaper.service.js";
-import { ADVISORY_LOCK as RECOVER_ADVISORY_LOCK, type AdvisoryLockPort as RecoverAdvisoryLockPort } from "~projector/domain/recover/port/advisory.lock.port.js";
-import { NOTIFICATION_PUBLISHER as RECOVER_NOTIFICATION_PUBLISHER } from "~projector/domain/recover/port/notification.publisher.port.js";
-import type { RecoverLockScope } from "~projector/domain/recover/adapter/typeorm.advisory.lock.adapter.js";
 import { IndexSearchUseCase } from "~projector/domain/index/application/index.search.usecase.js";
 import { SearchEventsReaperService } from "~projector/domain/index/application/search.events.reaper.service.js";
 import { SearchOutboxDrainService } from "~projector/domain/index/application/search.outbox.drain.service.js";
@@ -48,7 +41,6 @@ export interface OtlpExportDeps {
 
 export interface ProjectorDeps {
     readonly database: TracerDatabase;
-    readonly recoverLock: RecoverAdvisoryLockPort<RecoverLockScope>;
     readonly indexLock: IndexAdvisoryLockPort<SearchOutboxDrainRepositories>;
     readonly producer: KafkaProducer;
     readonly dbEventConsumer: KafkaConsumer;
@@ -57,7 +49,7 @@ export interface ProjectorDeps {
     readonly otlp?: OtlpExportDeps | undefined;
 }
 
-/** 다섯 기능 슬라이스의 포트 토큰을 실제 어댑터 인스턴스에 잇는 이 앱의 유일한 배선 지점이다. */
+/** 네 기능 슬라이스의 포트 토큰을 실제 어댑터 인스턴스에 잇는 이 앱의 유일한 배선 지점이다. */
 @Module({})
 export class ProjectorModule {
     static forRoot(deps: ProjectorDeps): DynamicModule {
@@ -90,13 +82,6 @@ export class ProjectorModule {
                 { provide: NOTIFY_NOTIFICATION_PUBLISHER, useExisting: KafkaNotificationPublisher },
                 { provide: NOTIFICATION_PRODUCER, useValue: deps.producer },
 
-                TaskReaperService,
-                AiJobStepReaperService,
-                JobLeaseReaperService,
-                RecipeRetireReaperService,
-                { provide: RECOVER_ADVISORY_LOCK, useValue: deps.recoverLock },
-                { provide: RECOVER_NOTIFICATION_PUBLISHER, useExisting: KafkaNotificationPublisher },
-
                 IndexSearchUseCase,
                 SearchOutboxDrainService,
                 SearchEventsReaperService,
@@ -113,10 +98,6 @@ export class ProjectorModule {
             exports: [
                 DbConsumer,
                 SearchConsumer,
-                TaskReaperService,
-                AiJobStepReaperService,
-                JobLeaseReaperService,
-                RecipeRetireReaperService,
                 SearchOutboxDrainService,
                 SearchEventsReaperService,
                 ...(deps.otlp ? [OtlpConsumer] : []),

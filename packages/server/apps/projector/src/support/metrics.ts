@@ -18,16 +18,6 @@ const appliedSeqGauge = meter.createGauge("pipeline_applied_seq", {
     description: "Last ledger seq committed by this consumer group — compare against runtime_ledger_max_seq for gap detection.",
 });
 
-// 정상 운영에서는 0으로 수렴하는 값이라 급증은 완료 훅 미발신 회귀를 뜻한다.
-const reaperRecoveredCounter = meter.createCounter("task_reaper_recovered_total", {
-    description: "Stuck child tasks force-completed by the reaper because their completion hook signal never arrived.",
-});
-
-export function recordReaperRecovered(count: number): void {
-    if (count <= 0) return;
-    reaperRecoveredCounter.add(count);
-}
-
 export type PipelineConsumer = "db" | "search" | "otlp";
 
 export interface AppliedRecord {

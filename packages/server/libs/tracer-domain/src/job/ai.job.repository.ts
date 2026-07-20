@@ -98,18 +98,6 @@ export class AiJobRepository {
         return (result.affected ?? 0) > 0;
     }
 
-    // 리스가 만료된 실행 중 로컬 잡이며 실행기가 죽어 아무도 진행시키지 않는 잡들이다.
-    async findExpiredLeases(now: Date, limit: number): Promise<AiJobEntity[]> {
-        return this.repo
-            .createQueryBuilder("j")
-            .where("j.status = :status", { status: JOB_STATUS.running })
-            .andWhere("j.lease_expires_at IS NOT NULL")
-            .andWhere("j.lease_expires_at <= :now", { now })
-            .orderBy("j.lease_expires_at", "ASC")
-            .limit(limit)
-            .getMany();
-    }
-
     async findLatest(userId: string, kind: JobKind, taskId?: string): Promise<AiJobEntity | null> {
         return this.repo.findOne({
             where: { userId, kind, ...(taskId !== undefined ? { taskId } : {}) },

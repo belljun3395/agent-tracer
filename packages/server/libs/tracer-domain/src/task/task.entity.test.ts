@@ -174,55 +174,6 @@ describe("TaskEntity", () => {
         });
     });
 
-    describe("isReapableChild", () => {
-        const NOW = new Date("2026-01-01T01:00:00.000Z");
-        const IDLE = 3 * 60 * 1000;
-
-        it("부모가 없으면(최상위 작업) 회수 대상이 아니다", () => {
-            const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));
-            task.status = "running";
-            expect(task.isReapableChild(NOW, IDLE)).toBe(false);
-        });
-
-        it("부모가 있고 running이며 idle을 넘겼으면 회수 대상이다", () => {
-            const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));
-            task.parentTaskId = "P";
-            task.status = "running";
-            task.lastEventAt = new Date("2026-01-01T00:50:00.000Z");
-            expect(task.isReapableChild(NOW, IDLE)).toBe(true);
-        });
-
-        it("waiting 상태의 자식도 idle을 넘겼으면 회수 대상이다", () => {
-            const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));
-            task.parentTaskId = "P";
-            task.status = "waiting";
-            expect(task.isReapableChild(NOW, IDLE)).toBe(true);
-        });
-
-        it("최근에 이벤트가 있었으면(idle 미만) 회수하지 않는다", () => {
-            const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));
-            task.parentTaskId = "P";
-            task.status = "running";
-            task.lastEventAt = new Date("2026-01-01T00:59:00.000Z");
-            expect(task.isReapableChild(NOW, IDLE)).toBe(false);
-        });
-
-        it("이미 완료된 자식은 회수 대상이 아니다", () => {
-            const task = makeTask(new Date("2026-01-01T00:00:00.000Z"));
-            task.parentTaskId = "P";
-            task.status = "completed";
-            expect(task.isReapableChild(NOW, IDLE)).toBe(false);
-        });
-
-        it("lastEventAt이 없으면 updatedAt을 기준으로 idle을 판정한다", () => {
-            const task = makeTask(new Date("2026-01-01T00:50:00.000Z"));
-            task.parentTaskId = "P";
-            task.status = "running";
-            task.lastEventAt = null;
-            expect(task.isReapableChild(NOW, IDLE)).toBe(true);
-        });
-    });
-
     describe("hasActivitySince", () => {
         it("마지막 이벤트가 없으면 새 활동이 없다고 본다", () => {
             const task = makeTask(new Date());

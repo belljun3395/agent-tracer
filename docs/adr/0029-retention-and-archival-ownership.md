@@ -26,20 +26,17 @@
 별도의 삭제 로직을 두지 않는다. 원장 보존 기간이 줄어들면 다음 리빌드가 그 결과를 그대로
 반영한다. 이 부류의 실질적인 보존 기간은 언제나 원장의 보존 기간과 같다.
 
-**소유 상태(원장에 대응 이벤트가 없는 테이블)**는 테이블마다 사실상 보존 기간이 갈린다.
-`ai_job_steps`만 자동 삭제 경로를 갖고 있다. projector가 `AiJobStepReaperService`를
-1시간마다(기본값, 환경변수 `PROJECTOR_AI_JOB_STEP_REAP_INTERVAL_MS`) 돌려 생성 후 30일이
-지난(기본값, `PROJECTOR_AI_JOB_STEP_RETENTION_MS`) recipe-scan 잡 궤적을 최대 1,000건씩
-어드바이저리 락 아래에서 지운다. 이 30일은 코드가 실제로 강제하는 값이며 제안이 아니다.
-`ai_jobs`, `agent_completion_inbox`, `rules`, `recipes`, `app_settings`, `users`,
-`task_user_state`, `task_cleanup_suggestions`, `daemon_health`에는 자동 삭제가 없다.
-`ai_jobs`의 `lease_expires_at`과 `agent_completion_inbox`의 `expires_at`은 리스 회수와
-콜백 만료라는 업무 상태 전이에 쓰일 뿐 행을 지우지 않으므로, 두 테이블 모두 무기한 쌓인다.
+**소유 상태(원장에 대응 이벤트가 없는 테이블)**에는 자동 삭제 경로가 없다.
+`ai_job_steps`, `ai_jobs`, `agent_completion_inbox`, `rules`, `recipes`, `app_settings`,
+`users`, `task_user_state`, `task_cleanup_suggestions`, `daemon_health`가 전부 무기한
+쌓인다. `ai_jobs`의 `lease_expires_at`과 `agent_completion_inbox`의 `expires_at`은 업무
+상태를 표시할 뿐 행을 지우지 않는다.
 `search_outbox`는 검색 색인에 반영된 뒤 지워지는 큐이므로 장기 보존 대상이 아니다. 각
 테이블의 삭제 여부와 기간은 그 엔티티의 스키마를 소유한 배포 단위가 정한다. tracer-api가
 쓰는 `rules`, `recipes`, `app_settings`, `users`, `task_user_state`,
-`task_cleanup_suggestions`는 tracer-api가, projector가 쓰는 `ai_jobs`,
-`agent_completion_inbox`, `daemon_health`는 projector가 소유자다. 이 문서는 값을
+`task_cleanup_suggestions`, `daemon_health`는 tracer-api가, ai-agent-worker가 쓰는
+`agent_completion_inbox`는 ai-agent-worker가, 둘이 함께 쓰는 `ai_jobs`와
+`ai_job_steps`는 tracer-api가 소유자다. 이 문서는 값을
 제안한다: 사용자가 명시적으로 만들거나 바꾼 상태(`rules`, `recipes`, `app_settings`,
 `users`, `task_user_state`)는 사용자가 지우기 전까지 무기한 보존을 제안한다. 판정이 끝난
 `task_cleanup_suggestions`(수락 또는 기각)는 재사용 가치가 낮으므로 종결 후 90일 삭제를

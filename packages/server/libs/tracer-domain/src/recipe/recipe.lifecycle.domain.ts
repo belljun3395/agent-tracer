@@ -21,7 +21,4 @@ export class RecipeLifecycle {
         };
     }
 
-    shouldRetire(now: Date): boolean {
-        return this.recipe.shouldRetire(now, this.stats());
-    }
 }

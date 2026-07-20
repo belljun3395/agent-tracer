@@ -190,7 +190,6 @@ src/
     notify/     투영 결과를 알림으로 발행한다
     index/      검색 인덱스를 채운다
     export/     관측 파이프라인으로 내보낸다
-    recover/    중단된 잡과 태스크와 스텝을 회수한다
   config/  support/  main.ts
 ```
 

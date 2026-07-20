@@ -1,9 +1,7 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 import {
     COMPLETED_TASK_STATUS,
-    RUNNING_TASK_STATUS,
     USER_TASK_ORIGIN,
-    WAITING_TASK_STATUS,
     type MonitoringTaskKind,
     type TaskOrigin,
     type TaskStatus,
@@ -108,13 +106,6 @@ export class TaskEntity {
 
     isRecipeScanAnchor(): boolean {
         return this.isSessionRecipeScanAnchor() && this.isCompleted();
-    }
-
-    isReapableChild(now: Date, idleMs: number): boolean {
-        if (!this.parentTaskId) return false;
-        if (this.status !== RUNNING_TASK_STATUS && this.status !== WAITING_TASK_STATUS) return false;
-        const lastActivity = (this.lastEventAt ?? this.updatedAt).getTime();
-        return now.getTime() - lastActivity >= idleMs;
     }
 
     isOwnedBy(userId: string): boolean {

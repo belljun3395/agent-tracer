@@ -14,11 +14,6 @@ import {
 } from "@monitor/platform";
 import { TypeOrmTracerDatabaseAdapter } from "~projector/domain/project/adapter/typeorm.tracer.database.adapter.js";
 import { DbConsumer } from "~projector/domain/project/inbound/db.consumer.js";
-import { TypeOrmAdvisoryLockAdapter } from "~projector/domain/recover/adapter/typeorm.advisory.lock.adapter.js";
-import { AiJobStepReaperService } from "~projector/domain/recover/application/ai.job.step.reaper.service.js";
-import { JobLeaseReaperService } from "~projector/domain/recover/application/job.lease.reaper.service.js";
-import { RecipeRetireReaperService } from "~projector/domain/recover/application/recipe.retire.reaper.service.js";
-import { TaskReaperService } from "~projector/domain/recover/application/task.reaper.service.js";
 import { OpenSearchIndexAdapter } from "~projector/domain/index/adapter/open.search.index.adapter.js";
 import { TypeOrmSearchOutboxLockAdapter } from "~projector/domain/index/adapter/typeorm.search.outbox.lock.adapter.js";
 import { SearchEventsReaperService } from "~projector/domain/index/application/search.events.reaper.service.js";
@@ -40,7 +35,6 @@ async function bootstrap(): Promise<void> {
 
     const dataSource = createDataSource({ db: config.tracerDb, entities: TRACER_ENTITIES, migrations: [], migrationsRun: false });
     const database = new TypeOrmTracerDatabaseAdapter(dataSource);
-    const recoverLock = new TypeOrmAdvisoryLockAdapter(dataSource);
     const indexLock = new TypeOrmSearchOutboxLockAdapter(dataSource);
 
     const kafka = createKafka("projector");
@@ -80,7 +74,6 @@ async function bootstrap(): Promise<void> {
     const app = await NestFactory.createApplicationContext(
         ProjectorModule.forRoot({
             database,
-            recoverLock,
             indexLock,
             producer,
             dbEventConsumer,
@@ -94,10 +87,6 @@ async function bootstrap(): Promise<void> {
     const dbConsumer = app.get(DbConsumer);
     const searchConsumer = app.get(SearchConsumer);
     const otlpConsumer = otlp ? app.get(OtlpConsumer) : null;
-    const reaper = app.get(TaskReaperService);
-    const aiJobStepReaper = app.get(AiJobStepReaperService);
-    const jobLeaseReaper = app.get(JobLeaseReaperService);
-    const recipeRetireReaper = app.get(RecipeRetireReaperService);
     const searchOutboxDrain = app.get(SearchOutboxDrainService);
     const searchEventsReaper = app.get(SearchEventsReaperService);
 
@@ -106,16 +95,6 @@ async function bootstrap(): Promise<void> {
     await searchConsumer.start();
     if (otlpConsumer) await otlpConsumer.start();
     const scheduler = new PeriodicScheduler(new SystemClock());
-    scheduler.every("task_reaper", runtimeConfig.taskReaper.intervalMs, (now) =>
-        reaper.runOnce(now, runtimeConfig.taskReaper.idleMs),
-    );
-    scheduler.every("ai_job_step_reaper", runtimeConfig.aiJobStepReaper.intervalMs, (now) =>
-        aiJobStepReaper.runOnce(now, runtimeConfig.aiJobStepReaper.retentionMs),
-    );
-    scheduler.every("job_lease_reaper", runtimeConfig.jobLeaseReapIntervalMs, (now) => jobLeaseReaper.runOnce(now));
-    scheduler.every("recipe_retire_reaper", runtimeConfig.recipeRetireReaperIntervalMs, (now) =>
-        recipeRetireReaper.runOnce(now),
-    );
     scheduler.every("search_outbox_drain", runtimeConfig.searchOutboxDrainIntervalMs, () => searchOutboxDrain.runOnce());
     scheduler.every("search_events_reaper", runtimeConfig.searchEventsReaper.intervalMs, (now) =>
         searchEventsReaper.runOnce(now, runtimeConfig.searchEventsReaper.retentionMs),

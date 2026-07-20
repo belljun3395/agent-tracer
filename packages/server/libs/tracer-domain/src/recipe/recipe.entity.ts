@@ -9,14 +9,7 @@ import { InvariantViolationError } from "../error/invariant.error.js";
 import {
     type RecipeCandidateInput,
     type RecipeRevisionInput,
-    type RecipeStats,
 } from "./recipe.types.js";
-
-const MIN_DECIDED_FOR_FAILURE = 5;
-const MIN_SUCCESS_RATE = 0.3;
-
-/** 적용 행이 하나도 없는 레시피를 노후로 보는 나이 임계값이며, 노후 회수 스윕의 조회 창도 이 값을 쓴다. */
-export const RECIPE_STALE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 @Entity({ name: "recipes" })
 @Index("recipes_user_status", ["userId", "status", "updatedAt"])
@@ -193,14 +186,6 @@ export class RecipeEntity {
     }
 
     /** 당겨진 적은 있으나 판정이 전부 unknown인 레시피는 관측 실패이지 나쁜 레시피가 아니므로 어느 갈래에도 걸리지 않는다. */
-    shouldRetire(now: Date, stats: RecipeStats): boolean {
-        if (this.status !== RECIPE_STATUS.active) return false;
-        const ageMs = now.getTime() - this.createdAt.getTime();
-        const failsByFailure = stats.decidedCount >= MIN_DECIDED_FOR_FAILURE && stats.successRate < MIN_SUCCESS_RATE;
-        const failsByStaleness = stats.applicationCount === 0 && ageMs > RECIPE_STALE_AGE_MS;
-        return failsByFailure || failsByStaleness;
-    }
-
     private applyRevision(input: RecipeRevisionInput): void {
         if (input.title !== undefined) this.title = input.title;
         if (input.intent !== undefined) this.intent = input.intent;

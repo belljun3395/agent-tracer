@@ -82,24 +82,4 @@ describe("RecipeLifecycle", () => {
             });
         });
     });
-
-    describe("shouldRetire", () => {
-        const OLD = new Date(NOW.getTime() - 20 * 24 * 60 * 60 * 1000);
-
-        it("자기보고가 전부 없는 레시피는 오래돼도 은퇴 대상이 아니다", () => {
-            const recipe = makeRecipe({}, OLD);
-            const applications = [
-                makeApplication({ id: "a", outcome: null }),
-                makeApplication({ id: "b", outcome: null }),
-            ];
-            const lifecycle = new RecipeLifecycle(recipe, applications);
-            expect(lifecycle.shouldRetire(NOW)).toBe(false);
-        });
-
-        it("한 번도 당겨지지 않고 오래된 레시피는 은퇴 대상이다", () => {
-            const recipe = makeRecipe({}, OLD);
-            const lifecycle = new RecipeLifecycle(recipe, []);
-            expect(lifecycle.shouldRetire(NOW)).toBe(true);
-        });
-    });
 });
