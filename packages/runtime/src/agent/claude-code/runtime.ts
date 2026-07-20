@@ -25,13 +25,11 @@ import {RecordToolUseUsecase} from "~runtime/domain/ingest/application/record.to
 import type {IngestHook} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {defaultTaskTitle} from "~runtime/domain/ingest/model/workspace.path.model.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
-import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
+import {HttpRecipeFetchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.fetch.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
-import {BuildRecipeNudgeUsecase} from "~runtime/domain/recipe/application/build.recipe.nudge.usecase.js";
 import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
-import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
@@ -59,7 +57,6 @@ const sink = new SpoolEventSinkAdapter();
 const bindings = new FileBindingStoreAdapter();
 const todoSnapshots = new FileTodoSnapshotAdapter(projectDir);
 const toolTiming = new FileToolTimingAdapter(projectDir);
-const recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 const recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 const shapeContext = {projectDir};
 const ids: IdGeneratorPort = {next: generateUlid};
@@ -97,9 +94,7 @@ const binding: BindingHook = {
 };
 
 const recipe: RecipeHook = {
-    refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-    buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
-    getRecipe: new GetRecipeUsecase(recipeCache),
+    getRecipe: new GetRecipeUsecase(new HttpRecipeFetchAdapter(transport.baseUrl, headers)),
     requestScan: new RequestRecipeScanUsecase(recipeJobs),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
     searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(transport.baseUrl, headers)),

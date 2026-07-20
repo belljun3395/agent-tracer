@@ -2,9 +2,8 @@ import {readAgentTracerConfig} from "~runtime/config/config.store.js";
 import {resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
 import {isRecord} from "~runtime/support/json.js";
 
-/** 화면에서 조정 가능한 운영 튜닝 노브 9개이며 정합성 민감한 내부값은 여기 없다. */
+/** 화면에서 조정 가능한 운영 튜닝 노브 8개이며 정합성 민감한 내부값은 여기 없다. */
 export interface DaemonSettings {
-    readonly recipeRefreshMs: number;
     readonly rulesRefreshMs: number;
     readonly ruleGenPollMs: number;
     readonly idleShutdownMs: number;
@@ -16,7 +15,6 @@ export interface DaemonSettings {
 }
 
 export const DEFAULT_DAEMON_SETTINGS: DaemonSettings = {
-    recipeRefreshMs: 5 * 60 * 1000,
     rulesRefreshMs: 10 * 1000,
     ruleGenPollMs: 10 * 1000,
     idleShutdownMs: 5 * 60 * 1000,
@@ -34,7 +32,6 @@ interface RangeSpec {
 
 /** 폼과 방어적 읽기가 함께 쓰는 필드별 허용 범위다. */
 const DAEMON_SETTINGS_RANGE: Record<keyof DaemonSettings, RangeSpec> = {
-    recipeRefreshMs: {min: 10_000, max: 3_600_000},
     rulesRefreshMs: {min: 1_000, max: 600_000},
     ruleGenPollMs: {min: 1_000, max: 600_000},
     idleShutdownMs: {min: 10_000, max: 3_600_000},

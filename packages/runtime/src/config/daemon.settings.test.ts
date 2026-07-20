@@ -87,6 +87,6 @@ describe("데몬 튜닝값 입력 검증", () => {
 
         expect(result.ok).toBe(false);
         if (result.ok) throw new Error("unreachable");
-        expect(Object.keys(result.errors)).toHaveLength(9);
+        expect(Object.keys(result.errors)).toHaveLength(8);
     });
 });

@@ -31,7 +31,6 @@ import {
     releaseRunningRuleGenerationJobs,
 } from "~runtime/domain/rulegen/inbound/rulegen.hook.js";
 import {onRulesRefresh} from "~runtime/domain/guardrail/inbound/guardrail.hook.js";
-import {onRecipeCacheRefresh} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 
 const paths = resolveAgentTracerPaths();
 const version = resolveDaemonVersion();
@@ -67,8 +66,6 @@ let shuttingDown = false;
 let lastHookVersion: string | null = null;
 let rulesRefreshedAt: number | null = null;
 let rulesFailedAt: number | null = null;
-let recipesRefreshedAt: number | null = null;
-let recipesFailedAt: number | null = null;
 
 const spoolSender = new SpoolSender({
     paths,
@@ -104,17 +101,6 @@ async function refreshRules(): Promise<void> {
     rulesRefreshedAt = Date.now();
 }
 
-async function refreshRecipes(): Promise<void> {
-    try {
-        const refreshed = await onRecipeCacheRefresh(hooks.recipe);
-        if (!refreshed) throw new Error("recipe cache refresh rejected");
-        recipesRefreshedAt = Date.now();
-    } catch {
-        recipesFailedAt = Date.now();
-        health.recordSwallowedError();
-    }
-}
-
 async function refreshRuleSetting(): Promise<void> {
     await onRuleGenerationSettingRefresh(hooks.rulegen);
 }
@@ -139,12 +125,6 @@ function currentState(): DaemonRuntimeState {
                 lastFailureAt: rulesFailedAt,
                 intervalMs: bootSettings.rulesRefreshMs,
                 entries: cachedRules.length,
-            },
-            recipes: {
-                lastRefreshAt: recipesRefreshedAt,
-                lastFailureAt: recipesFailedAt,
-                intervalMs: bootSettings.recipeRefreshMs,
-                entries: hooks.recipeCache.load().length,
             },
         },
         ring: ring.stats(),
@@ -174,7 +154,6 @@ async function shutdown(reason: string): Promise<void> {
 }
 
 function refreshAll(): void {
-    void refreshRecipes();
     void refreshRules();
     void refreshRuleSetting();
 }
@@ -236,9 +215,6 @@ const servers = createDaemonServers({
 servers.start();
 
 const timers = [
-    setInterval(() => {
-        if (!shuttingDown) void refreshRecipes();
-    }, bootSettings.recipeRefreshMs),
     setInterval(() => {
         if (shuttingDown) return;
         void refreshRules();

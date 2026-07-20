@@ -16,13 +16,11 @@ import {HttpMemoWriteAdapter} from "~runtime/domain/memo/adapter/http.memo.write
 import {CreateMemoUsecase} from "~runtime/domain/memo/application/create.memo.usecase.js";
 import {SearchMemosUsecase} from "~runtime/domain/memo/application/search.memos.usecase.js";
 import type {MemoHook} from "~runtime/domain/memo/inbound/memo.hook.js";
-import {HttpRecipeCacheAdapter} from "~runtime/domain/recipe/adapter/http.recipe.cache.adapter.js";
+import {HttpRecipeFetchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.fetch.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
-import {BuildRecipeNudgeUsecase} from "~runtime/domain/recipe/application/build.recipe.nudge.usecase.js";
 import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
-import {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
@@ -39,7 +37,6 @@ import {RunRuleJobUsecase} from "~runtime/domain/rulegen/application/run.rule.jo
 import type {RulegenHook} from "~runtime/domain/rulegen/inbound/rulegen.hook.js";
 import {RuleGenerationSettingCache} from "~runtime/domain/rulegen/model/rule.command.model.js";
 import type {SchedulerPort} from "~runtime/domain/rulegen/port/scheduler.port.js";
-import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
 import {SetTaskTitleUsecase} from "~runtime/domain/session/application/set.task.title.usecase.js";
 import {generateUlid} from "~runtime/support/ulid.js";
 
@@ -49,7 +46,6 @@ export interface DaemonHooks {
     readonly hint: HintHook;
     readonly recipe: RecipeHook;
     readonly rulegen: RulegenHook;
-    readonly recipeCache: RecipeCachePort;
     readonly findTargetBySession: (sessionId: string) => BoundSession | undefined;
     readonly setTaskTitle: SetTaskTitleUsecase;
     readonly appendIngestEvents: AppendEventsUsecase;
@@ -80,11 +76,8 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
 
     const hint: HintHook = {computeHints: new ComputeHintsUsecase(clock)};
 
-    const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
     const recipe: RecipeHook = {
-        refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-        buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
-        getRecipe: new GetRecipeUsecase(recipeCache),
+        getRecipe: new GetRecipeUsecase(new HttpRecipeFetchAdapter(baseUrl, headers)),
         requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
         reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
         searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(baseUrl, headers)),
@@ -129,7 +122,6 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         hint,
         recipe,
         rulegen,
-        recipeCache,
         findTargetBySession,
         setTaskTitle,
         appendIngestEvents,

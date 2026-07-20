@@ -29,7 +29,6 @@ export interface CacheFreshness {
 
 export interface DaemonCaches {
     readonly rules: CacheFreshness;
-    readonly recipes: CacheFreshness;
 }
 
 /** 제어 스냅샷을 조립할 때 데몬이 넘기는 현재 상태다. */
@@ -51,7 +50,7 @@ export interface DaemonRuntimeState extends SpoolSenderState {
     readonly settings: DaemonSettings;
 }
 
-/** 폼 하나가 신원 2개와 튜닝 9개를 같이 다루므로 스냅샷도 둘을 한 뷰로 합친다. */
+/** 폼 하나가 신원 2개와 튜닝 8개를 같이 다루므로 스냅샷도 둘을 한 뷰로 합친다. */
 export interface DaemonSettingsView extends DaemonSettings {
     readonly userId: string;
     readonly baseUrl: string;

@@ -11,7 +11,6 @@ export interface AgentTracerPaths {
     readonly spoolDir: string;
     readonly deadPath: string;
     readonly cacheDir: string;
-    readonly recipesCachePath: string;
     readonly configPath: string;
     readonly bindingsPath: string;
     readonly bindingsLockPath: string;
@@ -32,7 +31,6 @@ export function resolveAgentTracerPaths(env: NodeJS.ProcessEnv = process.env): A
         spoolDir,
         deadPath: path.join(spoolDir, "dead.jsonl"),
         cacheDir,
-        recipesCachePath: path.join(cacheDir, "recipes.json"),
         configPath: path.join(homeDir, "config.json"),
         bindingsPath: path.join(homeDir, "bindings.json"),
         bindingsLockPath: path.join(homeDir, "bindings.lock"),
@@ -59,9 +57,4 @@ export function ensureAgentTracerHome(paths: AgentTracerPaths = resolveAgentTrac
 export function ensureSpoolDir(paths: AgentTracerPaths = resolveAgentTracerPaths()): void {
     mkdirSecure(paths.homeDir);
     mkdirSecure(paths.spoolDir);
-}
-
-export function ensureCacheDir(paths: AgentTracerPaths = resolveAgentTracerPaths()): void {
-    mkdirSecure(paths.homeDir);
-    mkdirSecure(paths.cacheDir);
 }

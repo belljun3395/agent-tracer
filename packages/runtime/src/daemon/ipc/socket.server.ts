@@ -156,7 +156,7 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "recipe-get": {
-                const body = onGetRecipe(context.recipe, request.recipeId);
+                const body = await onGetRecipe(context.recipe, request.recipeId);
                 if (body !== null) {
                     const target = request.sessionId === undefined
                         ? undefined

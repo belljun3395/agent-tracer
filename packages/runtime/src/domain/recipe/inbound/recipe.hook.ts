@@ -1,6 +1,4 @@
-import type {BuildRecipeNudgeUsecase} from "~runtime/domain/recipe/application/build.recipe.nudge.usecase.js";
 import type {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
-import type {RefreshRecipeCacheUsecase} from "~runtime/domain/recipe/application/refresh.recipe.cache.usecase.js";
 import type {
     RecipeScanRequest,
     RequestRecipeScanUsecase,
@@ -12,23 +10,13 @@ import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.se
 
 /** 레시피 도메인이 어댑터에 제공하는 진입점 묶음이다. */
 export interface RecipeHook {
-    readonly refreshCache: RefreshRecipeCacheUsecase;
-    readonly buildNudge: BuildRecipeNudgeUsecase;
     readonly getRecipe: GetRecipeUsecase;
     readonly requestScan: RequestRecipeScanUsecase;
     readonly reportOutcome: ReportRecipeOutcomeUsecase;
     readonly searchRecipes: SearchRecipesUsecase;
 }
 
-export function onRecipeCacheRefresh(hook: RecipeHook): Promise<boolean> {
-    return hook.refreshCache.execute();
-}
-
-export function onRecipeNudge(hook: RecipeHook): string {
-    return hook.buildNudge.execute();
-}
-
-export function onGetRecipe(hook: RecipeHook, recipeId: string): string | null {
+export function onGetRecipe(hook: RecipeHook, recipeId: string): Promise<string | null> {
     return hook.getRecipe.execute(recipeId);
 }
 

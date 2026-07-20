@@ -7,7 +7,8 @@ import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
 import {TITLE_MAX, userMessageEvent} from "~runtime/domain/ingest/model/message.event.model.js";
 import {isSystemNotificationPrompt} from "~runtime/domain/ingest/model/system.notification.model.js";
-import {onRecipeNudge, onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import {formatRecipeNudge} from "~runtime/domain/recipe/model/recipe.nudge.model.js";
+import {onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {formatTitleNudge} from "~runtime/domain/session/model/task.title.nudge.model.js";
 import {onTurnOpen} from "~runtime/domain/turn/inbound/turn.hook.js";
 import {ellipsize} from "~runtime/support/text.js";
@@ -68,7 +69,7 @@ await runHook("UserPromptSubmit", {
 
         const {rules, hints} = await queryDaemonPromptContext(target.taskId);
         // 시스템 알림 프롬프트에는 사용자가 볼 일이 없는 레시피 넛지를 싣지 않는다.
-        const recipeNudge = systemNotification ? "" : onRecipeNudge(claudeRuntime.recipe);
+        const recipeNudge = systemNotification ? "" : formatRecipeNudge();
         emitAgentContext("UserPromptSubmit", {
             rules,
             hints,

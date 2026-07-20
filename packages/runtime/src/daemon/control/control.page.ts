@@ -47,15 +47,14 @@ const TABS: readonly {readonly id: string; readonly label: string; readonly coun
     {id: "settings", label: "Settings"},
 ];
 
-/** 이미 파일 기반인 신원 2개이며 튜닝 9개와 같은 폼에 얹는다. */
+/** 이미 파일 기반인 신원 2개이며 튜닝 8개와 같은 폼에 얹는다. */
 const IDENTITY_FIELDS: readonly {readonly id: string; readonly label: string}[] = [
     {id: "userId", label: "User id"},
     {id: "baseUrl", label: "Base URL"},
 ];
 
-/** 승격 대상 튜닝 노브 9개이며 정합성 민감한 나머지 운영 상수는 여기 없다. */
+/** 승격 대상 튜닝 노브 8개이며 정합성 민감한 나머지 운영 상수는 여기 없다. */
 const DAEMON_FIELDS: readonly {readonly id: string; readonly label: string}[] = [
-    {id: "recipeRefreshMs", label: "Recipe refresh (ms)"},
     {id: "rulesRefreshMs", label: "Rules refresh (ms)"},
     {id: "ruleGenPollMs", label: "Rule generation poll (ms)"},
     {id: "idleShutdownMs", label: "Idle shutdown (ms)"},
@@ -113,7 +112,7 @@ function settingsField(field: {readonly id: string; readonly label: string}, typ
         + `<span class="field-err" id="err-${field.id}"></span></label>`;
 }
 
-/** 신원 2개와 튜닝 9개를 한 폼으로 편집하며 저장은 파일만 바꾸고 재기동으로 적용된다. */
+/** 신원 2개와 튜닝 8개를 한 폼으로 편집하며 저장은 파일만 바꾸고 재기동으로 적용된다. */
 function settingsForm(): string {
     const identity = IDENTITY_FIELDS.map((field) => settingsField(field, "text")).join("");
     const daemon = DAEMON_FIELDS.map((field) => settingsField(field, "number")).join("");

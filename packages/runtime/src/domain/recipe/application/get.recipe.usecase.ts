@@ -1,12 +1,16 @@
 import {buildRecipeBody} from "~runtime/domain/recipe/model/recipe.body.model.js";
-import type {RecipeCachePort} from "~runtime/domain/recipe/port/recipe.cache.port.js";
+import type {RecipeFetchPort} from "~runtime/domain/recipe/port/recipe.fetch.port.js";
 
-/** recipeId로 캐시에서 레시피를 찾아 본문 전문을 내며 없으면 null이다. */
+/** recipeId로 서버에서 레시피를 받아 본문 전문을 내며 없거나 조회가 실패하면 null이다. */
 export class GetRecipeUsecase {
-    constructor(private readonly cache: RecipeCachePort) {}
+    constructor(private readonly fetcher: RecipeFetchPort) {}
 
-    execute(recipeId: string): string | null {
-        const recipe = this.cache.load().find((candidate) => candidate.id === recipeId);
-        return recipe ? buildRecipeBody(recipe) : null;
+    async execute(recipeId: string): Promise<string | null> {
+        try {
+            const recipe = await this.fetcher.fetch(recipeId);
+            return recipe ? buildRecipeBody(recipe) : null;
+        } catch {
+            return null;
+        }
     }
 }

@@ -100,7 +100,6 @@ function renderCaches(s) {
     f.lastRefreshAt === null ? "bad" : "");
   $("cache-cards").innerHTML = [
     fresh(c.rules, "Rules cache"),
-    fresh(c.recipes, "Recipes cache"),
     card("Bindings file", bytes(s.bindingsBytes), ""),
   ].join("");
 }

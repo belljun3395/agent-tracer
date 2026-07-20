@@ -51,7 +51,6 @@ function state(): DaemonRuntimeState {
         rules: [],
         caches: {
             rules: {lastRefreshAt: null, lastFailureAt: null, intervalMs: 10_000, entries: 0},
-            recipes: {lastRefreshAt: null, lastFailureAt: null, intervalMs: 300_000, entries: 0},
         },
         ring: new RecentEventRing().stats(),
         interventions: new InterventionLog().snapshot(),
@@ -246,7 +245,6 @@ describe("데몬 제어 HTTP", () => {
             userId: "me@example.com",
             baseUrl: "http://127.0.0.1:3847",
             daemon: {
-                recipeRefreshMs: 300_000,
                 rulesRefreshMs: 10_000,
                 ruleGenPollMs: 10_000,
                 idleShutdownMs: 300_000,
