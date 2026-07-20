@@ -59,7 +59,6 @@ function resolveAgentTracerPaths(env = process.env) {
     spoolDir,
     deadPath: path2.join(spoolDir, "dead.jsonl"),
     cacheDir,
-    recipesCachePath: path2.join(cacheDir, "recipes.json"),
     configPath: path2.join(homeDir, "config.json"),
     bindingsPath: path2.join(homeDir, "bindings.json"),
     bindingsLockPath: path2.join(homeDir, "bindings.lock"),

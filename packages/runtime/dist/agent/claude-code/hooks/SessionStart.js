@@ -200,7 +200,6 @@ function resolveAgentTracerPaths(env = process.env) {
     spoolDir,
     deadPath: path.join(spoolDir, "dead.jsonl"),
     cacheDir,
-    recipesCachePath: path.join(cacheDir, "recipes.json"),
     configPath: path.join(homeDir, "config.json"),
     bindingsPath: path.join(homeDir, "bindings.json"),
     bindingsLockPath: path.join(homeDir, "bindings.lock"),
@@ -223,10 +222,6 @@ function ensureAgentTracerHome(paths = resolveAgentTracerPaths()) {
 function ensureSpoolDir(paths = resolveAgentTracerPaths()) {
   mkdirSecure(paths.homeDir);
   mkdirSecure(paths.spoolDir);
-}
-function ensureCacheDir(paths = resolveAgentTracerPaths()) {
-  mkdirSecure(paths.homeDir);
-  mkdirSecure(paths.cacheDir);
 }
 
 // src/config/monitor.identity.ts
@@ -3215,48 +3210,26 @@ async function postJson(url, headers2, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
   });
 }
 
-// src/domain/recipe/adapter/http.recipe.cache.adapter.ts
-var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
+// src/domain/recipe/adapter/http.recipe.fetch.adapter.ts
 var REQUEST_TIMEOUT_MS = 5e3;
-var HttpRecipeCacheAdapter = class {
-  constructor(baseUrl, headers2, paths = resolveAgentTracerPaths()) {
+var HttpRecipeFetchAdapter = class {
+  constructor(baseUrl, headers2) {
     this.baseUrl = baseUrl;
     this.headers = headers2;
-    this.paths = paths;
   }
   baseUrl;
   headers;
-  paths;
-  load() {
-    const parsed = readJsonFile(this.paths.recipesCachePath, isRecord);
-    return parsed === null ? [] : extractRecipes(parsed);
-  }
-  async refresh() {
+  async fetch(recipeId) {
     const body = await getJson(
-      `${this.baseUrl}${RECIPES_ENDPOINT}`,
+      `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(recipeId)}`,
       this.headers,
       REQUEST_TIMEOUT_MS
     );
-    if (body === null) return false;
-    const recipes = extractRecipes(body);
-    ensureCacheDir(this.paths);
-    writeJsonFile(this.paths.recipesCachePath, { recipes });
-    return true;
+    if (body === null) return null;
+    const payload = isRecord(body) && "data" in body ? body["data"] : body;
+    return toCachedRecipe(payload);
   }
 };
-function extractRecipes(body) {
-  let source = body;
-  if (isRecord(source) && "data" in source) source = source["data"];
-  if (isRecord(source) && Array.isArray(source["items"])) source = source["items"];
-  if (isRecord(source) && Array.isArray(source["recipes"])) source = source["recipes"];
-  if (!Array.isArray(source)) return [];
-  const recipes = [];
-  for (const item of source) {
-    const recipe2 = toCachedRecipe(item);
-    if (recipe2) recipes.push(recipe2);
-  }
-  return recipes;
-}
 function toCachedRecipe(value) {
   if (!isRecord(value)) return null;
   const id = readString2(value, "id");
@@ -3453,28 +3426,6 @@ function toItem(value) {
   };
 }
 
-// src/domain/recipe/model/recipe.nudge.model.ts
-function formatRecipeNudge(count) {
-  if (count === 0) return "";
-  return [
-    "<agent-tracer-recipes>",
-    `This workspace has ${count} saved ${count === 1 ? "recipe" : "recipes"} \u2014 workflows distilled from how past tasks here were actually solved.`,
-    "If this request plausibly repeats one, call `search_recipes` with the task in your own words before starting.",
-    "</agent-tracer-recipes>"
-  ].join("\n");
-}
-
-// src/domain/recipe/application/build.recipe.nudge.usecase.ts
-var BuildRecipeNudgeUsecase = class {
-  constructor(cache) {
-    this.cache = cache;
-  }
-  cache;
-  execute() {
-    return formatRecipeNudge(this.cache.load().length);
-  }
-};
-
 // src/domain/recipe/model/recipe.body.model.ts
 function buildRecipeBody(recipe2) {
   const lines = [`# ${recipe2.title}`, "", `intent: ${recipe2.intent}`, recipe2.description];
@@ -3507,27 +3458,16 @@ function buildRecipeBody(recipe2) {
 
 // src/domain/recipe/application/get.recipe.usecase.ts
 var GetRecipeUsecase = class {
-  constructor(cache) {
-    this.cache = cache;
+  constructor(fetcher) {
+    this.fetcher = fetcher;
   }
-  cache;
-  execute(recipeId) {
-    const recipe2 = this.cache.load().find((candidate) => candidate.id === recipeId);
-    return recipe2 ? buildRecipeBody(recipe2) : null;
-  }
-};
-
-// src/domain/recipe/application/refresh.recipe.cache.usecase.ts
-var RefreshRecipeCacheUsecase = class {
-  constructor(cache) {
-    this.cache = cache;
-  }
-  cache;
-  async execute() {
+  fetcher;
+  async execute(recipeId) {
     try {
-      return await this.cache.refresh();
+      const recipe2 = await this.fetcher.fetch(recipeId);
+      return recipe2 ? buildRecipeBody(recipe2) : null;
     } catch {
-      return false;
+      return null;
     }
   }
 };
@@ -3978,7 +3918,6 @@ var sink = new SpoolEventSinkAdapter();
 var bindings = new FileBindingStoreAdapter();
 var todoSnapshots = new FileTodoSnapshotAdapter(projectDir);
 var toolTiming = new FileToolTimingAdapter(projectDir);
-var recipeCache = new HttpRecipeCacheAdapter(transport.baseUrl, headers);
 var recipeJobs = new HttpRecipeScanJobAdapter(transport.baseUrl, headers);
 var shapeContext = { projectDir };
 var ids = { next: generateUlid };
@@ -4011,9 +3950,7 @@ var binding = {
   releaseBinding: new ReleaseBindingUsecase(bindings)
 };
 var recipe = {
-  refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-  buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
-  getRecipe: new GetRecipeUsecase(recipeCache),
+  getRecipe: new GetRecipeUsecase(new HttpRecipeFetchAdapter(transport.baseUrl, headers)),
   requestScan: new RequestRecipeScanUsecase(recipeJobs),
   reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
   searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(transport.baseUrl, headers))
@@ -4135,11 +4072,6 @@ function sessionTriggerEvent(target, trigger) {
   });
 }
 
-// src/domain/recipe/inbound/recipe.hook.ts
-function onRecipeCacheRefresh(hook) {
-  return hook.refreshCache.execute();
-}
-
 // src/agent/claude-code/hooks/SessionStart.ts
 await runHook("SessionStart", {
   parse: readSessionStart,
@@ -4148,7 +4080,6 @@ await runHook("SessionStart", {
     const target = source === SESSION_START_SOURCE.clear ? await clearClaudeSession(payload.sessionId) : await ensureClaudeSession(payload.sessionId, void 0, { transcriptPath: payload.transcriptPath });
     const event = sessionTriggerEvent(target, source);
     if (event !== null) await onLifecycleEvent(claudeRuntime.ingest, [event]);
-    await onRecipeCacheRefresh(claudeRuntime.recipe);
     emitDeliveryWarning(await queryDaemonDelivery());
   }
 });

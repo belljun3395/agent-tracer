@@ -5074,7 +5074,7 @@ function aJ($, Q, J) {
 function xs() {
   return process.env.CLAUDE_CODE_DIAGNOSTICS_FILE;
 }
-function fs7($) {
+function fs6($) {
   let { buffer: Q, bytesRead: J } = m$().readSync($, { length: 4096 });
   if (J === 0) return "utf8";
   if (J >= 2) {
@@ -5093,7 +5093,7 @@ function ys($) {
 function gs($) {
   let Q = m$(), { resolvedPath: J, isSymlink: Y } = N5(Q, $);
   if (Y) X$(`Reading through symlink: ${$} -> ${J}`);
-  let X = fs7(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
+  let X = fs6(J), W = Q.readFileSync(J, { encoding: X }), G = ys(W.slice(0, 4096));
   return { content: W.replaceAll(`\r
 `, `
 `), encoding: X, lineEndings: G };
@@ -24259,8 +24259,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path7, errorMaps, issueData } = params;
-      const fullPath = [...path7, ...issueData.path || []];
+      const { data, path: path6, errorMaps, issueData } = params;
+      const fullPath = [...path6, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -24571,11 +24571,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path7, key) {
+      constructor(parent, value, path6, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path7;
+        this._path = path6;
         this._key = key;
       }
       get path() {
@@ -28022,7 +28022,6 @@ function resolveAgentTracerPaths(env = process.env) {
     spoolDir,
     deadPath: path.join(spoolDir, "dead.jsonl"),
     cacheDir,
-    recipesCachePath: path.join(cacheDir, "recipes.json"),
     configPath: path.join(homeDir, "config.json"),
     bindingsPath: path.join(homeDir, "bindings.json"),
     bindingsLockPath: path.join(homeDir, "bindings.lock"),
@@ -28045,10 +28044,6 @@ function ensureAgentTracerHome(paths2 = resolveAgentTracerPaths()) {
 function ensureSpoolDir(paths2 = resolveAgentTracerPaths()) {
   mkdirSecure(paths2.homeDir);
   mkdirSecure(paths2.spoolDir);
-}
-function ensureCacheDir(paths2 = resolveAgentTracerPaths()) {
-  mkdirSecure(paths2.homeDir);
-  mkdirSecure(paths2.cacheDir);
 }
 
 // src/support/json.ts
@@ -28235,7 +28230,6 @@ function writeAgentTracerConfig(next, paths2 = resolveAgentTracerPaths()) {
 
 // src/config/daemon.settings.ts
 var DEFAULT_DAEMON_SETTINGS = {
-  recipeRefreshMs: 5 * 60 * 1e3,
   rulesRefreshMs: 10 * 1e3,
   ruleGenPollMs: 10 * 1e3,
   idleShutdownMs: 5 * 60 * 1e3,
@@ -28246,7 +28240,6 @@ var DEFAULT_DAEMON_SETTINGS = {
   poisonAttempts: 3
 };
 var DAEMON_SETTINGS_RANGE = {
-  recipeRefreshMs: { min: 1e4, max: 36e5 },
   rulesRefreshMs: { min: 1e3, max: 6e5 },
   ruleGenPollMs: { min: 1e3, max: 6e5 },
   idleShutdownMs: { min: 1e4, max: 36e5 },
@@ -29465,79 +29458,26 @@ function filterByQuery(items, query) {
   return items.filter((item) => item.body.toLowerCase().includes(trimmed2));
 }
 
-// src/support/json.file.store.ts
-import * as crypto from "node:crypto";
-import * as fs6 from "node:fs";
-import * as path3 from "node:path";
-function readJsonFile(filePath, validate) {
-  try {
-    const parsed = JSON.parse(fs6.readFileSync(filePath, "utf-8"));
-    return validate(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-function writeJsonFile(filePath, value, spacing) {
-  const directory = path3.dirname(filePath);
-  const tempFilePath = path3.join(
-    directory,
-    `.${path3.basename(filePath)}.${process.pid}.${crypto.randomUUID()}.tmp`
-  );
-  try {
-    fs6.mkdirSync(directory, { recursive: true });
-    fs6.writeFileSync(tempFilePath, JSON.stringify(value, null, spacing));
-    fs6.renameSync(tempFilePath, filePath);
-  } catch {
-    try {
-      fs6.unlinkSync(tempFilePath);
-    } catch {
-      return;
-    }
-  }
-}
-
-// src/domain/recipe/adapter/http.recipe.cache.adapter.ts
-var RECIPES_ENDPOINT = "/api/v1/recipes?status=active";
+// src/domain/recipe/adapter/http.recipe.fetch.adapter.ts
 var REQUEST_TIMEOUT_MS = 5e3;
-var HttpRecipeCacheAdapter = class {
-  constructor(baseUrl, headers, paths2 = resolveAgentTracerPaths()) {
+var HttpRecipeFetchAdapter = class {
+  constructor(baseUrl, headers) {
     this.baseUrl = baseUrl;
     this.headers = headers;
-    this.paths = paths2;
   }
   baseUrl;
   headers;
-  paths;
-  load() {
-    const parsed = readJsonFile(this.paths.recipesCachePath, isRecord);
-    return parsed === null ? [] : extractRecipes(parsed);
-  }
-  async refresh() {
+  async fetch(recipeId) {
     const body = await getJson(
-      `${this.baseUrl}${RECIPES_ENDPOINT}`,
+      `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(recipeId)}`,
       this.headers,
       REQUEST_TIMEOUT_MS
     );
-    if (body === null) return false;
-    const recipes = extractRecipes(body);
-    ensureCacheDir(this.paths);
-    writeJsonFile(this.paths.recipesCachePath, { recipes });
-    return true;
+    if (body === null) return null;
+    const payload = isRecord(body) && "data" in body ? body["data"] : body;
+    return toCachedRecipe(payload);
   }
 };
-function extractRecipes(body) {
-  let source = body;
-  if (isRecord(source) && "data" in source) source = source["data"];
-  if (isRecord(source) && Array.isArray(source["items"])) source = source["items"];
-  if (isRecord(source) && Array.isArray(source["recipes"])) source = source["recipes"];
-  if (!Array.isArray(source)) return [];
-  const recipes = [];
-  for (const item of source) {
-    const recipe = toCachedRecipe(item);
-    if (recipe) recipes.push(recipe);
-  }
-  return recipes;
-}
 function toCachedRecipe(value) {
   if (!isRecord(value)) return null;
   const id = readString(value, "id");
@@ -29596,9 +29536,9 @@ function readTouchedFiles(value) {
   const files = [];
   for (const entry of value) {
     if (!isRecord(entry)) continue;
-    const path7 = readString(entry, "path");
+    const path6 = readString(entry, "path");
     const role = entry["role"];
-    if (path7 && (role === "read" || role === "write" || role === "both")) files.push({ path: path7, role });
+    if (path6 && (role === "read" || role === "write" || role === "both")) files.push({ path: path6, role });
   }
   return files;
 }
@@ -29745,28 +29685,6 @@ function toItem(value) {
   };
 }
 
-// src/domain/recipe/model/recipe.nudge.model.ts
-function formatRecipeNudge(count) {
-  if (count === 0) return "";
-  return [
-    "<agent-tracer-recipes>",
-    `This workspace has ${count} saved ${count === 1 ? "recipe" : "recipes"} \u2014 workflows distilled from how past tasks here were actually solved.`,
-    "If this request plausibly repeats one, call `search_recipes` with the task in your own words before starting.",
-    "</agent-tracer-recipes>"
-  ].join("\n");
-}
-
-// src/domain/recipe/application/build.recipe.nudge.usecase.ts
-var BuildRecipeNudgeUsecase = class {
-  constructor(cache) {
-    this.cache = cache;
-  }
-  cache;
-  execute() {
-    return formatRecipeNudge(this.cache.load().length);
-  }
-};
-
 // src/domain/recipe/model/recipe.body.model.ts
 function buildRecipeBody(recipe) {
   const lines = [`# ${recipe.title}`, "", `intent: ${recipe.intent}`, recipe.description];
@@ -29799,27 +29717,16 @@ function buildRecipeBody(recipe) {
 
 // src/domain/recipe/application/get.recipe.usecase.ts
 var GetRecipeUsecase = class {
-  constructor(cache) {
-    this.cache = cache;
+  constructor(fetcher) {
+    this.fetcher = fetcher;
   }
-  cache;
-  execute(recipeId) {
-    const recipe = this.cache.load().find((candidate) => candidate.id === recipeId);
-    return recipe ? buildRecipeBody(recipe) : null;
-  }
-};
-
-// src/domain/recipe/application/refresh.recipe.cache.usecase.ts
-var RefreshRecipeCacheUsecase = class {
-  constructor(cache) {
-    this.cache = cache;
-  }
-  cache;
-  async execute() {
+  fetcher;
+  async execute(recipeId) {
     try {
-      return await this.cache.refresh();
+      const recipe = await this.fetcher.fetch(recipeId);
+      return recipe ? buildRecipeBody(recipe) : null;
     } catch {
-      return false;
+      return null;
     }
   }
 };
@@ -30201,7 +30108,7 @@ function outcome2(totals, steps, rest) {
 
 // src/domain/rulegen/adapter/claude.rule.agent.runner.adapter.ts
 import { accessSync, constants } from "node:fs";
-import * as path4 from "node:path";
+import * as path3 from "node:path";
 init_rulegen_tool_model();
 var SAFE_ENV_KEYS = [
   "PATH",
@@ -30229,9 +30136,9 @@ function resolveClaudeExecutablePath(env = process.env) {
   const pathEnv = env["PATH"];
   if (pathEnv === void 0) return void 0;
   const exeName = process.platform === "win32" ? "claude.exe" : "claude";
-  for (const dir of pathEnv.split(path4.delimiter)) {
+  for (const dir of pathEnv.split(path3.delimiter)) {
     if (dir.length === 0) continue;
-    const candidate = path4.join(dir, exeName);
+    const candidate = path3.join(dir, exeName);
     try {
       accessSync(candidate, constants.X_OK);
       return candidate;
@@ -31367,11 +31274,8 @@ function composeDaemonHooks(leaseOwner) {
     refreshRules: new RefreshRulesUsecase(ruleSource)
   };
   const hint = { computeHints: new ComputeHintsUsecase(clock) };
-  const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
   const recipe = {
-    refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-    buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
-    getRecipe: new GetRecipeUsecase(recipeCache),
+    getRecipe: new GetRecipeUsecase(new HttpRecipeFetchAdapter(baseUrl, headers)),
     requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
     searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(baseUrl, headers))
@@ -31411,7 +31315,6 @@ function composeDaemonHooks(leaseOwner) {
     hint,
     recipe,
     rulegen,
-    recipeCache,
     findTargetBySession,
     setTaskTitle,
     appendIngestEvents,
@@ -31448,13 +31351,13 @@ function parseRetryAfterMs(header, maxMs) {
 }
 
 // src/daemon/control/control.state.ts
-import * as fs9 from "node:fs";
+import * as fs8 from "node:fs";
 
 // src/config/dead.letter.ts
-import * as fs8 from "node:fs";
+import * as fs7 from "node:fs";
 function readLines(paths2) {
   try {
-    return fs8.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    return fs7.readFileSync(paths2.deadPath, "utf8").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
   } catch {
     return [];
   }
@@ -31476,13 +31379,13 @@ function parseEntry(line) {
 }
 function deadLetterBytes(paths2) {
   try {
-    return fs8.statSync(paths2.deadPath).size;
+    return fs7.statSync(paths2.deadPath).size;
   } catch {
     return 0;
   }
 }
 function writeDeadLetter(lines, paths2) {
-  fs8.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
+  fs7.writeFileSync(paths2.deadPath, lines.map((line) => `${line}
 `).join(""));
 }
 function readDeadLetter(limit, paths2 = resolveAgentTracerPaths()) {
@@ -31561,7 +31464,7 @@ function resolvePipelineStatus(state, pendingSegments) {
 }
 function fileBytes(filePath) {
   try {
-    return fs9.statSync(filePath).size;
+    return fs8.statSync(filePath).size;
   } catch {
     return 0;
   }
@@ -31906,7 +31809,6 @@ function renderCaches(s) {
     f.lastRefreshAt === null ? "bad" : "");
   $("cache-cards").innerHTML = [
     fresh(c.rules, "Rules cache"),
-    fresh(c.recipes, "Recipes cache"),
     card("Bindings file", bytes(s.bindingsBytes), ""),
   ].join("");
 }
@@ -32286,7 +32188,6 @@ var IDENTITY_FIELDS = [
   { id: "baseUrl", label: "Base URL" }
 ];
 var DAEMON_FIELDS = [
-  { id: "recipeRefreshMs", label: "Recipe refresh (ms)" },
   { id: "rulesRefreshMs", label: "Rules refresh (ms)" },
   { id: "ruleGenPollMs", label: "Rule generation poll (ms)" },
   { id: "idleShutdownMs", label: "Idle shutdown (ms)" },
@@ -32548,7 +32449,7 @@ function writePage(response, html) {
 import { spawn as spawnProcess } from "node:child_process";
 
 // src/domain/session/model/resume.command.model.ts
-import * as path5 from "node:path";
+import * as path4 from "node:path";
 
 // ../kernel/src/ingest/runtime.source.const.ts
 var RUNTIME_SOURCE = {
@@ -32601,7 +32502,7 @@ function normalizeWorkspacePath(value) {
   if (value === void 0) return void 0;
   const trimmed2 = value.trim();
   if (trimmed2.length === 0) return void 0;
-  if (hasControlCharacter(trimmed2) || !path5.isAbsolute(trimmed2)) {
+  if (hasControlCharacter(trimmed2) || !path4.isAbsolute(trimmed2)) {
     throw new ResumeCommandError("workspacePath is invalid", "invalid_request");
   }
   return trimmed2;
@@ -32751,7 +32652,7 @@ function normalizeError(error2) {
 }
 
 // src/daemon/control/resume.token.ts
-import * as fs10 from "node:fs";
+import * as fs9 from "node:fs";
 import { randomBytes as randomBytes2 } from "node:crypto";
 var TOKEN_FILE_MODE = 384;
 var TOKEN_BYTES = 24;
@@ -32759,16 +32660,16 @@ function ensureResumeToken(paths2) {
   const existing = readExistingToken(paths2.resumeTokenPath);
   if (existing !== null) return existing;
   const token = randomBytes2(TOKEN_BYTES).toString("base64url");
-  fs10.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
+  fs9.writeFileSync(paths2.resumeTokenPath, token, { mode: TOKEN_FILE_MODE });
   try {
-    fs10.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
+    fs9.chmodSync(paths2.resumeTokenPath, TOKEN_FILE_MODE);
   } catch {
   }
   return token;
 }
 function readExistingToken(tokenPath) {
   try {
-    const content = fs10.readFileSync(tokenPath, "utf8").trim();
+    const content = fs9.readFileSync(tokenPath, "utf8").trim();
     return content.length > 0 ? content : null;
   } catch {
     return null;
@@ -32868,11 +32769,11 @@ function eventIdOfSpoolLine(line) {
 }
 
 // src/daemon/lifecycle/daemon.pid.ts
-import * as fs11 from "node:fs";
+import * as fs10 from "node:fs";
 var PID_FILE_MODE = 384;
 function writeDaemonPid(paths2, pid = process.pid) {
   try {
-    fs11.writeFileSync(paths2.pidPath, `${pid}
+    fs10.writeFileSync(paths2.pidPath, `${pid}
 `, { mode: PID_FILE_MODE });
   } catch {
     return;
@@ -32884,7 +32785,7 @@ function ownsDaemonPid(paths2) {
 function removeDaemonPid(paths2) {
   if (!ownsDaemonPid(paths2)) return;
   try {
-    fs11.unlinkSync(paths2.pidPath);
+    fs10.unlinkSync(paths2.pidPath);
   } catch {
     return;
   }
@@ -32892,7 +32793,7 @@ function removeDaemonPid(paths2) {
 function readPidFile(paths2) {
   let raw;
   try {
-    raw = fs11.readFileSync(paths2.pidPath, "utf8");
+    raw = fs10.readFileSync(paths2.pidPath, "utf8");
   } catch {
     return void 0;
   }
@@ -33278,9 +33179,6 @@ function onMemoSearchRequested(hook, input) {
 }
 
 // src/domain/recipe/inbound/recipe.hook.ts
-function onRecipeCacheRefresh(hook) {
-  return hook.refreshCache.execute();
-}
 function onGetRecipe(hook, recipeId) {
   return hook.getRecipe.execute(recipeId);
 }
@@ -33381,7 +33279,7 @@ async function handleMessage(socket, line, context) {
         return;
       }
       case "recipe-get": {
-        const body = onGetRecipe(context.recipe, request.recipeId);
+        const body = await onGetRecipe(context.recipe, request.recipeId);
         if (body !== null) {
           const target = request.sessionId === void 0 ? void 0 : context.findTargetBySession(request.sessionId);
           if (target !== void 0) {
@@ -33497,19 +33395,19 @@ function recipeTitleFromBody(body) {
 var DAEMON_HEALTH_LAST_DEAD_REASONS_MAX = 10;
 
 // src/config/runtime.root.ts
-import * as fs12 from "node:fs";
-import * as path6 from "node:path";
+import * as fs11 from "node:fs";
+import * as path5 from "node:path";
 import { fileURLToPath } from "node:url";
 var ROOT_MANIFESTS = [".claude-plugin/plugin.json", "package.json"];
 function manifestDir(dir) {
-  return ROOT_MANIFESTS.some((manifest) => fs12.existsSync(path6.join(dir, manifest)));
+  return ROOT_MANIFESTS.some((manifest) => fs11.existsSync(path5.join(dir, manifest)));
 }
-function resolveRuntimeRoot(from = path6.dirname(fileURLToPath(import.meta.url))) {
-  const start = path6.resolve(from);
+function resolveRuntimeRoot(from = path5.dirname(fileURLToPath(import.meta.url))) {
+  const start = path5.resolve(from);
   let current = start;
   for (; ; ) {
     if (manifestDir(current)) return current;
-    const parent = path6.dirname(current);
+    const parent = path5.dirname(current);
     if (parent === current) return start;
     current = parent;
   }
@@ -33517,7 +33415,7 @@ function resolveRuntimeRoot(from = path6.dirname(fileURLToPath(import.meta.url))
 function readRuntimeManifestVersion(root = resolveRuntimeRoot()) {
   for (const manifest of ROOT_MANIFESTS) {
     try {
-      const parsed = JSON.parse(fs12.readFileSync(path6.join(root, manifest), "utf8"));
+      const parsed = JSON.parse(fs11.readFileSync(path5.join(root, manifest), "utf8"));
       const version2 = isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"].trim() : "";
       if (version2) return version2;
     } catch {
@@ -33561,7 +33459,7 @@ var DaemonHealthTracker = class {
 };
 
 // src/daemon/lifecycle/servers.ts
-import * as fs13 from "node:fs";
+import * as fs12 from "node:fs";
 import * as http from "node:http";
 import * as net2 from "node:net";
 
@@ -33601,7 +33499,7 @@ function createDaemonServers(options) {
   };
   socketServer.on("listening", () => {
     try {
-      fs13.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
+      fs12.chmodSync(options.paths.socketPath, DAEMON_SOCKET_MODE);
     } catch {
     }
     writeDaemonPid(options.paths);
@@ -33647,7 +33545,7 @@ async function reclaimSocket(options, listenOnSocket) {
     process.exit(0);
   }
   try {
-    fs13.unlinkSync(options.paths.socketPath);
+    fs12.unlinkSync(options.paths.socketPath);
   } catch {
   }
   listenOnSocket();
@@ -33916,8 +33814,6 @@ var shuttingDown = false;
 var lastHookVersion = null;
 var rulesRefreshedAt = null;
 var rulesFailedAt = null;
-var recipesRefreshedAt = null;
-var recipesFailedAt = null;
 var spoolSender = new SpoolSender({
   paths,
   history: spoolHistory,
@@ -33948,16 +33844,6 @@ async function refreshRules() {
   cachedRules = rules;
   rulesRefreshedAt = Date.now();
 }
-async function refreshRecipes() {
-  try {
-    const refreshed = await onRecipeCacheRefresh(hooks.recipe);
-    if (!refreshed) throw new Error("recipe cache refresh rejected");
-    recipesRefreshedAt = Date.now();
-  } catch {
-    recipesFailedAt = Date.now();
-    health.recordSwallowedError();
-  }
-}
 async function refreshRuleSetting() {
   await onRuleGenerationSettingRefresh(hooks.rulegen);
 }
@@ -33981,12 +33867,6 @@ function currentState() {
         lastFailureAt: rulesFailedAt,
         intervalMs: bootSettings.rulesRefreshMs,
         entries: cachedRules.length
-      },
-      recipes: {
-        lastRefreshAt: recipesRefreshedAt,
-        lastFailureAt: recipesFailedAt,
-        intervalMs: bootSettings.recipeRefreshMs,
-        entries: hooks.recipeCache.load().length
       }
     },
     ring: ring.stats(),
@@ -34013,7 +33893,6 @@ async function shutdown(reason) {
   process.exit(0);
 }
 function refreshAll() {
-  void refreshRecipes();
   void refreshRules();
   void refreshRuleSetting();
 }
@@ -34071,9 +33950,6 @@ var servers = createDaemonServers({
 });
 servers.start();
 var timers = [
-  setInterval(() => {
-    if (!shuttingDown) void refreshRecipes();
-  }, bootSettings.recipeRefreshMs),
   setInterval(() => {
     if (shuttingDown) return;
     void refreshRules();
