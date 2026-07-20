@@ -45,6 +45,7 @@
 | `0030-projection-write-authorization-gap` | 인증을 도입할 때. 투영이 taskId 소유권을 강제하는지 판단할 때 |
 | `0031-agents-read-through-views` | 파이썬 에이전트가 읽는 데이터를 바꿀 때. 뷰에 없는 열이 필요해질 때 |
 | `0032-coordinator-and-specialists` | 조사를 나눌 때. 전문가를 더하거나 뺄 때. 예산 배분과 근거 장부 병합을 만질 때 |
+| `0033-recipes-are-chosen-by-the-model` | 레시피가 에이전트에게 닿는 방식을 만질 때. 레시피의 성과를 재거나 도태시킬 때 |
 
 ## 놓치기 쉬운 규칙
 
