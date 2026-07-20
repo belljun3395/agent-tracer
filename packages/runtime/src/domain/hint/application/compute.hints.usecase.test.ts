@@ -25,20 +25,15 @@ describe("ComputeHintsUsecase", () => {
         );
     });
 
-    it("도구 앞 요청에서만 그 도구에 맞는 감지기를 돌린다", () => {
-        const recent: RecentEvent[] = [{
-            kind: KIND.questionLogged,
-            occurredAt: at(5 * 60_000),
-            body: "Which environment?",
-            metadata: {},
-        }];
+    it("명령 감지기는 도구 앞 요청에서만 돈다", () => {
+        const recent: RecentEvent[] = [1, 2, 3].map((minute) => ({
+            kind: KIND.executeTool,
+            occurredAt: at(minute * 60_000),
+            toolName: "Bash",
+            metadata: {[AGENT_TRACER_ATTR.command]: "npm test"},
+        }));
 
-        expect(usecase.execute(recent, {
-            trigger: "pre_tool",
-            toolName: "AskUserQuestion",
-            questions: ["Which environment!"],
-        })).toContainEqual(expect.objectContaining({type: "duplicate_question"}));
-        expect(usecase.execute(recent, {trigger: "user_prompt", questions: ["Which environment?"]})).toEqual([]);
+        expect(usecase.execute(recent, {trigger: "user_prompt"})).toEqual([]);
     });
 
     it("같은 명령을 10분 안에 세 번 돌리면 경고한다", () => {
@@ -51,10 +46,5 @@ describe("ComputeHintsUsecase", () => {
 
         expect(usecase.execute(recent, {trigger: "pre_tool", toolName: "Bash", command: "npm test"}))
             .toContainEqual(expect.objectContaining({type: "command_repetition", severity: "warning"}));
-    });
-
-    it("파괴적 명령은 근거가 없어도 경고한다", () => {
-        expect(usecase.execute([], {trigger: "pre_tool", toolName: "Bash", command: "rm -rf build"}))
-            .toContainEqual(expect.objectContaining({type: "destructive_risk"}));
     });
 });

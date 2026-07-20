@@ -1,21 +1,38 @@
+import {AGENT_TRACER_ATTR} from "@monitor/kernel/observability/semconv.const.js";
 import {describe, expect, it} from "vitest";
 import {detectCommandRepetition} from "~runtime/domain/hint/model/command.repetition.model.js";
+import type {RecentEvent} from "~runtime/domain/ingest/model/recent.event.model.js";
 
 const NOW = Date.parse("2026-07-16T00:00:00.000Z");
 
+function ran(command: string, minutesAgo = 1): RecentEvent {
+    return {
+        kind: "execute_tool",
+        occurredAt: new Date(NOW - minutesAgo * 60_000).toISOString(),
+        metadata: {[AGENT_TRACER_ATTR.command]: command},
+    };
+}
+
 describe("detectCommandRepetition", () => {
-    it("명령 분석이 파괴적으로 본 명령에 경고를 낸다", () => {
-        const hints = detectCommandRepetition([], "rm -rf build", NOW);
-        expect(hints.some((hint) => hint.type === "destructive_risk")).toBe(true);
+    it("글자까지 같은 명령이 세 번 이상이면 경고한다", () => {
+        const recent = [ran("npm run test"), ran("npm run test"), ran("npm run test")];
+        const hints = detectCommandRepetition(recent, "npm run test", NOW);
+        expect(hints).toHaveLength(1);
+        expect(hints[0]?.type).toBe("command_repetition");
     });
 
-    it("정규식이 아니라 분석 effect를 쓰므로 강제 push도 파괴적으로 본다", () => {
-        const hints = detectCommandRepetition([], "git push --force origin main", NOW);
-        expect(hints.some((hint) => hint.type === "destructive_risk")).toBe(true);
+    it("세 번에 못 미치면 조용하다", () => {
+        const recent = [ran("npm run test"), ran("npm run test")];
+        expect(detectCommandRepetition(recent, "npm run test", NOW)).toHaveLength(0);
     });
 
-    it("파괴적이지 않은 명령에는 경고를 내지 않는다", () => {
-        const hints = detectCommandRepetition([], "ls -al", NOW);
-        expect(hints.some((hint) => hint.type === "destructive_risk")).toBe(false);
+    it("같은 경로를 건드릴 뿐 명령이 다르면 조용하다", () => {
+        const recent = [ran("grep a packages/runtime/src"), ran("grep b packages/runtime/src"), ran("grep c packages/runtime/src")];
+        expect(detectCommandRepetition(recent, "grep d packages/runtime/src", NOW)).toHaveLength(0);
+    });
+
+    it("10분보다 오래된 반복은 세지 않는다", () => {
+        const recent = [ran("npm run test", 30), ran("npm run test", 20), ran("npm run test", 15)];
+        expect(detectCommandRepetition(recent, "npm run test", NOW)).toHaveLength(0);
     });
 });

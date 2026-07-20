@@ -1,10 +1,6 @@
 export type PreprocessingHintTrigger = "user_prompt" | "pre_tool";
 export type PreprocessingHintSeverity = "info" | "warning" | "critical";
-export type PreprocessingHintType =
-    | "context_pressure"
-    | "duplicate_question"
-    | "command_repetition"
-    | "destructive_risk";
+export type PreprocessingHintType = "context_pressure" | "command_repetition";
 
 /** 다음 턴 앞에 주입되는 전처리 힌트 하나다. */
 export interface PreprocessingHint {
