@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from langgraph.graph import START
 
 from ..runtime.validation_graph import add_validation_tail, new_graph, observed
 from .models import TitleSuggestionState
 
+type NodeName = Literal["investigate", "validate_candidate"]
+
+INVESTIGATE: NodeName = "investigate"
+VALIDATE_CANDIDATE: NodeName = "validate_candidate"
+
 _graph = new_graph(TitleSuggestionState)
-observed(_graph, "investigate")
-add_validation_tail(_graph, "validate_candidate")
-_graph.add_edge(START, "investigate")
-_graph.add_edge("investigate", "validate_candidate")
+observed(_graph, INVESTIGATE)
+add_validation_tail(_graph, VALIDATE_CANDIDATE)
+_graph.add_edge(START, INVESTIGATE)
+_graph.add_edge(INVESTIGATE, VALIDATE_CANDIDATE)
 
 TITLE_SUGGESTION_GRAPH = _graph.compile()

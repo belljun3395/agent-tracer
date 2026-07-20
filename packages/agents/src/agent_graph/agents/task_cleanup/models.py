@@ -177,6 +177,57 @@ class CleanupDraft(BaseModel):
     )
 
 
+class TriageUpdate(TypedDict):
+    """조율자 노드가 갱신하는 상태 부분집합이다."""
+
+    plan: TriagePlan
+    exposed_candidates: dict[str, CleanupCandidate]
+    event_ids_by_task: dict[str, set[str]]
+    model_cost_usd: float
+
+
+class InspectUpdate(TypedDict):
+    """후보 조사 노드가 갱신하는 상태 부분집합이다."""
+
+    reports: list[InspectReport]
+    event_ids_by_task: dict[str, set[str]]
+    model_cost_usd: float
+
+
+class InvestigateUpdate(TypedDict):
+    """결정 노드가 갱신하는 상태 부분집합이다."""
+
+    suggestions: list[CleanupDraftSuggestion]
+    messages: list[BaseMessage]
+    exposed_candidates: dict[str, CleanupCandidate]
+    event_ids_by_task: dict[str, set[str]]
+    model_cost_usd: float
+
+
+class ValidateDecisionsUpdate(TypedDict):
+    """검증 노드가 갱신하는 상태 부분집합이다."""
+
+    suggestions: list[CleanupDraftSuggestion]
+    validation_errors: list[str]
+
+
+class RepairUpdate(TypedDict):
+    """수리 노드가 갱신하는 상태 부분집합이다."""
+
+    suggestions: list[CleanupDraftSuggestion]
+    messages: list[BaseMessage]
+    exposed_candidates: dict[str, CleanupCandidate]
+    event_ids_by_task: dict[str, set[str]]
+    repair_attempted: bool
+    model_cost_usd: float
+
+
+class ResultUpdate(TypedDict):
+    """종단 노드가 갱신하는 상태 부분집합이다."""
+
+    result: dict[str, object]
+
+
 class TaskCleanupState(TypedDict):
     scanned_at: str
     language: Language

@@ -57,6 +57,35 @@ class TitleSuggestionDraft(BaseModel):
     suggestions: list[TitleSuggestion] = Field(default_factory=list, max_length=3)
 
 
+class InvestigateUpdate(TypedDict):
+    """결정 노드가 갱신하는 상태 부분집합이다."""
+
+    candidate: TitleSuggestionDraft
+    messages: list[BaseMessage]
+    model_cost_usd: float
+
+
+class ValidateCandidateUpdate(TypedDict):
+    """검증 노드가 갱신하는 상태 부분집합이다."""
+
+    validation_errors: list[str]
+
+
+class RepairUpdate(TypedDict):
+    """수리 노드가 갱신하는 상태 부분집합이다."""
+
+    candidate: TitleSuggestionDraft
+    messages: list[BaseMessage]
+    repair_attempted: bool
+    model_cost_usd: float
+
+
+class ResultUpdate(TypedDict):
+    """종단 노드가 갱신하는 상태 부분집합이다."""
+
+    result: dict[str, object]
+
+
 class TitleSuggestionState(TypedDict):
     task_id: str
     language: Language

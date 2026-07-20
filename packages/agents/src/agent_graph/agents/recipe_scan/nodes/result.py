@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from ..models import RecipeScanState
+from ..models import RecipeScanState, ResultUpdate
 
 
-async def finalize(state: RecipeScanState) -> dict[str, Any]:
+async def finalize(state: RecipeScanState) -> ResultUpdate:
     """검증된 후보 목록을 레시피 결과로 직렬화한다."""
     recipes = [candidate.model_dump(mode="json", exclude_none=True) for candidate in state["candidates"]]
     return {"result": {"recipes": recipes}}
 
 
-async def empty(_state: RecipeScanState) -> dict[str, Any]:
+async def empty(_state: RecipeScanState) -> ResultUpdate:
     """후보가 없는 레시피 결과를 반환한다."""
     return {"result": {"recipes": []}}

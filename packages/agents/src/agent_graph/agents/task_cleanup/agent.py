@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
 from ..runtime.llm.structured_agent import recursion_config
-from ..runtime.validation_graph import ValidationGraphContext
+from ..runtime.validation_graph import ValidationGraphContext, ValidationNode
 from .graph import TASK_CLEANUP_GRAPH
 from .models import TaskCleanupRequest
 from .nodes.decision import create_decision_nodes
@@ -36,17 +36,19 @@ async def run_task_cleanup(
     )
     triage = create_triage_node(req, reader, usage, chat, agent_name=AGENT_NAME)
     inspect = create_inspect_node(req, reader, usage, chat, agent_name=AGENT_NAME)
+    # 각 노드는 자기 상태 부분집합만 정확히 타입화하므로, 서로 다른 노드를 한 레지스트리에
+    # 담는 이 경계에서만 공통 타입으로 지운다.
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
         {
-            "triage": triage,
-            "inspect": inspect,
-            "investigate": investigate,
-            "validate_decisions": validate_decisions,
-            "repair": repair,
-            "finalize": finalize,
-            "empty": empty,
+            "triage": cast(ValidationNode, triage),
+            "inspect": cast(ValidationNode, inspect),
+            "investigate": cast(ValidationNode, investigate),
+            "validate_decisions": cast(ValidationNode, validate_decisions),
+            "repair": cast(ValidationNode, repair),
+            "finalize": cast(ValidationNode, finalize),
+            "empty": cast(ValidationNode, empty),
         },
         build_routes(usage),
     )

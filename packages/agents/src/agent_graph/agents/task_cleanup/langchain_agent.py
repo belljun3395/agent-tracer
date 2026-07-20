@@ -40,8 +40,8 @@ from .tools import (
     MAX_CANDIDATE_LIMIT,
     MAX_EVENT_LIMIT,
     invoke_tool,
-    record_evidence,
 )
+from .tools import record_evidence as _apply_evidence
 
 
 @dataclass(kw_only=True)
@@ -53,6 +53,10 @@ class CleanupAgentContext(StandardAgentContext):
     exposed_candidates: dict[str, CleanupCandidate]
     event_ids_by_task: dict[str, set[str]]
     tool_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+    def record_evidence(self, name: str, args: dict[str, Any], content: str) -> None:
+        """도구가 실제로 돌려준 후보와 이벤트만 인용 가능한 근거로 올린다."""
+        _apply_evidence(self.exposed_candidates, self.event_ids_by_task, name, args, content)
 
 
 class CleanupAgentMiddleware(StandardAgentMiddleware):
@@ -102,7 +106,7 @@ async def get_task_events(
 
 async def _invoke_and_record(context: CleanupAgentContext, name: str, args: dict[str, Any]) -> str:
     content = await invoke_tool(context.reader, context.batch, name, args)
-    record_evidence(context.exposed_candidates, context.event_ids_by_task, name, args, content)
+    context.record_evidence(name, args, content)
     return content
 
 

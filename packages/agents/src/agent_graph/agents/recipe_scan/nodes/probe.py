@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
@@ -16,6 +16,7 @@ from ..models import (
     MAX_VERDICT_CHARS,
     ProbeDispatch,
     ProbeReport,
+    ProbeUpdate,
     ProvenanceCatalog,
     RecipeScanRequest,
 )
@@ -24,7 +25,9 @@ from ..prompts import PROBE_SYSTEM_PROMPT, build_probe_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
 
-type ProbeNode = Callable[[ProbeDispatch], Awaitable[dict[str, Any]]]
+type ProbeNode = Callable[[ProbeDispatch], Awaitable[ProbeUpdate]]
+
+_log = logging.getLogger(__name__)
 
 
 def _failure_verdict(exc: Exception) -> str:
@@ -44,7 +47,7 @@ def create_probe_node(
 ) -> ProbeNode:
     """맡은 질문 하나를 자기 도구와 자기 예산과 자기 장부로 조사하는 전문가를 만든다."""
 
-    async def probe(payload: ProbeDispatch) -> dict[str, Any]:
+    async def probe(payload: ProbeDispatch) -> ProbeUpdate:
         assignment = payload.assignment
         share = MAX_RECIPE_MODEL_COST_USD * payload.cost_share
         # 장부를 전문가마다 새로 두어 다른 전문가가 읽은 것을 인용하지 못하게 한다.
@@ -86,9 +89,11 @@ def create_probe_node(
             )
             report = result.response
         except Exception as exc:
+            verdict = _failure_verdict(exc)
+            _log.warning("probe %s failed: %s", assignment.probe, exc)
             report = ProbeReport(
                 probe=assignment.probe,
-                verdict=_failure_verdict(exc),
+                verdict=verdict,
                 excerpts=[],
                 exhausted=True,
             )

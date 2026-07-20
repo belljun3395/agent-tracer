@@ -11,7 +11,14 @@ from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.structured_agent import invoke_structured_agent
 from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
-from ..models import CleanupDraft, TaskCleanupRequest, TaskCleanupState
+from ..models import (
+    CleanupDraft,
+    InvestigateUpdate,
+    RepairUpdate,
+    TaskCleanupRequest,
+    TaskCleanupState,
+    ValidateDecisionsUpdate,
+)
 from ..policy import (
     AGENT_RECURSION_LIMIT,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
@@ -21,7 +28,9 @@ from ..policy import (
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import CleanupLedgerReader
 
-type CleanupNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
+type InvestigateNode = Callable[[TaskCleanupState], Awaitable[InvestigateUpdate]]
+type ValidateDecisionsNode = Callable[[TaskCleanupState], Awaitable[ValidateDecisionsUpdate]]
+type RepairNode = Callable[[TaskCleanupState], Awaitable[RepairUpdate]]
 
 
 def create_decision_nodes(
@@ -31,7 +40,7 @@ def create_decision_nodes(
     chat: BaseChatModel,
     *,
     agent_name: str,
-) -> tuple[CleanupNode, CleanupNode, CleanupNode]:
+) -> tuple[InvestigateNode, ValidateDecisionsNode, RepairNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
     cleanup_agent = build_cleanup_agent(chat, INVESTIGATOR_SYSTEM_PROMPT)
@@ -66,7 +75,7 @@ def create_decision_nodes(
         )
         return result.response, result.messages, context
 
-    async def investigate(state: TaskCleanupState) -> dict[str, Any]:
+    async def investigate(state: TaskCleanupState) -> InvestigateUpdate:
         draft, messages, context = await invoke_agent(
             [
                 {
@@ -89,7 +98,7 @@ def create_decision_nodes(
             "model_cost_usd": context.budget.spent,
         }
 
-    async def validate_decisions(state: TaskCleanupState) -> dict[str, Any]:
+    async def validate_decisions(state: TaskCleanupState) -> ValidateDecisionsUpdate:
         valid, errors = validate_suggestions(state["suggestions"], state)
         if errors:
             usage.record_graph_event(
@@ -99,18 +108,15 @@ def create_decision_nodes(
             )
         return {"suggestions": valid, "validation_errors": errors}
 
-    async def repair(state: TaskCleanupState) -> dict[str, Any]:
-        messages = [
+    async def repair(state: TaskCleanupState) -> RepairUpdate:
+        repair_prompt = [
             *state["messages"],
             {
                 "role": "user",
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, context = await invoke_agent(
-            messages,
-            state,
-        )
+        draft, messages, context = await invoke_agent(repair_prompt, state)
         return {
             "suggestions": draft.suggestions,
             "messages": messages,

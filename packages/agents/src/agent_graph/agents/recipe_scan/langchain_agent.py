@@ -30,7 +30,8 @@ from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMidd
 from .models import ProbeName, ProvenanceCatalog, RecipeDraft
 from .reader import RecipeLedgerReader
 from .search import RecipeSearchReader
-from .tools.client import invoke_tool, record_evidence
+from .tools.client import invoke_tool
+from .tools.client import record_evidence as _apply_evidence
 from .tools.contracts import (
     DEFAULT_EVENT_LIMIT,
     DEFAULT_SEARCH_LIMIT,
@@ -53,6 +54,10 @@ class RecipeAgentContext(StandardAgentContext):
     reader: RecipeLedgerReader
     search: RecipeSearchReader
     provenance: ProvenanceCatalog
+
+    def record_evidence(self, name: str, args: dict[str, Any], content: str) -> None:
+        """도구가 실제로 돌려준 식별자만 인용 가능한 근거로 올린다."""
+        _apply_evidence(self.provenance, name, args, content)
 
 
 def _description(name: str) -> str:
@@ -190,7 +195,7 @@ def _tool_retry() -> ToolRetryMiddleware:
 
 async def _invoke_and_record(context: RecipeAgentContext, name: str, args: dict[str, Any]) -> str:
     content = await invoke_tool(context.reader, context.search, context.provenance, name, args)
-    record_evidence(context.provenance, name, args, content)
+    context.record_evidence(name, args, content)
     return content
 
 

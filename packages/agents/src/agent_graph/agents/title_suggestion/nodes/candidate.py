@@ -11,7 +11,15 @@ from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.structured_agent import invoke_structured_agent
 from ..langchain_agent import TitleAgentContext, build_title_agent
-from ..models import TitleSuggestionDraft, TitleSuggestionRequest, TitleSuggestionState
+from ..models import (
+    InvestigateUpdate,
+    RepairUpdate,
+    ResultUpdate,
+    TitleSuggestionDraft,
+    TitleSuggestionRequest,
+    TitleSuggestionState,
+    ValidateCandidateUpdate,
+)
 from ..policy import (
     AGENT_RECURSION_LIMIT,
     MAX_TITLE_MODEL_COST_USD,
@@ -21,7 +29,9 @@ from ..policy import (
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import TitleLedgerReader
 
-type TitleNode = Callable[[TitleSuggestionState], Awaitable[dict[str, Any]]]
+type InvestigateNode = Callable[[TitleSuggestionState], Awaitable[InvestigateUpdate]]
+type ValidateCandidateNode = Callable[[TitleSuggestionState], Awaitable[ValidateCandidateUpdate]]
+type RepairNode = Callable[[TitleSuggestionState], Awaitable[RepairUpdate]]
 
 
 def create_candidate_nodes(
@@ -31,7 +41,7 @@ def create_candidate_nodes(
     chat: BaseChatModel,
     *,
     agent_name: str,
-) -> tuple[TitleNode, TitleNode, TitleNode]:
+) -> tuple[InvestigateNode, ValidateCandidateNode, RepairNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
     title_agent = build_title_agent(chat, INVESTIGATOR_SYSTEM_PROMPT)
@@ -57,7 +67,7 @@ def create_candidate_nodes(
         )
         return result.response, result.messages, budget.spent
 
-    async def investigate(state: TitleSuggestionState) -> dict[str, Any]:
+    async def investigate(state: TitleSuggestionState) -> InvestigateUpdate:
         draft, messages, cost = await invoke_agent(
             [
                 {
@@ -69,7 +79,7 @@ def create_candidate_nodes(
         )
         return {"candidate": draft, "messages": messages, "model_cost_usd": cost}
 
-    async def validate_candidate(state: TitleSuggestionState) -> dict[str, Any]:
+    async def validate_candidate(state: TitleSuggestionState) -> ValidateCandidateUpdate:
         errors = validate_title_candidate(state["candidate"], state["context"].title)
         if errors:
             usage.record_graph_event(
@@ -79,18 +89,15 @@ def create_candidate_nodes(
             )
         return {"validation_errors": errors}
 
-    async def repair(state: TitleSuggestionState) -> dict[str, Any]:
-        messages = [
+    async def repair(state: TitleSuggestionState) -> RepairUpdate:
+        repair_prompt = [
             *state["messages"],
             {
                 "role": "user",
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, cost = await invoke_agent(
-            messages,
-            state["model_cost_usd"],
-        )
+        draft, messages, cost = await invoke_agent(repair_prompt, state["model_cost_usd"])
         return {
             "candidate": draft,
             "messages": messages,
@@ -101,12 +108,12 @@ def create_candidate_nodes(
     return investigate, validate_candidate, repair
 
 
-async def finalize(state: TitleSuggestionState) -> dict[str, Any]:
+async def finalize(state: TitleSuggestionState) -> ResultUpdate:
     """검증된 제목 후보를 외부 결과로 직렬화한다."""
     candidate = state["candidate"] or TitleSuggestionDraft()
     return {"result": candidate.model_dump(mode="json")}
 
 
-async def empty(_state: TitleSuggestionState) -> dict[str, Any]:
+async def empty(_state: TitleSuggestionState) -> ResultUpdate:
     """후보가 없는 제목 제안 결과를 반환한다."""
     return {"result": {"suggestions": []}}

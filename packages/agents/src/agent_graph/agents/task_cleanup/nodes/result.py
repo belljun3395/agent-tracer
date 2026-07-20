@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from ..models import TaskCleanupState
+from ..models import ResultUpdate, TaskCleanupState
 
 
-async def finalize(state: TaskCleanupState) -> dict[str, Any]:
+async def finalize(state: TaskCleanupState) -> ResultUpdate:
     """검증된 제안을 보관 작업 결과로 직렬화한다."""
     suggestions = [item.model_dump() for item in state["suggestions"][: state["max_suggestions"]]]
     return {"result": {"suggestions": suggestions}}
 
 
-async def empty(_state: TaskCleanupState) -> dict[str, Any]:
+async def empty(_state: TaskCleanupState) -> ResultUpdate:
     """제안이 없는 정리 작업 결과를 반환한다."""
     return {"result": {"suggestions": []}}

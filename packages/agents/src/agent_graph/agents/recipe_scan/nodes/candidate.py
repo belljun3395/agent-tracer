@@ -14,16 +14,21 @@ from ..langchain_agent import RecipeAgentContext, build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
     MAX_TOOL_ROUNDS,
+    InvestigateUpdate,
     RecipeDraft,
     RecipeScanRequest,
     RecipeScanState,
+    RepairUpdate,
+    ValidateCandidateUpdate,
 )
 from ..policy import MAX_RECIPE_MODEL_COST_USD, synthesis_rounds, validate_recipe_candidates
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
 
-type RecipeNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
+type InvestigateNode = Callable[[RecipeScanState], Awaitable[InvestigateUpdate]]
+type ValidateCandidateNode = Callable[[RecipeScanState], Awaitable[ValidateCandidateUpdate]]
+type RepairNode = Callable[[RecipeScanState], Awaitable[RepairUpdate]]
 
 
 def create_candidate_nodes(
@@ -34,7 +39,7 @@ def create_candidate_nodes(
     chat: BaseChatModel,
     *,
     agent_name: str,
-) -> tuple[RecipeNode, RecipeNode, RecipeNode]:
+) -> tuple[InvestigateNode, ValidateCandidateNode, RepairNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
     recipe_agent = build_recipe_agent(chat, INVESTIGATOR_SYSTEM_PROMPT, MAX_TOOL_ROUNDS)
@@ -65,7 +70,7 @@ def create_candidate_nodes(
         )
         return result.response, result.messages, context
 
-    async def investigate(state: RecipeScanState) -> dict[str, Any]:
+    async def investigate(state: RecipeScanState) -> InvestigateUpdate:
         draft, messages, context = await invoke_agent(
             [
                 {
@@ -88,26 +93,23 @@ def create_candidate_nodes(
             "model_cost_usd": context.budget.spent,
         }
 
-    async def validate_candidate(state: RecipeScanState) -> dict[str, Any]:
+    async def validate_candidate(state: RecipeScanState) -> ValidateCandidateUpdate:
         errors = validate_recipe_candidates(state["candidates"], state["task_id"], state["provenance"])
         if errors:
             usage.record_graph_event("validation.failed", "; ".join(errors), node_name="validate_candidate")
         return {"validation_errors": errors}
 
-    async def repair(state: RecipeScanState) -> dict[str, Any]:
+    async def repair(state: RecipeScanState) -> RepairUpdate:
         if not state["candidates"]:
             return {"repair_attempted": True}
-        messages = [
+        repair_prompt = [
             *state["messages"],
             {
                 "role": "user",
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, context = await invoke_agent(
-            messages,
-            state,
-        )
+        draft, messages, context = await invoke_agent(repair_prompt, state)
         return {
             "candidates": draft.recipes,
             "messages": messages,

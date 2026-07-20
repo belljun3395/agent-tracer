@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import operator
-from typing import Annotated, Any, Literal, TypedDict
+from typing import Annotated, Any, Literal, Required, TypedDict
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -235,6 +235,51 @@ def merged_provenance(left: ProvenanceCatalog, right: ProvenanceCatalog) -> Prov
 def _sum_cost(left: float, right: float) -> float:
     """전문가들이 병렬로 쓴 비용을 더해 실행 전체의 지출로 만든다."""
     return left + right
+
+
+class SurveyUpdate(TypedDict):
+    """조율자 노드가 갱신하는 상태 부분집합이다."""
+
+    plan: DispatchPlan
+
+
+class ProbeUpdate(TypedDict):
+    """전문가 조사 노드가 갱신하는 상태 부분집합이다."""
+
+    reports: list[ProbeReport]
+    provenance: ProvenanceCatalog
+    model_cost_usd: float
+
+
+class InvestigateUpdate(TypedDict):
+    """결정 노드가 갱신하는 상태 부분집합이다."""
+
+    candidates: list[RecipeCandidate]
+    messages: list[BaseMessage]
+    provenance: ProvenanceCatalog
+    model_cost_usd: float
+
+
+class ValidateCandidateUpdate(TypedDict):
+    """검증 노드가 갱신하는 상태 부분집합이다."""
+
+    validation_errors: list[str]
+
+
+class RepairUpdate(TypedDict, total=False):
+    """수리 노드가 갱신하는 상태 부분집합이다. 후보가 없으면 재시도 표시만 올린다."""
+
+    candidates: list[RecipeCandidate]
+    messages: list[BaseMessage]
+    provenance: ProvenanceCatalog
+    repair_attempted: Required[bool]
+    model_cost_usd: float
+
+
+class ResultUpdate(TypedDict):
+    """종단 노드가 갱신하는 상태 부분집합이다."""
+
+    result: dict[str, object]
 
 
 class RecipeScanState(TypedDict):

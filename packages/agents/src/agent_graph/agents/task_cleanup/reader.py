@@ -4,8 +4,5 @@ from __future__ import annotations
 
 from ..runtime.scoped_event_reader import ScopedEventReader
 
-
-class CleanupLedgerReader(ScopedEventReader):
-    """한 사용자의 원장 뷰만 읽도록 생성 시점에 범위가 묶인 조회 진입점이다."""
-
-    pass
+# 조회 로직이 title-suggestion과 완전히 같아 새 서브클래스 대신 이름만 이 슬라이스로 가져온다.
+CleanupLedgerReader = ScopedEventReader

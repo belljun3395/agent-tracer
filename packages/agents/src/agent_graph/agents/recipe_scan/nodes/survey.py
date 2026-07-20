@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
-from ..models import DispatchPlan, RecipeScanRequest, RecipeScanState
+from ..models import DispatchPlan, RecipeScanRequest, RecipeScanState, SurveyUpdate
 from ..policy import clamp_plan, distributable_rounds
 from ..prompts import SURVEY_SYSTEM_PROMPT, build_survey_prompt
 
-type SurveyNode = Callable[[RecipeScanState], Awaitable[dict[str, Any]]]
+type SurveyNode = Callable[[RecipeScanState], Awaitable[SurveyUpdate]]
 
 AVAILABLE_ROUNDS = distributable_rounds()
 
@@ -21,7 +20,7 @@ def create_survey_node(req: RecipeScanRequest, usage: ExecutionTrace, chat: Base
     """조율자가 어디를 얼마나 팔지 스스로 정하게 하고 배분을 예산 안으로 가둔다."""
     planner = chat.with_structured_output(DispatchPlan)
 
-    async def survey(_state: RecipeScanState) -> dict[str, Any]:
+    async def survey(_state: RecipeScanState) -> SurveyUpdate:
         raw = await planner.ainvoke(
             [
                 {"role": "system", "content": SURVEY_SYSTEM_PROMPT},

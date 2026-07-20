@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
@@ -22,9 +22,11 @@ from ..models import (
     CleanupCandidate,
     InspectDispatch,
     InspectReport,
+    InspectUpdate,
     TaskCleanupRequest,
     TaskCleanupState,
     TriagePlan,
+    TriageUpdate,
 )
 from ..policy import (
     AGENT_RECURSION_LIMIT,
@@ -41,8 +43,10 @@ from ..prompts import (
 )
 from ..reader import CleanupLedgerReader
 
-type TriageNode = Callable[[TaskCleanupState], Awaitable[dict[str, Any]]]
-type InspectNode = Callable[[InspectDispatch], Awaitable[dict[str, Any]]]
+type TriageNode = Callable[[TaskCleanupState], Awaitable[TriageUpdate]]
+type InspectNode = Callable[[InspectDispatch], Awaitable[InspectUpdate]]
+
+_log = logging.getLogger(__name__)
 
 
 def _failure_reason(exc: Exception) -> str:
@@ -61,7 +65,7 @@ def create_triage_node(
 ) -> TriageNode:
     """조율자가 후보 목록만 보고 어느 것을 열어볼지 스스로 정하게 한다."""
 
-    async def triage(_state: TaskCleanupState) -> dict[str, Any]:
+    async def triage(_state: TaskCleanupState) -> TriageUpdate:
         exposed: dict[str, CleanupCandidate] = {}
         event_ids: dict[str, set[str]] = {}
         triage_name = f"{agent_name}:triage"
@@ -120,7 +124,7 @@ def create_inspect_node(
 ) -> InspectNode:
     """후보 하나를 자기 예산과 자기 장부로 열어보고 판정을 올린다."""
 
-    async def inspect(payload: InspectDispatch) -> dict[str, Any]:
+    async def inspect(payload: InspectDispatch) -> InspectUpdate:
         assignment = payload.assignment
         share = TASK_CLEANUP_MAX_MODEL_COST_USD * payload.cost_share
         # 장부를 조사마다 새로 두어 다른 후보의 이벤트를 인용하지 못하게 한다.
@@ -158,10 +162,12 @@ def create_inspect_node(
             report = result.response
         except Exception as exc:
             # 조사가 무너진 후보는 안전하게 보존하도록 보관 불가로 올린다.
+            reason = _failure_reason(exc)
+            _log.warning("inspect failed for %s: %s", assignment.taskId, exc)
             report = InspectReport(
                 taskId=assignment.taskId,
                 archivable=False,
-                reason=_failure_reason(exc),
+                reason=reason,
                 citedEventIds=[],
             )
         return {

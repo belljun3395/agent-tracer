@@ -42,32 +42,38 @@ async def _run(
     name: str,
     args: dict[str, Any],
 ) -> Any:
-    if name == "check_citations":
-        return _unsupported(catalog, args)
-    if name == "get_task_summary":
-        loaded = await reader.task_with_events(args["taskId"], args["window"])
-        if loaded is None:
-            return None
-        return build_task_summary(loaded["task"], loaded["rows"], loaded["total"])
-    if name == "get_task_events":
-        return await reader.task_events(args["taskId"], args["limit"], args.get("cursor"), args["order"])
-    if name == "list_rules":
-        return await reader.applicable_rules(args["taskId"])
-    if name == "search_events":
-        return await search.search_events(
-            args["q"],
-            args["limit"],
-            args["offset"],
-            args.get("taskId"),
-            args.get("kind"),
-            args.get("toolName"),
-        )
-    if name == "find_similar_tasks":
-        anchor = await reader.task_with_events(args["anchorTaskId"], 1)
-        if anchor is None:
-            return None
-        return await search.similar_tasks(anchor["task"]["title"], args["anchorTaskId"], args["limit"])
-    return await search.search_recipes(args["q"], args["limit"])
+    match name:
+        case "check_citations":
+            return _unsupported(catalog, args)
+        case "get_task_summary":
+            loaded = await reader.task_with_events(args["taskId"], args["window"])
+            if loaded is None:
+                return None
+            return build_task_summary(loaded["task"], loaded["rows"], loaded["total"])
+        case "get_task_events":
+            return await reader.task_events(
+                args["taskId"], args["limit"], args.get("cursor"), args["order"]
+            )
+        case "list_rules":
+            return await reader.applicable_rules(args["taskId"])
+        case "search_events":
+            return await search.search_events(
+                args["q"],
+                args["limit"],
+                args["offset"],
+                args.get("taskId"),
+                args.get("kind"),
+                args.get("toolName"),
+            )
+        case "find_similar_tasks":
+            anchor = await reader.task_with_events(args["anchorTaskId"], 1)
+            if anchor is None:
+                return None
+            return await search.similar_tasks(
+                anchor["task"]["title"], args["anchorTaskId"], args["limit"]
+            )
+        case _:
+            return await search.search_recipes(args["q"], args["limit"])
 
 
 async def invoke_tool(
