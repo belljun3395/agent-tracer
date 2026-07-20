@@ -6,9 +6,8 @@ import {
     type RejectedIngestEvent,
 } from "@monitor/kernel";
 import { AppendEventsUseCase } from "~runtime-api/domain/ingest/application/append.events.usecase.js";
-import { SchemaValidationPipe } from "~runtime-api/support/schema.validation.pipe.js";
 import { ContractVersionPipe } from "./contract.version.pipe.js";
-import { ingestBatchRequestSchema } from "./ingest.batch.schema.js";
+import { IngestBatchValidationPipe } from "./ingest.batch.validation.pipe.js";
 
 /** 수용한 이벤트 수와 거부된 레코드를 함께 알리는 인제스트 응답이다. */
 export interface IngestBatchResponse {
@@ -24,10 +23,7 @@ export class IngestController {
     @HttpCode(202)
     async ingest(
         @Headers(MONITOR_USER_HEADER) user: string | undefined,
-        @Body(
-            new ContractVersionPipe(),
-            new SchemaValidationPipe(ingestBatchRequestSchema, "ingest.invalid", "invalid ingest batch"),
-        )
+        @Body(ContractVersionPipe, IngestBatchValidationPipe)
         batch: IngestBatchPartition,
     ): Promise<IngestBatchResponse> {
         const userId = user ?? DEFAULT_USER_ID;

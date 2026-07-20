@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { KIND, spanIdOf, type IngestEvent } from "@monitor/kernel";
 import type {
+    AllRejectedIngestLog,
     AppendedIngestLog,
+    AppendFailedIngestLog,
     IngestEventLog,
     RejectedIngestLog,
 } from "~runtime-api/domain/ingest/port/ingest.event.log.port.js";
@@ -11,30 +13,41 @@ import type {
 } from "~runtime-api/domain/ingest/port/ledger.event.store.port.js";
 import { AppendEventsUseCase } from "./append.events.usecase.js";
 
-function makeHarness(): {
+function makeHarness(overrides: { readonly appendAll?: LedgerEventStore["appendAll"] } = {}): {
     readonly useCase: AppendEventsUseCase;
     readonly appended: LedgerEventRecord[][];
     readonly rejectedLogs: RejectedIngestLog[];
     readonly appendedLogs: AppendedIngestLog[];
+    readonly appendFailedLogs: AppendFailedIngestLog[];
+    readonly allRejectedLogs: AllRejectedIngestLog[];
 } {
     const appended: LedgerEventRecord[][] = [];
     const ledger: LedgerEventStore = {
-        appendAll: (rows: readonly LedgerEventRecord[]) => {
+        appendAll: overrides.appendAll ?? ((rows: readonly LedgerEventRecord[]) => {
             appended.push([...rows]);
             return Promise.resolve();
-        },
+        }),
     };
     const rejectedLogs: RejectedIngestLog[] = [];
     const appendedLogs: AppendedIngestLog[] = [];
+    const appendFailedLogs: AppendFailedIngestLog[] = [];
+    const allRejectedLogs: AllRejectedIngestLog[] = [];
     const ingestLog: IngestEventLog = {
         rejected: (entry) => rejectedLogs.push(entry),
         appended: (entry) => appendedLogs.push(entry),
+        appendFailed: (entry) => appendFailedLogs.push(entry),
+        allRejected: (entry) => allRejectedLogs.push(entry),
+        contractVersionRejected: () => undefined,
+        batchRejected: () => undefined,
+        rateLimited: () => undefined,
     };
     return {
         useCase: new AppendEventsUseCase(ledger, ingestLog),
         appended,
         rejectedLogs,
         appendedLogs,
+        appendFailedLogs,
+        allRejectedLogs,
     };
 }
 
@@ -174,6 +187,34 @@ describe("AppendEventsUseCase", () => {
 
         const [row] = appended[0]!;
         expect(row!.parentSpanId).toBe(spanIdOf("01ARZ3NDEKTSV4RRFFQ69G5FAV"));
+    });
+
+    it("모든 레코드가 거부돼 수용된 이벤트가 없으면 요약 한 줄을 남긴다", async () => {
+        const { useCase, allRejectedLogs } = makeHarness();
+
+        await useCase.execute("user-1", [], [{ id: "ev-bad", reason: "lone surrogate" }]);
+
+        expect(allRejectedLogs).toEqual([{ userId: "user-1", count: 1 }]);
+    });
+
+    it("거부된 레코드가 없으면 배치가 비어도 요약을 남기지 않는다", async () => {
+        const { useCase, allRejectedLogs } = makeHarness();
+
+        await useCase.execute("user-1", []);
+
+        expect(allRejectedLogs).toEqual([]);
+    });
+
+    it("원장 저장이 실패하면 배치 크기와 사유를 남기고 예외를 다시 던진다", async () => {
+        const { useCase, appendFailedLogs, appendedLogs } = makeHarness({
+            appendAll: () => Promise.reject(new Error("connection reset")),
+        });
+
+        await expect(
+            useCase.execute("user-1", [makeIngestEvent({ id: "ev-1" })]),
+        ).rejects.toThrow("connection reset");
+        expect(appendFailedLogs).toEqual([{ userId: "user-1", count: 1, error: "connection reset" }]);
+        expect(appendedLogs).toEqual([]);
     });
 
     it("인과 부모가 있으면 부모 span을 가리킨다", async () => {

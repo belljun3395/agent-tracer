@@ -17,6 +17,13 @@ function parentSpanIdOf(event: IngestEvent): string | null {
     return null;
 }
 
+// 유스케이스는 config를 모르므로 로그 표현용 문자열 변환을 여기서 직접 한다.
+function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    return "unknown error";
+}
+
 @Injectable()
 export class AppendEventsUseCase {
     constructor(
@@ -32,7 +39,10 @@ export class AppendEventsUseCase {
         for (const entry of rejected) {
             this.ingestLog.rejected({ userId, eventId: entry.id, reason: entry.reason });
         }
-        if (events.length === 0) return;
+        if (events.length === 0) {
+            if (rejected.length > 0) this.ingestLog.allRejected({ userId, count: rejected.length });
+            return;
+        }
         const rows: LedgerEventRecord[] = events.map((event) => ({
             id: event.id,
             userId,
@@ -45,7 +55,12 @@ export class AppendEventsUseCase {
             parentSpanId: parentSpanIdOf(event),
             payload: event.payload,
         }));
-        await this.ledger.appendAll(rows);
+        try {
+            await this.ledger.appendAll(rows);
+        } catch (error) {
+            this.ingestLog.appendFailed({ userId, count: rows.length, error: errorMessage(error) });
+            throw error;
+        }
         this.ingestLog.appended({
             userId,
             count: rows.length,

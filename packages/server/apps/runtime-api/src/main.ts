@@ -12,6 +12,7 @@ import { EventIngestKeyEntity } from "~runtime-api/domain/ingest/adapter/event.i
 import { LedgerEventEntity } from "~runtime-api/domain/ingest/adapter/ledger.event.entity.js";
 import { RUNTIME_MIGRATIONS } from "~runtime-api/migrations/registry.js";
 import { errorMessage, logError, logInfo } from "~runtime-api/config/log.js";
+import { resolveIngestRateLimitConfig } from "~runtime-api/domain/ingest/inbound/ingest.rate-limit.guard.js";
 import { RuntimeApiModule } from "./runtime.api.module.js";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -41,7 +42,15 @@ async function bootstrap(): Promise<void> {
     const host = config.listenHost;
     const { port } = config.runtimeApi;
     await app.listen(port, host);
-    logInfo({ msg: "runtime-api.started", host, port });
+    const rateLimit = resolveIngestRateLimitConfig();
+    logInfo({
+        msg: "runtime-api.started",
+        host,
+        port,
+        bodyLimit: BODY_LIMIT,
+        rateLimitCapacity: rateLimit.capacity,
+        rateLimitRefillPerSec: rateLimit.refillPerSec,
+    });
 
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
