@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
-import { RecipeEntity, type RecipeRepository } from "@monitor/tracer-domain";
+import { RecipeEntity, type RecipeRepository, type SearchOutboxEntity } from "@monitor/tracer-domain";
 import { FixedClock } from "~tracer-api/domain/recipe/port/__fakes__/fixed.clock.js";
-import type { RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
+import type { RecipeTransactionPort, RecipeTx } from "~tracer-api/domain/recipe/port/recipe.transaction.port.js";
 import { DeleteRecipeUseCase } from "./delete.recipe.usecase.js";
 
 const NOW = new Date("2026-07-01T00:00:00.000Z");
@@ -28,40 +28,46 @@ function makeRecipe(id: string, userId = "u1"): RecipeEntity {
     );
 }
 
-function makeUseCase(args: { readonly recipes: readonly RecipeEntity[]; readonly removed?: string[] }) {
-    const store = new Map(args.recipes.map((recipe) => [recipe.id, recipe]));
-    const recipes = {
+// 소프트삭제된 레시피는 조회에 잡히지 않는 실제 저장소의 findById 계약을 재현한다.
+function makeTx(recipes: readonly RecipeEntity[]): { readonly tx: RecipeTransactionPort; readonly enqueued: string[] } {
+    const store = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+    const enqueued: string[] = [];
+    const recipesPort = {
         findById: async (id: string) => {
             const found = store.get(id);
             return found !== undefined && !found.isDeleted() ? found : null;
         },
-        upsert: async (recipe: RecipeEntity) => store.set(recipe.id, recipe),
+        upsert: async (recipe: RecipeEntity) => void store.set(recipe.id, recipe),
     } as unknown as RecipeRepository;
-    const search = {
-        remove: async (id: string) => void args.removed?.push(id),
-    } as unknown as RecipeSearchPort;
-    return new DeleteRecipeUseCase(recipes, new FixedClock(new Date("2026-01-01T00:00:00.000Z")), search);
+    const tx: RecipeTransactionPort = {
+        run: async <T>(work: (tx: RecipeTx) => Promise<T>) => work({
+            recipes: recipesPort,
+            searchOutbox: { enqueue: async (row: SearchOutboxEntity) => void enqueued.push(row.targetId) },
+        }),
+    };
+    return { tx, enqueued };
 }
 
 describe("DeleteRecipeUseCase", () => {
-    it("기각된 레시피를 지우고 검색 색인에서도 제거한다", async () => {
+    it("기각된 레시피를 지우고 검색 아웃박스에 큐잉한다", async () => {
         const recipe = makeRecipe("r1");
         recipe.dismiss(NOW);
-        const removed: string[] = [];
-        const usecase = makeUseCase({ recipes: [recipe], removed });
+        const { tx, enqueued } = makeTx([recipe]);
+        const usecase = new DeleteRecipeUseCase(tx, new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
 
         const result = await usecase.execute("u1", "r1");
 
         expect(result).toEqual({ deleted: true, id: "r1" });
         expect(recipe.isDeleted()).toBe(true);
-        expect(removed).toEqual(["r1"]);
+        expect(enqueued).toEqual(["r1"]);
     });
 
     it("폐기된 레시피도 지울 수 있다", async () => {
         const recipe = makeRecipe("r1");
         recipe.accept(NOW);
         recipe.retire(NOW);
-        const usecase = makeUseCase({ recipes: [recipe] });
+        const { tx } = makeTx([recipe]);
+        const usecase = new DeleteRecipeUseCase(tx, new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
 
         await usecase.execute("u1", "r1");
 
@@ -71,7 +77,8 @@ describe("DeleteRecipeUseCase", () => {
     it("대체된 레시피는 계보가 끊기므로 지우지 않는다", async () => {
         const recipe = makeRecipe("r1");
         recipe.supersede("r2", NOW);
-        const usecase = makeUseCase({ recipes: [recipe] });
+        const { tx } = makeTx([recipe]);
+        const usecase = new DeleteRecipeUseCase(tx, new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
 
         await expect(usecase.execute("u1", "r1")).rejects.toThrow(/not-deletable/);
         expect(recipe.isDeleted()).toBe(false);
@@ -80,7 +87,8 @@ describe("DeleteRecipeUseCase", () => {
     it("활성 레시피는 지우지 않는다", async () => {
         const recipe = makeRecipe("r1");
         recipe.accept(NOW);
-        const usecase = makeUseCase({ recipes: [recipe] });
+        const { tx } = makeTx([recipe]);
+        const usecase = new DeleteRecipeUseCase(tx, new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
 
         await expect(usecase.execute("u1", "r1")).rejects.toThrow(/not-deletable/);
     });
@@ -88,7 +96,8 @@ describe("DeleteRecipeUseCase", () => {
     it("다른 사용자의 레시피는 존재를 알리지 않는다", async () => {
         const recipe = makeRecipe("r1", "u2");
         recipe.dismiss(NOW);
-        const usecase = makeUseCase({ recipes: [recipe] });
+        const { tx } = makeTx([recipe]);
+        const usecase = new DeleteRecipeUseCase(tx, new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
 
         await expect(usecase.execute("u1", "r1")).rejects.toThrow(NotFoundException);
         expect(recipe.isDeleted()).toBe(false);
@@ -97,7 +106,8 @@ describe("DeleteRecipeUseCase", () => {
     it("이미 지운 레시피를 다시 지우면 찾을 수 없다", async () => {
         const recipe = makeRecipe("r1");
         recipe.dismiss(NOW);
-        const usecase = makeUseCase({ recipes: [recipe] });
+        const { tx } = makeTx([recipe]);
+        const usecase = new DeleteRecipeUseCase(tx, new FixedClock(new Date("2026-01-01T00:00:00.000Z")));
         await usecase.execute("u1", "r1");
 
         await expect(usecase.execute("u1", "r1")).rejects.toThrow(NotFoundException);

@@ -1,7 +1,19 @@
-import type { RecipeApplicationEntity, RecipeEntity } from "@monitor/tracer-domain";
+import { SEARCH_OUTBOX_TARGET, SearchOutboxEntity, type RecipeApplicationEntity, type RecipeEntity } from "@monitor/tracer-domain";
+import { generateUlid } from "@monitor/platform";
 import type { RecipeApplicationDto, RecipeDto, RecipeWithStatsDto } from "@monitor/kernel";
 
 export type { RecipeApplicationDto, RecipeDto, RecipeWithStatsDto };
+
+/** 레시피 쓰기와 같은 커밋에 검색 반영을 요청하는 아웃박스 행을 만든다. */
+export function enqueueRecipeIndex(userId: string, recipeId: string, now: Date): SearchOutboxEntity {
+    return SearchOutboxEntity.enqueue({
+        id: generateUlid(now.getTime()),
+        userId,
+        target: SEARCH_OUTBOX_TARGET.recipe,
+        targetId: recipeId,
+        now,
+    });
+}
 
 export function mapRecipe(recipe: RecipeEntity): RecipeDto {
     return {

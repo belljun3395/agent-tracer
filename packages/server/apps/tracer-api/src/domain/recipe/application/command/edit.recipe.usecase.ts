@@ -1,9 +1,8 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import type { RecipeRevisionInput } from "@monitor/tracer-domain";
+import type { RecipeEntity, RecipeRevisionInput } from "@monitor/tracer-domain";
 import { CLOCK, type ClockPort } from "~tracer-api/domain/recipe/port/clock.port.js";
-import { RECIPE_REPOSITORY, type RecipeRepositoryPort } from "~tracer-api/domain/recipe/port/recipe.repository.port.js";
-import { RECIPE_SEARCH, type RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
-import { mapRecipe, type RecipeDto } from "~tracer-api/domain/recipe/application/recipe.support.js";
+import { RECIPE_TRANSACTION, type RecipeTransactionPort, type RecipeTx } from "~tracer-api/domain/recipe/port/recipe.transaction.port.js";
+import { enqueueRecipeIndex, mapRecipe, type RecipeDto } from "~tracer-api/domain/recipe/application/recipe.support.js";
 
 export interface EditRecipeInput {
     readonly title?: string | undefined;
@@ -15,20 +14,31 @@ export interface EditRecipeInput {
 @Injectable()
 export class EditRecipeUseCase {
     constructor(
-        @Inject(RECIPE_REPOSITORY)
-        private readonly recipes: RecipeRepositoryPort,
-        @Inject(RECIPE_SEARCH) private readonly search: RecipeSearchPort,
+        @Inject(RECIPE_TRANSACTION)
+        private readonly tx: RecipeTransactionPort,
         @Inject(CLOCK) private readonly clock: ClockPort,
     ) {}
 
     async execute(userId: string, id: string, input: EditRecipeInput): Promise<{ readonly recipe: RecipeDto }> {
-        const recipe = await this.recipes.findById(id);
+        const now = this.clock.now();
+        const recipe = await this.tx.run((tx) => this.applyInTransaction(tx, userId, id, input, now));
+        return { recipe: mapRecipe(recipe) };
+    }
+
+    private async applyInTransaction(
+        tx: RecipeTx,
+        userId: string,
+        id: string,
+        input: EditRecipeInput,
+        now: Date,
+    ): Promise<RecipeEntity> {
+        const recipe = await tx.recipes.findById(id);
         // 소유자가 아니면 존재 여부도 노출하지 않는다.
         if (recipe === null || recipe.userId !== userId) throw new NotFoundException("Recipe not found");
-        recipe.editByUser(toRevision(input), this.clock.now());
-        await this.recipes.upsert(recipe);
-        await this.search.upsert(recipe);
-        return { recipe: mapRecipe(recipe) };
+        recipe.editByUser(toRevision(input), now);
+        await tx.recipes.upsert(recipe);
+        await tx.searchOutbox.enqueue(enqueueRecipeIndex(userId, recipe.id, now));
+        return recipe;
     }
 }
 

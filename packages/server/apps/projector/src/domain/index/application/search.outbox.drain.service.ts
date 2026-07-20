@@ -86,10 +86,14 @@ export class SearchOutboxDrainService {
         return this.applyTask(row, repos.taskUserStates);
     }
 
+    // 소프트삭제된(또는 삭제된) 레시피는 조회에 잡히지 않으므로 못 찾은 것과 지워야 할 것을 구분하지 않는다.
     private async applyRecipe(row: SearchOutboxEntity, recipes: SearchOutboxRecipeRepository): Promise<boolean> {
         try {
             const recipe = await recipes.findById(row.targetId);
-            if (recipe === null) return true;
+            if (recipe === null) {
+                await this.searchIndex.deleteDocument(RECIPES_ALIAS, row.targetId);
+                return true;
+            }
             await this.searchIndex.indexDocument(RECIPES_ALIAS, recipe.id, recipeDocument(recipe));
             return true;
         } catch (error) {

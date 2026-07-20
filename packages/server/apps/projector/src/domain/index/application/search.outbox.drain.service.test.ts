@@ -117,8 +117,9 @@ describe("SearchOutboxDrainService", () => {
         ]);
     });
 
-    it("대상 레시피가 사라졌으면 행을 지워 큐가 막히지 않게 한다", async () => {
+    it("삭제되거나 사라진 레시피는 검색 문서를 지우고 행을 정리한다", async () => {
         const h = makeService({ rows: [outboxRow("o1", SEARCH_OUTBOX_TARGET.recipe, "gone")] });
+        h.searchIndex.seedDocument(RECIPES_ALIAS, "gone", { title: "지워질 레시피" });
 
         const applied = await h.service.runOnce();
 

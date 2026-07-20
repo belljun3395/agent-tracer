@@ -12,8 +12,6 @@ interface Call {
 function makeUseCase(hits: readonly RecipeSearchHit[] = []): { useCase: SearchRecipesUseCase; calls: Call[] } {
     const calls: Call[] = [];
     const search = {
-        upsert: async () => undefined,
-        remove: async () => undefined,
         search: async (userId: string, q: string, limit: number) => {
             calls.push({ userId, q, limit });
             return hits;
