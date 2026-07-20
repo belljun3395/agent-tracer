@@ -94,14 +94,13 @@ def tool_context[ContextT: StandardAgentContext](
     request: ToolCallRequest, _schema: type[ContextT]
 ) -> ContextT:
     """도구 호출 요청에 실려 온 이 실행의 컨텍스트를 꺼낸다."""
-    # ToolCallRequest는 컨텍스트 타입을 제네릭으로 싣지 않아 runtime.context가 None으로 굳는다.
-    # 실제로 담긴 값은 create_agent에 넘긴 context_schema의 인스턴스다.
+    # ToolCallRequest가 컨텍스트 타입을 제네릭으로 싣지 않아 runtime.context가 None으로 굳지만
+    # 실제 담긴 값은 create_agent에 넘긴 context_schema의 인스턴스다.
     return cast("ContextT", request.runtime.context)
 
 
 # noinspection PyTypeChecker
 def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[StandardAgentContext]:
-    """남은 도구 라운드를 모델에게 알리고, 라운드나 비용이 바닥나면 결론만 받는다."""
     context = request.runtime.context
     total = context.max_tool_rounds
     spent = dict(request.state).get("run_model_call_count", 0)

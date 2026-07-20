@@ -13,7 +13,6 @@ from .nodes.inspect import InspectNode, TriageNode
 
 
 def _dispatch(state: TaskCleanupState) -> list[Send]:
-    """조율자가 열어보기로 고른 후보를 동시에 조사하며 비용도 배분한 라운드에 비례해 나눈다."""
     plan = state["plan"]
     if plan is None or not plan.assignments:
         return [Send(InvestigateNode.name, state)]

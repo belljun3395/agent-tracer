@@ -1,7 +1,4 @@
-"""실행 코드가 사용하는 recipe-scan 그래프를 Mermaid로 출력한다.
-
-실행: .venv/bin/python scripts/draw_graph.py
-"""
+"""실행 코드가 사용하는 recipe-scan 그래프를 Mermaid로 출력한다."""
 
 from __future__ import annotations
 

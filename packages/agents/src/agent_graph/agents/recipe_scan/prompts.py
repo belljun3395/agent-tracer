@@ -1,7 +1,4 @@
-"""recipe-scan 도구 루프가 사용하는 프롬프트.
-
-프롬프트 버전은 실행 궤적과 평가 코퍼스에서 의미 변화의 경계를 식별하는 값이다.
-"""
+"""recipe-scan 도구 루프가 사용하는 프롬프트."""
 
 from __future__ import annotations
 
@@ -10,6 +7,7 @@ from collections.abc import Sequence
 from ..shared.models import Language
 from .models import MAX_RECIPE_CANDIDATES, DispatchPlan, ProbeReport
 
+# 프롬프트 버전은 실행 궤적과 평가 코퍼스에서 의미 변화의 경계를 식별하는 값이다.
 PROMPT_VERSION = "recipe-scan-native-v6"
 
 LANGUAGE_DIRECTIVES: dict[Language, str] = {

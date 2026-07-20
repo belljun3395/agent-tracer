@@ -31,8 +31,6 @@ from ..tools import build_recipe_registry
 
 
 class _CandidateAgent(GraphNode):
-    """조사와 복구 노드가 공유하는 도구 루프 호출을 슬라이스 안에서 소유한다."""
-
     def __init__(
         self,
         req: RecipeScanRequest,

@@ -18,7 +18,7 @@ Language = Literal["auto", "ko", "en", "ja", "zh"]
 
 
 class CompletionCallback(BaseModel):
-    """실행 결과를 돌려줄 창구. 요청한 HTTP 연결이 아니라 이 창구가 결과를 받는다."""
+    """실행 결과를 요청한 HTTP 연결이 아니라 이 창구로 돌려받는다."""
 
     url: TrimmedStr = Field(min_length=1)
     token: TrimmedStr = Field(min_length=1)
@@ -54,7 +54,7 @@ class AgentExecutionRequest(BaseModel):
 
 
 class AgentAccepted(BaseModel):
-    """실행 접수 응답. 결과 본문은 완료 창구로 따로 전달된다."""
+    """결과 본문은 완료 창구로 따로 전달되는 실행 접수 응답이다."""
 
     status: Literal["accepted"] = "accepted"
     runId: str
@@ -84,7 +84,7 @@ class AgentStepToolCall(BaseModel):
 
 
 class AgentStepDTO(BaseModel):
-    """궤적 한 스텝. TS `AiJobStepPayload`(contracts)와 필드가 1:1 대응한다."""
+    """TS `AiJobStepPayload`(contracts)와 필드가 1:1 대응하는 궤적 한 스텝이다."""
 
     seq: int
     role: AgentStepRole
@@ -109,7 +109,7 @@ class AgentErrorDTO(BaseModel):
 
 
 class AgentResponse(BaseModel):
-    """세 에이전트 공통 응답. data는 성공 시 구조화 출력, 실패 시 None."""
+    """세 에이전트 공통 응답이며 data는 성공 시 구조화 출력이고 실패 시 None이다."""
 
     data: dict[str, object] | None = None
     modelUsed: str

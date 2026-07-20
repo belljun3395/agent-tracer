@@ -20,6 +20,7 @@ DIRECTIVE = re.compile(
 DIVIDER = re.compile(r"^[\s\-=*─━#/.|+]+$")
 URL = re.compile(r"^\s*https?://")
 LICENSE = re.compile(r"^\s*(?:Copyright|SPDX-|License|@license)", re.IGNORECASE)
+SENTENCE_BREAK = re.compile(r"[.?!]\s")
 
 
 def python_files(paths: Iterable[Path]) -> Iterator[Path]:
@@ -98,18 +99,30 @@ def violation(text: str) -> str | None:
     return None
 
 
+def single_sentence(text: str) -> str | None:
+    stripped = text.strip()
+    if "\n" in stripped or SENTENCE_BREAK.search(stripped):
+        return "docstring은 한글 한 문장으로 적는다"
+    return None
+
+
 def check_file(path: Path) -> list[str]:
     try:
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
-        entries = [*comments(source), *docstrings(tree)]
+        comment_entries = [*comments(source)]
+        docstring_entries = [*docstrings(tree)]
         string_lines = [*standalone_strings(tree)]
     except (OSError, SyntaxError, tokenize.TokenError) as error:
         return [f"{path}: 검사할 수 없다: {error}"]
 
     findings = [f"{path}:{line}: 문자열 리터럴을 블록 주석으로 사용하지 않는다" for line in string_lines]
-    for line, text in sorted(entries):
+    for line, text in sorted(comment_entries):
         message = violation(text)
+        if message is not None:
+            findings.append(f"{path}:{line}: {message}")
+    for line, text in sorted(docstring_entries):
+        message = violation(text) or single_sentence(text)
         if message is not None:
             findings.append(f"{path}:{line}: {message}")
     return findings

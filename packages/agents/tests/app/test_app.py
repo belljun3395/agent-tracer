@@ -1,4 +1,4 @@
-"""HTTP 계약 검증. 페이크 모델을 그래프 모듈에 주입한다."""
+"""페이크 모델을 그래프 모듈에 주입해 HTTP 계약을 검증한다."""
 
 from __future__ import annotations
 

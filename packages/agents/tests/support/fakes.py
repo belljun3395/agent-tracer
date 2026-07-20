@@ -39,8 +39,6 @@ _AUTO_REPORTS: dict[str, dict[str, Any]] = {
 
 
 class _FakePlanner:
-    """구조화 출력 대역이며 조율자가 세운 계획을 캔 값으로 돌려준다."""
-
     def __init__(self, plan: Any) -> None:
         self._plan = plan
 
@@ -49,12 +47,10 @@ class _FakePlanner:
 
 
 class FakeToolLoopChat:
-    """도구 루프 대역. 턴마다 도구 호출이나 구조화 출력을 순서대로 재생한다.
-
-    turns의 각 항목은 도구 호출 목록(list)이거나 최종 구조화 출력(dict)이다.
-    """
+    """턴마다 도구 호출이나 구조화 출력을 순서대로 재생하는 도구 루프 대역이다."""
 
     def __init__(self, turns: list[Any], plan: Any = None, report: Any = None) -> None:
+        # turns의 각 항목은 도구 호출 목록(list)이거나 최종 구조화 출력(dict)이다.
         self.turns = list(turns)
         self.plan = plan
         self.report = report
@@ -133,7 +129,7 @@ class FakeToolLoopChat:
 
 
 class FakeLedgerConnection:
-    """원장 뷰 조회 대역. 소유 확인과 페이지와 총계를 캔 데이터로 돌려준다."""
+    """소유 확인과 페이지와 총계를 캔 데이터로 돌려주는 원장 뷰 조회 대역이다."""
 
     def __init__(self, ledger: FakeLedger) -> None:
         self._ledger = ledger
@@ -167,7 +163,7 @@ class FakeLedgerAcquire:
 
 
 class FakeLedger:
-    """원장 연결 풀 공급자 대역. 조회 인자를 기록하고 캔 행을 돌려준다."""
+    """조회 인자를 기록하고 캔 행을 돌려주는 원장 연결 풀 공급자 대역이다."""
 
     def __init__(
         self,
@@ -204,7 +200,7 @@ class FakeLedger:
 
 
 class FakeSearch:
-    """검색 색인 대역. 색인별 캔 히트를 돌려주고 질의 본문을 기록한다."""
+    """색인별 캔 히트를 돌려주고 질의 본문을 기록하는 검색 색인 대역이다."""
 
     def __init__(self, hits: dict[str, list[dict[str, Any]]] | None = None) -> None:
         self.hits = hits or {}

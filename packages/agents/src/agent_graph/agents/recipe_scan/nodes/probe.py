@@ -31,7 +31,6 @@ _log = logging.getLogger(__name__)
 
 
 def _failure_verdict(exc: Exception) -> str:
-    """전문가 실행이 무너진 사유를 판정 상한 안으로 줄여 보고 문장으로 만든다."""
     summary = str(exc).strip() or type(exc).__name__
     return f"조사 실패: {summary}"[:MAX_VERDICT_CHARS]
 

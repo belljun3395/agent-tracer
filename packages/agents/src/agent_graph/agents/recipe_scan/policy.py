@@ -20,7 +20,7 @@ from .models import (
 # 계획을 세우는 데 한 라운드를 쓰므로 배분 가능한 조사 라운드는 그만큼 줄어든다.
 SURVEY_ROUNDS = 1
 
-# 종합과 인용 확인에 먼저 떼어 두는 최소 몫이다. 전문가에게 이 몫까지 넘기지는 않는다.
+# 종합과 인용 확인에 먼저 떼어 두어 전문가에게는 넘기지 않는 최소 몫이다.
 MIN_SYNTHESIS_ROUNDS = 3
 
 MAX_RECIPE_MODEL_COST_USD = 2.0
@@ -35,7 +35,7 @@ def distributable_rounds() -> int:
 
 
 def synthesis_rounds(plan: DispatchPlan | None) -> int:
-    """계획과 조사에 쓰고 남은, 조율자가 종합에 갖는 라운드다. 전문가를 적게 띄우면 더 받는다."""
+    """계획과 조사에 쓰고 남은, 조율자가 종합에 갖는 라운드다."""
     if plan is None:
         return MAX_TOOL_ROUNDS
     return max(MAX_TOOL_ROUNDS - SURVEY_ROUNDS - plan.total_rounds(), MIN_SYNTHESIS_ROUNDS)

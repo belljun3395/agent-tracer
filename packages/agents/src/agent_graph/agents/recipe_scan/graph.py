@@ -14,7 +14,6 @@ from .nodes.survey import SurveyNode
 
 
 def _dispatch(state: RecipeScanState) -> list[Send]:
-    """조율자가 세운 계획대로 전문가를 동시에 띄우며 비용도 배분한 라운드에 비례해 나눈다."""
     plan = state["plan"]
     if plan is None:
         return [Send(InvestigateNode.name, state)]

@@ -23,7 +23,6 @@ from .policy import MAX_TOOL_ROUNDS
 
 
 def _tool_retry(transient_errors: tuple[type[Exception], ...]) -> ToolRetryMiddleware:
-    """도구가 선언한 일시적 연결 오류를 도구 계층에서 재시도해 병렬 조사가 통째로 무너지지 않게 한다."""
     return ToolRetryMiddleware(
         max_retries=2,
         retry_on=transient_errors,

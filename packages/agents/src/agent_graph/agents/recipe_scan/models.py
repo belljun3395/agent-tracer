@@ -16,9 +16,7 @@ MAX_RECIPE_CANDIDATES = 4
 # 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이며 커널의 골든 계약이 값을 소유한다.
 MAX_TOOL_ROUNDS = 15
 
-# 라운드 예산은 agent의 호출 한도가 집행한다. 한 라운드가 before_model·model·after_model·tools
-# 네 슈퍼스텝을 도는 데다 미들웨어를 더하면 더 늘어나므로, 재귀 한도는 예산을 세는 자리가 아니라
-# 폭주만 끊는 그물이다.
+# 한 라운드가 langchain agent의 네 슈퍼스텝을 돌므로 재귀 한도는 예산이 아니라 폭주만 끊는 그물이다.
 AGENT_RECURSION_LIMIT = 10 * MAX_TOOL_ROUNDS
 
 
@@ -72,7 +70,7 @@ class ProbeDispatch(BaseModel):
     cost_share: float = Field(gt=0.0, le=1.0)
 
 
-# 발췌 상한이 곧 맥락 격리의 강도다. 넉넉히 열면 전문가의 맥락이 조율자에게 그대로 옮겨온다.
+# 발췌 상한이 곧 맥락 격리의 강도이며 넉넉히 열면 전문가의 맥락이 조율자에게 그대로 옮겨온다.
 MAX_EXCERPTS_PER_PROBE = 12
 MAX_EXCERPT_CHARS = 600
 MAX_VERDICT_CHARS = 1_200
@@ -202,7 +200,7 @@ class ProvenanceCatalog(BaseModel):
 
 
 def merged_provenance(left: ProvenanceCatalog, right: ProvenanceCatalog) -> ProvenanceCatalog:
-    """두 근거 장부를 합친 새 장부를 낸다. 전문가가 자기 맥락에서 모은 것을 부모로 올릴 때 쓴다."""
+    """두 근거 장부를 합친 새 장부를 낸다."""
     combined = left.model_copy(deep=True)
     for task_id, event_ids in right.eventIdsByTask.items():
         combined.eventIdsByTask.setdefault(task_id, set()).update(event_ids)
@@ -214,7 +212,6 @@ def merged_provenance(left: ProvenanceCatalog, right: ProvenanceCatalog) -> Prov
 
 
 def _sum_cost(left: float, right: float) -> float:
-    """전문가들이 병렬로 쓴 비용을 더해 실행 전체의 지출로 만든다."""
     return left + right
 
 
@@ -248,7 +245,7 @@ class ValidateCandidateUpdate(TypedDict):
 
 
 class RepairUpdate(TypedDict, total=False):
-    """수리 노드가 갱신하는 상태 부분집합이다. 후보가 없으면 재시도 표시만 올린다."""
+    """수리 노드가 갱신하는 상태 부분집합이다."""
 
     candidates: list[RecipeCandidate]
     messages: list[BaseMessage]

@@ -26,7 +26,7 @@ def clamp_rounds[Assignment: RoundAssignment](assignments: Sequence[Assignment],
     """각 워커의 최소 한 라운드를 보존하며 요청 라운드를 가용량에 비례해 줄인다."""
     floor = len(assignments)
     if floor > available:
-        # 워커 수가 가용량보다 많으면 최소 한 라운드도 보장할 수 없다.
+        # 워커 수가 가용량보다 많으면 최소 한 라운드도 보장할 수 없으므로
         # 호출자가 먼저 워커 수를 가용량 이하로 줄여야 한다.
         raise ValueError("available rounds cannot cover one round per assignment")
     requested = sum(assignment.rounds for assignment in assignments)
