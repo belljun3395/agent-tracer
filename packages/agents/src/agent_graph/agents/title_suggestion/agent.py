@@ -28,9 +28,10 @@ async def run_title_suggestion(
         req.deadlineMs,
         max_output_tokens=TITLE_MAX_OUTPUT_TOKENS,
     )
+    reader = TitleLedgerReader(ledger, req.userId)
     investigate, validate_candidate, repair = create_candidate_nodes(
         req,
-        TitleLedgerReader(ledger, req.userId),
+        reader,
         usage,
         chat,
         agent_name=AGENT_NAME,

@@ -34,12 +34,14 @@ async def run_task_cleanup(
     investigate, validate_decisions, repair = create_decision_nodes(
         req, reader, usage, chat, agent_name=AGENT_NAME
     )
+    triage = create_triage_node(req, reader, usage, chat, agent_name=AGENT_NAME)
+    inspect = create_inspect_node(req, reader, usage, chat, agent_name=AGENT_NAME)
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
         {
-            "triage": create_triage_node(req, reader, usage, chat, agent_name=AGENT_NAME),
-            "inspect": create_inspect_node(req, reader, usage, chat, agent_name=AGENT_NAME),
+            "triage": triage,
+            "inspect": inspect,
             "investigate": investigate,
             "validate_decisions": validate_decisions,
             "repair": repair,
