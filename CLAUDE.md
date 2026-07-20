@@ -46,6 +46,7 @@
 | `0031-agents-read-through-views` | 파이썬 에이전트가 읽는 데이터를 바꿀 때. 뷰에 없는 열이 필요해질 때 |
 | `0032-coordinator-and-specialists` | 조사를 나눌 때. 전문가를 더하거나 뺄 때. 예산 배분과 근거 장부 병합을 만질 때 |
 | `0033-recipes-are-chosen-by-the-model` | 레시피가 에이전트에게 닿는 방식을 만질 때. 레시피의 성과를 재거나 도태시킬 때 |
+| `0034-operational-logs-are-queried-by-name` | 로그를 더할 때. 이벤트 이름과 수준과 상관 식별자를 정할 때 |
 
 ## 놓치기 쉬운 규칙
 
