@@ -4,7 +4,7 @@ import { RECIPE_OUTCOMES, RECIPE_STATUSES } from "@monitor/kernel";
 export const listQuerySchema = z.object({ status: z.enum(RECIPE_STATUSES).optional() });
 export const applicationsQuerySchema = z.object({ recipeId: z.string().trim().min(1) });
 export const searchQuerySchema = z.object({
-    q: z.string().optional(),
+    q: z.string().trim().min(1),
     limit: z.coerce.number().int().positive().optional(),
 });
 export const editBodySchema = z.object({

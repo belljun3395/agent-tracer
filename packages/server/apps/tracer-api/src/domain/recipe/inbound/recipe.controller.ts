@@ -66,7 +66,7 @@ export class RecipeController {
     ) {
         return this.searchRecipes.execute({
             userId: resolveUserId(user),
-            q: query.q ?? "",
+            q: query.q,
             ...(query.limit !== undefined ? { limit: query.limit } : {}),
         });
     }
