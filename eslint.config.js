@@ -41,7 +41,11 @@ const pathRuleConfigs = Object.keys(ALIASES).map((alias) => ({
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/build/**", "**/coverage/**", "**/node_modules/**", "**/.venv/**", "**/*.d.ts"],
+    // .claude/worktrees는 저장소 전체의 사본이라 훑으면 같은 파일을 두 번 보고 힙이 터진다.
+    ignores: [
+      "**/dist/**", "**/build/**", "**/coverage/**", "**/node_modules/**", "**/.venv/**", "**/*.d.ts",
+      ".claude/worktrees/**",
+    ],
   },
 
   js.configs.recommended,
