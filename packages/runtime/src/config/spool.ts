@@ -18,13 +18,12 @@ export interface SpoolSegment {
     readonly size: number;
 }
 
-export function appendSpoolLines(
-    lines: readonly string[],
-    paths: AgentTracerPaths = resolveAgentTracerPaths(),
-    segmentId: string = generateUlid(),
-): void {
-    if (lines.length === 0) return;
-    ensureSpoolDir(paths);
+// 세그먼트는 이름 순으로 배달되므로 쪼갠 조각은 0을 채운 번호로 순서를 지킨다.
+function chunkSegmentId(segmentId: string, index: number): string {
+    return `${segmentId}-${String(index).padStart(3, "0")}`;
+}
+
+function writeSegment(lines: readonly string[], paths: AgentTracerPaths, segmentId: string): void {
     const payload = lines.map((line) => `${line}\n`).join("");
     const tmpPath = path.join(paths.spoolDir, `${TMP_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
     const finalPath = path.join(paths.spoolDir, `${SEGMENT_PREFIX}${segmentId}${SEGMENT_SUFFIX}`);
@@ -36,6 +35,23 @@ export function appendSpoolLines(
         fs.closeSync(fd);
     }
     fs.renameSync(tmpPath, finalPath);
+}
+
+/** 상한을 넘긴 세그먼트는 서버가 배치로 받지 못하므로 상한 이하로 쪼개 쓴다. */
+export function appendSpoolLines(
+    lines: readonly string[],
+    paths: AgentTracerPaths = resolveAgentTracerPaths(),
+    segmentId: string = generateUlid(),
+): void {
+    if (lines.length === 0) return;
+    ensureSpoolDir(paths);
+    if (lines.length <= SPOOL_BATCH_MAX) {
+        writeSegment(lines, paths, segmentId);
+        return;
+    }
+    for (let offset = 0, index = 0; offset < lines.length; offset += SPOOL_BATCH_MAX, index += 1) {
+        writeSegment(lines.slice(offset, offset + SPOOL_BATCH_MAX), paths, chunkSegmentId(segmentId, index));
+    }
 }
 
 export function listSpoolSegments(paths: AgentTracerPaths = resolveAgentTracerPaths()): SpoolSegment[] {
@@ -62,6 +78,22 @@ export function listSpoolSegments(paths: AgentTracerPaths = resolveAgentTracerPa
         }
     }
     return segments;
+}
+
+/** 상한이 생기기 전에 쌓여 배달될 수 없는 세그먼트를 상한 이하 조각으로 다시 쓴다. */
+export function splitOversizedSegments(paths: AgentTracerPaths = resolveAgentTracerPaths()): number {
+    let split = 0;
+    for (const segment of listSpoolSegments(paths)) {
+        const lines = readSpoolSegment(segment.path);
+        if (lines.length <= SPOOL_BATCH_MAX) continue;
+        const baseId = segment.name.slice(SEGMENT_PREFIX.length, -SEGMENT_SUFFIX.length);
+        for (let offset = 0, index = 0; offset < lines.length; offset += SPOOL_BATCH_MAX, index += 1) {
+            writeSegment(lines.slice(offset, offset + SPOOL_BATCH_MAX), paths, chunkSegmentId(baseId, index));
+        }
+        removeSpoolSegment(segment.path);
+        split += 1;
+    }
+    return split;
 }
 
 export function spoolBacklogBytes(paths: AgentTracerPaths = resolveAgentTracerPaths()): number {

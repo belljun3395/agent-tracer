@@ -2,6 +2,7 @@ import type {AgentTracerPaths} from "~runtime/config/home.paths.js";
 import {
     listSpoolSegments,
     readSpoolSegment,
+    splitOversizedSegments,
     SPOOL_BATCH_MAX,
     type SpoolSegment,
 } from "~runtime/config/spool.js";
@@ -15,6 +16,7 @@ export interface SpoolBatch {
 
 /** 정렬된 닫힌 세그먼트를 인제스트 배치 상한까지 묶는다. */
 export function collectSpoolBatch(paths: AgentTracerPaths, segmentLimit: number): SpoolBatch | null {
+    splitOversizedSegments(paths);
     const all = listSpoolSegments(paths);
     if (all.length === 0) return null;
     const segments: SpoolSegment[] = [];
@@ -22,7 +24,7 @@ export function collectSpoolBatch(paths: AgentTracerPaths, segmentLimit: number)
     for (const segment of all) {
         if (segments.length >= segmentLimit) break;
         const segmentLines = readSpoolSegment(segment.path);
-        if (segments.length > 0 && lines.length + segmentLines.length > SPOOL_BATCH_MAX) break;
+        if (lines.length > 0 && lines.length + segmentLines.length > SPOOL_BATCH_MAX) break;
         segments.push(segment);
         lines.push(...segmentLines);
         if (lines.length >= SPOOL_BATCH_MAX) break;
