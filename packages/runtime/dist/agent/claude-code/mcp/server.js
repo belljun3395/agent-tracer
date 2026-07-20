@@ -170,10 +170,24 @@ var RECIPE_OUTCOMES = [
   RECIPE_OUTCOME.abandoned,
   RECIPE_OUTCOME.superseded
 ];
+var RECIPE_VERDICT = {
+  followedAndHelped: "followed_and_helped",
+  followedNotHelped: "followed_not_helped",
+  abandoned: "abandoned",
+  unknown: "unknown"
+};
+var RECIPE_VERDICTS = [
+  RECIPE_VERDICT.followedAndHelped,
+  RECIPE_VERDICT.followedNotHelped,
+  RECIPE_VERDICT.abandoned,
+  RECIPE_VERDICT.unknown
+];
 
 // src/daemon/port/mcp.socket.port.ts
-function parseDaemonRecipeSearchResponse(value) {
-  return isRecord(value) && Array.isArray(value["matches"]) ? { matches: value["matches"] } : null;
+function parseDaemonRecipeGetResponse(value) {
+  if (!isRecord(value)) return null;
+  const body = value["body"];
+  return typeof body === "string" || body === null ? { body } : null;
 }
 function parseDaemonRecipeOutcomeResponse(value) {
   if (!isRecord(value) || typeof value["ok"] !== "boolean") return null;
@@ -213,28 +227,24 @@ function parseDaemonMemoSearchResponse(value) {
 
 // src/daemon/ipc/mcp.client.ts
 var REQUEST_TIMEOUT_MS = 3e3;
-var EMPTY_SEARCH = { matches: [] };
+var EMPTY_GET = { body: null };
 var NO_DAEMON_OUTCOME = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_SCAN = { queued: false, reason: "daemon_unreachable" };
 var NO_DAEMON_TITLE = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_MEMO_CREATE = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_MEMO_SEARCH = { items: [], reason: "daemon_unreachable" };
-async function searchRecipesViaDaemon(query, limit) {
+async function getRecipeViaDaemon(recipeId) {
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
       paths.socketPath,
-      {
-        type: "recipe-search",
-        query,
-        ...limit !== void 0 ? { limit } : {}
-      },
+      { type: "recipe-get", recipeId },
       REQUEST_TIMEOUT_MS,
-      (parsed) => parseDaemonRecipeSearchResponse(parsed) ?? EMPTY_SEARCH,
-      EMPTY_SEARCH
+      (parsed) => parseDaemonRecipeGetResponse(parsed) ?? EMPTY_GET,
+      EMPTY_GET
     );
   } catch {
-    return EMPTY_SEARCH;
+    return EMPTY_GET;
   }
 }
 async function reportRecipeOutcomeViaDaemon(recipeId, outcome, note) {
@@ -536,16 +546,34 @@ function parseSearchMemosArgs(value) {
   };
 }
 
+// src/domain/recipe/model/get.recipe.tool.model.ts
+var GET_RECIPE_TOOL = {
+  name: "get_recipe",
+  description: "Fetch the full workflow for a recipe you saw in the <agent-tracer-recipes> menu \u2014 its intent, the recorded steps in order, known pitfalls, past corrections, touched files, and governing rules. Call this before you start work whenever a recipe in the menu plausibly fits the current task. Calling this marks the recipe as applied to this task, so only call it for a recipe you intend to actually follow.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      recipeId: { type: "string", description: "The recipeId from a recipe entry in the menu." }
+    },
+    required: ["recipeId"]
+  }
+};
+function parseGetRecipeArgs(value) {
+  if (!isRecord(value)) return null;
+  const recipeId = value["recipeId"];
+  return typeof recipeId === "string" && recipeId.trim() !== "" ? { recipeId } : null;
+}
+
 // src/domain/recipe/model/report.recipe.outcome.tool.model.ts
 var REPORT_RECIPE_OUTCOME_TOOL = {
   name: "report_recipe_outcome",
-  description: "Report whether a recipe you followed actually helped on this task. Call this once you can judge the result \u2014 right after finishing the work the recipe guided, or as soon as you abandon the recipe partway through because it did not fit. This is the only feedback signal recipe effectiveness is measured by: call it every time you acted on a recipe, whether you found it with search_recipes or it arrived in your context, even when the outcome was mixed or negative.",
+  description: "Report whether a recipe you followed actually helped on this task. Call this once you can judge the result \u2014 right after finishing the work the recipe guided, or as soon as you abandon the recipe partway through because it did not fit. This is the only feedback signal recipe effectiveness is measured by: call it every time you acted on a recipe, whether you opened it with get_recipe or judged it from the menu alone, even when the outcome was mixed or negative.",
   inputSchema: {
     type: "object",
     properties: {
       recipeId: {
         type: "string",
-        description: "The recipeId from a search_recipes result or from a recipe block in your context."
+        description: "The recipeId from a get_recipe call or from a recipe entry in the menu."
       },
       outcome: {
         type: "string",
@@ -579,30 +607,6 @@ var REQUEST_RECIPE_SCAN_TOOL = {
   inputSchema: { type: "object", properties: {} }
 };
 
-// src/domain/recipe/model/search.recipes.tool.model.ts
-var SEARCH_RECIPES_TOOL = {
-  name: "search_recipes",
-  description: "Search this workspace's saved task recipes \u2014 reusable workflows distilled from how past tasks here were actually solved. Call this BEFORE you start substantive work whenever the user's request plausibly repeats a pattern this workspace has handled before: a familiar setup, migration, recurring fix, or multi-step workflow. Matches come back with their full guidance already included (intent, description, and the recorded steps), so one search is usually enough to act on without a follow-up lookup. Skip this for requests that are clearly one-off, novel, or trivial.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      query: { type: "string", description: "The user's request or task, in your own words." },
-      limit: { type: "number", description: "Max recipes to return (default 3, max 10)." }
-    },
-    required: ["query"]
-  }
-};
-function parseSearchRecipesArgs(value) {
-  if (!isRecord(value)) return null;
-  const query = value["query"];
-  if (typeof query !== "string" || query.trim() === "") return null;
-  const limit = value["limit"];
-  return {
-    query,
-    ...typeof limit === "number" && Number.isFinite(limit) ? { limit } : {}
-  };
-}
-
 // src/domain/session/model/set.task.title.tool.model.ts
 var SET_TASK_TITLE_TOOL = {
   name: "set_task_title",
@@ -630,7 +634,7 @@ function parseSetTaskTitleArgs(value) {
 
 // src/agent/claude-code/mcp/tool.dispatch.ts
 var MCP_TOOLS = [
-  SEARCH_RECIPES_TOOL,
+  GET_RECIPE_TOOL,
   REPORT_RECIPE_OUTCOME_TOOL,
   REQUEST_RECIPE_SCAN_TOOL,
   SET_TASK_TITLE_TOOL,
@@ -640,14 +644,6 @@ var MCP_TOOLS = [
 function invalidArgs() {
   return { text: "Invalid arguments.", isError: true };
 }
-function formatSearchResult(matches) {
-  if (matches.length === 0) return "No matching recipes found in this workspace.";
-  return matches.map((match) => `## ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})
-intent: ${match.intent}
-${match.description}
-
-${match.summaryMd}`).join("\n\n---\n\n");
-}
 function formatMemoSearchResult(items) {
   if (items.length === 0) return "No memos found on the active task.";
   return items.map((item) => `## memo ${item.id} (author: ${item.author}${item.eventId ? `, event: ${item.eventId}` : ""})
@@ -656,11 +652,11 @@ ${item.body}`).join("\n\n---\n\n");
 async function callTool(name, args) {
   await ensureDaemonRunning();
   switch (name) {
-    case SEARCH_RECIPES_TOOL.name: {
-      const parsed = parseSearchRecipesArgs(args);
+    case GET_RECIPE_TOOL.name: {
+      const parsed = parseGetRecipeArgs(args);
       if (!parsed) return invalidArgs();
-      const { matches } = await searchRecipesViaDaemon(parsed.query, parsed.limit);
-      return { text: formatSearchResult(matches), isError: false };
+      const { body } = await getRecipeViaDaemon(parsed.recipeId);
+      return body !== null ? { text: body, isError: false } : { text: `Recipe not found: ${parsed.recipeId}`, isError: true };
     }
     case REPORT_RECIPE_OUTCOME_TOOL.name: {
       const parsed = parseReportRecipeOutcomeArgs(args);
@@ -726,7 +722,7 @@ function writeJsonRpcMessage(stream, message) {
 // src/agent/claude-code/mcp/server.ts
 var SERVER_NAME = "agent-tracer";
 var DEFAULT_PROTOCOL_VERSION = "2024-11-05";
-var INSTRUCTIONS = "This workspace's activity is observed by Agent Tracer. search_recipes looks up saved recipes (reusable workflows distilled from past tasks in this workspace), report_recipe_outcome feeds back whether a recipe you used actually helped \u2014 the only signal recipe quality is judged by \u2014 request_recipe_scan asks for this task itself to be distilled into a new recipe candidate, and set_task_title corrects this task's crude auto-generated title once its real scope is clear. Each tool's own description states exactly when to call it; this note is only the overall picture.";
+var INSTRUCTIONS = "This workspace's activity is observed by Agent Tracer. A menu of saved recipes (reusable workflows distilled from past tasks in this workspace) arrives in your context on every prompt; get_recipe fetches the full workflow for one you saw there, report_recipe_outcome feeds back whether a recipe you used actually helped \u2014 the only signal recipe quality is judged by \u2014 request_recipe_scan asks for this task itself to be distilled into a new recipe candidate, and set_task_title corrects this task's crude auto-generated title once its real scope is clear. Each tool's own description states exactly when to call it; this note is only the overall picture.";
 function protocolVersionOf(params) {
   return isRecord(params) && typeof params["protocolVersion"] === "string" ? params["protocolVersion"] : DEFAULT_PROTOCOL_VERSION;
 }

@@ -28446,6 +28446,9 @@ var GEN_AI_OPERATION = {
   executeTool: "execute_tool",
   plan: "plan"
 };
+var GEN_AI_PROVIDER = {
+  anthropic: "anthropic"
+};
 var ATTRIBUTE_PROMOTION = {
   toolName: SEMCONV_ATTR.toolName,
   agentName: SEMCONV_ATTR.agentName,
@@ -28478,6 +28481,14 @@ var ATTRIBUTE_PROMOTION = {
   asyncStatus: AGENT_TRACER_ATTR.asyncStatus,
   turnResponseEventId: AGENT_TRACER_ATTR.turnResponseEventId
 };
+function promoteAttributeKey(key) {
+  return ATTRIBUTE_PROMOTION[key] ?? key;
+}
+function toSemconvAttributes(metadata) {
+  const promoted = {};
+  for (const [key, value] of Object.entries(metadata)) promoted[promoteAttributeKey(key)] = value;
+  return promoted;
+}
 
 // ../kernel/src/ingest/event.kind.const.ts
 var KIND = {
@@ -30005,6 +30016,137 @@ var SpoolEventSinkAdapter = class {
   }
 };
 
+// src/domain/ingest/model/ingest.event.model.ts
+var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
+function toIngestEvent(event, occurredAt, nextId) {
+  const { id, kind, taskId, sessionId, parentId, turnId, metadata, ...rest } = event;
+  return {
+    id: id ?? nextId(),
+    kind,
+    taskId,
+    ...sessionId ? { sessionId } : {},
+    ...parentId ? { parentId } : {},
+    ...turnId ? { turnId } : {},
+    occurredAt,
+    payload: { ...rest, metadata: toSemconvAttributes(metadata) }
+  };
+}
+function toRunIngestEvent(input, occurredAt, nextId) {
+  return {
+    id: input.id ?? nextId(),
+    kind: input.kind,
+    taskId: input.taskId,
+    ...input.sessionId ? { sessionId: input.sessionId } : {},
+    ...input.turnId ? { turnId: input.turnId } : {},
+    occurredAt,
+    payload: input.payload
+  };
+}
+
+// src/domain/ingest/model/tags.model.ts
+var TAG_KEYS = [
+  ["ruleId", "rule"],
+  ["ruleStatus", "rule-status"],
+  ["verificationStatus", "verification"],
+  ["severity", "severity"],
+  ["rulePolicy", "policy"],
+  ["ruleOutcome", "outcome"],
+  ["asyncStatus", "async"],
+  ["asyncAgent", "agent"],
+  ["asyncCategory", "category"],
+  ["activityType", "activity"],
+  ["subtypeKey", "subtype"],
+  ["subtypeGroup", "subtype-group"],
+  ["entityType", "entity"],
+  ["toolFamily", "tool-family"],
+  ["operation", "operation"],
+  ["sourceTool", "source-tool"],
+  ["agentName", "agent"],
+  ["skillName", "skill"],
+  ["ruleSource", "source"],
+  ["questionPhase", "question"],
+  ["todoState", "todo"],
+  ["modelName", "model"],
+  ["modelProvider", "provider"],
+  ["mcpServer", "mcp"],
+  ["mcpTool", "mcp-tool"],
+  ["compactPhase", "compact"]
+];
+var FLAG_KEYS = [
+  ["asyncTaskId", "async-task"],
+  ["questionId", "question"],
+  ["todoId", "todo"]
+];
+function normalizeTag(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+function readTagValue(metadata, key) {
+  const value = metadata[key];
+  if (typeof value === "string" && value.length > 0) return value;
+  if (typeof value === "number") return String(value);
+  return void 0;
+}
+function buildTagsFromMetadata(metadata) {
+  const tags = /* @__PURE__ */ new Set();
+  for (const [key, prefix] of TAG_KEYS) {
+    const value = readTagValue(metadata, key);
+    if (value) tags.add(`${prefix}:${normalizeTag(value)}`);
+  }
+  for (const [key, tag] of FLAG_KEYS) {
+    if (readTagValue(metadata, key)) tags.add(tag);
+  }
+  const importance = readTagValue(metadata, "importance");
+  if (importance) tags.add(`importance:${normalizeTag(importance)}`);
+  return [...tags];
+}
+function withTags(metadata) {
+  return { ...metadata, tags: buildTagsFromMetadata(metadata) };
+}
+
+// src/domain/ingest/model/event.envelope.model.ts
+function runtimeAttributes(runtimeSource) {
+  return {
+    [AGENT_TRACER_ATTR.runtimeSource]: runtimeSource,
+    [SEMCONV_ATTR.providerName]: GEN_AI_PROVIDER.anthropic
+  };
+}
+function toIngestEvents(events, runtimeSource, nextId, occurredAt) {
+  const attributes = runtimeAttributes(runtimeSource);
+  return events.map((event) => toIngestEvent(
+    { ...event, metadata: { ...withTags(event.metadata), ...attributes } },
+    occurredAt,
+    nextId
+  ));
+}
+
+// src/domain/ingest/application/append.events.usecase.ts
+var AppendEventsUsecase = class {
+  constructor(sink, ids, clock, runtimeSource) {
+    this.sink = sink;
+    this.ids = ids;
+    this.clock = clock;
+    this.runtimeSource = runtimeSource;
+  }
+  sink;
+  ids;
+  clock;
+  runtimeSource;
+  async execute(events) {
+    if (events.length === 0) return;
+    const occurredAt = new Date(this.clock.now()).toISOString();
+    const nextId = () => this.ids.next();
+    const runtime = events.filter(isRuntimeEvent);
+    const raw = events.filter((event) => !isRuntimeEvent(event));
+    await this.sink.append([
+      ...toIngestEvents(runtime, this.runtimeSource, nextId, occurredAt),
+      ...raw.map((event) => toRunIngestEvent(event, occurredAt, nextId))
+    ]);
+  }
+};
+function isRuntimeEvent(event) {
+  return "lane" in event;
+}
+
 // ../kernel/src/api/memo.query.const.ts
 var MEMOS_PATH = "/api/v1/memos";
 
@@ -30177,6 +30319,7 @@ var HttpRecipeCacheAdapter = class {
 function extractRecipes(body) {
   let source = body;
   if (isRecord(source) && "data" in source) source = source["data"];
+  if (isRecord(source) && Array.isArray(source["items"])) source = source["items"];
   if (isRecord(source) && Array.isArray(source["recipes"])) source = source["recipes"];
   if (!Array.isArray(source)) return [];
   const recipes = [];
@@ -30188,7 +30331,7 @@ function extractRecipes(body) {
 }
 function toCachedRecipe(value) {
   if (!isRecord(value)) return null;
-  const id = readString(value, "id") || readString(value, "recipeId");
+  const id = readString(value, "id");
   const title = readString(value, "title");
   if (!id || !title) return null;
   return {
@@ -30196,8 +30339,63 @@ function toCachedRecipe(value) {
     title,
     intent: readString(value, "intent"),
     description: readString(value, "description"),
-    summaryMd: readString(value, "summaryMd")
+    summaryMd: readString(value, "summaryMd"),
+    steps: readSteps(value["steps"]),
+    pitfalls: readPitfalls(value["pitfalls"]),
+    corrections: readCorrections(value["corrections"]),
+    touchedFiles: readTouchedFiles(value["touchedFiles"]),
+    governingRules: readStringArray(value["governingRules"])
   };
+}
+function readSteps(value) {
+  if (!Array.isArray(value)) return [];
+  const steps = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const order = entry["order"];
+    const action = readString(entry, "action");
+    if (typeof order !== "number" || !action) continue;
+    const rationale = readString(entry, "rationale");
+    steps.push({ order, action, ...rationale ? { rationale } : {} });
+  }
+  return steps;
+}
+function readPitfalls(value) {
+  if (!Array.isArray(value)) return [];
+  const pitfalls = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const pitfall = readString(entry, "pitfall");
+    const whyNonObvious = readString(entry, "whyNonObvious");
+    if (pitfall && whyNonObvious) pitfalls.push({ pitfall, whyNonObvious });
+  }
+  return pitfalls;
+}
+function readCorrections(value) {
+  if (!Array.isArray(value)) return [];
+  const corrections = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const whatAgentDid = readString(entry, "whatAgentDid");
+    const howCorrected = readString(entry, "howCorrected");
+    if (whatAgentDid && howCorrected) corrections.push({ whatAgentDid, howCorrected });
+  }
+  return corrections;
+}
+function readTouchedFiles(value) {
+  if (!Array.isArray(value)) return [];
+  const files = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const path7 = readString(entry, "path");
+    const role = entry["role"];
+    if (path7 && (role === "read" || role === "write" || role === "both")) files.push({ path: path7, role });
+  }
+  return files;
+}
+function readStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry) => typeof entry === "string");
 }
 function readString(source, key) {
   const value = source[key];
@@ -30294,115 +30492,73 @@ var HttpRecipeScanJobAdapter = class {
   }
 };
 
-// ../kernel/src/recipe/recipe.matching.ts
-var STOPWORDS = /* @__PURE__ */ new Set([
-  "the",
-  "and",
-  "for",
-  "with",
-  "from",
-  "that",
-  "this",
-  "what",
-  "have",
-  "into",
-  "your",
-  "should",
-  "would",
-  "could",
-  "please",
-  "make",
-  "fix",
-  "add",
-  "use",
-  "use,",
-  "task",
-  "code",
-  "file",
-  "files",
-  "this.",
-  "that."
-]);
-var MIN_TOKEN_LENGTH = 3;
-var MIN_SCORE = 0.5;
-var DEFAULT_LIMIT2 = 3;
-var MAX_LIMIT = 10;
-var SUMMARY_SCAN_LENGTH = 600;
-function tokenize(text) {
-  const out = /* @__PURE__ */ new Set();
-  for (const raw of text.toLowerCase().split(/[^a-z0-9_-]+/)) {
-    if (raw.length < MIN_TOKEN_LENGTH) continue;
-    if (STOPWORDS.has(raw)) continue;
-    out.add(raw);
-  }
-  return out;
-}
-function scoreRecipe(recipe, queryTokens) {
-  const bag = tokenize(
-    `${recipe.title} ${recipe.intent} ${recipe.description} ${recipe.summaryMd.slice(0, SUMMARY_SCAN_LENGTH)}`
-  );
-  if (bag.size === 0) return 0;
-  let overlap = 0;
-  for (const token of queryTokens) {
-    if (bag.has(token)) overlap += 1;
-  }
-  if (overlap === 0) return 0;
-  return overlap / Math.sqrt(queryTokens.size * bag.size);
-}
-function clampRecipeMatchLimit(raw) {
-  if (raw === void 0 || !Number.isFinite(raw) || raw <= 0) return DEFAULT_LIMIT2;
-  return Math.min(Math.floor(raw), MAX_LIMIT);
-}
-function matchRecipes(prompt, recipes, limit) {
-  const tokens = tokenize(prompt);
-  if (tokens.size === 0) return [];
-  return recipes.map((recipe) => ({ recipe, score: scoreRecipe(recipe, tokens) })).filter((row) => row.score >= MIN_SCORE).sort((a, b2) => b2.score - a.score).slice(0, clampRecipeMatchLimit(limit)).map((row) => ({
-    recipeId: row.recipe.id,
-    title: row.recipe.title,
-    intent: row.recipe.intent,
-    description: row.recipe.description,
-    summaryMd: row.recipe.summaryMd,
-    score: row.score
-  }));
-}
-
-// src/domain/recipe/model/recipe.model.ts
-var SUMMARY_MAX = 600;
-function formatRecipeContext(matches) {
-  if (matches.length === 0) return "";
+// src/domain/recipe/model/recipe.menu.model.ts
+var MENU_LIMIT = 20;
+function buildRecipeMenu(recipes) {
+  if (recipes.length === 0) return "";
+  const shown = recipes.slice(0, MENU_LIMIT);
   const lines = [
     "<agent-tracer-recipes>",
-    "Past patterns in this workspace that match this prompt (score 0..1):"
+    "Verified workflows from this workspace. If one fits, call get_recipe(recipeId) for its full steps before starting.",
+    "",
+    ...shown.map((recipe) => `\u2022 ${recipe.id}: ${recipe.title} \u2014 ${recipe.description}`)
   ];
-  for (const match of matches) {
-    lines.push("");
-    lines.push(`\u2022 ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})`);
-    lines.push(`  intent: ${match.intent}`);
-    lines.push(`  ${match.description}`);
-    const summary = match.summaryMd.trim();
-    if (summary.length === 0) continue;
-    const compact = summary.length > SUMMARY_MAX ? `${truncate(summary, SUMMARY_MAX)}\u2026` : summary;
-    for (const line of compact.split("\n")) lines.push(`  ${line}`);
-  }
+  const omitted = recipes.length - shown.length;
+  if (omitted > 0) lines.push("", `\u2026and ${omitted} more recipes not shown.`);
   lines.push("</agent-tracer-recipes>");
   return lines.join("\n");
 }
 
-// src/domain/recipe/application/build.recipe.context.usecase.ts
-var BuildRecipeContextUsecase = class {
+// src/domain/recipe/application/build.recipe.menu.usecase.ts
+var BuildRecipeMenuUsecase = class {
   constructor(cache) {
     this.cache = cache;
   }
   cache;
-  execute(prompt, limit) {
-    const matches = matchRecipes(prompt, this.cache.load(), limit);
-    const context = formatRecipeContext(matches);
-    return {
-      matches,
-      context,
-      titles: matches.map((match) => match.title),
-      bytes: Buffer.byteLength(context, "utf8")
-    };
+  execute() {
+    return buildRecipeMenu(this.cache.load());
+  }
+};
+
+// src/domain/recipe/model/recipe.body.model.ts
+function buildRecipeBody(recipe) {
+  const lines = [`# ${recipe.title}`, "", `intent: ${recipe.intent}`, recipe.description];
+  const summary = recipe.summaryMd.trim();
+  if (summary) lines.push("", summary);
+  if (recipe.steps.length > 0) {
+    lines.push("", "## Steps");
+    for (const step of [...recipe.steps].sort((left, right) => left.order - right.order)) {
+      const rationale = step.rationale ? ` (${step.rationale})` : "";
+      lines.push(`${step.order}. ${step.action}${rationale}`);
+    }
+  }
+  if (recipe.pitfalls.length > 0) {
+    lines.push("", "## Pitfalls");
+    for (const pitfall of recipe.pitfalls) lines.push(`- ${pitfall.pitfall} \u2014 ${pitfall.whyNonObvious}`);
+  }
+  if (recipe.corrections.length > 0) {
+    lines.push("", "## Corrections");
+    for (const correction of recipe.corrections) {
+      lines.push(`- ${correction.whatAgentDid} \u2192 ${correction.howCorrected}`);
+    }
+  }
+  if (recipe.touchedFiles.length > 0) {
+    const files = recipe.touchedFiles.map((file) => `${file.path} (${file.role})`).join(", ");
+    lines.push("", `touched files: ${files}`);
+  }
+  if (recipe.governingRules.length > 0) lines.push("", `governing rules: ${recipe.governingRules.join(", ")}`);
+  return lines.join("\n");
+}
+
+// src/domain/recipe/application/get.recipe.usecase.ts
+var GetRecipeUsecase = class {
+  constructor(cache) {
+    this.cache = cache;
+  }
+  cache;
+  execute(recipeId) {
+    const recipe = this.cache.load().find((candidate) => candidate.id === recipeId);
+    return recipe ? buildRecipeBody(recipe) : null;
   }
 };
 
@@ -31889,20 +32045,6 @@ var RunRuleJobUsecase = class {
   }
 };
 
-// src/domain/ingest/model/ingest.event.model.ts
-var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
-function toRunIngestEvent(input, occurredAt, nextId) {
-  return {
-    id: input.id ?? nextId(),
-    kind: input.kind,
-    taskId: input.taskId,
-    ...input.sessionId ? { sessionId: input.sessionId } : {},
-    ...input.turnId ? { turnId: input.turnId } : {},
-    occurredAt,
-    payload: input.payload
-  };
-}
-
 // src/domain/session/model/session.event.model.ts
 function taskLinkedEvent(taskId, title) {
   return { kind: KIND.taskLinked, taskId, payload: { title } };
@@ -31952,7 +32094,8 @@ function composeDaemonHooks(leaseOwner) {
   const recipeCache = new HttpRecipeCacheAdapter(baseUrl, headers);
   const recipe = {
     refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-    buildContext: new BuildRecipeContextUsecase(recipeCache),
+    buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+    getRecipe: new GetRecipeUsecase(recipeCache),
     requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers))
   };
@@ -31960,7 +32103,9 @@ function composeDaemonHooks(leaseOwner) {
   const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
   const findTaskIdBySession = (sessionId) => readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId)?.taskId;
   const ids = { next: generateUlid };
-  const setTaskTitle = new SetTaskTitleUsecase(new SpoolEventSinkAdapter(), ids, clock);
+  const sink = new SpoolEventSinkAdapter();
+  const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
+  const appendIngestEvents = new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE);
   const memo = {
     createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
     searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers))
@@ -31985,7 +32130,18 @@ function composeDaemonHooks(leaseOwner) {
     ),
     enqueueRuleJob: new EnqueueRuleJobUsecase(jobs, ruleSettingCache)
   };
-  return { guardrail, hint, recipe, rulegen, recipeCache, findActiveBinding, findTaskIdBySession, setTaskTitle, memo };
+  return {
+    guardrail,
+    hint,
+    recipe,
+    rulegen,
+    recipeCache,
+    findActiveBinding,
+    findTaskIdBySession,
+    setTaskTitle,
+    appendIngestEvents,
+    memo
+  };
 }
 
 // src/daemon/daemon.log.ts
@@ -33711,16 +33867,24 @@ var RECIPE_OUTCOMES = [
   RECIPE_OUTCOME.abandoned,
   RECIPE_OUTCOME.superseded
 ];
+var RECIPE_VERDICT = {
+  followedAndHelped: "followed_and_helped",
+  followedNotHelped: "followed_not_helped",
+  abandoned: "abandoned",
+  unknown: "unknown"
+};
+var RECIPE_VERDICTS = [
+  RECIPE_VERDICT.followedAndHelped,
+  RECIPE_VERDICT.followedNotHelped,
+  RECIPE_VERDICT.abandoned,
+  RECIPE_VERDICT.unknown
+];
 
 // src/daemon/port/mcp.socket.port.ts
 function parseMcpSocketRequest(type, value) {
   switch (type) {
-    case "recipe-search":
-      return typeof value["query"] === "string" ? {
-        type: "recipe-search",
-        query: value["query"],
-        ...typeof value["limit"] === "number" ? { limit: value["limit"] } : {}
-      } : null;
+    case "recipe-get":
+      return typeof value["recipeId"] === "string" ? { type: "recipe-get", recipeId: value["recipeId"] } : null;
     case "recipe-outcome":
       return typeof value["recipeId"] === "string" && typeof value["outcome"] === "string" && RECIPE_OUTCOMES.includes(value["outcome"]) ? {
         type: "recipe-outcome",
@@ -33773,13 +33937,6 @@ function parseDaemonRequest(value) {
       return { type: "delivery" };
     case "rules":
       return typeof value["taskId"] === "string" ? { type: "rules", taskId: value["taskId"] } : null;
-    case "recipe-injected":
-      return typeof value["taskId"] === "string" ? {
-        type: "recipe-injected",
-        taskId: value["taskId"],
-        titles: Array.isArray(value["titles"]) ? value["titles"].filter((title) => typeof title === "string") : [],
-        injectedBytes: typeof value["injectedBytes"] === "number" ? value["injectedBytes"] : 0
-      } : null;
     case "guardrail":
       return typeof value["taskId"] === "string" ? {
         type: "guardrail",
@@ -33805,6 +33962,21 @@ function onHintsRequested(hook, recent, request) {
   return hook.computeHints.execute(recent, request);
 }
 
+// src/domain/ingest/model/recipe.injection.event.model.ts
+function recipeInjectedEvent(target, input) {
+  return {
+    kind: KIND.recipeInjected,
+    taskId: target.taskId,
+    sessionId: target.sessionId,
+    ...target.turnId ? { turnId: target.turnId } : {},
+    payload: {
+      recipeId: input.recipeId,
+      applicationId: input.applicationId,
+      injectedVia: input.injectedVia
+    }
+  };
+}
+
 // src/domain/memo/inbound/memo.hook.ts
 function onMemoCreateRequested(hook, input) {
   return hook.createMemo.execute(input);
@@ -33817,8 +33989,8 @@ function onMemoSearchRequested(hook, input) {
 function onRecipeCacheRefresh(hook) {
   return hook.refreshCache.execute();
 }
-function onPromptRecipes(hook, prompt, limit) {
-  return hook.buildContext.execute(prompt, limit);
+function onGetRecipe(hook, recipeId) {
+  return hook.getRecipe.execute(recipeId);
 }
 function onRecipeScanRequested(hook, request) {
   return hook.requestScan.execute(request);
@@ -33875,15 +34047,6 @@ async function handleMessage(socket, line, context) {
 `);
         return;
       }
-      case "recipe-injected":
-        context.interventions.recordRecipeInjected(
-          Date.now(),
-          request.taskId,
-          request.titles,
-          request.injectedBytes
-        );
-        send(socket, { ok: true });
-        return;
       case "rules":
         send(socket, {
           rules: context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId))
@@ -33912,9 +34075,27 @@ async function handleMessage(socket, line, context) {
         send(socket, { verdicts: blocking });
         return;
       }
-      case "recipe-search": {
-        const { matches } = onPromptRecipes(context.recipe, request.query, request.limit);
-        send(socket, { matches });
+      case "recipe-get": {
+        const body = onGetRecipe(context.recipe, request.recipeId);
+        if (body !== null) {
+          const target = context.findActiveTarget();
+          if (target !== void 0) {
+            context.interventions.recordRecipeInjected(
+              Date.now(),
+              target.taskId,
+              [recipeTitleFromBody(body)],
+              Buffer.byteLength(body, "utf8")
+            );
+            await context.appendIngestEvents([
+              recipeInjectedEvent(target, {
+                recipeId: request.recipeId,
+                applicationId: generateUlid(),
+                injectedVia: "pull"
+              })
+            ]);
+          }
+        }
+        send(socket, { body });
         return;
       }
       case "recipe-outcome": {
@@ -33993,6 +34174,10 @@ async function handleMessage(socket, line, context) {
 function send(socket, response) {
   socket.end(`${JSON.stringify(response)}
 `);
+}
+function recipeTitleFromBody(body) {
+  const firstLine = body.split("\n", 1)[0] ?? "";
+  return firstLine.replace(/^#\s*/, "").trim() || firstLine;
 }
 
 // ../kernel/src/daemon/daemon.health.const.ts
@@ -34545,8 +34730,10 @@ var servers = createDaemonServers({
     readRules: () => cachedRules,
     readDelivery: currentDelivery,
     findActiveTaskId: () => hooks.findActiveBinding.execute()?.taskId,
+    findActiveTarget: () => hooks.findActiveBinding.execute(),
     findTaskIdBySession: hooks.findTaskIdBySession,
     setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
+    appendIngestEvents: (events) => hooks.appendIngestEvents.execute(events),
     refreshHistory: () => spoolSender.feedHistory(),
     onHookVersion: (hookVersion) => {
       lastHookVersion = hookVersion;

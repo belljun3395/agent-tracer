@@ -562,6 +562,18 @@ var RECIPE_OUTCOMES = [
   RECIPE_OUTCOME.abandoned,
   RECIPE_OUTCOME.superseded
 ];
+var RECIPE_VERDICT = {
+  followedAndHelped: "followed_and_helped",
+  followedNotHelped: "followed_not_helped",
+  abandoned: "abandoned",
+  unknown: "unknown"
+};
+var RECIPE_VERDICTS = [
+  RECIPE_VERDICT.followedAndHelped,
+  RECIPE_VERDICT.followedNotHelped,
+  RECIPE_VERDICT.abandoned,
+  RECIPE_VERDICT.unknown
+];
 
 // src/daemon/port/daemon.socket.port.ts
 function parseDaemonVersionResponse(value) {
@@ -661,7 +673,6 @@ async function waitUntilSocketFree(socketPath, timeoutMs = SOCKET_FREE_TIMEOUT_M
 
 // src/daemon/ipc/hook.client.ts
 var HINTS_TIMEOUT_MS = 500;
-var REPORT_TIMEOUT_MS = 300;
 var SOURCE_LOADER = "@swc-node/register/esm-register";
 function daemonEntry() {
   const root = resolveRuntimeRoot();
@@ -718,16 +729,6 @@ async function queryDaemonHints(taskId, request) {
   } catch {
     void ensureDaemonRunning();
     return [];
-  }
-}
-async function reportRecipeInjection(taskId, titles, injectedBytes) {
-  if (!taskId || titles.length === 0) return;
-  const paths = resolveAgentTracerPaths();
-  const message = { type: "recipe-injected", taskId, titles, injectedBytes };
-  try {
-    await requestDaemon(paths.socketPath, message, REPORT_TIMEOUT_MS, () => true, true);
-  } catch {
-    return;
   }
 }
 async function queryDaemonRules(taskId) {
@@ -3290,6 +3291,7 @@ var HttpRecipeCacheAdapter = class {
 function extractRecipes(body) {
   let source = body;
   if (isRecord(source) && "data" in source) source = source["data"];
+  if (isRecord(source) && Array.isArray(source["items"])) source = source["items"];
   if (isRecord(source) && Array.isArray(source["recipes"])) source = source["recipes"];
   if (!Array.isArray(source)) return [];
   const recipes = [];
@@ -3301,7 +3303,7 @@ function extractRecipes(body) {
 }
 function toCachedRecipe(value) {
   if (!isRecord(value)) return null;
-  const id = readString2(value, "id") || readString2(value, "recipeId");
+  const id = readString2(value, "id");
   const title = readString2(value, "title");
   if (!id || !title) return null;
   return {
@@ -3309,8 +3311,63 @@ function toCachedRecipe(value) {
     title,
     intent: readString2(value, "intent"),
     description: readString2(value, "description"),
-    summaryMd: readString2(value, "summaryMd")
+    summaryMd: readString2(value, "summaryMd"),
+    steps: readSteps(value["steps"]),
+    pitfalls: readPitfalls(value["pitfalls"]),
+    corrections: readCorrections(value["corrections"]),
+    touchedFiles: readTouchedFiles(value["touchedFiles"]),
+    governingRules: readStringArray(value["governingRules"])
   };
+}
+function readSteps(value) {
+  if (!Array.isArray(value)) return [];
+  const steps = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const order = entry["order"];
+    const action = readString2(entry, "action");
+    if (typeof order !== "number" || !action) continue;
+    const rationale = readString2(entry, "rationale");
+    steps.push({ order, action, ...rationale ? { rationale } : {} });
+  }
+  return steps;
+}
+function readPitfalls(value) {
+  if (!Array.isArray(value)) return [];
+  const pitfalls = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const pitfall = readString2(entry, "pitfall");
+    const whyNonObvious = readString2(entry, "whyNonObvious");
+    if (pitfall && whyNonObvious) pitfalls.push({ pitfall, whyNonObvious });
+  }
+  return pitfalls;
+}
+function readCorrections(value) {
+  if (!Array.isArray(value)) return [];
+  const corrections = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const whatAgentDid = readString2(entry, "whatAgentDid");
+    const howCorrected = readString2(entry, "howCorrected");
+    if (whatAgentDid && howCorrected) corrections.push({ whatAgentDid, howCorrected });
+  }
+  return corrections;
+}
+function readTouchedFiles(value) {
+  if (!Array.isArray(value)) return [];
+  const files = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const path12 = readString2(entry, "path");
+    const role = entry["role"];
+    if (path12 && (role === "read" || role === "write" || role === "both")) files.push({ path: path12, role });
+  }
+  return files;
+}
+function readStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry) => typeof entry === "string");
 }
 function readString2(source, key) {
   const value = source[key];
@@ -3396,115 +3453,73 @@ var HttpRecipeScanJobAdapter = class {
   }
 };
 
-// ../kernel/src/recipe/recipe.matching.ts
-var STOPWORDS = /* @__PURE__ */ new Set([
-  "the",
-  "and",
-  "for",
-  "with",
-  "from",
-  "that",
-  "this",
-  "what",
-  "have",
-  "into",
-  "your",
-  "should",
-  "would",
-  "could",
-  "please",
-  "make",
-  "fix",
-  "add",
-  "use",
-  "use,",
-  "task",
-  "code",
-  "file",
-  "files",
-  "this.",
-  "that."
-]);
-var MIN_TOKEN_LENGTH = 3;
-var MIN_SCORE = 0.5;
-var DEFAULT_LIMIT = 3;
-var MAX_LIMIT = 10;
-var SUMMARY_SCAN_LENGTH = 600;
-function tokenize(text) {
-  const out = /* @__PURE__ */ new Set();
-  for (const raw of text.toLowerCase().split(/[^a-z0-9_-]+/)) {
-    if (raw.length < MIN_TOKEN_LENGTH) continue;
-    if (STOPWORDS.has(raw)) continue;
-    out.add(raw);
-  }
-  return out;
-}
-function scoreRecipe(recipe2, queryTokens) {
-  const bag = tokenize(
-    `${recipe2.title} ${recipe2.intent} ${recipe2.description} ${recipe2.summaryMd.slice(0, SUMMARY_SCAN_LENGTH)}`
-  );
-  if (bag.size === 0) return 0;
-  let overlap = 0;
-  for (const token of queryTokens) {
-    if (bag.has(token)) overlap += 1;
-  }
-  if (overlap === 0) return 0;
-  return overlap / Math.sqrt(queryTokens.size * bag.size);
-}
-function clampRecipeMatchLimit(raw) {
-  if (raw === void 0 || !Number.isFinite(raw) || raw <= 0) return DEFAULT_LIMIT;
-  return Math.min(Math.floor(raw), MAX_LIMIT);
-}
-function matchRecipes(prompt, recipes, limit) {
-  const tokens = tokenize(prompt);
-  if (tokens.size === 0) return [];
-  return recipes.map((recipe2) => ({ recipe: recipe2, score: scoreRecipe(recipe2, tokens) })).filter((row) => row.score >= MIN_SCORE).sort((a, b) => b.score - a.score).slice(0, clampRecipeMatchLimit(limit)).map((row) => ({
-    recipeId: row.recipe.id,
-    title: row.recipe.title,
-    intent: row.recipe.intent,
-    description: row.recipe.description,
-    summaryMd: row.recipe.summaryMd,
-    score: row.score
-  }));
-}
-
-// src/domain/recipe/model/recipe.model.ts
-var SUMMARY_MAX = 600;
-function formatRecipeContext(matches) {
-  if (matches.length === 0) return "";
+// src/domain/recipe/model/recipe.menu.model.ts
+var MENU_LIMIT = 20;
+function buildRecipeMenu(recipes) {
+  if (recipes.length === 0) return "";
+  const shown = recipes.slice(0, MENU_LIMIT);
   const lines = [
     "<agent-tracer-recipes>",
-    "Past patterns in this workspace that match this prompt (score 0..1):"
+    "Verified workflows from this workspace. If one fits, call get_recipe(recipeId) for its full steps before starting.",
+    "",
+    ...shown.map((recipe2) => `\u2022 ${recipe2.id}: ${recipe2.title} \u2014 ${recipe2.description}`)
   ];
-  for (const match of matches) {
-    lines.push("");
-    lines.push(`\u2022 ${match.title} (recipeId: ${match.recipeId}, score ${match.score.toFixed(2)})`);
-    lines.push(`  intent: ${match.intent}`);
-    lines.push(`  ${match.description}`);
-    const summary = match.summaryMd.trim();
-    if (summary.length === 0) continue;
-    const compact = summary.length > SUMMARY_MAX ? `${truncate(summary, SUMMARY_MAX)}\u2026` : summary;
-    for (const line of compact.split("\n")) lines.push(`  ${line}`);
-  }
+  const omitted = recipes.length - shown.length;
+  if (omitted > 0) lines.push("", `\u2026and ${omitted} more recipes not shown.`);
   lines.push("</agent-tracer-recipes>");
   return lines.join("\n");
 }
 
-// src/domain/recipe/application/build.recipe.context.usecase.ts
-var BuildRecipeContextUsecase = class {
+// src/domain/recipe/application/build.recipe.menu.usecase.ts
+var BuildRecipeMenuUsecase = class {
   constructor(cache) {
     this.cache = cache;
   }
   cache;
-  execute(prompt, limit) {
-    const matches = matchRecipes(prompt, this.cache.load(), limit);
-    const context = formatRecipeContext(matches);
-    return {
-      matches,
-      context,
-      titles: matches.map((match) => match.title),
-      bytes: Buffer.byteLength(context, "utf8")
-    };
+  execute() {
+    return buildRecipeMenu(this.cache.load());
+  }
+};
+
+// src/domain/recipe/model/recipe.body.model.ts
+function buildRecipeBody(recipe2) {
+  const lines = [`# ${recipe2.title}`, "", `intent: ${recipe2.intent}`, recipe2.description];
+  const summary = recipe2.summaryMd.trim();
+  if (summary) lines.push("", summary);
+  if (recipe2.steps.length > 0) {
+    lines.push("", "## Steps");
+    for (const step of [...recipe2.steps].sort((left, right) => left.order - right.order)) {
+      const rationale = step.rationale ? ` (${step.rationale})` : "";
+      lines.push(`${step.order}. ${step.action}${rationale}`);
+    }
+  }
+  if (recipe2.pitfalls.length > 0) {
+    lines.push("", "## Pitfalls");
+    for (const pitfall of recipe2.pitfalls) lines.push(`- ${pitfall.pitfall} \u2014 ${pitfall.whyNonObvious}`);
+  }
+  if (recipe2.corrections.length > 0) {
+    lines.push("", "## Corrections");
+    for (const correction of recipe2.corrections) {
+      lines.push(`- ${correction.whatAgentDid} \u2192 ${correction.howCorrected}`);
+    }
+  }
+  if (recipe2.touchedFiles.length > 0) {
+    const files = recipe2.touchedFiles.map((file) => `${file.path} (${file.role})`).join(", ");
+    lines.push("", `touched files: ${files}`);
+  }
+  if (recipe2.governingRules.length > 0) lines.push("", `governing rules: ${recipe2.governingRules.join(", ")}`);
+  return lines.join("\n");
+}
+
+// src/domain/recipe/application/get.recipe.usecase.ts
+var GetRecipeUsecase = class {
+  constructor(cache) {
+    this.cache = cache;
+  }
+  cache;
+  execute(recipeId) {
+    const recipe2 = this.cache.load().find((candidate) => candidate.id === recipeId);
+    return recipe2 ? buildRecipeBody(recipe2) : null;
   }
 };
 
@@ -3974,7 +3989,8 @@ var binding = {
 };
 var recipe = {
   refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-  buildContext: new BuildRecipeContextUsecase(recipeCache),
+  buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+  getRecipe: new GetRecipeUsecase(recipeCache),
   requestScan: new RequestRecipeScanUsecase(recipeJobs),
   reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers))
 };
@@ -4074,22 +4090,6 @@ function userMessageEvent(target, input) {
   };
 }
 
-// src/domain/ingest/model/recipe.injection.event.model.ts
-function recipeInjectedEvent(target, input) {
-  return {
-    kind: KIND.recipeInjected,
-    taskId: target.taskId,
-    sessionId: target.sessionId,
-    ...target.turnId ? { turnId: target.turnId } : {},
-    payload: {
-      recipeId: input.recipeId,
-      applicationId: input.applicationId,
-      injectedVia: input.injectedVia,
-      score: input.score
-    }
-  };
-}
-
 // src/domain/ingest/model/system.notification.model.ts
 var SYSTEM_NOTIFICATION_PREFIX = "<task-notification>";
 function isSystemNotificationPrompt(prompt) {
@@ -4097,8 +4097,8 @@ function isSystemNotificationPrompt(prompt) {
 }
 
 // src/domain/recipe/inbound/recipe.hook.ts
-function onPromptRecipes(hook, prompt, limit) {
-  return hook.buildContext.execute(prompt, limit);
+function onRecipeMenu(hook) {
+  return hook.buildMenu.execute();
 }
 function onRecipeScanRequested(hook, request) {
   return hook.requestScan.execute(request);
@@ -4123,7 +4123,6 @@ function onTurnOpen(hook, input) {
 
 // src/agent/claude-code/hooks/UserPromptSubmit.ts
 var EXIT_PROMPTS = /* @__PURE__ */ new Set(["/exit", "exit"]);
-var INJECTED_VIA_AUTO = "auto";
 await runHook("UserPromptSubmit", {
   parse: readUserPromptSubmit,
   handler: async (payload) => {
@@ -4174,23 +4173,12 @@ await runHook("UserPromptSubmit", {
       queryDaemonRules(target.taskId),
       queryDaemonHints(target.taskId, { trigger: "user_prompt" })
     ]);
-    const recipes = systemNotification ? void 0 : onPromptRecipes(claudeRuntime.recipe, payload.prompt);
-    const emission = emitAgentContext("UserPromptSubmit", {
+    const recipeMenu = systemNotification ? "" : onRecipeMenu(claudeRuntime.recipe);
+    emitAgentContext("UserPromptSubmit", {
       rules,
       hints,
-      recipeContext: recipes?.context ?? "",
+      recipeContext: recipeMenu,
       titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge(payload.sessionId) : ""
     });
-    if (!emission.emitted || !recipes || recipes.matches.length === 0) return;
-    await reportRecipeInjection(target.taskId, recipes.titles, emission.recipeBytes);
-    await onLifecycleEvent(
-      claudeRuntime.ingest,
-      recipes.matches.map((match) => recipeInjectedEvent({ ...target, turnId }, {
-        recipeId: match.recipeId,
-        applicationId: generateUlid(),
-        score: match.score,
-        injectedVia: INJECTED_VIA_AUTO
-      }))
-    );
   }
 });
