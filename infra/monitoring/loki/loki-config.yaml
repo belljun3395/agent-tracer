@@ -32,3 +32,16 @@ compactor:
   working_directory: /loki/compactor
   delete_request_store: filesystem
   retention_enabled: true
+
+# 규칙은 이미지 밖에서 마운트하고 평가 중간 파일만 데이터 볼륨에 둔다.
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /etc/loki/rules
+  rule_path: /loki/rules-temp
+  alertmanager_url: http://alertmanager:9093
+  enable_api: true
+  ring:
+    kvstore:
+      store: inmemory

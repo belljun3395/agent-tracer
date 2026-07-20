@@ -80,6 +80,7 @@ services:
     command: ["-config.file=/etc/loki/local-config.yaml"]
     volumes:
       - ./infra/monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - ./infra/monitoring/loki/rules:/etc/loki/rules:ro
       - loki-data:/loki
 
   alloy:
