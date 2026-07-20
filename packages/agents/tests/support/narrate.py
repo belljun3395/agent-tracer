@@ -71,8 +71,7 @@ def _short(content: Any, limit: int = _CONTENT_LIMIT) -> str:
 
 
 def _flatten_blocks(content: Any) -> str:
-    # cache_control 경계를 두려고 system/tool 메시지가 content-block 리스트로 오는 경우,
-    # 그 원시 dict repr 대신 실제 텍스트만 이어 붙인다.
+    # cache_control 경계를 위해 content-block 리스트로 온 메시지는 원시 dict repr 대신 실제 텍스트만 이어 붙인다.
     if isinstance(content, list) and all(isinstance(block, dict) and "text" in block for block in content):
         return "\n".join(str(block["text"]) for block in content)
     return str(content)

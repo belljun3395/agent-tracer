@@ -146,7 +146,6 @@ class InspectNode(GraphNode):
         event_ids: dict[str, set[str]] = {}
         name = f"{self._agent_name}:{CLEANUP_REVIEWER_ROLE}"
         budget = ToolLoopBudget(name, req.model, share, 0.0)
-        # 후보 하나의 조사가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
         try:
             registry = build_cleanup_registry(

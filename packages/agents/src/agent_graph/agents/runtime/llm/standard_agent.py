@@ -94,8 +94,7 @@ def tool_context[ContextT: StandardAgentContext](
     request: ToolCallRequest, _schema: type[ContextT]
 ) -> ContextT:
     """도구 호출 요청에 실려 온 이 실행의 컨텍스트를 꺼낸다."""
-    # ToolCallRequest가 컨텍스트 타입을 제네릭으로 싣지 않아 runtime.context가 None으로 굳지만
-    # 실제 담긴 값은 create_agent에 넘긴 context_schema의 인스턴스다.
+    # ToolCallRequest가 컨텍스트 타입을 싣지 않아 None으로 굳지만 실제 값은 context_schema 인스턴스다.
     return cast("ContextT", request.runtime.context)
 
 
@@ -110,7 +109,7 @@ def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[St
         notice = BUDGET_NOTICE.format(remaining=remaining, total=total)
         return request.override(messages=[*messages, HumanMessage(content=notice)])
     context.budget.land()
-    # 조사 도구를 거둬야 모델이 결론을 낸다. 구조화 출력 도구는 이 목록 밖에서 붙는다.
+    # 구조화 출력 도구는 이 목록 밖에서 붙으므로 조사 도구만 거둬 모델이 결론을 내게 한다.
     return request.override(
         messages=[*messages, HumanMessage(content=FINALIZE_DIRECTIVE)],
         tools=[],

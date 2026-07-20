@@ -8,9 +8,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-# OTel Python은 프로세스당 TracerProvider 등록을 한 번만 허용한다(재호출은 무시된다).
-# pytest가 테스트 수집보다 먼저 이 conftest를 임포트하므로 여기서 한 번만 등록해
-# runtime/test_observability.py와 app/test_app.py가 같은 exporter를 공유하게 한다.
+# OTel Python은 프로세스당 TracerProvider 등록을 한 번만 허용하므로 수집 전에 여기서 등록해 모든 테스트가 exporter를 공유한다.
 SHARED_SPAN_EXPORTER = InMemorySpanExporter()
 _PROVIDER = TracerProvider()
 _PROVIDER.add_span_processor(SimpleSpanProcessor(SHARED_SPAN_EXPORTER))

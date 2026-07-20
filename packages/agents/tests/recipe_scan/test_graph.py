@@ -465,7 +465,7 @@ async def test_전문가_하나가_무너져도_그래프가_완주하고_나머
     class OneProbeFails(FakeToolLoopChat):
         async def ainvoke(self, messages: list[object]) -> object:
             names = {getattr(tool, "name", "") for tool in self.bound_tools}
-            # rules 전문가만 골라 무너뜨린다. 조율자는 RecipeDraft를 쥐므로 걸리지 않는다.
+            # RecipeDraft를 쥔 조율자는 걸리지 않아 rules 전문가만 골라 무너진다.
             if "ProbeReport" in names and "list_rules" in names:
                 raise RuntimeError("rules probe blew up")
             return await super().ainvoke(messages)

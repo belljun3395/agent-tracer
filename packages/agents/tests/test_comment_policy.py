@@ -32,6 +32,8 @@ def run_checker(path: Path) -> subprocess.CompletedProcess[str]:
         ('"""요청을 처리한다.\nThis paragraph remains English prose.\n"""\n', "한글"),
         ('"""요청을 검증한다. 그리고 응답을 만든다."""\n', "한 문장"),
         ('"""요청을 검증한다.\n응답을 만든다.\n"""\n', "한 문장"),
+        ("# 요청을 검증한다. 그리고 응답을 만든다.\nVALUE = 1\n", "한 줄 한 문장"),
+        ("# 요청을 검증한다는 사실이 있고\n# 응답을 만든다는 사실도 있다\nVALUE = 1\n", "한 줄 한 문장"),
     ],
 )
 def test_규칙을_어긴_주석과_docstring을_거부한다(

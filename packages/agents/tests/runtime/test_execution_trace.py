@@ -35,9 +35,7 @@ def _ai_with_usage(
 
 class TestExecutionTrace:
     def test_input_tokens에서_캐시분을_빼서_베이스만_남긴다(self) -> None:
-        # langchain_anthropic의 usage_metadata.input_tokens는 "Sum of all input token types"라
-        # 캐시 읽기·생성분을 이미 합산해 준다(langchain-core UsageMetadata 문서). 그대로 누적하면
-        # runtime/pricing.py가 베이스 단가 + 캐시 단가로 같은 토큰을 두 번 더 매기므로 여기서 뺀다.
+        # langchain의 usage_metadata.input_tokens는 캐시 읽기·생성분까지 합산된 총량이라 그대로 누적하면 pricing이 같은 토큰을 두 번 매기므로 여기서 뺀다.
         acc = ExecutionTrace()
         acc.add_message(
             _ai_with_usage(input_tokens=1000, output_tokens=50, cache_read=200, cache_creation=100)
@@ -57,8 +55,7 @@ class TestExecutionTrace:
         assert acc.cache_creation_tokens == 0
 
     def test_ephemeral_서브키로_온_캐시_생성분도_잡는다(self) -> None:
-        # cache_creation이 5분/1시간으로 세분화되면 generic cache_creation은 0으로 비워지고
-        # 실제 값은 ephemeral_5m_input_tokens/ephemeral_1h_input_tokens로 옮겨간다.
+        # cache_creation이 5분/1시간으로 세분화되면 generic 값은 0이 되고 실제 값은 ephemeral_5m/1h_input_tokens로 옮겨간다.
         acc = ExecutionTrace()
         acc.add_message(
             _ai_with_usage(
@@ -85,8 +82,7 @@ class TestExecutionTrace:
         assert acc.cache_creation_tokens == 100
 
     def test_캐시_토큰이_베이스_단가로_이중과금되지_않는다(self) -> None:
-        # 캐시를 포함한 총량을 베이스 단가에 적용하면
-        # 비용이 부풀어 BudgetExceeded를 조기에 발화시킨다.
+        # 캐시를 포함한 총량을 베이스 단가에 적용하면 비용이 부풀어 BudgetExceeded를 조기에 발화시킨다.
         acc = ExecutionTrace()
         acc.add_message(
             _ai_with_usage(input_tokens=100_000, output_tokens=0, cache_read=99_000, cache_creation=0)
@@ -190,8 +186,7 @@ class TestRecordStep:
         assert acc.provider_request_id == "msg_abc"
 
     def test_실패_직전_기록된_스텝만_있어도_실제_모델을_잡는다(self) -> None:
-        # max_tokens 절단처럼 add_message()에 닿지 못하고 record_message()만 호출된 뒤 예외가 나는
-        # 경로에서도 실제 모델이 유실되지 않아야 한다.
+        # max_tokens 절단처럼 record_message()만 호출된 뒤 예외가 나는 경로에서도 실제 모델이 유실되지 않아야 한다.
         acc = ExecutionTrace()
         truncated = _ai_with_usage(
             input_tokens=10,

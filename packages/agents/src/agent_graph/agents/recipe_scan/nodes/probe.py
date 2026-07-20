@@ -65,7 +65,6 @@ class ProbeNode(GraphNode):
         catalog = ProvenanceCatalog()
         probe_name = f"{self._agent_name}:{assignment.probe}"
         budget = ToolLoopBudget(probe_name, req.model, share, 0.0)
-        # 전문가 하나가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
         try:
             registry = build_recipe_registry(

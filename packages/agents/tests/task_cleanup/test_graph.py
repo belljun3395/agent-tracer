@@ -342,7 +342,7 @@ async def test_후보_하나가_무너져도_그래프가_완주하고_나머지
         async def ainvoke(self, messages: list[Any]) -> Any:
             names = {getattr(tool, "name", "") for tool in self.bound_tools}
             text = " ".join(str(getattr(message, "content", message)) for message in messages)
-            # task-2 조사만 골라 무너뜨린다. 조율자는 CleanupDraft를 쥐므로 걸리지 않는다.
+            # CleanupDraft를 쥔 조율자는 걸리지 않아 task-2 조사만 골라 무너진다.
             if "InspectReport" in names and "task-2" in text:
                 raise RuntimeError("inspect blew up")
             return await super().ainvoke(messages)

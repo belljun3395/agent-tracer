@@ -31,8 +31,7 @@ def _rate_for(model: str) -> ModelRate | None:
     return None
 
 
-# 이 값은 그래프 내부 예산 상한에만 쓰고
-# 사용자에게 보고·저장하는 costUsd는 ai-agent-worker가 별도 단가표로 환산한다.
+# 이 값은 그래프 내부 예산 상한에만 쓰고 보고·저장용 costUsd는 ai-agent-worker가 별도 단가표로 환산한다.
 def estimate_cost_usd(model: str, usage: UsageDTO | None) -> float | None:
     rate = _rate_for(model)
     if rate is None or usage is None:

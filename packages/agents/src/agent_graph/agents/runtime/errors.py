@@ -32,8 +32,7 @@ def _anthropic_subtype(err: APIStatusError) -> str:
     return f"http_{status}" if status is not None else "api_error"
 
 
-# 비재시도 서브타입 이름은 ai-agent-worker의 오류 상수와 같은 어휘를 쓰고
-# 그 외 오류는 Temporal 기본 재시도에 맡긴다.
+# 비재시도 서브타입 이름은 ai-agent-worker의 오류 상수와 같은 어휘를 쓰고 그 외는 Temporal 재시도에 맡긴다.
 def classify_exception(err: BaseException) -> AgentErrorDTO:
     if isinstance(err, DeadlineExceeded):
         return AgentErrorDTO(subtype="deadline_exceeded", summary=str(err) or "agent deadline exceeded")

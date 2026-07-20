@@ -84,7 +84,7 @@ class FakeToolLoopChat:
             (tool for tool in self.bound_tools if getattr(tool, "name", "") in auto_names), None
         )
         if probe_tool is not None:
-            # 전문가 보고는 조율자 턴을 소비하지 않는다. 무엇을 쥐고 돌았는지만 기록한다.
+            # 전문가 보고는 조율자 턴을 소비하지 않으므로 무엇을 쥐고 돌았는지만 기록한다.
             self.probe_calls.append(
                 [getattr(tool, "name", "") for tool in self.bound_tools if tool is not probe_tool]
             )
