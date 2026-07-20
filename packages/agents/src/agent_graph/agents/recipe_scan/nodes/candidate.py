@@ -9,12 +9,14 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
-from ..langchain_agent import RecipeAgentContext, build_recipe_agent
+from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
     MAX_TOOL_ROUNDS,
     InvestigateUpdate,
+    ProvenanceCatalog,
     RecipeDraft,
     RecipeScanRequest,
     RecipeScanState,
@@ -25,6 +27,7 @@ from ..policy import MAX_RECIPE_MODEL_COST_USD, synthesis_rounds, validate_recip
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
+from ..tools import build_recipe_registry
 
 type InvestigateNode = Callable[[RecipeScanState], Awaitable[InvestigateUpdate]]
 type ValidateCandidateNode = Callable[[RecipeScanState], Awaitable[ValidateCandidateUpdate]]
@@ -42,36 +45,38 @@ def create_candidate_nodes(
 ) -> tuple[InvestigateNode, ValidateCandidateNode, RepairNode]:
     """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
 
-    recipe_agent = build_recipe_agent(chat, INVESTIGATOR_SYSTEM_PROMPT, MAX_TOOL_ROUNDS)
-
     async def invoke_agent(
         messages: list[Any], state: RecipeScanState
-    ) -> tuple[RecipeDraft, list[Any], RecipeAgentContext]:
+    ) -> tuple[RecipeDraft, list[Any], ProvenanceCatalog, StandardAgentContext]:
         budget = ToolLoopBudget(
             agent_name, req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
         )
         rounds = synthesis_rounds(state["plan"])
-        context = RecipeAgentContext(
-            agent_name=agent_name,
-            trace=usage,
-            budget=budget,
-            max_tool_rounds=rounds,
-            reader=reader,
-            search=search,
-            provenance=state["provenance"],
+        catalog = state["provenance"]
+        registry = build_recipe_registry(reader, search, catalog, agent_name=agent_name)
+        agent = build_recipe_agent(
+            chat,
+            INVESTIGATOR_SYSTEM_PROMPT,
+            registry.langchain_tools(),
+            registry.transient_errors(),
+            max_rounds=MAX_TOOL_ROUNDS,
+            output=RecipeDraft,
+        )
+        context = StandardAgentContext(
+            agent_name=agent_name, trace=usage, budget=budget, max_tool_rounds=rounds
         )
         result = await invoke_structured_agent(
-            recipe_agent,
+            agent,
             messages=messages,
             context=context,
             response_type=RecipeDraft,
             recursion_limit=AGENT_RECURSION_LIMIT,
             missing_response=f"{agent_name} produced no structured output",
         )
-        return result.response, result.messages, context
+        return result.response, result.messages, catalog, context
 
     async def investigate(state: RecipeScanState) -> InvestigateUpdate:
-        draft, messages, context = await invoke_agent(
+        draft, messages, catalog, context = await invoke_agent(
             [
                 {
                     "role": "user",
@@ -89,7 +94,7 @@ def create_candidate_nodes(
         return {
             "candidates": draft.recipes,
             "messages": messages,
-            "provenance": context.provenance,
+            "provenance": catalog,
             "model_cost_usd": context.budget.spent,
         }
 
@@ -109,11 +114,11 @@ def create_candidate_nodes(
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, context = await invoke_agent(repair_prompt, state)
+        draft, messages, catalog, context = await invoke_agent(repair_prompt, state)
         return {
             "candidates": draft.recipes,
             "messages": messages,
-            "provenance": context.provenance,
+            "provenance": catalog,
             "repair_attempted": True,
             "model_cost_usd": context.budget.spent,
         }

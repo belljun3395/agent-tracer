@@ -12,6 +12,10 @@ from agent_graph.agents.recipe_scan.models import (
     AGENT_RECURSION_LIMIT as RECIPE_RECURSION_LIMIT,
 )
 from agent_graph.agents.recipe_scan.models import MAX_TOOL_ROUNDS as RECIPE_ROUNDS
+from agent_graph.agents.recipe_scan.models import ProvenanceCatalog
+from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
+from agent_graph.agents.recipe_scan.search import RecipeSearchReader
+from agent_graph.agents.recipe_scan.tools import build_recipe_registry as build_recipe_tool_registry
 from agent_graph.agents.task_cleanup.langchain_agent import build_cleanup_agent
 from agent_graph.agents.task_cleanup.models import CleanupBatch
 from agent_graph.agents.task_cleanup.policy import (
@@ -25,7 +29,7 @@ from agent_graph.agents.title_suggestion.policy import (
     AGENT_RECURSION_LIMIT as TITLE_RECURSION_LIMIT,
 )
 from agent_graph.agents.title_suggestion.policy import MAX_TOOL_ROUNDS as TITLE_ROUNDS
-from tests.support.fakes import FakeLedger, FakeToolLoopChat
+from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 
 def _loop_supersteps(agent: CompiledStateGraph[Any, Any, Any, Any]) -> int:
@@ -41,6 +45,12 @@ def _agents() -> list[tuple[str, CompiledStateGraph[Any, Any, Any, Any], int, in
         {},
         agent_name="task-cleanup",
     )
+    recipe_registry = build_recipe_tool_registry(
+        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        ProvenanceCatalog(),
+        agent_name="recipe-scan",
+    )
     return [
         (
             "task-cleanup",
@@ -55,7 +65,12 @@ def _agents() -> list[tuple[str, CompiledStateGraph[Any, Any, Any, Any], int, in
         ),
         (
             "recipe-scan",
-            build_recipe_agent(chat, "system", RECIPE_ROUNDS),
+            build_recipe_agent(
+                chat,
+                "system",
+                recipe_registry.langchain_tools(),
+                recipe_registry.transient_errors(),
+            ),
             RECIPE_ROUNDS,
             RECIPE_RECURSION_LIMIT,
         ),

@@ -1,26 +1,25 @@
-"""recipe-scan 도구 결과에서 검증 가능한 근거 식별자를 누적한다."""
+"""recipe-scan 도구 결과에서 검증 가능한 근거 식별자를 카탈로그에 누적한다."""
 
 from __future__ import annotations
 
-from ..models import EvidenceRecord, ProvenanceCatalog
+import json
+
+from ..models import ProvenanceCatalog
 
 
-def add_provenance(catalog: ProvenanceCatalog, record: EvidenceRecord) -> None:
-    """도구 응답 본문에서 이벤트와 규칙과 레시피 식별자를 기록한다."""
-    parsed = record.parsed
-    if record.tool in {"get_task_events", "search_events"} and isinstance(parsed, dict):
-        _add_events(catalog, record, parsed.get("events"))
-    elif record.tool == "list_rules" and isinstance(parsed, list):
-        _add_ids(catalog.ruleIds, parsed)
-    elif record.tool == "search_recipes" and isinstance(parsed, list):
-        _add_versioned_recipe_ids(catalog.recipeIds, parsed)
+def loaded(content: str) -> object | None:
+    """도구가 돌려준 본문을 JSON으로 읽되 본문이 아니면 근거로 삼지 않는다."""
+    try:
+        parsed: object = json.loads(content)
+    except json.JSONDecodeError:
+        return None
+    return parsed
 
 
-# search_events는 태스크를 가로지르므로 출처는 응답 본문의 taskId이고 인자의 taskId는 get_task_events만 쓴다.
-def _add_events(catalog: ProvenanceCatalog, record: EvidenceRecord, raw_events: object) -> None:
+def add_events(catalog: ProvenanceCatalog, raw_events: object, default_task_id: str | None) -> None:
+    """이벤트 응답 본문에서 태스크별 이벤트와 turn 식별자를 기록한다."""
     if not isinstance(raw_events, list):
         return
-    default_task_id = record.args.get("taskId")
     for raw in raw_events:
         if not isinstance(raw, dict):
             continue
@@ -34,19 +33,25 @@ def _add_events(catalog: ProvenanceCatalog, record: EvidenceRecord, raw_events: 
             catalog.turnIdsByTask.setdefault(task_id, set()).add(turn_id)
 
 
-def _add_ids(target: set[str], values: list[object]) -> None:
-    for value in values:
+def add_rule_ids(catalog: ProvenanceCatalog, parsed: object) -> None:
+    """규칙 목록 응답에서 규칙 식별자를 기록한다."""
+    if not isinstance(parsed, list):
+        return
+    for value in parsed:
         if isinstance(value, dict):
-            _add_string(target, value.get("id"))
+            _add_string(catalog.ruleIds, value.get("id"))
 
 
-def _add_versioned_recipe_ids(target: set[str], values: list[object]) -> None:
-    for value in values:
+def add_recipe_ids(catalog: ProvenanceCatalog, parsed: object) -> None:
+    """개정 번호가 있는 레시피만 수정 근거로 인정해 식별자를 기록한다."""
+    if not isinstance(parsed, list):
+        return
+    for value in parsed:
         if not isinstance(value, dict):
             continue
         revision = value.get("rev")
         if isinstance(revision, int) and not isinstance(revision, bool):
-            _add_string(target, value.get("id"))
+            _add_string(catalog.recipeIds, value.get("id"))
 
 
 def _add_string(target: set[str], value: object) -> None:

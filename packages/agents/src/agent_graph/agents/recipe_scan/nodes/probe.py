@@ -9,8 +9,9 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
-from ..langchain_agent import PROBE_TOOLS, RecipeAgentContext, build_recipe_agent
+from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
     MAX_VERDICT_CHARS,
@@ -24,6 +25,7 @@ from ..policy import MAX_RECIPE_MODEL_COST_USD
 from ..prompts import PROBE_SYSTEM_PROMPT, build_probe_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
+from ..tools import PROBE_TOOLS, build_recipe_registry
 
 type ProbeNode = Callable[[ProbeDispatch], Awaitable[ProbeUpdate]]
 
@@ -57,12 +59,16 @@ def create_probe_node(
         # 전문가 하나가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
         try:
+            registry = build_recipe_registry(
+                reader, search, catalog, PROBE_TOOLS[assignment.probe], agent_name=agent_name
+            )
             agent = build_recipe_agent(
                 chat,
                 PROBE_SYSTEM_PROMPT,
-                assignment.rounds,
-                PROBE_TOOLS[assignment.probe],
-                ProbeReport,
+                registry.langchain_tools(),
+                registry.transient_errors(),
+                max_rounds=assignment.rounds,
+                output=ProbeReport,
             )
             result = await invoke_structured_agent(
                 agent,
@@ -74,14 +80,11 @@ def create_probe_node(
                         ),
                     }
                 ],
-                context=RecipeAgentContext(
+                context=StandardAgentContext(
                     agent_name=probe_name,
                     trace=usage,
                     budget=budget,
                     max_tool_rounds=assignment.rounds,
-                    reader=reader,
-                    search=search,
-                    provenance=catalog,
                 ),
                 response_type=ProbeReport,
                 recursion_limit=AGENT_RECURSION_LIMIT,

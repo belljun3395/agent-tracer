@@ -9,20 +9,23 @@ from asyncpg import CannotConnectNowError, PostgresConnectionError
 from langchain.tools import tool
 from opensearchpy.exceptions import ConnectionError as OpenSearchConnectionError
 
-from agent_graph.agents.recipe_scan.langchain_agent import (
-    _TRANSIENT_TOOL_ERRORS as RECIPE_TRANSIENT,
-)
-from agent_graph.agents.recipe_scan.langchain_agent import (
-    RecipeAgentContext,
-    build_recipe_agent,
-)
+from agent_graph.agents.recipe_scan.langchain_agent import build_recipe_agent
 from agent_graph.agents.recipe_scan.models import ProvenanceCatalog, RecipeDraft
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
+from agent_graph.agents.recipe_scan.tools import build_recipe_registry
 from agent_graph.agents.runtime.execution.trace import ExecutionTrace
 from agent_graph.agents.runtime.llm.budget import ToolLoopBudget
+from agent_graph.agents.runtime.llm.standard_agent import StandardAgentContext
 from agent_graph.agents.task_cleanup.tools import GetTaskEventsTool
 from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
+
+RECIPE_TRANSIENT = build_recipe_registry(
+    RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+    RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+    ProvenanceCatalog(),
+    agent_name="recipe-scan",
+).transient_errors()
 
 CLEANUP_TRANSIENT = GetTaskEventsTool.transient_errors
 
@@ -43,15 +46,12 @@ def _flaky_tool(fail_times: int, error: BaseException) -> tuple[Any, list[int]]:
     return get_task_events, calls
 
 
-def _context() -> RecipeAgentContext:
-    return RecipeAgentContext(
+def _context() -> StandardAgentContext:
+    return StandardAgentContext(
         agent_name="recipe-scan",
         trace=ExecutionTrace(),
         budget=ToolLoopBudget("recipe-scan", _MODEL, 2.0, 0.0),
         max_tool_rounds=5,
-        reader=RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
-        search=RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
-        provenance=ProvenanceCatalog(),
     )
 
 
@@ -73,7 +73,9 @@ async def test_일시_오류는_도구_계층에서_재시도해_실행이_이�
         [{"name": "get_task_events", "args": {"taskId": "t1"}}],
         {"recipes": []},
     ])
-    agent = build_recipe_agent(chat, "system", 5, (flaky,), RecipeDraft)
+    agent = build_recipe_agent(
+        chat, "system", (flaky,), RECIPE_TRANSIENT, max_rounds=5, output=RecipeDraft
+    )
 
     output = await agent.ainvoke(
         {"messages": [{"role": "user", "content": "go"}]},
@@ -89,7 +91,9 @@ async def test_일시_오류는_도구_계층에서_재시도해_실행이_이�
 async def test_소진해도_실패하면_오류가_그대로_올라온다() -> None:
     flaky, calls = _flaky_tool(9, PostgresConnectionError("ledger down"))
     chat = FakeToolLoopChat([[{"name": "get_task_events", "args": {"taskId": "t1"}}]])
-    agent = build_recipe_agent(chat, "system", 5, (flaky,), RecipeDraft)
+    agent = build_recipe_agent(
+        chat, "system", (flaky,), RECIPE_TRANSIENT, max_rounds=5, output=RecipeDraft
+    )
 
     with pytest.raises(PostgresConnectionError):
         await agent.ainvoke(
@@ -105,7 +109,9 @@ async def test_소진해도_실패하면_오류가_그대로_올라온다() -> N
 async def test_도메인_오류는_재시도하지_않는다() -> None:
     flaky, calls = _flaky_tool(9, ValueError("bad citation"))
     chat = FakeToolLoopChat([[{"name": "get_task_events", "args": {"taskId": "t1"}}]])
-    agent = build_recipe_agent(chat, "system", 5, (flaky,), RecipeDraft)
+    agent = build_recipe_agent(
+        chat, "system", (flaky,), RECIPE_TRANSIENT, max_rounds=5, output=RecipeDraft
+    )
 
     with pytest.raises(ValueError, match="bad citation"):
         await agent.ainvoke(

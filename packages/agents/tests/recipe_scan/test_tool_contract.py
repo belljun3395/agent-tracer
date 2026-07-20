@@ -8,7 +8,6 @@ from typing import Any, get_args
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.recipe_scan.langchain_agent import PROBE_TOOLS, RECIPE_LANGCHAIN_TOOLS
 from agent_graph.agents.recipe_scan.models import (
     MAX_PROBE_ROUNDS,
     MAX_RECIPE_CANDIDATES,
@@ -22,12 +21,18 @@ from agent_graph.agents.recipe_scan.models import (
     RecipeVerifyPattern,
 )
 from agent_graph.agents.recipe_scan.policy import MAX_RECIPE_MODEL_COST_USD, RECIPE_MAX_OUTPUT_TOKENS
-from agent_graph.agents.recipe_scan.tools.client import record_evidence
-from agent_graph.agents.recipe_scan.tools.contracts import (
-    RECIPE_TOOLS,
+from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
+from agent_graph.agents.recipe_scan.search import RecipeSearchReader
+from agent_graph.agents.recipe_scan.tools import (
+    PROBE_TOOLS,
+    RECIPE_TOOL_CLASSES,
+    SearchEventsArgs,
+    SearchEventsTool,
     TimelineEventKind,
+    build_recipe_registry,
     validate_tool_args,
 )
+from tests.support.fakes import FakeLedger, FakeSearch
 from tests.support.golden import load_contract
 
 VALID_ARGS: dict[str, dict[str, Any]] = {
@@ -48,8 +53,18 @@ def _tools() -> Any:
     return _contract()["tools"]
 
 
+def _langchain_tools() -> list[Any]:
+    registry = build_recipe_registry(
+        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
+        ProvenanceCatalog(),
+        agent_name="recipe-scan",
+    )
+    return registry.langchain_tools()
+
+
 def _fields(tool: str) -> Any:
-    return next(spec.args_model for spec in RECIPE_TOOLS if spec.name == tool).model_fields
+    return next(cls.args_model for cls in RECIPE_TOOL_CLASSES if cls.name == tool).model_fields
 
 
 def _accepts(tool: str, field: str, value: object) -> bool:
@@ -86,12 +101,12 @@ def test_후보_상한과_토큰과_비용_예산이_골든_계약과_같다() -
 
 
 def test_모델에게_노출하는_도구_이름이_골든_계약과_같다() -> None:
-    assert [spec.name for spec in RECIPE_TOOLS] == list(_tools())
+    assert [cls.name for cls in RECIPE_TOOL_CLASSES] == list(_tools())
 
 
 def test_전문가_역할과_도구와_보고가_골든_계약과_같다() -> None:
     orchestration = _contract()["orchestration"]
-    roles = {name: [tool.name for tool in tools] for name, tools in PROBE_TOOLS.items()}
+    roles = {name: list(names) for name, names in PROBE_TOOLS.items()}
 
     assert MAX_PROBE_ROUNDS == orchestration["workerMaxTurns"]
     assert roles == orchestration["roles"]
@@ -100,7 +115,7 @@ def test_전문가_역할과_도구와_보고가_골든_계약과_같다() -> No
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:
-    tools = {tool.name: tool for tool in RECIPE_LANGCHAIN_TOOLS}
+    tools = {tool.name: tool for tool in _langchain_tools()}
 
     assert set(tools) == set(_tools())
     for name, tool in tools.items():
@@ -147,8 +162,9 @@ def test_search_events_응답의_taskId로_태스크를_가로지른_근거를_�
     response = _tools()["search_events"]["responseEvent"]
     catalog = ProvenanceCatalog()
     hit = {name: "" for name in response["required"]} | {"id": "event-9", "taskId": "other-task"}
+    tool = SearchEventsTool(RecipeSearchReader(FakeSearch(), "user-1"), catalog)  # type: ignore[arg-type]
 
-    record_evidence(catalog, "search_events", {"q": "migration"}, json.dumps({"events": [hit]}))
+    tool.record(SearchEventsArgs(q="migration"), json.dumps({"events": [hit]}))
 
     assert "taskId" in response["required"]
     assert catalog.eventIdsByTask == {"other-task": {"event-9"}}
@@ -191,4 +207,4 @@ def test_verify_action의_도구_목록이_골든_계약과_같다() -> None:
 def test_도구_설명이_골든_계약과_같다() -> None:
     contract = _contract()["descriptions"]
 
-    assert {tool.name: tool.description for tool in RECIPE_TOOLS} == contract
+    assert {cls.name: cls.description for cls in RECIPE_TOOL_CLASSES} == contract

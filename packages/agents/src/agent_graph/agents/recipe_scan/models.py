@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import operator
-from typing import Annotated, Any, Literal, Required, TypedDict
+from typing import Annotated, Literal, Required, TypedDict
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -20,16 +20,6 @@ MAX_TOOL_ROUNDS = 15
 # 네 슈퍼스텝을 도는 데다 미들웨어를 더하면 더 늘어나므로, 재귀 한도는 예산을 세는 자리가 아니라
 # 폭주만 끊는 그물이다.
 AGENT_RECURSION_LIMIT = 10 * MAX_TOOL_ROUNDS
-
-RecipeToolName = Literal[
-    "get_task_summary",
-    "get_task_events",
-    "list_rules",
-    "search_events",
-    "find_similar_tasks",
-    "search_recipes",
-    "check_citations",
-]
 
 
 class RecipeScanRequest(AgentExecutionRequest):
@@ -202,15 +192,6 @@ class RecipeCandidate(BaseModel):
 
 class RecipeDraft(BaseModel):
     recipes: list[RecipeCandidate] = Field(default_factory=list, max_length=MAX_RECIPE_CANDIDATES)
-
-
-class EvidenceRecord(BaseModel):
-    """도구가 실제로 돌려준 결과이며 근거 장부는 이것만 인용을 허가한다."""
-
-    tool: RecipeToolName
-    args: dict[str, Any]
-    content: str
-    parsed: Any = None
 
 
 class ProvenanceCatalog(BaseModel):
