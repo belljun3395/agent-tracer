@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Client } from "@opensearch-project/opensearch";
 import type { MemoSearchHit, MemoSearchPort, MemoSearchQuery } from "~tracer-api/domain/search/port/memo.search.port.js";
 import { MEMOS_INDEX, OPENSEARCH_CLIENT } from "~tracer-api/config/opensearch.client.const.js";
+import { readString } from "~tracer-api/domain/search/adapter/opensearch.field.reader.js";
 
 interface SearchResponseBody {
     readonly hits: {
@@ -43,6 +44,3 @@ function toMemoHit(id: string, source: Record<string, unknown>): MemoSearchHit {
     };
 }
 
-function readString(value: unknown): string | undefined {
-    return typeof value === "string" && value.length > 0 ? value : undefined;
-}

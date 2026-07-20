@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Client } from "@opensearch-project/opensearch";
 import type { TaskSearchHit, TaskSearchPort } from "~tracer-api/domain/search/port/task.search.port.js";
 import { OPENSEARCH_CLIENT, TASKS_INDEX } from "~tracer-api/config/opensearch.client.const.js";
+import { readString } from "~tracer-api/domain/search/adapter/opensearch.field.reader.js";
 
 interface SearchResponseBody {
     readonly hits: {
@@ -48,6 +49,3 @@ function toTaskHit(id: string, source: Record<string, unknown>): TaskSearchHit {
     };
 }
 
-function readString(value: unknown): string | undefined {
-    return typeof value === "string" && value.length > 0 ? value : undefined;
-}

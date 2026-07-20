@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { Client } from "@opensearch-project/opensearch";
 import type { EventSearchHit, EventSearchPort, EventSearchQuery } from "~tracer-api/domain/search/port/event.search.port.js";
 import { EVENTS_INDEX, OPENSEARCH_CLIENT } from "~tracer-api/config/opensearch.client.const.js";
+import { readString, readStringArray } from "~tracer-api/domain/search/adapter/opensearch.field.reader.js";
 
 interface SearchResponseBody {
     readonly hits: {
@@ -59,11 +60,4 @@ function toEventHit(id: string, source: Record<string, unknown>): EventSearchHit
     };
 }
 
-function readString(value: unknown): string | undefined {
-    return typeof value === "string" && value.length > 0 ? value : undefined;
-}
 
-function readStringArray(value: unknown): string[] {
-    if (!Array.isArray(value)) return [];
-    return value.filter((entry): entry is string => typeof entry === "string");
-}
