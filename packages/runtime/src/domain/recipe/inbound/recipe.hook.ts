@@ -1,10 +1,14 @@
+import type {ClearRecipeMarkUsecase} from "~runtime/domain/recipe/application/clear.recipe.mark.usecase.js";
 import type {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
+import type {MarkRecipeOpenedUsecase} from "~runtime/domain/recipe/application/mark.recipe.opened.usecase.js";
+import type {ReadPendingRecipeMarkUsecase} from "~runtime/domain/recipe/application/read.pending.recipe.mark.usecase.js";
 import type {
     RecipeScanRequest,
     RequestRecipeScanUsecase,
 } from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import type {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import type {SearchRecipesInput, SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
+import type {RecipePendingMark} from "~runtime/domain/recipe/model/recipe.pending.mark.model.js";
 import type {RecipeOutcomeReportInput} from "~runtime/domain/recipe/port/recipe.outcome.report.port.js";
 import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
 
@@ -14,6 +18,13 @@ export interface RecipeHook {
     readonly requestScan: RequestRecipeScanUsecase;
     readonly reportOutcome: ReportRecipeOutcomeUsecase;
     readonly searchRecipes: SearchRecipesUsecase;
+}
+
+/** get_recipe·report_recipe_outcome이 남기고 지우고, UserPromptSubmit이 읽는 미보고 마크 진입점이다. */
+export interface RecipeOutcomeMarkHook {
+    readonly markOpened: MarkRecipeOpenedUsecase;
+    readonly clearMark: ClearRecipeMarkUsecase;
+    readonly readPendingMark: ReadPendingRecipeMarkUsecase;
 }
 
 export function onGetRecipe(hook: RecipeHook, recipeId: string): Promise<string | null> {
@@ -33,4 +44,16 @@ export function onRecipeScanRequested(hook: RecipeHook, request: RecipeScanReque
 
 export function onRecipeOutcomeReported(hook: RecipeHook, input: RecipeOutcomeReportInput): Promise<boolean> {
     return hook.reportOutcome.execute(input);
+}
+
+export function onRecipeOpened(hook: RecipeOutcomeMarkHook, taskId: string, recipeId: string): void {
+    hook.markOpened.execute(taskId, recipeId);
+}
+
+export function onRecipeMarkCleared(hook: RecipeOutcomeMarkHook, taskId: string, recipeId: string): void {
+    hook.clearMark.execute(taskId, recipeId);
+}
+
+export function onPendingRecipeMarkRequested(hook: RecipeOutcomeMarkHook, taskId: string): RecipePendingMark | undefined {
+    return hook.readPendingMark.execute(taskId);
 }

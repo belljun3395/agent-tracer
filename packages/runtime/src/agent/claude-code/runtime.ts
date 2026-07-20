@@ -25,15 +25,19 @@ import {RecordToolUseUsecase} from "~runtime/domain/ingest/application/record.to
 import type {IngestHook} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {defaultTaskTitle} from "~runtime/domain/ingest/model/workspace.path.model.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
+import {FileRecipePendingMarkAdapter} from "~runtime/domain/recipe/adapter/file.recipe.pending.mark.adapter.js";
 import {HttpRecipeFetchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.fetch.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
+import {ClearRecipeMarkUsecase} from "~runtime/domain/recipe/application/clear.recipe.mark.usecase.js";
 import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
+import {MarkRecipeOpenedUsecase} from "~runtime/domain/recipe/application/mark.recipe.opened.usecase.js";
+import {ReadPendingRecipeMarkUsecase} from "~runtime/domain/recipe/application/read.pending.recipe.mark.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
-import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import type {RecipeHook, RecipeOutcomeMarkHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {ClearSessionUsecase} from "~runtime/domain/session/application/clear.session.usecase.js";
 import {EndSessionUsecase} from "~runtime/domain/session/application/end.session.usecase.js";
 import {EnsureSessionUsecase} from "~runtime/domain/session/application/ensure.session.usecase.js";
@@ -100,6 +104,12 @@ const recipe: RecipeHook = {
     searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(transport.baseUrl, headers)),
 };
 
+const recipeOutcomeMark: RecipeOutcomeMarkHook = {
+    markOpened: new MarkRecipeOpenedUsecase(new FileRecipePendingMarkAdapter(), clock),
+    clearMark: new ClearRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
+    readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
+};
+
 const logger: HookLogger = createHookLogger({
     logFile: path.join(projectDir, ".claude", "hooks.log"),
     verbose: isVerboseLogging(),
@@ -115,6 +125,7 @@ export const claudeRuntime = {
     turn,
     binding,
     recipe,
+    recipeOutcomeMark,
     todoSnapshots,
 } as const;
 

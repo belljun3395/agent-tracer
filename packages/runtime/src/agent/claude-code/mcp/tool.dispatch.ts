@@ -26,6 +26,8 @@ import {
 } from "~runtime/domain/recipe/model/search.recipes.tool.model.js";
 import {
     onGetRecipe,
+    onRecipeMarkCleared,
+    onRecipeOpened,
     onRecipeOutcomeReported,
     onRecipeScanRequested,
     onRecipeSearchRequested,
@@ -92,6 +94,7 @@ async function recordRecipeInjection(target: BoundSession, recipeId: string): Pr
                 injectedVia: "pull",
             }),
         ]);
+        onRecipeOpened(mcpRuntime.recipeOutcomeMark, target.taskId, recipeId);
     } catch {
         return;
     }
@@ -122,6 +125,7 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
                 outcome: parsed.outcome,
                 ...(parsed.note !== undefined ? {note: parsed.note} : {}),
             });
+            if (ok) onRecipeMarkCleared(mcpRuntime.recipeOutcomeMark, target.taskId, parsed.recipeId);
             return ok
                 ? {text: "Outcome recorded.", isError: false}
                 : {text: "Could not record outcome.", isError: true};

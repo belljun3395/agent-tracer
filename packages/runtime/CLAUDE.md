@@ -14,7 +14,11 @@
   텍스트 조립. 넛지는 상태 없는 고정 문구이므로 `model/recipe.nudge.model.ts`를 훅이 직접
   부른다. 레시피 목록은 프롬프트에 싣지 않는다 — 관련성 판단은 에이전트가 `search_recipes`로
   질의어를 던져 얻은 결정 수준 정보(제목·의도·설명·점수)로 내리고, 적용할 레시피 전체 본문은
-  `get_recipe`가 그때마다 서버에서 직접 가져온다.
+  `get_recipe`가 그때마다 서버에서 직접 가져온다. `get_recipe`가 성공하면 태스크에 미보고
+  마크를 로컬에 남기고(`model/recipe.pending.mark.model.ts`), 다음 `UserPromptSubmit`이 그
+  마크를 보면 고정 넛지 대신 `report_recipe_outcome`을 지금 부르라는 넛지를 낸다
+  (`model/recipe.outcome.nudge.model.ts`). `report_recipe_outcome`이 성공하면 마크를 지운다.
+  마크는 넛지 트리거일 뿐이라 파일을 잃어도 넛지 하나를 놓칠 뿐 오류로 새지 않는다.
 - `rulegen`: 규칙 생성 프롬프트 명세와 도구 명세.
 - `binding` `session` `turn`: 이벤트와 세션·턴의 의미 추론.
 - `memo`: 에이전트가 스스로 남기는 메모의 쓰기·조회 도구다.
@@ -96,7 +100,10 @@ npm run build --workspace @monitor/runtime
 - 부를 시점("언제")은 판단 기준과 다른 문제라 설명 문구만으로는 유발되지 않는다
   — 관측용 도구가 실측에서 거의 자발 호출되지 않았다. 그래서 훅이 `emitAgentContext`의
   additionalContext로 시점 넛지를 주입해 유발한다. 넛지 문구도 제품 지식이므로 도메인
-  `model/`이 소유한다(제목 넛지는 `domain/session/model/task.title.nudge.model.ts`).
+  `model/`이 소유한다(제목 넛지는 `domain/session/model/task.title.nudge.model.ts`,
+  레시피 성과 보고 넛지는 `domain/recipe/model/recipe.outcome.nudge.model.ts`). `Stop`
+  훅은 턴이 끝난 시점에 컨텍스트를 주입할 수 없으므로, 성과 보고 넛지는 그 태스크의 다음
+  `UserPromptSubmit`으로 미뤄 낸다.
 
 ## 검증
 

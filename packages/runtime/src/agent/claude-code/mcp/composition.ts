@@ -11,15 +11,19 @@ import {HttpMemoWriteAdapter} from "~runtime/domain/memo/adapter/http.memo.write
 import {CreateMemoUsecase} from "~runtime/domain/memo/application/create.memo.usecase.js";
 import {SearchMemosUsecase} from "~runtime/domain/memo/application/search.memos.usecase.js";
 import type {MemoHook} from "~runtime/domain/memo/inbound/memo.hook.js";
+import {FileRecipePendingMarkAdapter} from "~runtime/domain/recipe/adapter/file.recipe.pending.mark.adapter.js";
 import {HttpRecipeFetchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.fetch.adapter.js";
 import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
 import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
+import {ClearRecipeMarkUsecase} from "~runtime/domain/recipe/application/clear.recipe.mark.usecase.js";
 import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
+import {MarkRecipeOpenedUsecase} from "~runtime/domain/recipe/application/mark.recipe.opened.usecase.js";
+import {ReadPendingRecipeMarkUsecase} from "~runtime/domain/recipe/application/read.pending.recipe.mark.usecase.js";
 import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
 import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
-import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
+import type {RecipeHook, RecipeOutcomeMarkHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {generateUlid} from "~runtime/support/ulid.js";
 
 const identity = resolveMonitorIdentity();
@@ -33,6 +37,12 @@ const recipe: RecipeHook = {
     requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
     reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
     searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(baseUrl, headers)),
+};
+
+const recipeOutcomeMark: RecipeOutcomeMarkHook = {
+    markOpened: new MarkRecipeOpenedUsecase(new FileRecipePendingMarkAdapter(), clock),
+    clearMark: new ClearRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
+    readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
 };
 
 const memo: MemoHook = {
@@ -54,5 +64,6 @@ export const appendIngestEvents = new AppendEventsUsecase(
 /** MCP 서버 프로세스 하나가 쓰는 유스케이스 묶음이다. */
 export const mcpRuntime = {
     recipe,
+    recipeOutcomeMark,
     memo,
 } as const;
