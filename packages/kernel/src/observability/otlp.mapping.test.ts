@@ -203,10 +203,6 @@ describe("buildOtlpLogsBody", () => {
         expect(attributesOf(log)["event.name"]).toBe(KIND.userMessage);
     });
 
-    it("태스크 오류는 ERROR 심각도로 올린다", () => {
-        const log = firstLog(buildOtlpLogsBody([makeRecord(KIND.taskError)])!);
-        expect(log["severityText"]).toBe("ERROR");
-    });
 
     it("run-event payload의 runtime source를 표준 관측 속성으로 승격한다", () => {
         const log = firstLog(buildOtlpLogsBody([makeRecord(KIND.sessionEnded, {

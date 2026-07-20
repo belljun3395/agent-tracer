@@ -7,7 +7,6 @@ export const KIND = {
     planLogged: GEN_AI_OPERATION.plan,
     tokenUsage: "gen_ai.client.inference.operation.details",
     actionLogged: "agent_tracer.action.logged",
-    verificationLogged: "agent_tracer.verification.logged",
     ruleLogged: "agent_tracer.rule.logged",
     thoughtLogged: "agent_tracer.thought.logged",
     contextSaved: "agent_tracer.context.saved",
@@ -20,10 +19,7 @@ export const KIND = {
     sessionEnded: "agent_tracer.session.ended",
     instructionsLoaded: "agent_tracer.instructions.loaded",
     contextSnapshot: "agent_tracer.context.snapshot",
-    taskStart: "agent_tracer.task.start",
     taskLinked: "agent_tracer.task.linked",
-    taskComplete: "agent_tracer.task.complete",
-    taskError: "agent_tracer.task.error",
     fileChanged: "agent_tracer.file.changed",
     userPromptExpansion: "agent_tracer.user.prompt.expansion",
     worktreeRemove: "agent_tracer.worktree.remove",
@@ -75,7 +71,6 @@ export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.executeTool] as const;
 export const WORKFLOW_EVENT_KINDS = [
     KIND.planLogged,
     KIND.actionLogged,
-    KIND.verificationLogged,
     KIND.ruleLogged,
     KIND.thoughtLogged,
     KIND.contextSaved,
@@ -104,10 +99,7 @@ export const TELEMETRY_EVENT_KINDS = [KIND.tokenUsage] as const;
 export const RUN_EVENT_KINDS = [
     KIND.sessionStarted,
     KIND.sessionEnded,
-    KIND.taskStart,
     KIND.taskLinked,
-    KIND.taskComplete,
-    KIND.taskError,
 ] as const;
 
 /** 공통 timeline payload를 쓰는 자유형 이벤트 종류다. */

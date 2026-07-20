@@ -161,11 +161,11 @@ describe("RunProjection", () => {
 
         const notifications = await projection.project(
             repositories,
-            makeRecord({ kind: KIND.taskStart, payload: { title: "시작 태스크" } }),
+            makeRecord({ kind: KIND.taskLinked, payload: { title: "시작 태스크" } }),
         );
 
         expect(tasksFake.all()[0]).toMatchObject({ title: "시작 태스크", status: "running" });
-        expect(notifications[0]?.notification.type).toBe("task.started");
+        expect(notifications[0]?.notification.type).toBe("task.updated");
     });
 
     it("태스크 연결 시 기존 태스크의 연결 메타데이터를 갱신한다", async () => {
@@ -208,21 +208,4 @@ describe("RunProjection", () => {
         expect(tasksFake.all()[0]).toMatchObject({ title: "사용자 제목", titleRank: "user" });
     });
 
-    it("태스크 종결 상태를 투영한다", async () => {
-        const { repositories, tasksFake } = makeRepositories();
-        const { projection } = makeProjection();
-
-        const completed = await projection.project(
-            repositories,
-            makeRecord({ kind: KIND.taskComplete, seq: "10" }),
-        );
-        const errored = await projection.project(
-            repositories,
-            makeRecord({ kind: KIND.taskError, seq: "11", occurredAt: new Date("2026-01-01T00:02:00.000Z") }),
-        );
-
-        expect(tasksFake.all()[0]).toMatchObject({ status: "errored", lastAppliedSeq: "11" });
-        expect(completed[0]?.notification.type).toBe("task.completed");
-        expect(errored[0]?.notification.type).toBe("task.updated");
-    });
 });

@@ -1,22 +1,20 @@
-import { isSpanEventKind, KIND } from "~kernel/ingest/event.kind.const.js";
+import { isSpanEventKind } from "~kernel/ingest/event.kind.const.js";
 import { baseAttributes, readString, toKeyValues } from "./attributes.js";
 import { groupByTask, nanos, OTLP_SCOPE_NAME, resourceOf } from "./common.js";
 import type { OtlpEventRecord } from "./model.js";
 
 const SEVERITY_INFO = 9;
-const SEVERITY_ERROR = 17;
 
 function toLogRecord(record: OtlpEventRecord): Record<string, unknown> {
     const attributes = baseAttributes(record);
     attributes["event.name"] = record.kind;
     const body = readString(record.payload, "body") ?? readString(record.payload, "title") ?? "";
-    const failed = record.kind === KIND.taskError;
     const timestamp = nanos(record.occurredAt.getTime());
     return {
         timeUnixNano: timestamp,
         observedTimeUnixNano: timestamp,
-        severityNumber: failed ? SEVERITY_ERROR : SEVERITY_INFO,
-        severityText: failed ? "ERROR" : "INFO",
+        severityNumber: SEVERITY_INFO,
+        severityText: "INFO",
         body: { stringValue: body },
         attributes: toKeyValues(attributes),
         traceId: record.traceId,

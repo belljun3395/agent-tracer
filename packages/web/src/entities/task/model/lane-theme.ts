@@ -1,4 +1,3 @@
-import { KIND } from "@monitor/kernel";
 import type { TimelineEventRecord, TimelineLane } from "~web/entities/task/model/timeline/event.js";
 
 export type LaneKey =
@@ -58,10 +57,7 @@ const KEY_TO_VAR: Readonly<Record<LaneKey, string>> = {
 
 /** 이벤트 도메인 분류를 화면 레인 테마로 투영한다. */
 export function laneThemeForEvent(event: TimelineEventRecord): LaneTheme {
-  const key = event.kind === KIND.verificationLogged
-    ? "veri"
-    : LANE_TO_KEY[event.lane];
-  return laneThemeForKey(key);
+  return laneThemeForKey(LANE_TO_KEY[event.lane]);
 }
 
 export function laneThemeForKey(key: LaneKey): LaneTheme {

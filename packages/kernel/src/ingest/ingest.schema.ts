@@ -98,18 +98,6 @@ const sessionEndedPayloadSchema = z.object({
     backgroundCompletions: z.array(z.string().min(1)).optional(),
 }).strict();
 
-const taskStartPayloadSchema = z.object({
-    ...commonPayloadFields,
-    title: z.string().min(1),
-    workspacePath: z.string().optional(),
-    runtimeSource: z.string().min(1).optional(),
-    summary: z.string().optional(),
-    taskKind: z.enum(MONITORING_TASK_KINDS).optional(),
-    parentTaskId: z.string().optional(),
-    parentSessionId: z.string().optional(),
-    backgroundTaskId: z.string().optional(),
-    metadata: z.record(z.unknown()).optional(),
-}).strict();
 
 const taskLinkedPayloadSchema = z.object({
     ...commonPayloadFields,
@@ -120,15 +108,7 @@ const taskLinkedPayloadSchema = z.object({
     backgroundTaskId: z.string().optional(),
 }).strict();
 
-const taskCompletePayloadSchema = z.object({
-    ...commonPayloadFields,
-    summary: z.string().optional(),
-    metadata: z.record(z.unknown()).optional(),
-}).strict();
 
-const taskErrorPayloadSchema = taskCompletePayloadSchema.extend({
-    errorMessage: z.string().min(1),
-});
 
 const recipeInjectedPayloadSchema = z.object({
     ...commonPayloadFields,
@@ -142,10 +122,7 @@ export const payloadSchemaByKind: Record<string, z.ZodType> = {
     [KIND.tokenUsage]: telemetryPayloadSchema,
     [KIND.sessionStarted]: sessionStartedPayloadSchema,
     [KIND.sessionEnded]: sessionEndedPayloadSchema,
-    [KIND.taskStart]: taskStartPayloadSchema,
     [KIND.taskLinked]: taskLinkedPayloadSchema,
-    [KIND.taskComplete]: taskCompletePayloadSchema,
-    [KIND.taskError]: taskErrorPayloadSchema,
     [KIND.recipeInjected]: recipeInjectedPayloadSchema,
     ...Object.fromEntries(TIMELINE_EVENT_KINDS.map((k) => [k, timelinePayloadSchema])),
 };
@@ -162,7 +139,7 @@ export interface IngestEvent {
 }
 
 const KNOWN_KINDS = new Set<string>([...TIMELINE_EVENT_KINDS, ...TELEMETRY_EVENT_KINDS, KIND.sessionStarted,
-    KIND.sessionEnded, KIND.taskStart, KIND.taskLinked, KIND.taskComplete, KIND.taskError, KIND.recipeInjected]);
+    KIND.sessionEnded, KIND.taskLinked, KIND.recipeInjected]);
 
 export interface RejectedIngestEvent {
     readonly id: string;

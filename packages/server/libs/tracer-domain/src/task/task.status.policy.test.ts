@@ -4,7 +4,7 @@ import { resolveTaskStatusEffect } from "./task.status.policy.js";
 
 describe("resolveTaskStatusEffect", () => {
     it("명시적 taskStatus 효과가 있으면 그대로 반환한다", () => {
-        const status = resolveTaskStatusEffect({ kind: KIND.taskStart, explicitStatus: "errored" });
+        const status = resolveTaskStatusEffect({ kind: KIND.taskLinked, explicitStatus: "errored" });
         expect(status).toBe("errored");
     });
 
@@ -78,7 +78,7 @@ describe("resolveTaskStatusEffect", () => {
     });
 
     it("어휘 밖 kind는 효과가 없다", () => {
-        const status = resolveTaskStatusEffect({ kind: KIND.taskComplete });
+        const status = resolveTaskStatusEffect({ kind: KIND.executeTool });
         expect(status).toBeUndefined();
     });
 });

@@ -75,11 +75,6 @@ describe("parseIngestBatch", () => {
         });
     });
 
-    it("task.error는 errorMessage가 없으면 그 레코드만 거부한다", () => {
-        const {rejected} = parseIngestBatch(batchOf(KIND.taskError, {}));
-
-        expect(rejected).toHaveLength(1);
-    });
 
     it("recipe.injected는 등록된 injectedVia 값만 허용한다", () => {
         const valid = batchOf(KIND.recipeInjected, {

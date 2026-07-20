@@ -39,7 +39,7 @@ export interface SdkJobUpdatedPayload {
 }
 
 export type MonitorRealtimeMessage = {
-    readonly type: "task.started" | "task.completed" | "task.updated";
+    readonly type: "task.started" | "task.updated";
     readonly payload: MonitoringTask;
 } | {
     readonly type: "task.deleted";

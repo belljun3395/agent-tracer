@@ -48,7 +48,7 @@ describe("IndexSearchUseCase", () => {
     it("실행 이벤트는 태스크 문서를 upsert한다", async () => {
         const { useCase, bulks } = makeUseCase();
 
-        await useCase.execute([makeRecord({ kind: KIND.taskComplete })]);
+        await useCase.execute([makeRecord({ kind: KIND.taskLinked })]);
 
         expect(bulks[0]?.[0]).toMatchObject({
             action: "update",

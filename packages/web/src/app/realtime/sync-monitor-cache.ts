@@ -22,7 +22,6 @@ export function syncMonitorCache(
       invalidate(client, ["monitor"]);
       return;
     case "task.started":
-    case "task.completed":
     case "task.updated":
       patchTasksCache(client, message.payload);
       invalidate(client, monitorQueryKeys.tasksPrefix());

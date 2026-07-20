@@ -1,4 +1,3 @@
-import { KIND } from "@monitor/kernel";
 import { describe, expect, it } from "vitest";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
 import { laneThemeFor, laneThemeForEvent } from "~web/entities/task/model/lane-theme.js";
@@ -22,12 +21,9 @@ describe("타임라인 레인 테마", () => {
     expect(laneThemeFor("user").key).toBe("user");
   });
 
-  it("검증 이벤트는 원래 레인보다 검증 레인을 우선한다", () => {
-    const event = {
-      kind: KIND.verificationLogged,
-      lane: "implementation",
-    } as TimelineEventRecord;
+  it("이벤트는 자기 서버 레인의 테마를 받는다", () => {
+    const event = { lane: "implementation" } as TimelineEventRecord;
 
-    expect(laneThemeForEvent(event).key).toBe("veri");
+    expect(laneThemeForEvent(event)).toEqual(laneThemeFor("implementation"));
   });
 });

@@ -1,7 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
-    COMPLETED_TASK_STATUS,
-    ERRORED_TASK_STATUS,
     KIND,
     RUNNING_TASK_STATUS,
     RUN_EVENT_KINDS,
@@ -24,9 +22,7 @@ const TIMELINE_KIND_SET = new Set<string>(TIMELINE_EVENT_KINDS);
 const RUN_KIND_SET = new Set<string>(RUN_EVENT_KINDS);
 
 function taskStatusForKind(record: LedgerRecord): TaskStatus | undefined {
-    if (record.kind === KIND.taskComplete) return COMPLETED_TASK_STATUS;
-    if (record.kind === KIND.taskError) return ERRORED_TASK_STATUS;
-    if (record.kind === KIND.sessionStarted || record.kind === KIND.taskStart) return RUNNING_TASK_STATUS;
+    if (record.kind === KIND.sessionStarted) return RUNNING_TASK_STATUS;
     if (record.kind === KIND.sessionEnded) {
         const payload = parseStoredEventPayload(record.payload);
         const explicitStatus = payload.taskEffects?.taskStatus;
@@ -70,7 +66,7 @@ function buildTaskDoc(record: LedgerRecord): Record<string, unknown> {
     if (payload.origin !== undefined) doc["origin"] = payload.origin;
     const status = taskStatusForKind(record);
     if (status !== undefined) doc["status"] = status;
-    if (record.kind === KIND.sessionStarted || record.kind === KIND.taskStart) doc["createdAt"] = iso;
+    if (record.kind === KIND.sessionStarted) doc["createdAt"] = iso;
     return doc;
 }
 

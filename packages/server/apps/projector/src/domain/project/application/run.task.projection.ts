@@ -6,7 +6,6 @@ import {
     RUNNING_TASK_STATUS,
     TASK_ORIGINS,
     type TaskOrigin,
-    type TaskStatus,
 } from "@monitor/kernel";
 import { parseStoredEventPayload } from "@monitor/kernel/ingest/stored-event.schema.js";
 import { deriveTaskSlug, TaskEntity } from "@monitor/tracer-domain";
@@ -36,16 +35,6 @@ export class RunTaskProjection {
         return task;
     }
 
-    async projectTerminal(
-        repositories: RunProjectionRepositories,
-        record: LedgerRecord,
-        status: TaskStatus,
-    ): Promise<TaskEntity> {
-        const { task } = await this.ensure(repositories, record);
-        task.applyLedgerStatusEffect(status, record.occurredAt, record.seq);
-        await repositories.tasks.upsert(task);
-        return task;
-    }
 
     private async ensure(repositories: RunProjectionRepositories, record: LedgerRecord): Promise<EnsuredTask> {
         const payload = parseStoredEventPayload(record.payload);

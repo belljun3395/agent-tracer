@@ -15,7 +15,6 @@ TimelineEventKind = Literal[
     "execute_tool",
     "plan",
     "agent_tracer.action.logged",
-    "agent_tracer.verification.logged",
     "agent_tracer.rule.logged",
     "agent_tracer.thought.logged",
     "agent_tracer.context.saved",

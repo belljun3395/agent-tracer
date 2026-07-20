@@ -1,7 +1,5 @@
 import { Injectable } from "@nestjs/common";
 import {
-    COMPLETED_TASK_STATUS,
-    ERRORED_TASK_STATUS,
     KIND,
     NOTIFICATION_TYPE,
     type EventKind,
@@ -28,19 +26,7 @@ export class RunProjection {
         const kind: EventKind = record.kind;
         if (kind === KIND.sessionStarted) return this.sessionStarted(repositories, record);
         if (kind === KIND.sessionEnded) return this.sessionEnded(repositories, record);
-        if (kind === KIND.taskStart) {
-            const task = await this.tasks.project(repositories, record);
-            return [taskNotification(NOTIFICATION_TYPE.taskStarted, task)];
-        }
-        if (kind === KIND.taskLinked) {
-            const task = await this.tasks.project(repositories, record);
-            return [taskNotification(NOTIFICATION_TYPE.taskUpdated, task)];
-        }
-        if (kind === KIND.taskComplete) {
-            const task = await this.tasks.projectTerminal(repositories, record, COMPLETED_TASK_STATUS);
-            return [taskNotification(NOTIFICATION_TYPE.taskCompleted, task)];
-        }
-        const task = await this.tasks.projectTerminal(repositories, record, ERRORED_TASK_STATUS);
+        const task = await this.tasks.project(repositories, record);
         return [taskNotification(NOTIFICATION_TYPE.taskUpdated, task)];
     }
 
