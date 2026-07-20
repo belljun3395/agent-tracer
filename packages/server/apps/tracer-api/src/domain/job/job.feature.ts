@@ -26,6 +26,7 @@ import { RuleBackfillService } from "~tracer-api/domain/job/application/rule.bac
 import { RuleGenerationResultService } from "~tracer-api/domain/job/application/rule.generation.result.service.js";
 import { WorkflowDispatcher } from "~tracer-api/domain/job/adapter/workflow.dispatcher.js";
 import { WsJobStatusNotifier } from "~tracer-api/domain/job/adapter/job.status.notifier.js";
+import { StructuredJobEventLogAdapter } from "~tracer-api/domain/job/adapter/structured.job.event.log.adapter.js";
 import { JobCommandController } from "~tracer-api/domain/job/inbound/job.command.controller.js";
 import { JobExecutionController } from "~tracer-api/domain/job/inbound/job.execution.controller.js";
 import { JobQueryController } from "~tracer-api/domain/job/inbound/job.query.controller.js";
@@ -33,6 +34,7 @@ import { DEFAULT_AGENT_BACKEND } from "~tracer-api/domain/job/port/agent.backend
 import { AI_JOB_REPOSITORY } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
 import { AI_JOB_STEP_REPOSITORY } from "~tracer-api/domain/job/port/ai.job.step.repository.port.js";
 import { CLOCK } from "~tracer-api/domain/job/port/clock.port.js";
+import { JOB_EVENT_LOG } from "~tracer-api/domain/job/port/job.event.log.port.js";
 import { JOB_STATUS_NOTIFIER } from "~tracer-api/domain/job/port/job.status.notifier.port.js";
 import { RULE_EVENT_READER } from "~tracer-api/domain/job/port/rule-verification/event.reader.port.js";
 import { RULE_REPOSITORY } from "~tracer-api/domain/job/port/rule-verification/rule.repository.port.js";
@@ -62,6 +64,8 @@ export const jobFeature = {
         RuleGenerationResultService,
         WorkflowDispatcher,
         WsJobStatusNotifier,
+        StructuredJobEventLogAdapter,
+        { provide: JOB_EVENT_LOG, useExisting: StructuredJobEventLogAdapter },
         { provide: CLOCK, useClass: SystemClock },
         { provide: DEFAULT_AGENT_BACKEND, useFactory: () => normalizeAiAgentBackend(process.env["AGENT_BACKEND"]) },
         { provide: AI_JOB_REPOSITORY, useExisting: AiJobRepository },

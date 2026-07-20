@@ -19,6 +19,7 @@ import { AuthGuard } from "~tracer-api/config/auth.guard.js";
 import { RateLimitGuard, resolveApiRateLimiter } from "~tracer-api/config/rate.limit.guard.js";
 import { GlobalExceptionFilter } from "~tracer-api/config/exception.filter.js";
 import { ResponseEnvelopeInterceptor } from "~tracer-api/config/response.envelope.interceptor.js";
+import { AccessLogInterceptor } from "~tracer-api/config/access.log.interceptor.js";
 import { NotificationBroadcaster } from "~tracer-api/config/notification.broadcaster.js";
 import { OPENSEARCH_CLIENT } from "~tracer-api/config/opensearch.client.const.js";
 import { TRACER_DATA_SOURCE, TRACER_KAFKA } from "~tracer-api/config/tracer.datasource.token.js";
@@ -70,6 +71,7 @@ export class TracerApiModule {
                 { provide: OPENSEARCH_CLIENT, useFactory: () => createOpenSearchClient() },
                 ...repositoryProviders,
                 ...apiFeatures.flatMap((feature) => feature.providers),
+                { provide: APP_INTERCEPTOR, useClass: AccessLogInterceptor },
                 { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
                 { provide: APP_FILTER, useClass: GlobalExceptionFilter },
             ],

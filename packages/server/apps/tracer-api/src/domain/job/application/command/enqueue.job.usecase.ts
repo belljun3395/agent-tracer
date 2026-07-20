@@ -18,6 +18,7 @@ import { JobIdempotencyConflictError, LlmKeyMissingError } from "~tracer-api/dom
 import { mapJob, type JobDto } from "~tracer-api/domain/job/model/job.model.js";
 import { SETTING_READER, type SettingReaderPort } from "~tracer-api/domain/job/port/setting.reader.port.js";
 import { WORKFLOW_DISPATCHER, type WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
+import { JOB_EVENT_LOG, type JobEventLog } from "~tracer-api/domain/job/port/job.event.log.port.js";
 
 export interface EnqueueJobOptions {
     readonly idempotencyKey?: string;
@@ -32,6 +33,7 @@ export class EnqueueJobUseCase {
         @Inject(WORKFLOW_DISPATCHER) private readonly dispatcher: WorkflowDispatcherPort,
         @Inject(CLOCK) private readonly clock: ClockPort,
         @Inject(DEFAULT_AGENT_BACKEND) private readonly defaultBackend: DefaultAgentBackendPort,
+        @Inject(JOB_EVENT_LOG) private readonly jobLog: JobEventLog,
     ) {}
 
     async execute(
@@ -46,7 +48,10 @@ export class EnqueueJobUseCase {
         const jobInput = withAgentBackend(input, agentBackend);
         if (kind !== JOB_KIND.ruleGeneration) {
             const catalog = new SettingsCatalog(await this.settings.findAllByScope(DEFAULT_USER_ID));
-            if (!catalog.llmKeyPresent(LLM_KEY_SETTING)) throw new LlmKeyMissingError();
+            if (!catalog.llmKeyPresent(LLM_KEY_SETTING)) {
+                this.jobLog.llmKeyMissing({ userId, kind });
+                throw new LlmKeyMissingError();
+            }
         }
 
         const idempotencyKey = normalizeIdempotencyKey(options.idempotencyKey);
@@ -61,6 +66,7 @@ export class EnqueueJobUseCase {
                 : undefined,
         );
         const saved = await this.saveJob(job, idempotencyKey, inputHash);
+        if (saved.created) this.jobLog.enqueued({ userId, jobId: saved.job.id, kind });
         if (!saved.job.runsLocally() && (saved.created || saved.job.status === JOB_STATUS.pending)) {
             await this.dispatcher.start(kind, saved.job.id, userId, saved.job.input);
         }
@@ -83,8 +89,14 @@ export class EnqueueJobUseCase {
             if (!isUniqueViolation(error)) throw error;
         }
         const existing = await this.jobs.findByIdempotency(job.userId, job.kind, idempotencyKey);
-        if (existing === null) throw new JobIdempotencyConflictError();
-        if (existing.idempotencyInputHash !== inputHash) throw new JobIdempotencyConflictError();
+        if (existing === null) {
+            this.jobLog.idempotencyConflict({ userId: job.userId, kind: job.kind });
+            throw new JobIdempotencyConflictError();
+        }
+        if (existing.idempotencyInputHash !== inputHash) {
+            this.jobLog.idempotencyConflict({ userId: job.userId, kind: job.kind });
+            throw new JobIdempotencyConflictError();
+        }
         return { job: existing, created: false };
     }
 }

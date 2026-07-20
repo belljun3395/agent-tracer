@@ -5,6 +5,12 @@ import { FixedClock } from "~tracer-api/domain/job/port/__fakes__/fixed.clock.js
 import { InMemoryAiJobRepository } from "~tracer-api/domain/job/port/__fakes__/in-memory.ai.job.repository.js";
 import { InMemorySettingReader } from "~tracer-api/domain/job/port/__fakes__/in-memory.setting.reader.js";
 import type { WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
+import type {
+    JobEnqueuedLog,
+    JobEventLog,
+    JobIdempotencyConflictLog,
+    JobLlmKeyMissingLog,
+} from "~tracer-api/domain/job/port/job.event.log.port.js";
 import { EnqueueJobUseCase } from "./enqueue.job.usecase.js";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
@@ -19,14 +25,36 @@ function makeDispatcher() {
     } as unknown as WorkflowDispatcherPort & { readonly start: ReturnType<typeof vi.fn<WorkflowDispatcherPort["start"]>> };
 }
 
+function makeJobLog(): {
+    readonly jobLog: JobEventLog;
+    readonly enqueuedLogs: JobEnqueuedLog[];
+    readonly idempotencyConflictLogs: JobIdempotencyConflictLog[];
+    readonly llmKeyMissingLogs: JobLlmKeyMissingLog[];
+} {
+    const enqueuedLogs: JobEnqueuedLog[] = [];
+    const idempotencyConflictLogs: JobIdempotencyConflictLog[] = [];
+    const llmKeyMissingLogs: JobLlmKeyMissingLog[] = [];
+    return {
+        enqueuedLogs,
+        idempotencyConflictLogs,
+        llmKeyMissingLogs,
+        jobLog: {
+            enqueued: (entry) => enqueuedLogs.push(entry),
+            idempotencyConflict: (entry) => idempotencyConflictLogs.push(entry),
+            llmKeyMissing: (entry) => llmKeyMissingLogs.push(entry),
+        },
+    };
+}
+
 function makeUseCase(
     settings: InMemorySettingReader = makeSettings(),
     defaultBackend: AiAgentBackend = DEFAULT_AI_AGENT_BACKEND,
 ) {
     const store = new InMemoryAiJobRepository();
     const dispatcher = makeDispatcher();
-    const useCase = new EnqueueJobUseCase(store, settings, dispatcher, new FixedClock(NOW), defaultBackend);
-    return { store, dispatcher, useCase };
+    const { jobLog, enqueuedLogs, idempotencyConflictLogs, llmKeyMissingLogs } = makeJobLog();
+    const useCase = new EnqueueJobUseCase(store, settings, dispatcher, new FixedClock(NOW), defaultBackend, jobLog);
+    return { store, dispatcher, useCase, enqueuedLogs, idempotencyConflictLogs, llmKeyMissingLogs };
 }
 
 describe("EnqueueJobUseCase", () => {
@@ -51,7 +79,7 @@ describe("EnqueueJobUseCase", () => {
     });
 
     it("같은 idempotency key에 다른 input이면 충돌로 거부한다", async () => {
-        const { store, useCase } = makeUseCase();
+        const { store, useCase, idempotencyConflictLogs } = makeUseCase();
 
         await useCase.execute(
             "u1",
@@ -72,6 +100,7 @@ describe("EnqueueJobUseCase", () => {
             httpStatus: 409,
         });
         expect(store.all()).toHaveLength(1);
+        expect(idempotencyConflictLogs).toEqual([{ userId: "u1", kind: JOB_KIND.recipeScan }]);
     });
 
     it("기존 pending Temporal Job을 재사용하면 workflow start를 다시 시도한다", async () => {
@@ -123,7 +152,7 @@ describe("EnqueueJobUseCase", () => {
     });
 
     it("LLM 키가 없으면 원격 실행 잡을 큐에 넣지 못한다", async () => {
-        const { useCase } = makeUseCase(makeSettings(new Map()));
+        const { useCase, llmKeyMissingLogs } = makeUseCase(makeSettings(new Map()));
 
         await expect(
             useCase.execute(
@@ -136,6 +165,24 @@ describe("EnqueueJobUseCase", () => {
             code: "job.llm-key-missing",
             httpStatus: 400,
         });
+        expect(llmKeyMissingLogs).toEqual([{ userId: "u1", kind: JOB_KIND.recipeScan }]);
+    });
+
+    it("새 Job을 큐에 넣으면 jobId와 kind와 userId를 로그로 남긴다", async () => {
+        const { store, useCase, enqueuedLogs } = makeUseCase();
+
+        await useCase.execute("u1", JOB_KIND.recipeScan, { filters: {} });
+
+        expect(enqueuedLogs).toEqual([{ userId: "u1", jobId: store.all()[0]!.id, kind: JOB_KIND.recipeScan }]);
+    });
+
+    it("idempotency key로 기존 Job을 재사용하면 다시 enqueued를 로그로 남기지 않는다", async () => {
+        const { useCase, enqueuedLogs } = makeUseCase();
+
+        await useCase.execute("u1", JOB_KIND.recipeScan, { filters: {} }, { idempotencyKey: "scan-click-1" });
+        await useCase.execute("u1", JOB_KIND.recipeScan, { filters: {} }, { idempotencyKey: "scan-click-1" });
+
+        expect(enqueuedLogs).toHaveLength(1);
     });
 
     it("요청이 backend를 생략하면 서버 기본값을 확정해 같은 provider 키와 workflow 입력을 사용한다", async () => {

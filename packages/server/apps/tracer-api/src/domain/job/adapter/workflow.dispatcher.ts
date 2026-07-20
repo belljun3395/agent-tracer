@@ -2,6 +2,7 @@ import { Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { createTemporalConnection, isWorkflowNotFound, type TemporalHandle } from "@monitor/platform";
 import { JOB_KIND, type JobKind } from "@monitor/kernel";
 import type { WorkflowCancelOutcome, WorkflowDispatcherPort } from "~tracer-api/domain/job/port/workflow.dispatcher.port.js";
+import { logInfo, logWarn } from "~tracer-api/config/log.js";
 
 // ai-agent-worker가 등록한 큐 이름과 같아야 잡이 소비된다.
 const TASK_QUEUE = "llm-jobs";
@@ -20,16 +21,18 @@ export class WorkflowDispatcher implements WorkflowDispatcherPort, OnModuleDestr
     async start(kind: JobKind, jobId: string, userId: string, input: Record<string, unknown>): Promise<void> {
         const workflowType = WORKFLOW_TYPE_BY_KIND[kind];
         if (workflowType === undefined) throw new Error(`no workflow mapped for job kind: ${kind}`);
+        const workflowId = `${kind}:${jobId}`;
         const { client } = await this.connection();
         await client.workflow.start(workflowType, {
             taskQueue: TASK_QUEUE,
-            workflowId: `${kind}:${jobId}`,
+            workflowId,
             workflowIdConflictPolicy: "USE_EXISTING",
             workflowIdReusePolicy: "REJECT_DUPLICATE",
             args: [{ ...input, jobId }],
             // memo는 Temporal UI에서 잡 단위 검색·필터링에 쓰인다.
             memo: { jobId, kind, userId },
         });
+        logInfo({ msg: "job.workflow.started", workflowId, taskQueue: TASK_QUEUE, jobId, kind });
     }
 
     /** 실행 중인 워크플로를 취소해 진행 중인 LLM 호출까지 중단시킨다. */
@@ -39,7 +42,10 @@ export class WorkflowDispatcher implements WorkflowDispatcherPort, OnModuleDestr
             await client.workflow.getHandle(`${kind}:${jobId}`).cancel();
             return "canceled";
         } catch (error) {
-            if (isWorkflowNotFound(error)) return "absent";
+            if (isWorkflowNotFound(error)) {
+                logWarn({ msg: "job.workflow.cancel.absent", jobId, kind });
+                return "absent";
+            }
             throw error;
         }
     }

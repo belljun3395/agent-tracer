@@ -1,8 +1,10 @@
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
-import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
-import type { Response } from "express";
+import { Catch, HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import type { Request, Response } from "express";
 import { DomainError } from "@monitor/platform";
-import { createApiErrorEnvelope, isApiErrorEnvelope } from "@monitor/kernel";
+import { createApiErrorEnvelope, isApiErrorEnvelope, MONITOR_USER_HEADER } from "@monitor/kernel";
+import { errorMessage, logError, logWarn } from "~tracer-api/config/log.js";
+import { headerValue, routePatternOf } from "~tracer-api/config/http.request.util.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");
 const STATUS_ERROR_CODES = new Map<number, string>([
@@ -17,19 +19,21 @@ const STATUS_ERROR_CODES = new Map<number, string>([
 @Injectable()
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
-    private readonly logger = new Logger(GlobalExceptionFilter.name);
-
     catch(exception: unknown, host: ArgumentsHost): void {
-        const response = host.switchToHttp().getResponse<Response>();
+        const httpContext = host.switchToHttp();
+        const response = httpContext.getResponse<Response>();
+        const request = httpContext.getRequest<Request>();
 
         if (exception instanceof HttpException) {
             // 기존 status는 유지하고 본문만 공통 봉투로 맞춘다.
             const status = exception.getStatus();
+            this.logRequest(request, status, errorMessage(exception));
             response.status(status).json(normalizeHttpExceptionBody(status, exception.getResponse()));
             return;
         }
         if (exception instanceof DomainError) {
             // 도메인 예외는 선언한 status와 code를 그대로 노출한다.
+            this.logRequest(request, exception.httpStatus, exception.message);
             response.status(exception.httpStatus).json(
                 createApiErrorEnvelope(exception.code, exception.message, exception.details),
             );
@@ -37,6 +41,7 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
         }
         if (isZodLikeError(exception)) {
             // 검증 실패는 400으로 고정한다.
+            this.logRequest(request, HttpStatus.BAD_REQUEST, "validation_error");
             response.status(HttpStatus.BAD_REQUEST).json(
                 createApiErrorEnvelope("validation_error", "Invalid request", exception.format()),
             );
@@ -44,18 +49,26 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
         }
 
         const status = getStatusFromError(exception);
+        const message = getMessageFromError(exception);
+        this.logRequest(request, status, message);
         if (status >= 500) {
             // 서버 오류는 내부 메시지를 숨기고 로그에만 남긴다.
-            this.logger.error(
-                `Unhandled exception (${status})`,
-                exception instanceof Error ? exception.stack : String(exception),
-            );
             response.status(status).json(INTERNAL_SERVER_ERROR_BODY);
             return;
         }
-        response.status(status).json(
-            createApiErrorEnvelope(statusToErrorCode(status), getMessageFromError(exception)),
-        );
+        response.status(status).json(createApiErrorEnvelope(statusToErrorCode(status), message));
+    }
+
+    private logRequest(request: Request, status: number, error: string): void {
+        const fields = {
+            method: request.method,
+            route: routePatternOf(request),
+            status,
+            error,
+            userId: headerValue(request.headers[MONITOR_USER_HEADER]),
+        };
+        if (status >= 500) logError({ msg: "http.request.failed", ...fields });
+        else logWarn({ msg: "http.request.rejected", ...fields });
     }
 }
 
