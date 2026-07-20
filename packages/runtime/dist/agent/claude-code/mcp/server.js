@@ -230,6 +230,10 @@ function parseDaemonMemoSearchResponse(value) {
     ...typeof value["reason"] === "string" ? { reason: value["reason"] } : {}
   };
 }
+function parseDaemonRecipeSearchResponse(value) {
+  if (!isRecord(value) || !Array.isArray(value["items"])) return null;
+  return { items: value["items"] };
+}
 
 // src/daemon/ipc/mcp.client.ts
 var REQUEST_TIMEOUT_MS = 3e3;
@@ -239,6 +243,7 @@ var NO_DAEMON_SCAN = { queued: false, reason: "daemon_unreachable" };
 var NO_DAEMON_TITLE = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_MEMO_CREATE = { ok: false, reason: "daemon_unreachable" };
 var NO_DAEMON_MEMO_SEARCH = { items: [], reason: "daemon_unreachable" };
+var NO_DAEMON_RECIPE_SEARCH = { items: [] };
 var UNKNOWN_SESSION = "unknown_session";
 async function getRecipeViaDaemon(recipeId) {
   const sessionId = resolveClaudeSessionId();
@@ -353,6 +358,24 @@ async function searchMemosViaDaemon(query, limit) {
     );
   } catch {
     return NO_DAEMON_MEMO_SEARCH;
+  }
+}
+async function searchRecipesViaDaemon(query, limit) {
+  const paths = resolveAgentTracerPaths();
+  try {
+    return await requestDaemon(
+      paths.socketPath,
+      {
+        type: "recipe-search",
+        query,
+        ...limit !== void 0 ? { limit } : {}
+      },
+      REQUEST_TIMEOUT_MS,
+      (parsed) => parseDaemonRecipeSearchResponse(parsed) ?? NO_DAEMON_RECIPE_SEARCH,
+      NO_DAEMON_RECIPE_SEARCH
+    );
+  } catch {
+    return NO_DAEMON_RECIPE_SEARCH;
   }
 }
 
@@ -632,6 +655,30 @@ var REQUEST_RECIPE_SCAN_TOOL = {
   inputSchema: { type: "object", properties: {} }
 };
 
+// src/domain/recipe/model/search.recipes.tool.model.ts
+var SEARCH_RECIPES_TOOL = {
+  name: "search_recipes",
+  description: "Search this workspace's saved recipes \u2014 workflows distilled from how past tasks here were actually solved \u2014 by describing the current task in your own words. Returns decision-level info only (recipeId, title, intent, description, relevance score), not the steps, pitfalls, or corrections. Call this before starting work whenever the request plausibly repeats something already solved here. If a result looks like a fit, call get_recipe(recipeId) next to pull its full workflow before you act on it.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "The current task described in your own words." },
+      limit: { type: "number", description: "Max recipes to return (default 3)." }
+    },
+    required: ["query"]
+  }
+};
+function parseSearchRecipesArgs(value) {
+  if (!isRecord(value)) return null;
+  const query = value["query"];
+  if (typeof query !== "string" || query.trim() === "") return null;
+  const limit = value["limit"];
+  return {
+    query,
+    ...typeof limit === "number" && Number.isFinite(limit) ? { limit } : {}
+  };
+}
+
 // src/domain/session/model/set.task.title.tool.model.ts
 var SET_TASK_TITLE_TOOL = {
   name: "set_task_title",
@@ -653,6 +700,7 @@ function parseSetTaskTitleArgs(value) {
 // src/agent/claude-code/mcp/tool.dispatch.ts
 var MCP_TOOLS = [
   GET_RECIPE_TOOL,
+  SEARCH_RECIPES_TOOL,
   REPORT_RECIPE_OUTCOME_TOOL,
   REQUEST_RECIPE_SCAN_TOOL,
   SET_TASK_TITLE_TOOL,
@@ -666,6 +714,12 @@ function formatMemoSearchResult(items) {
   if (items.length === 0) return "No memos found on the active task.";
   return items.map((item) => `## memo ${item.id} (author: ${item.author}${item.eventId ? `, event: ${item.eventId}` : ""})
 ${item.body}`).join("\n\n---\n\n");
+}
+function formatRecipeSearchResult(items) {
+  if (items.length === 0) return "Nothing saved here fits that.";
+  return items.map((item) => `## ${item.title} (recipeId: ${item.recipeId})
+intent: ${item.intent}
+${item.description}`).join("\n\n---\n\n");
 }
 async function callTool(name, args) {
   await ensureDaemonRunning();
@@ -703,6 +757,12 @@ async function callTool(name, args) {
       if (!parsed) return invalidArgs();
       const result = await searchMemosViaDaemon(parsed.query, parsed.limit);
       return { text: formatMemoSearchResult(result.items), isError: false };
+    }
+    case SEARCH_RECIPES_TOOL.name: {
+      const parsed = parseSearchRecipesArgs(args);
+      if (!parsed) return invalidArgs();
+      const result = await searchRecipesViaDaemon(parsed.query, parsed.limit);
+      return { text: formatRecipeSearchResult(result.items), isError: false };
     }
     default:
       return { text: `Unknown tool: ${name}`, isError: true };

@@ -3304,31 +3304,69 @@ var HttpRecipeScanJobAdapter = class {
   }
 };
 
-// src/domain/recipe/model/recipe.menu.model.ts
-var MENU_LIMIT = 20;
-function buildRecipeMenu(recipes) {
-  if (recipes.length === 0) return "";
-  const shown = recipes.slice(0, MENU_LIMIT);
-  const lines = [
-    "<agent-tracer-recipes>",
-    "Verified workflows from this workspace. If one fits, call get_recipe(recipeId) for its full steps before starting.",
-    "",
-    ...shown.map((recipe2) => `\u2022 ${recipe2.id}: ${recipe2.title} \u2014 ${recipe2.description}`)
-  ];
-  const omitted = recipes.length - shown.length;
-  if (omitted > 0) lines.push("", `\u2026and ${omitted} more recipes not shown.`);
-  lines.push("</agent-tracer-recipes>");
-  return lines.join("\n");
+// src/domain/recipe/adapter/http.recipe.search.adapter.ts
+var REQUEST_TIMEOUT_MS2 = 5e3;
+var HttpRecipeSearchAdapter = class {
+  constructor(baseUrl, headers2) {
+    this.baseUrl = baseUrl;
+    this.headers = headers2;
+  }
+  baseUrl;
+  headers;
+  async search(query, limit) {
+    const url = `${this.baseUrl}/api/v1/recipes/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+    const body = await getJson(url, this.headers, REQUEST_TIMEOUT_MS2);
+    return body === null ? [] : extractItems(body);
+  }
+};
+function extractItems(body) {
+  let source = body;
+  if (isRecord(source) && "data" in source) source = source["data"];
+  if (isRecord(source) && Array.isArray(source["items"])) source = source["items"];
+  if (!Array.isArray(source)) return [];
+  const items = [];
+  for (const entry of source) {
+    const item = toItem(entry);
+    if (item) items.push(item);
+  }
+  return items;
+}
+function toItem(value) {
+  if (!isRecord(value)) return null;
+  const recipeId = value["recipeId"];
+  const title = value["title"];
+  if (typeof recipeId !== "string" || typeof title !== "string") return null;
+  const intent = value["intent"];
+  const description = value["description"];
+  const score = value["score"];
+  return {
+    recipeId,
+    title,
+    intent: typeof intent === "string" ? intent : "",
+    description: typeof description === "string" ? description : "",
+    score: typeof score === "number" ? score : 0
+  };
 }
 
-// src/domain/recipe/application/build.recipe.menu.usecase.ts
-var BuildRecipeMenuUsecase = class {
+// src/domain/recipe/model/recipe.nudge.model.ts
+function formatRecipeNudge(count) {
+  if (count === 0) return "";
+  return [
+    "<agent-tracer-recipes>",
+    `This workspace has ${count} saved ${count === 1 ? "recipe" : "recipes"} \u2014 workflows distilled from how past tasks here were actually solved.`,
+    "If this request plausibly repeats one, call `search_recipes` with the task in your own words before starting.",
+    "</agent-tracer-recipes>"
+  ].join("\n");
+}
+
+// src/domain/recipe/application/build.recipe.nudge.usecase.ts
+var BuildRecipeNudgeUsecase = class {
   constructor(cache) {
     this.cache = cache;
   }
   cache;
   execute() {
-    return buildRecipeMenu(this.cache.load());
+    return formatRecipeNudge(this.cache.load().length);
   }
 };
 
@@ -3429,6 +3467,24 @@ var RequestRecipeScanUsecase = class {
     if (!hasRecipeScanCommand(request.prompt)) return false;
     if (await this.jobs.hasActiveScan(request.taskId)) return false;
     return this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
+  }
+};
+
+// src/domain/recipe/application/search.recipes.usecase.ts
+var DEFAULT_LIMIT = 3;
+var SearchRecipesUsecase = class {
+  constructor(search) {
+    this.search = search;
+  }
+  search;
+  async execute(input) {
+    const query = input.query.trim();
+    if (query === "") return [];
+    try {
+      return await this.search.search(query, input.limit ?? DEFAULT_LIMIT);
+    } catch {
+      return [];
+    }
   }
 };
 
@@ -3854,10 +3910,11 @@ var binding = {
 };
 var recipe = {
   refreshCache: new RefreshRecipeCacheUsecase(recipeCache),
-  buildMenu: new BuildRecipeMenuUsecase(recipeCache),
+  buildNudge: new BuildRecipeNudgeUsecase(recipeCache),
   getRecipe: new GetRecipeUsecase(recipeCache),
   requestScan: new RequestRecipeScanUsecase(recipeJobs),
-  reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers))
+  reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
+  searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(transport.baseUrl, headers))
 };
 var logger = createHookLogger({
   logFile: path11.join(projectDir, ".claude", "hooks.log"),
