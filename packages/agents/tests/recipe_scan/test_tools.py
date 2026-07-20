@@ -353,7 +353,7 @@ def test_전문가는_자기_근거_원천의_도구만_쥔다() -> None:
     rosters = {probe: set(names) for probe, names in PROBE_TOOLS.items()}
 
     assert rosters == {
-        "timeline": {"get_task_summary", "get_task_events", "check_citations"},
+        "timeline": {"get_task_summary", "get_task_events", "search_events", "check_citations"},
         "rules": {"list_rules", "search_recipes", "check_citations"},
         "repetition": {"search_events", "find_similar_tasks", "check_citations"},
     }

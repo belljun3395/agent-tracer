@@ -25,7 +25,12 @@ const AGENT_TOOL = "Agent";
 export const RECIPE_WORKER_MAX_TURNS = 10;
 
 export const RECIPE_WORKER_TOOLS = {
-    timeline: [RECIPE_SCAN_TOOL.getTaskSummary, RECIPE_SCAN_TOOL.getTaskEvents, RECIPE_SCAN_TOOL.checkCitations],
+    timeline: [
+        RECIPE_SCAN_TOOL.getTaskSummary,
+        RECIPE_SCAN_TOOL.getTaskEvents,
+        RECIPE_SCAN_TOOL.searchEvents,
+        RECIPE_SCAN_TOOL.checkCitations,
+    ],
     rules: [RECIPE_SCAN_TOOL.listRules, RECIPE_SCAN_TOOL.searchRecipes, RECIPE_SCAN_TOOL.checkCitations],
     repetition: [RECIPE_SCAN_TOOL.searchEvents, RECIPE_SCAN_TOOL.findSimilarTasks, RECIPE_SCAN_TOOL.checkCitations],
 } as const;
@@ -35,8 +40,8 @@ type RecipeWorkerRole = keyof typeof RECIPE_WORKER_TOOLS;
 const RECIPE_SUBAGENTS = new ClaudeSubagentCatalog<RecipeWorkerRole, (typeof RECIPE_SCAN_TOOL_NAMES)[number]>(
     {
         timeline: {
-            description: "Read the anchor task's own events end to end and report its verified timeline.",
-            prompt: workerPrompt("timeline", "Read the anchor summary and enough raw events to separate distinct user intents."),
+            description: "Read the anchor task's own events, paging or searching within it, and report its verified timeline.",
+            prompt: workerPrompt("timeline", "Read the anchor summary and enough raw events, paging or searching within the task, to separate distinct user intents."),
             tools: RECIPE_WORKER_TOOLS.timeline,
             maxTurns: RECIPE_WORKER_MAX_TURNS,
         },

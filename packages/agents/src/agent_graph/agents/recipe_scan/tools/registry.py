@@ -30,7 +30,7 @@ RECIPE_TOOL_CLASSES: tuple[type[AgentTool[Any]], ...] = (
 
 # 전문가는 자기 근거 원천에 닿는 도구 이름만 쥔다. 인용 확인은 어느 전문가든 쓰므로 모두에게 준다.
 PROBE_TOOLS: dict[ProbeName, tuple[str, ...]] = {
-    "timeline": (GET_TASK_SUMMARY, GET_TASK_EVENTS, CHECK_CITATIONS),
+    "timeline": (GET_TASK_SUMMARY, GET_TASK_EVENTS, SEARCH_EVENTS, CHECK_CITATIONS),
     "rules": (LIST_RULES, SEARCH_RECIPES, CHECK_CITATIONS),
     "repetition": (SEARCH_EVENTS, FIND_SIMILAR_TASKS, CHECK_CITATIONS),
 }

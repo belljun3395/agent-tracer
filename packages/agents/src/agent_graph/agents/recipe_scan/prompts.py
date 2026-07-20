@@ -132,7 +132,7 @@ Prompt version: {PROMPT_VERSION}.
 
 Three specialists can be dispatched, each reading in its own isolated context:
 
-- timeline: reads the anchor task's own events end to end.
+- timeline: reads the anchor task's own events, paging end to end or searching within it for what matters.
 - rules: reads the rules that already govern the anchor and the recipes that already exist.
 - repetition: searches other tasks for the same workflow to judge whether it recurs.
 
