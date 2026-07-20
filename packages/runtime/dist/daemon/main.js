@@ -28025,6 +28025,7 @@ function resolveAgentTracerPaths(env = process.env) {
     configPath: path.join(homeDir, "config.json"),
     bindingsPath: path.join(homeDir, "bindings.json"),
     bindingsLockPath: path.join(homeDir, "bindings.lock"),
+    recipePendingPath: path.join(homeDir, "recipe-pending.json"),
     socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
     logPath: path.join(homeDir, "daemon.log"),
     resumeTokenPath: path.join(homeDir, "resume.token"),
@@ -28439,9 +28440,6 @@ var GEN_AI_OPERATION = {
   executeTool: "execute_tool",
   plan: "plan"
 };
-var GEN_AI_PROVIDER = {
-  anthropic: "anthropic"
-};
 var ATTRIBUTE_PROMOTION = {
   toolName: SEMCONV_ATTR.toolName,
   agentName: SEMCONV_ATTR.agentName,
@@ -28474,14 +28472,6 @@ var ATTRIBUTE_PROMOTION = {
   asyncStatus: AGENT_TRACER_ATTR.asyncStatus,
   turnResponseEventId: AGENT_TRACER_ATTR.turnResponseEventId
 };
-function promoteAttributeKey(key) {
-  return ATTRIBUTE_PROMOTION[key] ?? key;
-}
-function toSemconvAttributes(metadata) {
-  const promoted = {};
-  for (const [key, value] of Object.entries(metadata)) promoted[promoteAttributeKey(key)] = value;
-  return promoted;
-}
 
 // ../kernel/src/ingest/event.kind.const.ts
 var KIND = {
@@ -29218,358 +29208,6 @@ var SpoolEventSinkAdapter = class {
   }
 };
 
-// src/domain/ingest/model/ingest.event.model.ts
-var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
-function toIngestEvent(event, occurredAt, nextId) {
-  const { id, kind, taskId, sessionId, parentId, turnId, metadata, ...rest } = event;
-  return {
-    id: id ?? nextId(),
-    kind,
-    taskId,
-    ...sessionId ? { sessionId } : {},
-    ...parentId ? { parentId } : {},
-    ...turnId ? { turnId } : {},
-    occurredAt,
-    payload: { ...rest, metadata: toSemconvAttributes(metadata) }
-  };
-}
-function toRunIngestEvent(input, occurredAt, nextId) {
-  return {
-    id: input.id ?? nextId(),
-    kind: input.kind,
-    taskId: input.taskId,
-    ...input.sessionId ? { sessionId: input.sessionId } : {},
-    ...input.turnId ? { turnId: input.turnId } : {},
-    occurredAt,
-    payload: input.payload
-  };
-}
-
-// src/domain/ingest/model/tags.model.ts
-var TAG_KEYS = [
-  ["ruleId", "rule"],
-  ["ruleStatus", "rule-status"],
-  ["verificationStatus", "verification"],
-  ["severity", "severity"],
-  ["rulePolicy", "policy"],
-  ["ruleOutcome", "outcome"],
-  ["asyncStatus", "async"],
-  ["asyncAgent", "agent"],
-  ["asyncCategory", "category"],
-  ["activityType", "activity"],
-  ["subtypeKey", "subtype"],
-  ["subtypeGroup", "subtype-group"],
-  ["entityType", "entity"],
-  ["toolFamily", "tool-family"],
-  ["operation", "operation"],
-  ["sourceTool", "source-tool"],
-  ["agentName", "agent"],
-  ["skillName", "skill"],
-  ["ruleSource", "source"],
-  ["questionPhase", "question"],
-  ["todoState", "todo"],
-  ["modelName", "model"],
-  ["modelProvider", "provider"],
-  ["mcpServer", "mcp"],
-  ["mcpTool", "mcp-tool"],
-  ["compactPhase", "compact"]
-];
-var FLAG_KEYS = [
-  ["asyncTaskId", "async-task"],
-  ["questionId", "question"],
-  ["todoId", "todo"]
-];
-function normalizeTag(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-function readTagValue(metadata, key) {
-  const value = metadata[key];
-  if (typeof value === "string" && value.length > 0) return value;
-  if (typeof value === "number") return String(value);
-  return void 0;
-}
-function buildTagsFromMetadata(metadata) {
-  const tags = /* @__PURE__ */ new Set();
-  for (const [key, prefix] of TAG_KEYS) {
-    const value = readTagValue(metadata, key);
-    if (value) tags.add(`${prefix}:${normalizeTag(value)}`);
-  }
-  for (const [key, tag] of FLAG_KEYS) {
-    if (readTagValue(metadata, key)) tags.add(tag);
-  }
-  const importance = readTagValue(metadata, "importance");
-  if (importance) tags.add(`importance:${normalizeTag(importance)}`);
-  return [...tags];
-}
-function withTags(metadata) {
-  return { ...metadata, tags: buildTagsFromMetadata(metadata) };
-}
-
-// src/domain/ingest/model/event.envelope.model.ts
-function runtimeAttributes(runtimeSource) {
-  return {
-    [AGENT_TRACER_ATTR.runtimeSource]: runtimeSource,
-    [SEMCONV_ATTR.providerName]: GEN_AI_PROVIDER.anthropic
-  };
-}
-function toIngestEvents(events, runtimeSource, nextId, occurredAt) {
-  const attributes = runtimeAttributes(runtimeSource);
-  return events.map((event) => toIngestEvent(
-    { ...event, metadata: { ...withTags(event.metadata), ...attributes } },
-    occurredAt,
-    nextId
-  ));
-}
-
-// src/domain/ingest/application/append.events.usecase.ts
-var AppendEventsUsecase = class {
-  constructor(sink, ids, clock, runtimeSource) {
-    this.sink = sink;
-    this.ids = ids;
-    this.clock = clock;
-    this.runtimeSource = runtimeSource;
-  }
-  sink;
-  ids;
-  clock;
-  runtimeSource;
-  async execute(events) {
-    if (events.length === 0) return;
-    const occurredAt = new Date(this.clock.now()).toISOString();
-    const nextId = () => this.ids.next();
-    const runtime = events.filter(isRuntimeEvent);
-    const raw = events.filter((event) => !isRuntimeEvent(event));
-    await this.sink.append([
-      ...toIngestEvents(runtime, this.runtimeSource, nextId, occurredAt),
-      ...raw.map((event) => toRunIngestEvent(event, occurredAt, nextId))
-    ]);
-  }
-};
-function isRuntimeEvent(event) {
-  return "lane" in event;
-}
-
-// ../kernel/src/api/memo.query.const.ts
-var MEMOS_PATH = "/api/v1/memos";
-
-// src/domain/memo/adapter/http.memo.search.adapter.ts
-var FETCH_TIMEOUT_MS2 = 3e3;
-var HttpMemoSearchAdapter = class {
-  constructor(baseUrl, headers) {
-    this.baseUrl = baseUrl;
-    this.headers = headers;
-  }
-  baseUrl;
-  headers;
-  async listByTask(taskId) {
-    const body = await getJson(
-      `${this.baseUrl}${MEMOS_PATH}?taskId=${encodeURIComponent(taskId)}`,
-      this.headers,
-      FETCH_TIMEOUT_MS2
-    );
-    const items = Array.isArray(body?.data?.items) ? body.data.items : [];
-    return items.map(parseMemoItem).filter((item) => item !== null);
-  }
-};
-function parseMemoItem(item) {
-  if (!isRecord(item)) return null;
-  const id = item["id"];
-  const taskId = item["taskId"];
-  const body = item["body"];
-  if (typeof id !== "string" || typeof taskId !== "string" || typeof body !== "string") return null;
-  const eventId = item["eventId"];
-  const author = item["author"];
-  const updatedAt = item["updatedAt"];
-  return {
-    id,
-    taskId,
-    eventId: typeof eventId === "string" ? eventId : null,
-    author: typeof author === "string" ? author : "",
-    body,
-    ...typeof updatedAt === "string" ? { updatedAt } : {}
-  };
-}
-
-// ../kernel/src/memo/memo.const.ts
-var MEMO_AUTHOR = {
-  human: "human",
-  agent: "agent"
-};
-var MEMO_AUTHORS = [MEMO_AUTHOR.human, MEMO_AUTHOR.agent];
-
-// src/domain/memo/adapter/http.memo.write.adapter.ts
-var HttpMemoWriteAdapter = class {
-  constructor(baseUrl, headers) {
-    this.baseUrl = baseUrl;
-    this.headers = headers;
-  }
-  baseUrl;
-  headers;
-  async create(input) {
-    const response = await postJson(`${this.baseUrl}${MEMOS_PATH}`, this.headers, {
-      taskId: input.taskId,
-      body: input.body,
-      author: MEMO_AUTHOR.agent,
-      ...input.eventId !== void 0 ? { eventId: input.eventId } : {}
-    });
-    return response.ok;
-  }
-};
-
-// src/domain/memo/application/create.memo.usecase.ts
-var CreateMemoUsecase = class {
-  constructor(writer) {
-    this.writer = writer;
-  }
-  writer;
-  async execute(input) {
-    if (input.taskId === "" || input.body.trim() === "") return false;
-    try {
-      return await this.writer.create(input);
-    } catch {
-      return false;
-    }
-  }
-};
-
-// src/domain/memo/application/search.memos.usecase.ts
-var DEFAULT_LIMIT = 20;
-var SearchMemosUsecase = class {
-  constructor(reader) {
-    this.reader = reader;
-  }
-  reader;
-  async execute(input) {
-    if (input.taskId === "") return [];
-    let items;
-    try {
-      items = await this.reader.listByTask(input.taskId);
-    } catch {
-      return [];
-    }
-    const filtered = filterByQuery(items, input.query);
-    const limit = input.limit ?? DEFAULT_LIMIT;
-    return filtered.slice(0, limit);
-  }
-};
-function filterByQuery(items, query) {
-  const trimmed2 = query?.trim().toLowerCase();
-  if (!trimmed2) return items;
-  return items.filter((item) => item.body.toLowerCase().includes(trimmed2));
-}
-
-// src/domain/recipe/adapter/http.recipe.fetch.adapter.ts
-var REQUEST_TIMEOUT_MS = 5e3;
-var HttpRecipeFetchAdapter = class {
-  constructor(baseUrl, headers) {
-    this.baseUrl = baseUrl;
-    this.headers = headers;
-  }
-  baseUrl;
-  headers;
-  async fetch(recipeId) {
-    const body = await getJson(
-      `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(recipeId)}`,
-      this.headers,
-      REQUEST_TIMEOUT_MS
-    );
-    if (body === null) return null;
-    const payload = isRecord(body) && "data" in body ? body["data"] : body;
-    return toCachedRecipe(payload);
-  }
-};
-function toCachedRecipe(value) {
-  if (!isRecord(value)) return null;
-  const id = readString(value, "id");
-  const title = readString(value, "title");
-  if (!id || !title) return null;
-  return {
-    id,
-    title,
-    intent: readString(value, "intent"),
-    description: readString(value, "description"),
-    summaryMd: readString(value, "summaryMd"),
-    steps: readSteps(value["steps"]),
-    pitfalls: readPitfalls(value["pitfalls"]),
-    corrections: readCorrections(value["corrections"]),
-    touchedFiles: readTouchedFiles(value["touchedFiles"]),
-    governingRules: readStringArray(value["governingRules"])
-  };
-}
-function readSteps(value) {
-  if (!Array.isArray(value)) return [];
-  const steps = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) continue;
-    const order = entry["order"];
-    const action = readString(entry, "action");
-    if (typeof order !== "number" || !action) continue;
-    const rationale = readString(entry, "rationale");
-    steps.push({ order, action, ...rationale ? { rationale } : {} });
-  }
-  return steps;
-}
-function readPitfalls(value) {
-  if (!Array.isArray(value)) return [];
-  const pitfalls = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) continue;
-    const pitfall = readString(entry, "pitfall");
-    const whyNonObvious = readString(entry, "whyNonObvious");
-    if (pitfall && whyNonObvious) pitfalls.push({ pitfall, whyNonObvious });
-  }
-  return pitfalls;
-}
-function readCorrections(value) {
-  if (!Array.isArray(value)) return [];
-  const corrections = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) continue;
-    const whatAgentDid = readString(entry, "whatAgentDid");
-    const howCorrected = readString(entry, "howCorrected");
-    if (whatAgentDid && howCorrected) corrections.push({ whatAgentDid, howCorrected });
-  }
-  return corrections;
-}
-function readTouchedFiles(value) {
-  if (!Array.isArray(value)) return [];
-  const files = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) continue;
-    const path6 = readString(entry, "path");
-    const role = entry["role"];
-    if (path6 && (role === "read" || role === "write" || role === "both")) files.push({ path: path6, role });
-  }
-  return files;
-}
-function readStringArray(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry) => typeof entry === "string");
-}
-function readString(source, key) {
-  const value = source[key];
-  return typeof value === "string" ? value : "";
-}
-
-// src/domain/recipe/adapter/http.recipe.outcome.report.adapter.ts
-var HttpRecipeOutcomeReportAdapter = class {
-  constructor(baseUrl, headers) {
-    this.baseUrl = baseUrl;
-    this.headers = headers;
-  }
-  baseUrl;
-  headers;
-  async report(input) {
-    const url = `${this.baseUrl}/api/v1/recipes/${encodeURIComponent(input.recipeId)}/outcome`;
-    const response = await postJson(url, this.headers, {
-      taskId: input.taskId,
-      outcome: input.outcome,
-      ...input.note !== void 0 ? { note: input.note } : {}
-    });
-    return response.ok;
-  }
-};
-
 // ../kernel/src/job/job.const.ts
 var JOB_KIND = {
   titleSuggestion: "title.suggestion",
@@ -29641,112 +29279,6 @@ var HttpRecipeScanJobAdapter = class {
   }
 };
 
-// src/domain/recipe/adapter/http.recipe.search.adapter.ts
-var REQUEST_TIMEOUT_MS2 = 5e3;
-var HttpRecipeSearchAdapter = class {
-  constructor(baseUrl, headers) {
-    this.baseUrl = baseUrl;
-    this.headers = headers;
-  }
-  baseUrl;
-  headers;
-  async search(query, limit) {
-    const url = `${this.baseUrl}/api/v1/recipes/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-    const body = await getJson(url, this.headers, REQUEST_TIMEOUT_MS2);
-    return body === null ? [] : extractItems(body);
-  }
-};
-function extractItems(body) {
-  let source = body;
-  if (isRecord(source) && "data" in source) source = source["data"];
-  if (isRecord(source) && Array.isArray(source["items"])) source = source["items"];
-  if (!Array.isArray(source)) return [];
-  const items = [];
-  for (const entry of source) {
-    const item = toItem(entry);
-    if (item) items.push(item);
-  }
-  return items;
-}
-function toItem(value) {
-  if (!isRecord(value)) return null;
-  const recipeId = value["recipeId"];
-  const title = value["title"];
-  if (typeof recipeId !== "string" || typeof title !== "string") return null;
-  const intent = value["intent"];
-  const description = value["description"];
-  const score = value["score"];
-  return {
-    recipeId,
-    title,
-    intent: typeof intent === "string" ? intent : "",
-    description: typeof description === "string" ? description : "",
-    score: typeof score === "number" ? score : 0
-  };
-}
-
-// src/domain/recipe/model/recipe.body.model.ts
-function buildRecipeBody(recipe) {
-  const lines = [`# ${recipe.title}`, "", `intent: ${recipe.intent}`, recipe.description];
-  const summary = recipe.summaryMd.trim();
-  if (summary) lines.push("", summary);
-  if (recipe.steps.length > 0) {
-    lines.push("", "## Steps");
-    for (const step of [...recipe.steps].sort((left, right) => left.order - right.order)) {
-      const rationale = step.rationale ? ` (${step.rationale})` : "";
-      lines.push(`${step.order}. ${step.action}${rationale}`);
-    }
-  }
-  if (recipe.pitfalls.length > 0) {
-    lines.push("", "## Pitfalls");
-    for (const pitfall of recipe.pitfalls) lines.push(`- ${pitfall.pitfall} \u2014 ${pitfall.whyNonObvious}`);
-  }
-  if (recipe.corrections.length > 0) {
-    lines.push("", "## Corrections");
-    for (const correction of recipe.corrections) {
-      lines.push(`- ${correction.whatAgentDid} \u2192 ${correction.howCorrected}`);
-    }
-  }
-  if (recipe.touchedFiles.length > 0) {
-    const files = recipe.touchedFiles.map((file) => `${file.path} (${file.role})`).join(", ");
-    lines.push("", `touched files: ${files}`);
-  }
-  if (recipe.governingRules.length > 0) lines.push("", `governing rules: ${recipe.governingRules.join(", ")}`);
-  return lines.join("\n");
-}
-
-// src/domain/recipe/application/get.recipe.usecase.ts
-var GetRecipeUsecase = class {
-  constructor(fetcher) {
-    this.fetcher = fetcher;
-  }
-  fetcher;
-  async execute(recipeId) {
-    try {
-      const recipe = await this.fetcher.fetch(recipeId);
-      return recipe ? buildRecipeBody(recipe) : null;
-    } catch {
-      return null;
-    }
-  }
-};
-
-// src/domain/recipe/application/report.recipe.outcome.usecase.ts
-var ReportRecipeOutcomeUsecase = class {
-  constructor(reports) {
-    this.reports = reports;
-  }
-  reports;
-  async execute(input) {
-    if (input.recipeId === "" || input.taskId === "") return false;
-    try {
-      return await this.reports.report(input);
-    } catch {
-      return false;
-    }
-  }
-};
-
 // src/domain/recipe/model/scan.command.model.ts
 var RECIPE_COMMAND = /^(?:\/(?:[\w-]+:)?recipe|\$recipe)(?:\s|$)/i;
 function hasRecipeScanCommand(prompt) {
@@ -29769,25 +29301,11 @@ var RequestRecipeScanUsecase = class {
   async execute(request) {
     if (request.taskId === "" || request.eventId === "") return false;
     if (!hasRecipeScanCommand(request.prompt)) return false;
-    if (await this.jobs.hasActiveScan(request.taskId)) return false;
-    return this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
-  }
-};
-
-// src/domain/recipe/application/search.recipes.usecase.ts
-var DEFAULT_LIMIT2 = 3;
-var SearchRecipesUsecase = class {
-  constructor(search) {
-    this.search = search;
-  }
-  search;
-  async execute(input) {
-    const query = input.query.trim();
-    if (query === "") return [];
     try {
-      return await this.search.search(query, input.limit ?? DEFAULT_LIMIT2);
+      if (await this.jobs.hasActiveScan(request.taskId)) return false;
+      return await this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
     } catch {
-      return [];
+      return false;
     }
   }
 };
@@ -30294,7 +29812,7 @@ var EVENT_BODY_MAX_LEN = 200;
 var EXISTING_RULE_NAME_MAX_LEN = 100;
 var TIMELINE_PAGE_LIMIT = 100;
 var TIMELINE_MAX_PAGES = 10;
-function readString2(record, key) {
+function readString(record, key) {
   const value = record[key];
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -30302,15 +29820,15 @@ function digestTurns(items) {
   const digests = [];
   for (const item of items) {
     if (!isRecord(item)) continue;
-    const turnId = readString2(item, "id");
-    const askedText = readString2(item, "askedText");
+    const turnId = readString(item, "id");
+    const askedText = readString(item, "askedText");
     if (turnId === null || askedText === null) continue;
     const rawIndex = item["turnIndex"];
     digests.push({
       turnId,
       turnIndex: typeof rawIndex === "number" ? rawIndex : digests.length + 1,
       askedText: truncate(askedText, ASKED_TEXT_MAX_LEN),
-      assistantSummary: truncate(readString2(item, "assistantText") ?? "", ASSISTANT_SUMMARY_MAX_LEN)
+      assistantSummary: truncate(readString(item, "assistantText") ?? "", ASSISTANT_SUMMARY_MAX_LEN)
     });
   }
   return digests.slice(-TURN_DIGEST_MAX_TURNS);
@@ -30319,16 +29837,16 @@ function digestEvents(items) {
   const events = [];
   for (const item of items) {
     if (!isRecord(item)) continue;
-    const eventId = readString2(item, "id");
+    const eventId = readString(item, "id");
     const kind = item["kind"];
     if (eventId === null || typeof kind !== "string") continue;
-    const turnId = readString2(item, "turnId");
+    const turnId = readString(item, "turnId");
     events.push({
       eventId,
       ...turnId === null ? {} : { turnId },
       kind,
-      title: truncate(readString2(item, "title") ?? "", EVENT_TITLE_MAX_LEN),
-      body: truncate(readString2(item, "body") ?? "", EVENT_BODY_MAX_LEN)
+      title: truncate(readString(item, "title") ?? "", EVENT_TITLE_MAX_LEN),
+      body: truncate(readString(item, "body") ?? "", EVENT_BODY_MAX_LEN)
     });
   }
   return events;
@@ -30338,7 +29856,7 @@ function digestExistingRules(items) {
   for (const item of items) {
     if (!isRecord(item)) continue;
     rules.push({
-      name: truncate(readString2(item, "name") ?? "", EXISTING_RULE_NAME_MAX_LEN),
+      name: truncate(readString(item, "name") ?? "", EXISTING_RULE_NAME_MAX_LEN),
       expect: item["expectation"] ?? null
     });
   }
@@ -31228,6 +30746,20 @@ var RunRuleJobUsecase = class {
   }
 };
 
+// src/domain/ingest/model/ingest.event.model.ts
+var INGEST_EVENTS_ENDPOINT = "/ingest/v1/events";
+function toRunIngestEvent(input, occurredAt, nextId) {
+  return {
+    id: input.id ?? nextId(),
+    kind: input.kind,
+    taskId: input.taskId,
+    ...input.sessionId ? { sessionId: input.sessionId } : {},
+    ...input.turnId ? { turnId: input.turnId } : {},
+    occurredAt,
+    payload: input.payload
+  };
+}
+
 // src/domain/session/model/session.event.model.ts
 function taskLinkedEvent(taskId, title) {
   return { kind: KIND.taskLinked, taskId, payload: { title } };
@@ -31274,22 +30806,12 @@ function composeDaemonHooks(leaseOwner) {
     refreshRules: new RefreshRulesUsecase(ruleSource)
   };
   const hint = { computeHints: new ComputeHintsUsecase(clock) };
-  const recipe = {
-    getRecipe: new GetRecipeUsecase(new HttpRecipeFetchAdapter(baseUrl, headers)),
-    requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
-    reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
-    searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(baseUrl, headers))
-  };
+  const requestScan = new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers));
   const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
   const findTargetBySession = (sessionId) => readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId);
   const ids = { next: generateUlid };
   const sink = new SpoolEventSinkAdapter();
   const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
-  const appendIngestEvents = new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE);
-  const memo = {
-    createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
-    searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers))
-  };
   const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
   const runRuleJob = new RunRuleJobUsecase(
     new HttpRuleEvidenceAdapter(baseUrl, headers),
@@ -31313,12 +30835,10 @@ function composeDaemonHooks(leaseOwner) {
   return {
     guardrail,
     hint,
-    recipe,
+    requestScan,
     rulegen,
     findTargetBySession,
-    setTaskTitle,
-    appendIngestEvents,
-    memo
+    setTaskTitle
   };
 }
 
@@ -32619,13 +32139,13 @@ function readResumeBody(request) {
 }
 function parseResumeRequest(value) {
   if (!isRecord(value)) throw new ResumeLaunchError("request body is invalid", "invalid_request", 400);
-  const runtimeSource = readString3(value, "runtimeSource");
-  const runtimeSessionId = readString3(value, "runtimeSessionId");
+  const runtimeSource = readString2(value, "runtimeSource");
+  const runtimeSessionId = readString2(value, "runtimeSessionId");
   if (runtimeSource === void 0 || runtimeSessionId === void 0) {
     throw new ResumeLaunchError("runtimeSource and runtimeSessionId are required", "invalid_request", 400);
   }
-  const taskId = readString3(value, "taskId");
-  const workspacePath = readString3(value, "workspacePath");
+  const taskId = readString2(value, "taskId");
+  const workspacePath = readString2(value, "workspacePath");
   return {
     runtimeSource,
     runtimeSessionId,
@@ -32633,7 +32153,7 @@ function parseResumeRequest(value) {
     ...workspacePath !== void 0 ? { workspacePath } : {}
   };
 }
-function readString3(record, key) {
+function readString2(record, key) {
   const value = record[key];
   if (typeof value !== "string") return void 0;
   const trimmed2 = value.trim();
@@ -33018,85 +32538,11 @@ function createLineFramer() {
   };
 }
 
-// ../kernel/src/recipe/recipe.const.ts
-var RECIPE_STATUS = {
-  candidate: "candidate",
-  active: "active",
-  dismissed: "dismissed",
-  superseded: "superseded",
-  retired: "retired"
-};
-var RECIPE_STATUSES = [
-  RECIPE_STATUS.candidate,
-  RECIPE_STATUS.active,
-  RECIPE_STATUS.dismissed,
-  RECIPE_STATUS.superseded,
-  RECIPE_STATUS.retired
-];
-var RECIPE_OUTCOME = {
-  completed: "completed",
-  abandoned: "abandoned",
-  superseded: "superseded"
-};
-var RECIPE_OUTCOMES = [
-  RECIPE_OUTCOME.completed,
-  RECIPE_OUTCOME.abandoned,
-  RECIPE_OUTCOME.superseded
-];
-var RECIPE_VERDICT = {
-  followedAndHelped: "followed_and_helped",
-  followedNotHelped: "followed_not_helped",
-  abandoned: "abandoned",
-  unknown: "unknown"
-};
-var RECIPE_VERDICTS = [
-  RECIPE_VERDICT.followedAndHelped,
-  RECIPE_VERDICT.followedNotHelped,
-  RECIPE_VERDICT.abandoned,
-  RECIPE_VERDICT.unknown
-];
-
 // src/daemon/port/mcp.socket.port.ts
 function parseMcpSocketRequest(type, value) {
   switch (type) {
-    case "recipe-get":
-      return typeof value["recipeId"] === "string" ? {
-        type: "recipe-get",
-        recipeId: value["recipeId"],
-        ...typeof value["sessionId"] === "string" ? { sessionId: value["sessionId"] } : {}
-      } : null;
-    case "recipe-outcome":
-      return typeof value["recipeId"] === "string" && typeof value["sessionId"] === "string" && typeof value["outcome"] === "string" && RECIPE_OUTCOMES.includes(value["outcome"]) ? {
-        type: "recipe-outcome",
-        recipeId: value["recipeId"],
-        outcome: value["outcome"],
-        sessionId: value["sessionId"],
-        ...typeof value["note"] === "string" ? { note: value["note"] } : {}
-      } : null;
-    case "recipe-scan-request":
-      return typeof value["sessionId"] === "string" ? { type: "recipe-scan-request", sessionId: value["sessionId"] } : null;
     case "set-task-title":
       return typeof value["title"] === "string" && typeof value["sessionId"] === "string" ? { type: "set-task-title", title: value["title"], sessionId: value["sessionId"] } : null;
-    case "memo-create":
-      return typeof value["body"] === "string" && typeof value["sessionId"] === "string" ? {
-        type: "memo-create",
-        body: value["body"],
-        sessionId: value["sessionId"],
-        ...typeof value["eventId"] === "string" ? { eventId: value["eventId"] } : {}
-      } : null;
-    case "memo-search":
-      return typeof value["sessionId"] === "string" ? {
-        type: "memo-search",
-        sessionId: value["sessionId"],
-        ...typeof value["query"] === "string" ? { query: value["query"] } : {},
-        ...typeof value["limit"] === "number" ? { limit: value["limit"] } : {}
-      } : null;
-    case "recipe-search":
-      return typeof value["query"] === "string" ? {
-        type: "recipe-search",
-        query: value["query"],
-        ...typeof value["limit"] === "number" ? { limit: value["limit"] } : {}
-      } : null;
     default:
       return null;
   }
@@ -33155,45 +32601,7 @@ function onHintsRequested(hook, recent, request) {
   return hook.computeHints.execute(recent, request);
 }
 
-// src/domain/ingest/model/recipe.injection.event.model.ts
-function recipeInjectedEvent(target, input) {
-  return {
-    kind: KIND.recipeInjected,
-    taskId: target.taskId,
-    sessionId: target.sessionId,
-    ...target.turnId ? { turnId: target.turnId } : {},
-    payload: {
-      recipeId: input.recipeId,
-      applicationId: input.applicationId,
-      injectedVia: input.injectedVia
-    }
-  };
-}
-
-// src/domain/memo/inbound/memo.hook.ts
-function onMemoCreateRequested(hook, input) {
-  return hook.createMemo.execute(input);
-}
-function onMemoSearchRequested(hook, input) {
-  return hook.searchMemos.execute(input);
-}
-
-// src/domain/recipe/inbound/recipe.hook.ts
-function onGetRecipe(hook, recipeId) {
-  return hook.getRecipe.execute(recipeId);
-}
-function onRecipeSearchRequested(hook, input) {
-  return hook.searchRecipes.execute(input);
-}
-function onRecipeScanRequested(hook, request) {
-  return hook.requestScan.execute(request);
-}
-function onRecipeOutcomeReported(hook, input) {
-  return hook.reportOutcome.execute(input);
-}
-
 // src/daemon/ipc/socket.server.ts
-var MCP_RECIPE_SCAN_PROMPT = "/recipe";
 function createDaemonConnectionHandler(context) {
   return (socket) => {
     context.onConnectionOpened();
@@ -33278,58 +32686,6 @@ async function handleMessage(socket, line, context) {
         send(socket, { verdicts: blocking });
         return;
       }
-      case "recipe-get": {
-        const body = await onGetRecipe(context.recipe, request.recipeId);
-        if (body !== null) {
-          const target = request.sessionId === void 0 ? void 0 : context.findTargetBySession(request.sessionId);
-          if (target !== void 0) {
-            context.interventions.recordRecipeInjected(
-              Date.now(),
-              target.taskId,
-              [recipeTitleFromBody(body)],
-              Buffer.byteLength(body, "utf8")
-            );
-            await context.appendIngestEvents([
-              recipeInjectedEvent(target, {
-                recipeId: request.recipeId,
-                applicationId: generateUlid(),
-                injectedVia: "pull"
-              })
-            ]);
-          }
-        }
-        send(socket, { body });
-        return;
-      }
-      case "recipe-outcome": {
-        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
-        if (taskId === void 0) {
-          send(socket, { ok: false, reason: "unknown_session" });
-          return;
-        }
-        const ok2 = await onRecipeOutcomeReported(context.recipe, {
-          recipeId: request.recipeId,
-          taskId,
-          outcome: request.outcome,
-          ...request.note !== void 0 ? { note: request.note } : {}
-        });
-        send(socket, { ok: ok2 });
-        return;
-      }
-      case "recipe-scan-request": {
-        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
-        if (taskId === void 0) {
-          send(socket, { queued: false, reason: "unknown_session" });
-          return;
-        }
-        const queued = await onRecipeScanRequested(context.recipe, {
-          taskId,
-          eventId: generateUlid(),
-          prompt: MCP_RECIPE_SCAN_PROMPT
-        });
-        send(socket, { queued });
-        return;
-      }
       case "set-task-title": {
         const taskId = context.findTargetBySession(request.sessionId)?.taskId;
         if (taskId === void 0) {
@@ -33338,42 +32694,6 @@ async function handleMessage(socket, line, context) {
         }
         const ok2 = await context.setTaskTitle(taskId, request.title);
         send(socket, { ok: ok2 });
-        return;
-      }
-      case "memo-create": {
-        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
-        if (taskId === void 0) {
-          send(socket, { ok: false, reason: "unknown_session" });
-          return;
-        }
-        const ok2 = await onMemoCreateRequested(context.memo, {
-          taskId,
-          body: request.body,
-          ...request.eventId !== void 0 ? { eventId: request.eventId } : {}
-        });
-        send(socket, { ok: ok2 });
-        return;
-      }
-      case "memo-search": {
-        const taskId = context.findTargetBySession(request.sessionId)?.taskId;
-        if (taskId === void 0) {
-          send(socket, { items: [], reason: "unknown_session" });
-          return;
-        }
-        const items = await onMemoSearchRequested(context.memo, {
-          taskId,
-          ...request.query !== void 0 ? { query: request.query } : {},
-          ...request.limit !== void 0 ? { limit: request.limit } : {}
-        });
-        send(socket, { items });
-        return;
-      }
-      case "recipe-search": {
-        const items = await onRecipeSearchRequested(context.recipe, {
-          query: request.query,
-          ...request.limit !== void 0 ? { limit: request.limit } : {}
-        });
-        send(socket, { items });
         return;
       }
     }
@@ -33385,10 +32705,6 @@ async function handleMessage(socket, line, context) {
 function send(socket, response) {
   socket.end(`${JSON.stringify(response)}
 `);
-}
-function recipeTitleFromBody(body) {
-  const firstLine = body.split("\n", 1)[0] ?? "";
-  return firstLine.replace(/^#\s*/, "").trim() || firstLine;
 }
 
 // ../kernel/src/daemon/daemon.health.const.ts
@@ -33713,9 +33029,9 @@ function toRecentEvent(event) {
     ...event.id ? { id: event.id } : {},
     ...event.sessionId ? { sessionId: event.sessionId } : {},
     ...event.turnId ? { turnId: event.turnId } : {},
-    ...readString4(payload, "title"),
-    ...readString4(payload, "body"),
-    ...readString4(payload, "toolName"),
+    ...readString3(payload, "title"),
+    ...readString3(payload, "body"),
+    ...readString3(payload, "toolName"),
     ...readFilePaths(payload)
   };
 }
@@ -33753,7 +33069,7 @@ var RecentEventRing = class {
     };
   }
 };
-function readString4(payload, key) {
+function readString3(payload, key) {
   const value = payload[key];
   return typeof value === "string" ? { [key]: value } : {};
 }
@@ -33794,7 +33110,7 @@ var interventions = new InterventionLog();
 var automation = new EventAutomationDispatcher([
   (event) => onUserInputForRuleGeneration(hooks.rulegen, event.kind, event.taskId, event.eventId, event.prompt),
   async (event) => {
-    await onRecipeScanRequested(hooks.recipe, {
+    await hooks.requestScan.execute({
       taskId: event.taskId,
       eventId: event.eventId,
       prompt: event.prompt
@@ -33917,13 +33233,10 @@ var servers = createDaemonServers({
     interventions,
     guardrail: hooks.guardrail,
     hint: hooks.hint,
-    recipe: hooks.recipe,
-    memo: hooks.memo,
     readRules: () => cachedRules,
     readDelivery: currentDelivery,
     findTargetBySession: hooks.findTargetBySession,
     setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
-    appendIngestEvents: (events) => hooks.appendIngestEvents.execute(events),
     refreshHistory: () => spoolSender.feedHistory(),
     onHookVersion: (hookVersion) => {
       lastHookVersion = hookVersion;

@@ -128,6 +128,7 @@ function resolveAgentTracerPaths(env = process.env) {
     configPath: path.join(homeDir, "config.json"),
     bindingsPath: path.join(homeDir, "bindings.json"),
     bindingsLockPath: path.join(homeDir, "bindings.lock"),
+    recipePendingPath: path.join(homeDir, "recipe-pending.json"),
     socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
     logPath: path.join(homeDir, "daemon.log"),
     resumeTokenPath: path.join(homeDir, "resume.token"),
@@ -418,44 +419,6 @@ var UNKNOWN_DAEMON_VERSION = "unknown";
 function resolveDaemonVersion(root = resolveRuntimeRoot()) {
   return readRuntimeManifestVersion(root) || UNKNOWN_DAEMON_VERSION;
 }
-
-// ../kernel/src/recipe/recipe.const.ts
-var RECIPE_STATUS = {
-  candidate: "candidate",
-  active: "active",
-  dismissed: "dismissed",
-  superseded: "superseded",
-  retired: "retired"
-};
-var RECIPE_STATUSES = [
-  RECIPE_STATUS.candidate,
-  RECIPE_STATUS.active,
-  RECIPE_STATUS.dismissed,
-  RECIPE_STATUS.superseded,
-  RECIPE_STATUS.retired
-];
-var RECIPE_OUTCOME = {
-  completed: "completed",
-  abandoned: "abandoned",
-  superseded: "superseded"
-};
-var RECIPE_OUTCOMES = [
-  RECIPE_OUTCOME.completed,
-  RECIPE_OUTCOME.abandoned,
-  RECIPE_OUTCOME.superseded
-];
-var RECIPE_VERDICT = {
-  followedAndHelped: "followed_and_helped",
-  followedNotHelped: "followed_not_helped",
-  abandoned: "abandoned",
-  unknown: "unknown"
-};
-var RECIPE_VERDICTS = [
-  RECIPE_VERDICT.followedAndHelped,
-  RECIPE_VERDICT.followedNotHelped,
-  RECIPE_VERDICT.abandoned,
-  RECIPE_VERDICT.unknown
-];
 
 // src/daemon/port/daemon.socket.port.ts
 function parseDaemonVersionResponse(value) {
@@ -3093,6 +3056,33 @@ var RecordToolUseUsecase = class {
   }
 };
 
+// src/domain/recipe/adapter/file.recipe.pending.mark.adapter.ts
+import * as fs10 from "node:fs";
+var FileRecipePendingMarkAdapter = class {
+  constructor(paths = resolveAgentTracerPaths()) {
+    this.paths = paths;
+  }
+  paths;
+  read() {
+    try {
+      const parsed = JSON.parse(fs10.readFileSync(this.paths.recipePendingPath, "utf8"));
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  write(store) {
+    try {
+      ensureAgentTracerHome(this.paths);
+      const tmp = `${this.paths.recipePendingPath}.tmp`;
+      fs10.writeFileSync(tmp, JSON.stringify(store));
+      fs10.renameSync(tmp, this.paths.recipePendingPath);
+    } catch {
+      return;
+    }
+  }
+};
+
 // src/config/http.ts
 var DEFAULT_TIMEOUT_MS = 5e3;
 function jsonHeaders(headers2) {
@@ -3332,6 +3322,33 @@ function toItem(value) {
   };
 }
 
+// src/domain/recipe/model/recipe.pending.mark.model.ts
+function pendingRecipeMarkFor(store, taskId) {
+  return store[taskId];
+}
+function markRecipeOpened(store, taskId, recipeId, openedAt) {
+  return { ...store, [taskId]: { taskId, recipeId, openedAt } };
+}
+function clearRecipeMark(store, taskId, recipeId) {
+  const existing = store[taskId];
+  if (existing === void 0 || existing.recipeId !== recipeId) return store;
+  const rest = { ...store };
+  delete rest[taskId];
+  return rest;
+}
+
+// src/domain/recipe/application/clear.recipe.mark.usecase.ts
+var ClearRecipeMarkUsecase = class {
+  constructor(marks) {
+    this.marks = marks;
+  }
+  marks;
+  execute(taskId, recipeId) {
+    if (taskId === "" || recipeId === "") return;
+    this.marks.write(clearRecipeMark(this.marks.read(), taskId, recipeId));
+  }
+};
+
 // src/domain/recipe/model/recipe.body.model.ts
 function buildRecipeBody(recipe2) {
   const lines = [`# ${recipe2.title}`, "", `intent: ${recipe2.intent}`, recipe2.description];
@@ -3378,6 +3395,33 @@ var GetRecipeUsecase = class {
   }
 };
 
+// src/domain/recipe/application/mark.recipe.opened.usecase.ts
+var MarkRecipeOpenedUsecase = class {
+  constructor(marks, clock2) {
+    this.marks = marks;
+    this.clock = clock2;
+  }
+  marks;
+  clock;
+  execute(taskId, recipeId) {
+    if (taskId === "" || recipeId === "") return;
+    const openedAt = new Date(this.clock.now()).toISOString();
+    this.marks.write(markRecipeOpened(this.marks.read(), taskId, recipeId, openedAt));
+  }
+};
+
+// src/domain/recipe/application/read.pending.recipe.mark.usecase.ts
+var ReadPendingRecipeMarkUsecase = class {
+  constructor(marks) {
+    this.marks = marks;
+  }
+  marks;
+  execute(taskId) {
+    if (taskId === "") return void 0;
+    return pendingRecipeMarkFor(this.marks.read(), taskId);
+  }
+};
+
 // src/domain/recipe/application/report.recipe.outcome.usecase.ts
 var ReportRecipeOutcomeUsecase = class {
   constructor(reports) {
@@ -3416,8 +3460,12 @@ var RequestRecipeScanUsecase = class {
   async execute(request) {
     if (request.taskId === "" || request.eventId === "") return false;
     if (!hasRecipeScanCommand(request.prompt)) return false;
-    if (await this.jobs.hasActiveScan(request.taskId)) return false;
-    return this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
+    try {
+      if (await this.jobs.hasActiveScan(request.taskId)) return false;
+      return await this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
+    } catch {
+      return false;
+    }
   }
 };
 
@@ -3768,11 +3816,11 @@ var OpenTurnUsecase = class {
 };
 
 // src/agent/claude-code/transcript/transcript.resume.ts
-import * as fs11 from "node:fs";
+import * as fs12 from "node:fs";
 import * as readline from "node:readline";
 
 // src/agent/claude-code/transcript/transcript.reader.ts
-import * as fs10 from "node:fs";
+import * as fs11 from "node:fs";
 
 // src/agent/claude-code/transcript/transcript.wire.ts
 var TRANSCRIPT_ENTRY_TYPE = {
@@ -3806,10 +3854,10 @@ function entriesAfterLatestUserPrompt(entries) {
 function readTranscriptEntries(transcriptPath, startOffset, fileSize) {
   if (startOffset >= fileSize) return { entries: [], byteOffset: startOffset };
   const readStart = Math.max(startOffset, fileSize - TRANSCRIPT_READ_MAX_BYTES);
-  const fd = fs10.openSync(transcriptPath, "r");
+  const fd = fs11.openSync(transcriptPath, "r");
   try {
     const buffer = Buffer.alloc(fileSize - readStart);
-    const bytesRead = fs10.readSync(fd, buffer, 0, buffer.length, readStart);
+    const bytesRead = fs11.readSync(fd, buffer, 0, buffer.length, readStart);
     const content = buffer.subarray(0, bytesRead);
     let parseStart = 0;
     if (readStart > startOffset) {
@@ -3834,7 +3882,7 @@ function readTranscriptEntries(transcriptPath, startOffset, fileSize) {
     }
     return { entries, byteOffset: readStart + consumed };
   } finally {
-    fs10.closeSync(fd);
+    fs11.closeSync(fd);
   }
 }
 function parseJsonLine(line) {
@@ -3851,7 +3899,7 @@ function parseJsonLine(line) {
 // src/agent/claude-code/transcript/transcript.resume.ts
 var RESUME_SCAN_MAX_LINES = 2e4;
 function findResumedSessionId(transcriptPath, currentSessionId, maxLines = RESUME_SCAN_MAX_LINES) {
-  if (!transcriptPath || !fs11.existsSync(transcriptPath)) return Promise.resolve(void 0);
+  if (!transcriptPath || !fs12.existsSync(transcriptPath)) return Promise.resolve(void 0);
   return new Promise((resolve2) => {
     let resumedFrom;
     let lineCount = 0;
@@ -3861,7 +3909,7 @@ function findResumedSessionId(transcriptPath, currentSessionId, maxLines = RESUM
       settled = true;
       resolve2(value);
     };
-    const stream = fs11.createReadStream(transcriptPath, { encoding: "utf8" });
+    const stream = fs12.createReadStream(transcriptPath, { encoding: "utf8" });
     stream.on("error", () => finish(void 0));
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
     rl.on("error", () => finish(void 0));
@@ -3928,6 +3976,11 @@ var recipe = {
   reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(transport.baseUrl, headers)),
   searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(transport.baseUrl, headers))
 };
+var recipeOutcomeMark = {
+  markOpened: new MarkRecipeOpenedUsecase(new FileRecipePendingMarkAdapter(), clock),
+  clearMark: new ClearRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
+  readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter())
+};
 var logger = createHookLogger({
   logFile: path11.join(projectDir, ".claude", "hooks.log"),
   verbose: isVerboseLogging()
@@ -3941,6 +3994,7 @@ var claudeRuntime = {
   turn,
   binding,
   recipe,
+  recipeOutcomeMark,
   todoSnapshots
 };
 async function runHook(name, script) {
@@ -3997,11 +4051,11 @@ function messageOf(error) {
 }
 
 // src/agent/claude-code/transcript/transcript.commentary.ts
-import * as fs13 from "node:fs";
+import * as fs14 from "node:fs";
 
 // src/agent/claude-code/transcript/transcript.cursor.ts
 import * as crypto3 from "node:crypto";
-import * as fs12 from "node:fs";
+import * as fs13 from "node:fs";
 import * as path12 from "node:path";
 var HEAD_FINGERPRINT_BYTES = 4096;
 function resolveTranscriptCursorDir(env = process.env) {
@@ -4050,13 +4104,13 @@ function cursorPath(sourceSessionId, cursorDir) {
 }
 function hashFileHead(transcriptPath, length) {
   if (length === 0) return crypto3.createHash("sha256").digest("hex");
-  const fd = fs12.openSync(transcriptPath, "r");
+  const fd = fs13.openSync(transcriptPath, "r");
   try {
     const buffer = Buffer.alloc(length);
-    const bytesRead = fs12.readSync(fd, buffer, 0, length, 0);
+    const bytesRead = fs13.readSync(fd, buffer, 0, length, 0);
     return crypto3.createHash("sha256").update(buffer.subarray(0, bytesRead)).digest("hex");
   } finally {
-    fs12.closeSync(fd);
+    fs13.closeSync(fd);
   }
 }
 
@@ -4253,7 +4307,7 @@ function toTranscriptEvents(entries, sourceSessionId, target) {
 function tailTranscriptCommentary(sourceSessionId, transcriptPath, target, cursorDir = resolveTranscriptCursorDir()) {
   let fileSize;
   try {
-    const stat = fs13.statSync(transcriptPath);
+    const stat = fs14.statSync(transcriptPath);
     if (!stat.isFile()) return null;
     fileSize = stat.size;
   } catch {
