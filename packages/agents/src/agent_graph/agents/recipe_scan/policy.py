@@ -45,6 +45,11 @@ def clamp_plan(plan: DispatchPlan, available: int) -> tuple[DispatchPlan, int]:
     requested = plan.total_rounds()
     if requested <= available:
         return plan, 0
+    if len(plan.probes) > available:
+        # 전문가 수가 예산보다 많으면 많이 요구한 순서대로 남길 만큼만 남긴다.
+        ranked = sorted(plan.probes, key=lambda probe: probe.rounds, reverse=True)[:available]
+        kept = DispatchPlan(probes=[probe.model_copy(update={"rounds": 1}) for probe in ranked])
+        return kept, requested - kept.total_rounds()
     # 전문가마다 최소 한 라운드는 남겨야 계획이 의미를 잃지 않는다.
     granted = clamp_rounds(plan.probes, available)
     shrunk = [

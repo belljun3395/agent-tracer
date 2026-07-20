@@ -20,6 +20,7 @@ from agent_graph.agents.task_cleanup.models import (
     TriagePlan,
 )
 from agent_graph.agents.task_cleanup.nodes.inspect import create_inspect_node
+from agent_graph.agents.task_cleanup.policy import clamp_triage
 from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from tests.support.fakes import FakeLedger, FakeToolLoopChat
 from tests.support.narrate import narrate
@@ -118,6 +119,22 @@ def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:
     shares = {send.arg.assignment.taskId: send.arg.cost_share for send in sends}
     # 4라운드 중 3:1로 나눴으니 비용도 0.75:0.25로 갈린다.
     assert shares == {"task-1": 0.75, "task-2": 0.25}
+
+
+def test_고른_후보가_예산보다_많으면_많이_요구한_순서로_남긴다() -> None:
+    plan = TriagePlan(
+        inspect=[
+            {"taskId": "task-1", "rounds": 4},  # type: ignore[list-item]
+            {"taskId": "task-2", "rounds": 3},  # type: ignore[list-item]
+            {"taskId": "task-3", "rounds": 1},  # type: ignore[list-item]
+        ]
+    )
+
+    kept, cut = clamp_triage(plan, 2)
+
+    assert [item.taskId for item in kept.assignments] == ["task-1", "task-2"]
+    assert [item.rounds for item in kept.assignments] == [1, 1]
+    assert cut == 6
 
 
 def test_열어볼_후보가_없으면_조율자가_혼자_조사한다() -> None:

@@ -297,6 +297,22 @@ def test_조율자의_배분이_예산을_넘으면_비례로_깎인다() -> Non
     assert [probe.rounds for probe in floored.probes] == [1, 1, 1]
 
 
+def test_전문가_수가_예산보다_많으면_많이_요구한_순서로_남긴다() -> None:
+    plan = DispatchPlan(
+        probes=[
+            {"probe": "timeline", "rounds": 10, "question": "앵커가 무엇을 했나"},  # type: ignore[list-item]
+            {"probe": "rules", "rounds": 6, "question": "적용 규칙은"},  # type: ignore[list-item]
+            {"probe": "repetition", "rounds": 4, "question": "반복되나"},  # type: ignore[list-item]
+        ]
+    )
+
+    kept, cut = clamp_plan(plan, 2)
+
+    assert [probe.probe for probe in kept.probes] == ["timeline", "rules"]
+    assert [probe.rounds for probe in kept.probes] == [1, 1]
+    assert cut == 18
+
+
 def test_전문가의_장부가_조율자의_장부로_합쳐진다() -> None:
     coordinator = ProvenanceCatalog(
         eventIdsByTask={"task-1": {"event-1"}},
