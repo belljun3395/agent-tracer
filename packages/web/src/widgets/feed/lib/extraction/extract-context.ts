@@ -1,5 +1,6 @@
 import { KIND } from "@monitor/kernel";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
+import { readMetaNumberByKeys } from "~web/widgets/feed/lib/extraction/read-meta.js";
 
 export interface ContextSnapshot {
   readonly used: number;
@@ -49,9 +50,9 @@ export function extractContextSnapshot(
 export function readContextSnapshot(
   event: TimelineEventRecord,
 ): ContextSnapshot | null {
-  const used = readNumber(event.metadata, USED_KEYS);
-  const limit = readNumber(event.metadata, LIMIT_KEYS);
-  const percent = readNumber(event.metadata, PERCENT_KEYS);
+  const used = readMetaNumberByKeys(event.metadata, USED_KEYS);
+  const limit = readMetaNumberByKeys(event.metadata, LIMIT_KEYS);
+  const percent = readMetaNumberByKeys(event.metadata, PERCENT_KEYS);
   const atMs = Date.parse(event.createdAt);
 
   if (used !== null && limit !== null && limit > 0) {
@@ -72,17 +73,6 @@ export function readContextSnapshot(
       percent: Math.round(percent),
       atMs,
     };
-  }
-  return null;
-}
-
-function readNumber(
-  meta: Record<string, unknown>,
-  keys: readonly string[],
-): number | null {
-  for (const key of keys) {
-    const v = meta[key];
-    if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
   }
   return null;
 }

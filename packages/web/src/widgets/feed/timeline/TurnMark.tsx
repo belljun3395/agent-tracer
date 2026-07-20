@@ -1,4 +1,5 @@
 import type { VerdictStatus } from "~web/entities/rule/model/rule.js";
+import { Hairline } from "~web/widgets/feed/timeline/Hairline.js";
 
 interface TurnMarkProps {
   readonly turnIndex: number;
@@ -28,23 +29,12 @@ export function TurnMark({ turnIndex, verdict, status }: TurnMarkProps) {
       className="flex items-center gap-2.5 py-3 font-mono text-[10.5px] uppercase tracking-[0.04em]"
       style={{ color: accent }}
     >
-      <Hairline color={accent} />
+      <Hairline color={`color-mix(in srgb, ${accent} 45%, transparent)`} />
       <span>
         — Turn {turnIndex + 1} · {verdictLabel} —
       </span>
-      <Hairline color={accent} />
+      <Hairline color={`color-mix(in srgb, ${accent} 45%, transparent)`} />
     </div>
   );
 }
 
-function Hairline({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      className="flex-1"
-      style={{
-        borderTop: `1px dashed color-mix(in srgb, ${color} 45%, transparent)`,
-      }}
-    />
-  );
-}

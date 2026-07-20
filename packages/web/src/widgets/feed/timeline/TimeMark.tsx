@@ -1,4 +1,7 @@
 import { cn } from "~web/shared/ui/lib/cn.js";
+import { Hairline } from "~web/widgets/feed/timeline/Hairline.js";
+
+const COMPACT_HAIR = "color-mix(in srgb, var(--compact) 50%, transparent)";
 
 interface TimeMarkProps {
   readonly label: string;
@@ -19,7 +22,7 @@ export function TimeMark({ label, tone = "normal", count }: TimeMarkProps) {
       )}
       style={{ color: isCompact ? "var(--warn)" : "var(--ink-tertiary)" }}
     >
-      <Hairline compact={isCompact} />
+      <Hairline color={isCompact ? COMPACT_HAIR : "var(--hair)"} />
       <span>
         — {label}
         {showCount && (
@@ -27,21 +30,8 @@ export function TimeMark({ label, tone = "normal", count }: TimeMarkProps) {
         )}{" "}
         —
       </span>
-      <Hairline compact={isCompact} />
+      <Hairline color={isCompact ? COMPACT_HAIR : "var(--hair)"} />
     </div>
   );
 }
 
-function Hairline({ compact }: { compact: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className="flex-1"
-      style={{
-        borderTop: compact
-          ? "1px dashed color-mix(in srgb, var(--compact) 50%, transparent)"
-          : "1px dashed var(--hair)",
-      }}
-    />
-  );
-}

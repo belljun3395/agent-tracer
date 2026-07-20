@@ -4,6 +4,9 @@ import {
   formatCompactCount,
   type TokensVm,
 } from "~web/widgets/feed/lib/extraction/extract-metadata.js";
+import { readMetaNumberByKeys } from "~web/widgets/feed/lib/extraction/read-meta.js";
+
+const DURATION_KEYS = ["durationMs", "duration_ms"] as const;
 
 interface ActMetaProps {
   readonly vm: ActVm;
@@ -31,7 +34,7 @@ export function ActMeta({ vm }: ActMetaProps) {
 function collectParts(vm: ActVm): string[] {
   const out: string[] = [];
 
-  const durationMs = readNumber(vm.event.metadata, "durationMs", "duration_ms");
+  const durationMs = readMetaNumberByKeys(vm.event.metadata, DURATION_KEYS);
   if (durationMs !== null && durationMs > 0) {
     out.push(formatDuration(durationMs));
   }
@@ -60,17 +63,6 @@ function formatTokens(tokens: TokensVm): string | null {
   }
   if (tokens.total !== null && tokens.total > 0) {
     return `${formatCompactCount(tokens.total)} tokens`;
-  }
-  return null;
-}
-
-function readNumber(
-  meta: Record<string, unknown>,
-  ...keys: readonly string[]
-): number | null {
-  for (const key of keys) {
-    const v = meta[key];
-    if (typeof v === "number" && Number.isFinite(v)) return v;
   }
   return null;
 }

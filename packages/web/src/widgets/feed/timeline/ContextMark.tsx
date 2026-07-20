@@ -1,3 +1,5 @@
+import { Hairline } from "~web/widgets/feed/timeline/Hairline.js";
+
 interface ContextMarkProps {
   readonly percent: number;
   readonly model: string | null;
@@ -30,7 +32,7 @@ export function ContextMark({
       className="flex items-center gap-2.5 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.04em]"
       style={{ color: toneColor }}
     >
-      <Hairline color={toneColor} />
+      <Hairline color={`color-mix(in srgb, ${toneColor} 30%, transparent)`} />
       <span
         className="inline-flex items-center gap-2 py-0.5 px-2.5 bg-canvas rounded-full whitespace-nowrap"
         style={{ border: `1px solid color-mix(in srgb, ${toneColor} 35%, transparent)` }}
@@ -54,19 +56,8 @@ export function ContextMark({
           </>
         )}
       </span>
-      <Hairline color={toneColor} />
+      <Hairline color={`color-mix(in srgb, ${toneColor} 30%, transparent)`} />
     </div>
   );
 }
 
-function Hairline({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      className="flex-1"
-      style={{
-        borderTop: `1px dashed color-mix(in srgb, ${color} 30%, transparent)`,
-      }}
-    />
-  );
-}

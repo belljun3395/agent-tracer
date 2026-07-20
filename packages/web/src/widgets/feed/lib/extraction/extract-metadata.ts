@@ -1,5 +1,6 @@
 import { SEMCONV_ATTR } from "@monitor/kernel";
 import type { TimelineEventRecord } from "~web/entities/task/model/timeline/event.js";
+import { readMetaNumber } from "~web/widgets/feed/lib/extraction/read-meta.js";
 
 /** 이벤트 속성에서 뽑아낸 토큰 사용량. */
 export interface TokensVm {
@@ -31,9 +32,9 @@ export function extractPaths(event: TimelineEventRecord): readonly string[] {
 export function extractTokens(event: TimelineEventRecord): TokensVm | null {
   const meta = event.metadata;
 
-  const input = readNumber(meta[SEMCONV_ATTR.inputTokens]);
-  const output = readNumber(meta[SEMCONV_ATTR.outputTokens]);
-  let total = readNumber(meta["totalTokens"]);
+  const input = readMetaNumber(meta[SEMCONV_ATTR.inputTokens]);
+  const output = readMetaNumber(meta[SEMCONV_ATTR.outputTokens]);
+  let total = readMetaNumber(meta["totalTokens"]);
   if (total === null && (input !== null || output !== null)) {
     total = (input ?? 0) + (output ?? 0);
     if (total === 0) total = null;
@@ -48,8 +49,4 @@ export function formatCompactCount(value: number): string {
   if (value < 1000) return String(value);
   const k = value / 1000;
   return k >= 100 ? `${Math.round(k)}k` : `${k.toFixed(1)}k`;
-}
-
-function readNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
