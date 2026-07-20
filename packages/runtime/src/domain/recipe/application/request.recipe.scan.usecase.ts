@@ -8,14 +8,18 @@ export interface RecipeScanRequest {
     readonly prompt: string;
 }
 
-/** 사용자가 세션 중 부른 레시피 스캔 잡을 서버 큐에 넣는다. */
+/** 사용자가 세션 중 부른 레시피 스캔 잡을 서버 큐에 넣으며, 서버가 잠깐 죽어도 도구 호출이 예외로 튀지 않도록 흡수한다. */
 export class RequestRecipeScanUsecase {
     constructor(private readonly jobs: RecipeScanJobPort) {}
 
     async execute(request: RecipeScanRequest): Promise<boolean> {
         if (request.taskId === "" || request.eventId === "") return false;
         if (!hasRecipeScanCommand(request.prompt)) return false;
-        if (await this.jobs.hasActiveScan(request.taskId)) return false;
-        return this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
+        try {
+            if (await this.jobs.hasActiveScan(request.taskId)) return false;
+            return await this.jobs.enqueue(request.taskId, request.eventId, readRecipeScanIntent(request.prompt));
+        } catch {
+            return false;
+        }
     }
 }

@@ -9,22 +9,9 @@ import type {HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
 import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.binding.store.adapter.js";
 import {ReadBindingUsecase, type BoundSession} from "~runtime/domain/binding/application/read.binding.usecase.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
-import {AppendEventsUsecase} from "~runtime/domain/ingest/application/append.events.usecase.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
-import {HttpMemoSearchAdapter} from "~runtime/domain/memo/adapter/http.memo.search.adapter.js";
-import {HttpMemoWriteAdapter} from "~runtime/domain/memo/adapter/http.memo.write.adapter.js";
-import {CreateMemoUsecase} from "~runtime/domain/memo/application/create.memo.usecase.js";
-import {SearchMemosUsecase} from "~runtime/domain/memo/application/search.memos.usecase.js";
-import type {MemoHook} from "~runtime/domain/memo/inbound/memo.hook.js";
-import {HttpRecipeFetchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.fetch.adapter.js";
-import {HttpRecipeOutcomeReportAdapter} from "~runtime/domain/recipe/adapter/http.recipe.outcome.report.adapter.js";
 import {HttpRecipeScanJobAdapter} from "~runtime/domain/recipe/adapter/http.recipe.scan.job.adapter.js";
-import {HttpRecipeSearchAdapter} from "~runtime/domain/recipe/adapter/http.recipe.search.adapter.js";
-import {GetRecipeUsecase} from "~runtime/domain/recipe/application/get.recipe.usecase.js";
-import {ReportRecipeOutcomeUsecase} from "~runtime/domain/recipe/application/report.recipe.outcome.usecase.js";
 import {RequestRecipeScanUsecase} from "~runtime/domain/recipe/application/request.recipe.scan.usecase.js";
-import {SearchRecipesUsecase} from "~runtime/domain/recipe/application/search.recipes.usecase.js";
-import type {RecipeHook} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {AgentRuleGeneratorAdapter} from "~runtime/domain/rulegen/adapter/agent.rule.generator.adapter.js";
 import {ClaudeRuleAgentRunnerAdapter} from "~runtime/domain/rulegen/adapter/claude.rule.agent.runner.adapter.js";
 import {HttpRuleEvidenceAdapter} from "~runtime/domain/rulegen/adapter/http.rule.evidence.adapter.js";
@@ -44,12 +31,11 @@ import {generateUlid} from "~runtime/support/ulid.js";
 export interface DaemonHooks {
     readonly guardrail: GuardrailHook;
     readonly hint: HintHook;
-    readonly recipe: RecipeHook;
+    /** 스풀에서 관찰한 사용자 발화가 /recipe 명령이면 스캔을 큐잉하는 자체 자동화 전용이다. */
+    readonly requestScan: RequestRecipeScanUsecase;
     readonly rulegen: RulegenHook;
     readonly findTargetBySession: (sessionId: string) => BoundSession | undefined;
     readonly setTaskTitle: SetTaskTitleUsecase;
-    readonly appendIngestEvents: AppendEventsUsecase;
-    readonly memo: MemoHook;
 }
 
 /** 데몬 프로세스가 쓰는 어댑터와 유스케이스를 한 곳에서 조립한다. */
@@ -76,12 +62,7 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
 
     const hint: HintHook = {computeHints: new ComputeHintsUsecase(clock)};
 
-    const recipe: RecipeHook = {
-        getRecipe: new GetRecipeUsecase(new HttpRecipeFetchAdapter(baseUrl, headers)),
-        requestScan: new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers)),
-        reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
-        searchRecipes: new SearchRecipesUsecase(new HttpRecipeSearchAdapter(baseUrl, headers)),
-    };
+    const requestScan = new RequestRecipeScanUsecase(new HttpRecipeScanJobAdapter(baseUrl, headers));
 
     const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
     const findTargetBySession = (sessionId: string): BoundSession | undefined =>
@@ -89,12 +70,6 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     const ids: IdGeneratorPort = {next: generateUlid};
     const sink = new SpoolEventSinkAdapter();
     const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
-    const appendIngestEvents = new AppendEventsUsecase(sink, ids, clock, CLAUDE_RUNTIME_SOURCE);
-
-    const memo: MemoHook = {
-        createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
-        searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers)),
-    };
 
     const jobs = new HttpRuleJobAdapter(baseUrl, headers, leaseOwner);
     const runRuleJob = new RunRuleJobUsecase(
@@ -120,11 +95,9 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
     return {
         guardrail,
         hint,
-        recipe,
+        requestScan,
         rulegen,
         findTargetBySession,
         setTaskTitle,
-        appendIngestEvents,
-        memo,
     };
 }

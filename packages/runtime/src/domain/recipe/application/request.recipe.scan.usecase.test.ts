@@ -46,4 +46,14 @@ describe("RequestRecipeScanUsecase", () => {
         expect(await usecase.execute({taskId: "", eventId: "event-1", prompt: "/recipe"})).toBe(false);
         expect(await usecase.execute({taskId: "task-1", eventId: "", prompt: "/recipe"})).toBe(false);
     });
+
+    it("잡 큐잉이 던지면 예외로 튀지 않고 false를 낸다", async () => {
+        const jobs = new InMemoryRecipeScanJob();
+        jobs.enqueue = () => {
+            throw new Error("network down");
+        };
+        const usecase = new RequestRecipeScanUsecase(jobs);
+
+        await expect(usecase.execute(request("/recipe"))).resolves.toBe(false);
+    });
 });

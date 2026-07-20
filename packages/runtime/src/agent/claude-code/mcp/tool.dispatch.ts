@@ -1,13 +1,8 @@
-import {
-    createMemoViaDaemon,
-    getRecipeViaDaemon,
-    reportRecipeOutcomeViaDaemon,
-    requestRecipeScanViaDaemon,
-    searchMemosViaDaemon,
-    searchRecipesViaDaemon,
-    setTaskTitleViaDaemon,
-} from "~runtime/daemon/ipc/mcp.client.js";
+import type {BoundSession} from "~runtime/domain/binding/application/read.binding.usecase.js";
+import {readBinding, appendIngestEvents, mcpRuntime} from "~runtime/agent/claude-code/mcp/composition.js";
+import {CLAUDE_RUNTIME_SOURCE, resolveClaudeSessionId} from "~runtime/config/env.js";
 import {ensureDaemonRunning} from "~runtime/daemon/ipc/hook.client.js";
+import {setTaskTitleViaDaemon} from "~runtime/daemon/ipc/mcp.client.js";
 import {
     CREATE_MEMO_TOOL,
     parseCreateMemoArgs,
@@ -16,7 +11,9 @@ import {
     SEARCH_MEMOS_TOOL,
     parseSearchMemosArgs,
 } from "~runtime/domain/memo/model/search.memos.tool.model.js";
+import {onMemoCreateRequested, onMemoSearchRequested} from "~runtime/domain/memo/inbound/memo.hook.js";
 import type {MemoSearchResultItem} from "~runtime/domain/memo/port/memo.search.port.js";
+import {recipeInjectedEvent} from "~runtime/domain/ingest/model/recipe.injection.event.model.js";
 import {GET_RECIPE_TOOL, parseGetRecipeArgs} from "~runtime/domain/recipe/model/get.recipe.tool.model.js";
 import {
     REPORT_RECIPE_OUTCOME_TOOL,
@@ -27,12 +24,23 @@ import {
     SEARCH_RECIPES_TOOL,
     parseSearchRecipesArgs,
 } from "~runtime/domain/recipe/model/search.recipes.tool.model.js";
+import {
+    onGetRecipe,
+    onRecipeOutcomeReported,
+    onRecipeScanRequested,
+    onRecipeSearchRequested,
+} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import type {RecipeSearchResultItem} from "~runtime/domain/recipe/port/recipe.search.port.js";
 import {
     SET_TASK_TITLE_TOOL,
     parseSetTaskTitleArgs,
 } from "~runtime/domain/session/model/set.task.title.tool.model.js";
 import type {McpToolSpec} from "~runtime/support/mcp.tool.js";
+import {generateUlid} from "~runtime/support/ulid.js";
+
+/** 사용자의 /recipe 발화와 같은 명령 접두사를 합성해 기존 스캔 경로를 그대로 태운다. */
+const MCP_RECIPE_SCAN_PROMPT = "/recipe";
+const UNKNOWN_SESSION = "unknown_session";
 
 /** MCP tools/list가 광고하는 도구 전부다. */
 export const MCP_TOOLS: readonly McpToolSpec[] = [
@@ -68,35 +76,72 @@ function formatRecipeSearchResult(items: readonly RecipeSearchResultItem[]): str
         .join("\n\n---\n\n");
 }
 
+/** 이 MCP 서버 프로세스가 딸린 세션의 바인딩을 스스로 찾으며, 못 찾으면 추정하지 않고 undefined를 낸다. */
+function resolveTarget(): BoundSession | undefined {
+    const sessionId = resolveClaudeSessionId();
+    return sessionId === undefined ? undefined : readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId);
+}
+
+/** 레시피 본문은 이미 확보했으므로 적용 이력 기록이 로컬 파일 쓰기에 실패해도 도구 호출을 막지 않는다. */
+async function recordRecipeInjection(target: BoundSession, recipeId: string): Promise<void> {
+    try {
+        await appendIngestEvents.execute([
+            recipeInjectedEvent(target, {
+                recipeId,
+                applicationId: generateUlid(),
+                injectedVia: "pull",
+            }),
+        ]);
+    } catch {
+        return;
+    }
+}
+
 /** tools/call이 넘긴 도구 이름과 인자를 실제 처리로 위임하고 사람이 읽을 결과 텍스트를 만든다. */
 export async function callTool(name: string, args: unknown): Promise<ToolCallResult> {
-    await ensureDaemonRunning();
     switch (name) {
         case GET_RECIPE_TOOL.name: {
             const parsed = parseGetRecipeArgs(args);
             if (!parsed) return invalidArgs();
-            const {body} = await getRecipeViaDaemon(parsed.recipeId);
-            return body !== null
-                ? {text: body, isError: false}
-                : {text: `Recipe not found: ${parsed.recipeId}`, isError: true};
+            const body = await onGetRecipe(mcpRuntime.recipe, parsed.recipeId);
+            if (body === null) return {text: `Recipe not found: ${parsed.recipeId}`, isError: true};
+            const target = resolveTarget();
+            if (target !== undefined) await recordRecipeInjection(target, parsed.recipeId);
+            return {text: body, isError: false};
         }
         case REPORT_RECIPE_OUTCOME_TOOL.name: {
             const parsed = parseReportRecipeOutcomeArgs(args);
             if (!parsed) return invalidArgs();
-            const result = await reportRecipeOutcomeViaDaemon(parsed.recipeId, parsed.outcome, parsed.note);
-            return result.ok
+            const target = resolveTarget();
+            if (target === undefined) {
+                return {text: `Could not record outcome (${UNKNOWN_SESSION}).`, isError: true};
+            }
+            const ok = await onRecipeOutcomeReported(mcpRuntime.recipe, {
+                recipeId: parsed.recipeId,
+                taskId: target.taskId,
+                outcome: parsed.outcome,
+                ...(parsed.note !== undefined ? {note: parsed.note} : {}),
+            });
+            return ok
                 ? {text: "Outcome recorded.", isError: false}
-                : {text: `Could not record outcome${result.reason ? ` (${result.reason})` : ""}.`, isError: true};
+                : {text: "Could not record outcome.", isError: true};
         }
         case REQUEST_RECIPE_SCAN_TOOL.name: {
-            const result = await requestRecipeScanViaDaemon();
-            return result.queued
+            const target = resolveTarget();
+            if (target === undefined) return {text: `Scan not queued (${UNKNOWN_SESSION}).`, isError: true};
+            const queued = await onRecipeScanRequested(mcpRuntime.recipe, {
+                taskId: target.taskId,
+                eventId: generateUlid(),
+                prompt: MCP_RECIPE_SCAN_PROMPT,
+            });
+            return queued
                 ? {text: "Recipe scan queued.", isError: false}
-                : {text: `Scan not queued${result.reason ? ` (${result.reason})` : ""}.`, isError: true};
+                : {text: "Scan not queued.", isError: true};
         }
         case SET_TASK_TITLE_TOOL.name: {
             const parsed = parseSetTaskTitleArgs(args);
             if (!parsed) return invalidArgs();
+            await ensureDaemonRunning();
             const result = await setTaskTitleViaDaemon(parsed.title);
             return result.ok
                 ? {text: "Task title updated.", isError: false}
@@ -105,22 +150,37 @@ export async function callTool(name: string, args: unknown): Promise<ToolCallRes
         case CREATE_MEMO_TOOL.name: {
             const parsed = parseCreateMemoArgs(args);
             if (!parsed) return invalidArgs();
-            const result = await createMemoViaDaemon(parsed.body, parsed.eventId);
-            return result.ok
+            const target = resolveTarget();
+            if (target === undefined) return {text: `Could not save memo (${UNKNOWN_SESSION}).`, isError: true};
+            const ok = await onMemoCreateRequested(mcpRuntime.memo, {
+                taskId: target.taskId,
+                body: parsed.body,
+                ...(parsed.eventId !== undefined ? {eventId: parsed.eventId} : {}),
+            });
+            return ok
                 ? {text: "Memo saved.", isError: false}
-                : {text: `Could not save memo${result.reason ? ` (${result.reason})` : ""}.`, isError: true};
+                : {text: "Could not save memo.", isError: true};
         }
         case SEARCH_MEMOS_TOOL.name: {
             const parsed = parseSearchMemosArgs(args);
             if (!parsed) return invalidArgs();
-            const result = await searchMemosViaDaemon(parsed.query, parsed.limit);
-            return {text: formatMemoSearchResult(result.items), isError: false};
+            const target = resolveTarget();
+            if (target === undefined) return {text: formatMemoSearchResult([]), isError: false};
+            const items = await onMemoSearchRequested(mcpRuntime.memo, {
+                taskId: target.taskId,
+                ...(parsed.query !== undefined ? {query: parsed.query} : {}),
+                ...(parsed.limit !== undefined ? {limit: parsed.limit} : {}),
+            });
+            return {text: formatMemoSearchResult(items), isError: false};
         }
         case SEARCH_RECIPES_TOOL.name: {
             const parsed = parseSearchRecipesArgs(args);
             if (!parsed) return invalidArgs();
-            const result = await searchRecipesViaDaemon(parsed.query, parsed.limit);
-            return {text: formatRecipeSearchResult(result.items), isError: false};
+            const items = await onRecipeSearchRequested(mcpRuntime.recipe, {
+                query: parsed.query,
+                ...(parsed.limit !== undefined ? {limit: parsed.limit} : {}),
+            });
+            return {text: formatRecipeSearchResult(items), isError: false};
         }
         default:
             return {text: `Unknown tool: ${name}`, isError: true};

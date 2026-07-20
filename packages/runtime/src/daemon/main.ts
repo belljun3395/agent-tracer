@@ -22,7 +22,6 @@ import {InterventionLog} from "~runtime/daemon/observation/intervention.log.js";
 import {SpoolHistoryObserver} from "~runtime/daemon/observation/spool.history.observer.js";
 import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import {RecentEventRing} from "~runtime/domain/ingest/model/recent.event.model.js";
-import {onRecipeScanRequested} from "~runtime/domain/recipe/inbound/recipe.hook.js";
 import {
     hasRunningRuleGenerationJobs,
     onRuleGenerationPoll,
@@ -45,7 +44,7 @@ const interventions = new InterventionLog();
 const automation = new EventAutomationDispatcher([
     (event) => onUserInputForRuleGeneration(hooks.rulegen, event.kind, event.taskId, event.eventId, event.prompt),
     async (event) => {
-        await onRecipeScanRequested(hooks.recipe, {
+        await hooks.requestScan.execute({
             taskId: event.taskId,
             eventId: event.eventId,
             prompt: event.prompt,
@@ -180,13 +179,10 @@ const servers = createDaemonServers({
         interventions,
         guardrail: hooks.guardrail,
         hint: hooks.hint,
-        recipe: hooks.recipe,
-        memo: hooks.memo,
         readRules: () => cachedRules,
         readDelivery: currentDelivery,
         findTargetBySession: hooks.findTargetBySession,
         setTaskTitle: (taskId, title) => hooks.setTaskTitle.execute(taskId, title),
-        appendIngestEvents: (events) => hooks.appendIngestEvents.execute(events),
         refreshHistory: () => spoolSender.feedHistory(),
         onHookVersion: (hookVersion) => {
             lastHookVersion = hookVersion;
