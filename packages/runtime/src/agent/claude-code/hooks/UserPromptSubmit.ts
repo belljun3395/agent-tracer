@@ -76,7 +76,7 @@ await runHook("UserPromptSubmit", {
             rules,
             hints,
             recipeContext: recipeMenu,
-            titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge(payload.sessionId) : "",
+            titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge() : "",
         });
     },
 });
