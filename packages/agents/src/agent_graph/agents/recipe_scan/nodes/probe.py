@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
 
 from langchain_core.language_models import BaseChatModel
 
@@ -11,6 +10,7 @@ from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
+from ...runtime.node import GraphNode
 from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
@@ -27,8 +27,6 @@ from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
 from ..tools import PROBE_TOOLS, build_recipe_registry
 
-type ProbeNode = Callable[[ProbeDispatch], Awaitable[ProbeUpdate]]
-
 _log = logging.getLogger(__name__)
 
 
@@ -38,32 +36,48 @@ def _failure_verdict(exc: Exception) -> str:
     return f"조사 실패: {summary}"[:MAX_VERDICT_CHARS]
 
 
-def create_probe_node(
-    req: RecipeScanRequest,
-    reader: RecipeLedgerReader,
-    search: RecipeSearchReader,
-    usage: ExecutionTrace,
-    chat: BaseChatModel,
-    *,
-    agent_name: str,
-) -> ProbeNode:
+class ProbeNode(GraphNode):
     """맡은 질문 하나를 자기 도구와 자기 예산과 자기 장부로 조사하는 전문가를 만든다."""
 
-    async def probe(payload: ProbeDispatch) -> ProbeUpdate:
+    name = "probe"
+
+    def __init__(
+        self,
+        req: RecipeScanRequest,
+        reader: RecipeLedgerReader,
+        search: RecipeSearchReader,
+        usage: ExecutionTrace,
+        chat: BaseChatModel,
+        *,
+        agent_name: str,
+    ) -> None:
+        self._req = req
+        self._reader = reader
+        self._search = search
+        self._usage = usage
+        self._chat = chat
+        self._agent_name = agent_name
+
+    async def run(self, payload: ProbeDispatch) -> ProbeUpdate:
+        req = self._req
         assignment = payload.assignment
         share = MAX_RECIPE_MODEL_COST_USD * payload.cost_share
         # 장부를 전문가마다 새로 두어 다른 전문가가 읽은 것을 인용하지 못하게 한다.
         catalog = ProvenanceCatalog()
-        probe_name = f"{agent_name}:{assignment.probe}"
+        probe_name = f"{self._agent_name}:{assignment.probe}"
         budget = ToolLoopBudget(probe_name, req.model, share, 0.0)
         # 전문가 하나가 무너져도 병렬 분기 전체를 버리지 않고 실패 사실을 보고로 올린다.
         # 취소(BaseException 계열)는 잡 전체를 멈추라는 신호이므로 잡지 않고 전파한다.
         try:
             registry = build_recipe_registry(
-                reader, search, catalog, PROBE_TOOLS[assignment.probe], agent_name=agent_name
+                self._reader,
+                self._search,
+                catalog,
+                PROBE_TOOLS[assignment.probe],
+                agent_name=self._agent_name,
             )
             agent = build_recipe_agent(
-                chat,
+                self._chat,
                 PROBE_SYSTEM_PROMPT,
                 registry.langchain_tools(),
                 registry.transient_errors(),
@@ -82,7 +96,7 @@ def create_probe_node(
                 ],
                 context=StandardAgentContext(
                     agent_name=probe_name,
-                    trace=usage,
+                    trace=self._usage,
                     budget=budget,
                     max_tool_rounds=assignment.rounds,
                 ),
@@ -105,5 +119,3 @@ def create_probe_node(
             "provenance": catalog,
             "model_cost_usd": budget.spent,
         }
-
-    return probe

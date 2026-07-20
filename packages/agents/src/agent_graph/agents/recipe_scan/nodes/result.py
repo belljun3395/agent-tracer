@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
+from ...runtime.node import GraphNode
+from ...runtime.validation_graph import EMPTY, FINALIZE
 from ..models import RecipeScanState, ResultUpdate
 
 
-async def finalize(state: RecipeScanState) -> ResultUpdate:
+class FinalizeNode(GraphNode):
     """검증된 후보 목록을 레시피 결과로 직렬화한다."""
-    recipes = [candidate.model_dump(mode="json", exclude_none=True) for candidate in state["candidates"]]
-    return {"result": {"recipes": recipes}}
+
+    name = FINALIZE
+
+    async def run(self, state: RecipeScanState) -> ResultUpdate:
+        recipes = [
+            candidate.model_dump(mode="json", exclude_none=True)
+            for candidate in state["candidates"]
+        ]
+        return {"result": {"recipes": recipes}}
 
 
-async def empty(_state: RecipeScanState) -> ResultUpdate:
+class EmptyNode(GraphNode):
     """후보가 없는 레시피 결과를 반환한다."""
-    return {"result": {"recipes": []}}
+
+    name = EMPTY
+
+    async def run(self, _state: RecipeScanState) -> ResultUpdate:
+        return {"result": {"recipes": []}}

@@ -20,7 +20,7 @@ from agent_graph.agents.recipe_scan.models import (
     RecipeCandidate,
     RecipeScanRequest,
 )
-from agent_graph.agents.recipe_scan.nodes.probe import create_probe_node
+from agent_graph.agents.recipe_scan.nodes.probe import ProbeNode
 from agent_graph.agents.recipe_scan.policy import (
     MIN_SYNTHESIS_ROUNDS,
     SURVEY_ROUNDS,
@@ -201,7 +201,7 @@ async def test_전문가_실행_예외는_실패_보고로_강등된다() -> Non
             raise RuntimeError("agent blew up")
 
     req = _request()
-    node = create_probe_node(
+    node = ProbeNode(
         req,
         RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
         RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
@@ -210,7 +210,7 @@ async def test_전문가_실행_예외는_실패_보고로_강등된다() -> Non
         agent_name="recipe-scan",
     )
 
-    result = await node(
+    result = await node.run(
         ProbeDispatch(
             assignment=ProbeAssignment(probe="timeline", rounds=2, question="무엇"),
             cost_share=0.5,

@@ -7,7 +7,6 @@ from typing import Any, get_args
 import pytest
 from pydantic import ValidationError
 
-from agent_graph.agents.title_suggestion.langchain_agent import get_task_events
 from agent_graph.agents.title_suggestion.models import (
     MAX_CONTEXT_TURNS,
     RECENT_TURN_LIMIT,
@@ -18,15 +17,18 @@ from agent_graph.agents.title_suggestion.policy import (
     MAX_TOOL_ROUNDS,
     TITLE_MAX_OUTPUT_TOKENS,
 )
+from agent_graph.agents.title_suggestion.reader import TitleLedgerReader
 from agent_graph.agents.title_suggestion.tools import (
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
+    GET_TASK_EVENTS,
     GET_TASK_EVENTS_DESCRIPTION,
-    GET_TASK_EVENTS_TOOL_NAME,
     MAX_EVENT_LIMIT,
     MIN_EVENT_LIMIT,
     GetTaskEventsArgs,
+    build_title_registry,
 )
+from tests.support.fakes import FakeLedger
 from tests.support.golden import load_contract
 
 _CONTRACT_NAME = "title.suggestion.tool.contract.json"
@@ -34,6 +36,14 @@ _CONTRACT_NAME = "title.suggestion.tool.contract.json"
 
 def _contract() -> Any:
     return load_contract(_CONTRACT_NAME)
+
+
+def _langchain_tool() -> Any:
+    registry = build_title_registry(
+        TitleLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        agent_name="title-suggestion",
+    )
+    return registry.langchain_tools()[0]
 
 
 def _turns(count: int) -> list[dict[str, Any]]:
@@ -85,9 +95,10 @@ def test_get_task_events의_필수와_선택_인자가_골든_계약과_같다()
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:
     contract = _contract()["getTaskEvents"]
-    schema = get_task_events.tool_call_schema.model_json_schema()
+    tool = _langchain_tool()
+    schema = tool.tool_call_schema.model_json_schema()
 
-    assert get_task_events.name == "get_task_events"
+    assert tool.name == "get_task_events"
     assert set(schema["required"]) == set(contract["required"])
     assert set(schema["properties"]) == set(contract["required"] + contract["optional"])
     assert "runtime" not in schema["properties"]
@@ -117,4 +128,4 @@ def test_읽기_방향의_기본값과_허용_값이_골든_계약과_같다() -
 def test_도구_설명이_골든_계약과_같다() -> None:
     contract = _contract()["descriptions"]
 
-    assert {GET_TASK_EVENTS_TOOL_NAME: GET_TASK_EVENTS_DESCRIPTION} == contract
+    assert {GET_TASK_EVENTS: GET_TASK_EVENTS_DESCRIPTION} == contract

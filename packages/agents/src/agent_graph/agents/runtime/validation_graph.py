@@ -16,6 +16,10 @@ type ValidationNode = Callable[[Any], Awaitable[dict[str, Any]]]
 type ValidationRouteName = Literal["repair", "finalize", "empty"]
 type ValidationRoute = Callable[[Any], ValidationRouteName]
 
+REPAIR = "repair"
+FINALIZE = "finalize"
+EMPTY = "empty"
+
 
 @dataclass(frozen=True)
 class ValidationGraphContext:
@@ -39,16 +43,16 @@ def observed(graph: StateGraph[Any, Any, Any, Any], node_name: str) -> None:
 
 def add_validation_tail(graph: StateGraph[Any, Any, Any, Any], validation_node: str) -> None:
     """검증에서 수리 한 번을 거쳐 확정이나 빈 결과로 끝나는 공통 꼬리를 붙인다."""
-    for node_name in (validation_node, "repair", "finalize", "empty"):
+    for node_name in (validation_node, REPAIR, FINALIZE, EMPTY):
         observed(graph, node_name)
     graph.add_conditional_edges(
         validation_node,
         cast(Any, _route),
-        {"repair": "repair", "finalize": "finalize", "empty": "empty"},
+        {REPAIR: REPAIR, FINALIZE: FINALIZE, EMPTY: EMPTY},
     )
-    graph.add_edge("repair", validation_node)
-    graph.add_edge("finalize", END)
-    graph.add_edge("empty", END)
+    graph.add_edge(REPAIR, validation_node)
+    graph.add_edge(FINALIZE, END)
+    graph.add_edge(EMPTY, END)
 
 
 def _dispatch(node_name: str) -> Callable[..., Awaitable[dict[str, Any]]]:

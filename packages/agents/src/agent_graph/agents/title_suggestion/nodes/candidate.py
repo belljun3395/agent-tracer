@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
-from ..langchain_agent import TitleAgentContext, build_title_agent
+from ...runtime.node import GraphNode
+from ...runtime.validation_graph import EMPTY, FINALIZE
+from ..langchain_agent import build_title_agent
 from ..models import (
     InvestigateUpdate,
     RepairUpdate,
@@ -28,68 +30,76 @@ from ..policy import (
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import TitleLedgerReader
-
-type InvestigateNode = Callable[[TitleSuggestionState], Awaitable[InvestigateUpdate]]
-type ValidateCandidateNode = Callable[[TitleSuggestionState], Awaitable[ValidateCandidateUpdate]]
-type RepairNode = Callable[[TitleSuggestionState], Awaitable[RepairUpdate]]
+from ..tools import build_title_registry
 
 
-def create_candidate_nodes(
-    req: TitleSuggestionRequest,
-    reader: TitleLedgerReader,
-    usage: ExecutionTrace,
-    chat: BaseChatModel,
-    *,
-    agent_name: str,
-) -> tuple[InvestigateNode, ValidateCandidateNode, RepairNode]:
-    """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
+class _CandidateAgent(GraphNode):
+    """조사와 복구 노드가 공유하는 도구 루프 호출을 슬라이스 안에서 소유한다."""
 
-    title_agent = build_title_agent(chat, INVESTIGATOR_SYSTEM_PROMPT)
+    def __init__(
+        self,
+        req: TitleSuggestionRequest,
+        reader: TitleLedgerReader,
+        usage: ExecutionTrace,
+        chat: BaseChatModel,
+        *,
+        agent_name: str,
+    ) -> None:
+        self._req = req
+        self._reader = reader
+        self._usage = usage
+        self._chat = chat
+        self._agent_name = agent_name
 
-    async def invoke_agent(
-        messages: list[Any], spent: float
+    async def _invoke_agent(
+        self, messages: list[Any], spent: float
     ) -> tuple[TitleSuggestionDraft, list[Any], float]:
-        budget = ToolLoopBudget(agent_name, req.model, MAX_TITLE_MODEL_COST_USD, spent)
-        context = TitleAgentContext(
-            agent_name=agent_name,
-            trace=usage,
+        budget = ToolLoopBudget(self._agent_name, self._req.model, MAX_TITLE_MODEL_COST_USD, spent)
+        registry = build_title_registry(self._reader, agent_name=self._agent_name)
+        agent = build_title_agent(self._chat, INVESTIGATOR_SYSTEM_PROMPT, registry.langchain_tools())
+        context = StandardAgentContext(
+            agent_name=self._agent_name,
+            trace=self._usage,
             budget=budget,
             max_tool_rounds=MAX_TOOL_ROUNDS,
-            reader=reader,
         )
         result = await invoke_structured_agent(
-            title_agent,
+            agent,
             messages=messages,
             context=context,
             response_type=TitleSuggestionDraft,
             recursion_limit=AGENT_RECURSION_LIMIT,
-            missing_response=f"{agent_name} produced no structured output",
+            missing_response=f"{self._agent_name} produced no structured output",
         )
         return result.response, result.messages, budget.spent
 
-    async def investigate(state: TitleSuggestionState) -> InvestigateUpdate:
-        draft, messages, cost = await invoke_agent(
+
+class InvestigateNode(_CandidateAgent):
+    """대화 발췌와 필요한 이벤트로 제목 후보를 조사한다."""
+
+    name = "investigate"
+
+    async def run(self, state: TitleSuggestionState) -> InvestigateUpdate:
+        draft, messages, cost = await self._invoke_agent(
             [
                 {
                     "role": "user",
-                    "content": build_user_prompt(state["task_id"], state["context"], state["language"]),
+                    "content": build_user_prompt(
+                        state["task_id"], state["context"], state["language"]
+                    ),
                 }
             ],
             state["model_cost_usd"],
         )
         return {"candidate": draft, "messages": messages, "model_cost_usd": cost}
 
-    async def validate_candidate(state: TitleSuggestionState) -> ValidateCandidateUpdate:
-        errors = validate_title_candidate(state["candidate"], state["context"].title)
-        if errors:
-            usage.record_graph_event(
-                "validation.failed",
-                "; ".join(errors),
-                node_name="validate_candidate",
-            )
-        return {"validation_errors": errors}
 
-    async def repair(state: TitleSuggestionState) -> RepairUpdate:
+class RepairNode(_CandidateAgent):
+    """검증에서 걸린 후보를 한 번 더 고쳐 쓴다."""
+
+    name = "repair"
+
+    async def run(self, state: TitleSuggestionState) -> RepairUpdate:
         repair_prompt = [
             *state["messages"],
             {
@@ -97,7 +107,7 @@ def create_candidate_nodes(
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, cost = await invoke_agent(repair_prompt, state["model_cost_usd"])
+        draft, messages, cost = await self._invoke_agent(repair_prompt, state["model_cost_usd"])
         return {
             "candidate": draft,
             "messages": messages,
@@ -105,15 +115,40 @@ def create_candidate_nodes(
             "model_cost_usd": cost,
         }
 
-    return investigate, validate_candidate, repair
+
+class ValidateCandidateNode(GraphNode):
+    """제목 후보가 결정적 제약을 지키는지 판정한다."""
+
+    name = "validate_candidate"
+
+    def __init__(self, usage: ExecutionTrace) -> None:
+        self._usage = usage
+
+    async def run(self, state: TitleSuggestionState) -> ValidateCandidateUpdate:
+        errors = validate_title_candidate(state["candidate"], state["context"].title)
+        if errors:
+            self._usage.record_graph_event(
+                "validation.failed",
+                "; ".join(errors),
+                node_name=self.name,
+            )
+        return {"validation_errors": errors}
 
 
-async def finalize(state: TitleSuggestionState) -> ResultUpdate:
+class FinalizeNode(GraphNode):
     """검증된 제목 후보를 외부 결과로 직렬화한다."""
-    candidate = state["candidate"] or TitleSuggestionDraft()
-    return {"result": candidate.model_dump(mode="json")}
+
+    name = FINALIZE
+
+    async def run(self, state: TitleSuggestionState) -> ResultUpdate:
+        candidate = state["candidate"] or TitleSuggestionDraft()
+        return {"result": candidate.model_dump(mode="json")}
 
 
-async def empty(_state: TitleSuggestionState) -> ResultUpdate:
+class EmptyNode(GraphNode):
     """후보가 없는 제목 제안 결과를 반환한다."""
-    return {"result": {"suggestions": []}}
+
+    name = EMPTY
+
+    async def run(self, _state: TitleSuggestionState) -> ResultUpdate:
+        return {"result": {"suggestions": []}}

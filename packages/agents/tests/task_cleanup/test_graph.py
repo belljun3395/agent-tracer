@@ -19,7 +19,7 @@ from agent_graph.agents.task_cleanup.models import (
     TaskCleanupRequest,
     TriagePlan,
 )
-from agent_graph.agents.task_cleanup.nodes.inspect import create_inspect_node
+from agent_graph.agents.task_cleanup.nodes.inspect import InspectNode
 from agent_graph.agents.task_cleanup.policy import clamp_triage
 from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from tests.support.fakes import FakeLedger, FakeToolLoopChat
@@ -312,7 +312,7 @@ async def test_후보_조사_예외는_실패_보고로_강등된다() -> None:
             raise RuntimeError("inspect blew up")
 
     req = _request(_candidate("task-1", has_events=True))
-    node = create_inspect_node(
+    node = InspectNode(
         req,
         CleanupLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
         ExecutionTrace(),
@@ -320,7 +320,7 @@ async def test_후보_조사_예외는_실패_보고로_강등된다() -> None:
         agent_name="task-cleanup",
     )
 
-    result = await node(
+    result = await node.run(
         InspectDispatch(assignment=InspectAssignment(taskId="task-1", rounds=2), cost_share=0.5)
     )
 

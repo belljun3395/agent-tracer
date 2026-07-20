@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -11,6 +10,7 @@ from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
+from ...runtime.node import GraphNode
 from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
@@ -29,33 +29,40 @@ from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
 from ..tools import build_recipe_registry
 
-type InvestigateNode = Callable[[RecipeScanState], Awaitable[InvestigateUpdate]]
-type ValidateCandidateNode = Callable[[RecipeScanState], Awaitable[ValidateCandidateUpdate]]
-type RepairNode = Callable[[RecipeScanState], Awaitable[RepairUpdate]]
 
+class _CandidateAgent(GraphNode):
+    """조사와 복구 노드가 공유하는 도구 루프 호출을 슬라이스 안에서 소유한다."""
 
-def create_candidate_nodes(
-    req: RecipeScanRequest,
-    reader: RecipeLedgerReader,
-    search: RecipeSearchReader,
-    usage: ExecutionTrace,
-    chat: BaseChatModel,
-    *,
-    agent_name: str,
-) -> tuple[InvestigateNode, ValidateCandidateNode, RepairNode]:
-    """도구 루프와 결정적 검증 노드를 실행 의존성에 결합한다."""
+    def __init__(
+        self,
+        req: RecipeScanRequest,
+        reader: RecipeLedgerReader,
+        search: RecipeSearchReader,
+        usage: ExecutionTrace,
+        chat: BaseChatModel,
+        *,
+        agent_name: str,
+    ) -> None:
+        self._req = req
+        self._reader = reader
+        self._search = search
+        self._usage = usage
+        self._chat = chat
+        self._agent_name = agent_name
 
-    async def invoke_agent(
-        messages: list[Any], state: RecipeScanState
+    async def _invoke_agent(
+        self, messages: list[Any], state: RecipeScanState
     ) -> tuple[RecipeDraft, list[Any], ProvenanceCatalog, StandardAgentContext]:
         budget = ToolLoopBudget(
-            agent_name, req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
+            self._agent_name, self._req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
         )
         rounds = synthesis_rounds(state["plan"])
         catalog = state["provenance"]
-        registry = build_recipe_registry(reader, search, catalog, agent_name=agent_name)
+        registry = build_recipe_registry(
+            self._reader, self._search, catalog, agent_name=self._agent_name
+        )
         agent = build_recipe_agent(
-            chat,
+            self._chat,
             INVESTIGATOR_SYSTEM_PROMPT,
             registry.langchain_tools(),
             registry.transient_errors(),
@@ -63,7 +70,7 @@ def create_candidate_nodes(
             output=RecipeDraft,
         )
         context = StandardAgentContext(
-            agent_name=agent_name, trace=usage, budget=budget, max_tool_rounds=rounds
+            agent_name=self._agent_name, trace=self._usage, budget=budget, max_tool_rounds=rounds
         )
         result = await invoke_structured_agent(
             agent,
@@ -71,12 +78,18 @@ def create_candidate_nodes(
             context=context,
             response_type=RecipeDraft,
             recursion_limit=AGENT_RECURSION_LIMIT,
-            missing_response=f"{agent_name} produced no structured output",
+            missing_response=f"{self._agent_name} produced no structured output",
         )
         return result.response, result.messages, catalog, context
 
-    async def investigate(state: RecipeScanState) -> InvestigateUpdate:
-        draft, messages, catalog, context = await invoke_agent(
+
+class InvestigateNode(_CandidateAgent):
+    """전문가 보고와 계획을 모아 레시피 후보를 조사한다."""
+
+    name = "investigate"
+
+    async def run(self, state: RecipeScanState) -> InvestigateUpdate:
+        draft, messages, catalog, context = await self._invoke_agent(
             [
                 {
                     "role": "user",
@@ -98,13 +111,13 @@ def create_candidate_nodes(
             "model_cost_usd": context.budget.spent,
         }
 
-    async def validate_candidate(state: RecipeScanState) -> ValidateCandidateUpdate:
-        errors = validate_recipe_candidates(state["candidates"], state["task_id"], state["provenance"])
-        if errors:
-            usage.record_graph_event("validation.failed", "; ".join(errors), node_name="validate_candidate")
-        return {"validation_errors": errors}
 
-    async def repair(state: RecipeScanState) -> RepairUpdate:
+class RepairNode(_CandidateAgent):
+    """검증에서 걸린 후보를 한 번 더 고쳐 쓴다."""
+
+    name = "repair"
+
+    async def run(self, state: RecipeScanState) -> RepairUpdate:
         if not state["candidates"]:
             return {"repair_attempted": True}
         repair_prompt = [
@@ -114,7 +127,7 @@ def create_candidate_nodes(
                 "content": REPAIR_DIRECTIVE.format(errors="\n".join(state["validation_errors"])),
             },
         ]
-        draft, messages, catalog, context = await invoke_agent(repair_prompt, state)
+        draft, messages, catalog, context = await self._invoke_agent(repair_prompt, state)
         return {
             "candidates": draft.recipes,
             "messages": messages,
@@ -123,4 +136,21 @@ def create_candidate_nodes(
             "model_cost_usd": context.budget.spent,
         }
 
-    return investigate, validate_candidate, repair
+
+class ValidateCandidateNode(GraphNode):
+    """레시피 후보가 전문가 장부의 근거만 인용하는지 판정한다."""
+
+    name = "validate_candidate"
+
+    def __init__(self, usage: ExecutionTrace) -> None:
+        self._usage = usage
+
+    async def run(self, state: RecipeScanState) -> ValidateCandidateUpdate:
+        errors = validate_recipe_candidates(
+            state["candidates"], state["task_id"], state["provenance"]
+        )
+        if errors:
+            self._usage.record_graph_event(
+                "validation.failed", "; ".join(errors), node_name=self.name
+            )
+        return {"validation_errors": errors}

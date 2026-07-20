@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+from ...runtime.node import GraphNode
+from ...runtime.validation_graph import EMPTY, FINALIZE
 from ..models import ResultUpdate, TaskCleanupState
 
 
-async def finalize(state: TaskCleanupState) -> ResultUpdate:
+class FinalizeNode(GraphNode):
     """검증된 제안을 보관 작업 결과로 직렬화한다."""
-    suggestions = [item.model_dump() for item in state["suggestions"][: state["max_suggestions"]]]
-    return {"result": {"suggestions": suggestions}}
+
+    name = FINALIZE
+
+    async def run(self, state: TaskCleanupState) -> ResultUpdate:
+        suggestions = [
+            item.model_dump() for item in state["suggestions"][: state["max_suggestions"]]
+        ]
+        return {"result": {"suggestions": suggestions}}
 
 
-async def empty(_state: TaskCleanupState) -> ResultUpdate:
+class EmptyNode(GraphNode):
     """제안이 없는 정리 작업 결과를 반환한다."""
-    return {"result": {"suggestions": []}}
+
+    name = EMPTY
+
+    async def run(self, _state: TaskCleanupState) -> ResultUpdate:
+        return {"result": {"suggestions": []}}

@@ -2,26 +2,30 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-
 from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
+from ...runtime.node import GraphNode
 from ..models import DispatchPlan, RecipeScanRequest, RecipeScanState, SurveyUpdate
 from ..policy import clamp_plan, distributable_rounds
 from ..prompts import SURVEY_SYSTEM_PROMPT, build_survey_prompt
 
-type SurveyNode = Callable[[RecipeScanState], Awaitable[SurveyUpdate]]
-
 AVAILABLE_ROUNDS = distributable_rounds()
 
 
-def create_survey_node(req: RecipeScanRequest, usage: ExecutionTrace, chat: BaseChatModel) -> SurveyNode:
+class SurveyNode(GraphNode):
     """조율자가 어디를 얼마나 팔지 스스로 정하게 하고 배분을 예산 안으로 가둔다."""
-    planner = chat.with_structured_output(DispatchPlan)
 
-    async def survey(_state: RecipeScanState) -> SurveyUpdate:
-        raw = await planner.ainvoke(
+    name = "survey"
+
+    def __init__(self, req: RecipeScanRequest, usage: ExecutionTrace, chat: BaseChatModel) -> None:
+        self._req = req
+        self._usage = usage
+        self._planner = chat.with_structured_output(DispatchPlan)
+
+    async def run(self, _state: RecipeScanState) -> SurveyUpdate:
+        req = self._req
+        raw = await self._planner.ainvoke(
             [
                 {"role": "system", "content": SURVEY_SYSTEM_PROMPT},
                 {
@@ -33,11 +37,9 @@ def create_survey_node(req: RecipeScanRequest, usage: ExecutionTrace, chat: Base
         plan = raw if isinstance(raw, DispatchPlan) else DispatchPlan.model_validate(raw)
         kept, cut = clamp_plan(plan, AVAILABLE_ROUNDS)
         chosen = ", ".join(f"{probe.probe}:{probe.rounds}" for probe in kept.probes)
-        usage.record_graph_event(
+        self._usage.record_graph_event(
             "route.selected",
-            f"survey -> {chosen}" + (f" (배분 {cut}라운드 축소)" if cut else ""),
-            node_name="survey",
+            f"{self.name} -> {chosen}" + (f" (배분 {cut}라운드 축소)" if cut else ""),
+            node_name=self.name,
         )
         return {"plan": kept}
-
-    return survey

@@ -29,6 +29,8 @@ from agent_graph.agents.title_suggestion.policy import (
     AGENT_RECURSION_LIMIT as TITLE_RECURSION_LIMIT,
 )
 from agent_graph.agents.title_suggestion.policy import MAX_TOOL_ROUNDS as TITLE_ROUNDS
+from agent_graph.agents.title_suggestion.reader import TitleLedgerReader
+from agent_graph.agents.title_suggestion.tools import build_title_registry
 from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 
 
@@ -50,6 +52,10 @@ def _agents() -> list[tuple[str, CompiledStateGraph[Any, Any, Any, Any], int, in
         RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
         ProvenanceCatalog(),
         agent_name="recipe-scan",
+    )
+    title_registry = build_title_registry(
+        TitleLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
+        agent_name="title-suggestion",
     )
     return [
         (
@@ -76,7 +82,7 @@ def _agents() -> list[tuple[str, CompiledStateGraph[Any, Any, Any, Any], int, in
         ),
         (
             "title-suggestion",
-            build_title_agent(chat, "system"),
+            build_title_agent(chat, "system", title_registry.langchain_tools()),
             TITLE_ROUNDS,
             TITLE_RECURSION_LIMIT,
         ),

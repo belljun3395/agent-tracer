@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
 from ..runtime.llm.structured_agent import recursion_config
-from ..runtime.validation_graph import ValidationGraphContext, ValidationNode
+from ..runtime.node import node_registry
+from ..runtime.validation_graph import ValidationGraphContext
 from .graph import TITLE_SUGGESTION_GRAPH
 from .models import TitleSuggestionRequest
-from .nodes.candidate import create_candidate_nodes, empty, finalize
+from .nodes.candidate import (
+    EmptyNode,
+    FinalizeNode,
+    InvestigateNode,
+    RepairNode,
+    ValidateCandidateNode,
+)
 from .policy import TITLE_MAX_OUTPUT_TOKENS, build_routes
 from .reader import TitleLedgerReader
 
@@ -29,26 +36,19 @@ async def run_title_suggestion(
         max_output_tokens=TITLE_MAX_OUTPUT_TOKENS,
     )
     reader = TitleLedgerReader(ledger, req.userId)
-    investigate, validate_candidate, repair = create_candidate_nodes(
-        req,
-        reader,
-        usage,
-        chat,
-        agent_name=AGENT_NAME,
-    )
-    # 각 노드는 자기 상태 부분집합만 정확히 타입화하므로, 서로 다른 노드를 한 레지스트리에
-    # 담는 이 경계에서만 공통 타입으로 지운다.
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
-        {
-            "investigate": cast(ValidationNode, investigate),
-            "validate_candidate": cast(ValidationNode, validate_candidate),
-            "repair": cast(ValidationNode, repair),
-            "finalize": cast(ValidationNode, finalize),
-            "empty": cast(ValidationNode, empty),
-        },
-        build_routes(usage),
+        node_registry(
+            [
+                InvestigateNode(req, reader, usage, chat, agent_name=AGENT_NAME),
+                ValidateCandidateNode(usage),
+                RepairNode(req, reader, usage, chat, agent_name=AGENT_NAME),
+                FinalizeNode(),
+                EmptyNode(),
+            ]
+        ),
+        build_routes(usage, ValidateCandidateNode.name),
     )
     final = await TITLE_SUGGESTION_GRAPH.ainvoke(
         {

@@ -50,7 +50,7 @@ def validate_title_candidate(
     return errors
 
 
-def build_routes(trace: ExecutionTrace) -> ValidationRoute:
+def build_routes(trace: ExecutionTrace, validation_node: str) -> ValidationRoute:
     """후보 검증 결과에 따른 분기 함수를 만든다."""
 
     def route_validation(
@@ -67,8 +67,8 @@ def build_routes(trace: ExecutionTrace) -> ValidationRoute:
             reason = "candidate remained invalid after the repair attempt"
         trace.record_graph_event(
             "route.selected",
-            f"validate_candidate -> {route}: {reason}",
-            node_name="validate_candidate",
+            f"{validation_node} -> {route}: {reason}",
+            node_name=validation_node,
         )
         return route
 

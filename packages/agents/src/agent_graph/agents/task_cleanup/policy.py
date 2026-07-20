@@ -101,7 +101,7 @@ def validate_suggestions(
     return valid, errors
 
 
-def build_routes(trace: ExecutionTrace) -> ValidationRoute:
+def build_routes(trace: ExecutionTrace, validation_node: str) -> ValidationRoute:
     """검증 결과에 따른 분기 함수를 만든다."""
 
     def route_validation(state: TaskCleanupState) -> Literal["repair", "finalize", "empty"]:
@@ -118,8 +118,8 @@ def build_routes(trace: ExecutionTrace) -> ValidationRoute:
             reason = "invalid suggestions were dropped after the repair attempt"
         trace.record_graph_event(
             "route.selected",
-            f"validate_decisions -> {route}: {reason}",
-            node_name="validate_decisions",
+            f"{validation_node} -> {route}: {reason}",
+            node_name=validation_node,
         )
         return route
 
