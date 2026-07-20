@@ -9,18 +9,19 @@ import {
     parseDaemonDeliveryResponse,
     parseDaemonGuardrailResponse,
     parseDaemonHintsResponse,
-    parseDaemonRulesResponse,
+    parseDaemonPromptContextResponse,
     type DaemonDeliveryRequest,
     type DaemonDeliveryResponse,
     type DaemonGuardrailRequest,
     type DaemonHintsRequest,
-    type DaemonRulesRequest,
+    type DaemonPromptContextRequest,
+    type DaemonPromptContextResponse,
 } from "~runtime/daemon/port/daemon.socket.port.js";
-import type {GuardrailRule} from "~runtime/domain/guardrail/model/rule.model.js";
 import type {GuardrailVerdict} from "~runtime/domain/guardrail/model/verdict.model.js";
 import type {PreprocessingHint, PreprocessingHintsRequest} from "~runtime/domain/hint/model/hint.model.js";
 
 const HINTS_TIMEOUT_MS = 500;
+const EMPTY_PROMPT_CONTEXT: DaemonPromptContextResponse = {rules: [], hints: []};
 const GUARDRAIL_TIMEOUT_MS = 1000;
 const ASSISTANT_TEXT_MAX = 8_000;
 
@@ -113,21 +114,25 @@ export async function queryDaemonDelivery(): Promise<DaemonDeliveryResponse | nu
     }
 }
 
-/** 데몬에서 이 태스크에 발효 중인 규칙을 조회한다. */
-export async function queryDaemonRules(taskId: string): Promise<readonly GuardrailRule[]> {
-    if (!taskId) return [];
+/** 프롬프트 앞에서 규칙과 힌트를 한 번의 왕복으로 함께 조회한다. */
+export async function queryDaemonPromptContext(taskId: string): Promise<DaemonPromptContextResponse> {
+    if (!taskId) return EMPTY_PROMPT_CONTEXT;
     const paths = resolveAgentTracerPaths();
     try {
         return await requestDaemon(
             paths.socketPath,
-            {type: "rules", taskId} satisfies DaemonRulesRequest,
+            {
+                type: "prompt-context",
+                taskId,
+                request: {trigger: "user_prompt"},
+            } satisfies DaemonPromptContextRequest,
             HINTS_TIMEOUT_MS,
-            (parsed) => parseDaemonRulesResponse(parsed)?.rules ?? [],
-            [],
+            (parsed) => parseDaemonPromptContextResponse(parsed) ?? EMPTY_PROMPT_CONTEXT,
+            EMPTY_PROMPT_CONTEXT,
         );
     } catch {
         void ensureDaemonRunning();
-        return [];
+        return EMPTY_PROMPT_CONTEXT;
     }
 }
 

@@ -22,9 +22,11 @@ export interface DaemonHintsRequest {
     readonly request: PreprocessingHintsRequest;
 }
 
-export interface DaemonRulesRequest {
-    readonly type: "rules";
+/** 프롬프트 앞에서 필요한 규칙과 힌트를 한 번에 묻는다. */
+export interface DaemonPromptContextRequest {
+    readonly type: "prompt-context";
     readonly taskId: string;
+    readonly request: PreprocessingHintsRequest;
 }
 
 export interface DaemonGuardrailRequest {
@@ -42,7 +44,7 @@ export type DaemonRequest =
     | DaemonVersionRequest
     | DaemonShutdownRequest
     | DaemonHintsRequest
-    | DaemonRulesRequest
+    | DaemonPromptContextRequest
     | DaemonGuardrailRequest
     | DaemonDeliveryRequest
     | McpSocketRequest;
@@ -60,8 +62,9 @@ export interface DaemonHintsResponse {
     readonly hints: readonly PreprocessingHint[];
 }
 
-export interface DaemonRulesResponse {
+export interface DaemonPromptContextResponse {
     readonly rules: readonly GuardrailRule[];
+    readonly hints: readonly PreprocessingHint[];
 }
 
 export interface DaemonGuardrailResponse {
@@ -79,7 +82,7 @@ export type DaemonResponse =
     | DaemonVersionResponse
     | DaemonAckResponse
     | DaemonHintsResponse
-    | DaemonRulesResponse
+    | DaemonPromptContextResponse
     | DaemonGuardrailResponse
     | DaemonDeliveryResponse
     | McpSocketResponse;
@@ -107,8 +110,14 @@ export function parseDaemonRequest(value: unknown): DaemonRequest | null {
                 : null;
         case "delivery":
             return {type: "delivery"};
-        case "rules":
-            return typeof value["taskId"] === "string" ? {type: "rules", taskId: value["taskId"]} : null;
+        case "prompt-context":
+            return typeof value["taskId"] === "string" && isRecord(value["request"])
+                ? {
+                    type: "prompt-context",
+                    taskId: value["taskId"],
+                    request: value["request"] as unknown as PreprocessingHintsRequest,
+                }
+                : null;
         case "guardrail":
             return typeof value["taskId"] === "string"
                 ? {
@@ -143,10 +152,9 @@ export function parseDaemonHintsResponse(value: unknown): DaemonHintsResponse | 
         : null;
 }
 
-export function parseDaemonRulesResponse(value: unknown): DaemonRulesResponse | null {
-    return isRecord(value) && Array.isArray(value["rules"])
-        ? {rules: value["rules"] as GuardrailRule[]}
-        : null;
+export function parseDaemonPromptContextResponse(value: unknown): DaemonPromptContextResponse | null {
+    if (!isRecord(value) || !Array.isArray(value["rules"]) || !Array.isArray(value["hints"])) return null;
+    return {rules: value["rules"] as GuardrailRule[], hints: value["hints"] as PreprocessingHint[]};
 }
 
 export function parseDaemonGuardrailResponse(value: unknown): DaemonGuardrailResponse | null {

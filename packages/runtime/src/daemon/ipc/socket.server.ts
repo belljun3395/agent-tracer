@@ -9,7 +9,7 @@ import {
     type DaemonGuardrailResponse,
     type DaemonHintsResponse,
     type DaemonResponse,
-    type DaemonRulesResponse,
+    type DaemonPromptContextResponse,
     type DaemonVersionResponse,
 } from "~runtime/daemon/port/daemon.socket.port.js";
 import type {
@@ -115,11 +115,20 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 socket.end(`${body}\n`);
                 return;
             }
-            case "rules":
-                send(socket, {
-                    rules: context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId)),
-                } satisfies DaemonRulesResponse);
+            case "prompt-context": {
+                const hints = onHintsRequested(context.hint, context.ring.recent(request.taskId), request.request);
+                const rules = context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId));
+                const body = JSON.stringify({rules, hints} satisfies DaemonPromptContextResponse);
+                context.interventions.recordHintsInjected(
+                    Date.now(),
+                    request.taskId,
+                    request.request.trigger,
+                    hints,
+                    Buffer.byteLength(body, "utf8"),
+                );
+                socket.end(`${body}\n`);
                 return;
+            }
             case "delivery":
                 send(socket, context.readDelivery() satisfies DaemonDeliveryResponse);
                 return;

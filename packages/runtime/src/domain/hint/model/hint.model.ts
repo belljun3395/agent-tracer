@@ -18,11 +18,19 @@ export interface PreprocessingHintsRequest {
     readonly questions?: readonly string[];
 }
 
+/** 한 번에 실어 보내는 힌트 수의 상한이며, 넘치면 심각한 것부터 남긴다. */
+const MAX_ANNOUNCED_HINTS = 4;
+
+const SEVERITY_ORDER: Record<PreprocessingHintSeverity, number> = {critical: 0, warning: 1, info: 2};
+
 /** 힌트를 에이전트가 읽는 컨텍스트 블록으로 만든다. */
 export function formatHintsContext(hints: readonly PreprocessingHint[]): string {
     if (hints.length === 0) return "";
+    const shown = [...hints]
+        .sort((left, right) => SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity])
+        .slice(0, MAX_ANNOUNCED_HINTS);
     const lines = ["<agent-tracer-preprocessing>"];
-    for (const hint of hints) {
+    for (const hint of shown) {
         const icon = hint.severity === "critical" ? "⛔" : hint.severity === "warning" ? "⚠️" : "ℹ️";
         lines.push(`${icon} [${hint.type}] ${hint.title}`);
         lines.push(`   ${hint.message}`);

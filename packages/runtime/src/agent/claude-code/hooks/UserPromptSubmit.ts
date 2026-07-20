@@ -2,7 +2,7 @@
 import {emitAgentContext} from "~runtime/agent/claude-code/hook.output.js";
 import {readUserPromptSubmit} from "~runtime/agent/claude-code/payload/session.payload.js";
 import {claudeRuntime, ensureClaudeSession, runHook} from "~runtime/agent/claude-code/runtime.js";
-import {queryDaemonHints, queryDaemonRules} from "~runtime/daemon/ipc/hook.client.js";
+import {queryDaemonPromptContext} from "~runtime/daemon/ipc/hook.client.js";
 import {onLifecycleEvent} from "~runtime/domain/ingest/inbound/tool.hook.js";
 import {KIND} from "~runtime/domain/ingest/model/event.model.js";
 import {TITLE_MAX, userMessageEvent} from "~runtime/domain/ingest/model/message.event.model.js";
@@ -66,10 +66,7 @@ await runHook("UserPromptSubmit", {
             prompt: payload.prompt,
         });
 
-        const [rules, hints] = await Promise.all([
-            queryDaemonRules(target.taskId),
-            queryDaemonHints(target.taskId, {trigger: "user_prompt"}),
-        ]);
+        const {rules, hints} = await queryDaemonPromptContext(target.taskId);
         // 시스템 알림 프롬프트에는 사용자가 볼 일이 없는 레시피 메뉴를 싣지 않는다.
         const recipeMenu = systemNotification ? "" : onRecipeMenu(claudeRuntime.recipe);
         emitAgentContext("UserPromptSubmit", {
