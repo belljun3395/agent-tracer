@@ -1,6 +1,7 @@
 import type {AgentTracerPaths} from "~runtime/config/home.paths.js";
 import {
     appendDeadLetter,
+    appendSpoolLines,
     enforceSpoolSizeCap,
     listSpoolSegments,
     removeSpoolSegment,
@@ -19,6 +20,11 @@ const INITIAL_BACKOFF_MS = 1000;
 const SEGMENT_BATCH_MAX = 50;
 const FINAL_FLUSH_MAX_ITERATIONS = 2000;
 const HEALTH_REPORT_MIN_INTERVAL_MS = 60_000;
+
+/** 세그먼트 파일 이름에서 정렬을 결정하는 식별자만 떼어낸다. */
+function baseSegmentId(segmentName: string): string {
+    return segmentName.replace(/^seg-/, "").replace(/\.jsonl$/, "");
+}
 
 /** 제어 화면이 읽는 전송기의 현재 상태다. */
 export interface SpoolSenderState {
@@ -122,9 +128,9 @@ export class SpoolSender {
             const batch = collectSpoolBatch(this.#options.paths, SEGMENT_BATCH_MAX);
             if (!batch) break;
             const result = await sendIngestBatch(batch.lines, this.#options.daemonVersion);
-            if (result.outcome !== "ok" && result.outcome !== "dead") break;
-            if (result.outcome === "dead") appendDeadLetter(batch.lines, this.#options.paths);
-            else this.#parkRejected(batch, result.rejectedIds, "rejected by id");
+            // 거절당한 배치를 종료 중에 쪼갤 여유는 없으므로 그대로 남겨 다음 기동이 좁혀 보게 한다.
+            if (result.outcome !== "ok") break;
+            this.#parkRejected(batch, result.rejectedIds, "rejected by id");
             this.#removeSegments(batch.segments);
         }
     }
@@ -184,6 +190,10 @@ export class SpoolSender {
         }
         if (result.outcome === "dead") {
             this.#lastDeadReason = result.reason;
+            if (batch.lines.length > 1) {
+                this.#bisectRejectedBatch(batch, result.reason);
+                return;
+            }
             appendDeadLetter(batch.lines, this.#options.paths);
             this.#options.health.recordDeadLetter(result.reason, batch.lines.length);
             daemonLog(`batch rejected (${result.reason}) — ${batch.lines.length} event(s) to dead-letter`);
@@ -191,6 +201,20 @@ export class SpoolSender {
             this.#parkRejected(batch, result.rejectedIds, "rejected by id");
         }
         this.#removeSegments(batch.segments);
+        this.#resetPoisonState();
+        this.#backoffMs = 0;
+        this.#scheduleFlush(0);
+    }
+
+    /** 거절당한 배치를 절반씩 되돌려 나쁜 이벤트 하나가 같은 배치의 멀쩡한 이벤트를 끌고 가지 않게 한다. */
+    #bisectRejectedBatch(batch: SpoolBatch, reason: string): void {
+        // 원래 세그먼트 이름을 물려받아야 다시 넣은 절반이 큐의 제자리를 지킨다.
+        const baseId = baseSegmentId(batch.segments[0]?.name ?? "");
+        const half = Math.ceil(batch.lines.length / 2);
+        appendSpoolLines(batch.lines.slice(0, half), this.#options.paths, `${baseId}-a`);
+        appendSpoolLines(batch.lines.slice(half), this.#options.paths, `${baseId}-b`);
+        this.#removeSegments(batch.segments);
+        daemonLog(`batch rejected (${reason}) — splitting ${batch.lines.length} event(s) to isolate the cause`);
         this.#resetPoisonState();
         this.#backoffMs = 0;
         this.#scheduleFlush(0);
