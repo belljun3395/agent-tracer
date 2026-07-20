@@ -6,9 +6,12 @@ import {
     RECIPE_OUTCOMES,
     RECIPE_STATUS,
     RECIPE_STATUSES,
+    RECIPE_VERDICT,
+    RECIPE_VERDICTS,
     type RecipeEditor,
     type RecipeOutcome,
     type RecipeStatus,
+    type RecipeVerdict,
 } from "./recipe.const.js";
 import type { RecipeInjectedVia } from "../ingest/event.kind.const.js";
 
@@ -26,6 +29,12 @@ describe("recipe 계약 어휘", () => {
             RECIPE_OUTCOME.abandoned,
             RECIPE_OUTCOME.superseded,
         ]);
+        expect(RECIPE_VERDICTS).toEqual([
+            RECIPE_VERDICT.followedAndHelped,
+            RECIPE_VERDICT.followedNotHelped,
+            RECIPE_VERDICT.abandoned,
+            RECIPE_VERDICT.unknown,
+        ]);
         expect(RECIPE_EDITOR).toEqual({ agent: "agent", user: "user" });
     });
 
@@ -34,5 +43,6 @@ describe("recipe 계약 어휘", () => {
         expectTypeOf<RecipeDto["lastEditedBy"]>().toEqualTypeOf<RecipeEditor>();
         expectTypeOf<RecipeApplicationDto["injectedVia"]>().toEqualTypeOf<RecipeInjectedVia>();
         expectTypeOf<RecipeApplicationDto["outcome"]>().toEqualTypeOf<RecipeOutcome | null>();
+        expectTypeOf<RecipeApplicationDto["verdict"]>().toEqualTypeOf<RecipeVerdict | null>();
     });
 });

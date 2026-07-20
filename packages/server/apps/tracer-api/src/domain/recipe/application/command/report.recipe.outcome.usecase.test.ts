@@ -36,6 +36,10 @@ function application(overrides: Partial<RecipeApplicationEntity>): RecipeApplica
     entity.injectedVia = "pull";
     entity.outcome = null;
     entity.note = null;
+    entity.anchorEventId = "anchor-1";
+    entity.anchorSeq = "1";
+    entity.verdict = null;
+    entity.verdictEvidence = null;
     entity.createdAt = new Date("2026-01-01T00:00:00.000Z");
     entity.resolvedAt = null;
     return Object.assign(entity, overrides);

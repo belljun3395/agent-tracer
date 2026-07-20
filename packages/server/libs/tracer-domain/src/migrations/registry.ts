@@ -13,6 +13,7 @@ import { Memo1784211741081 } from "./0012-Memo.js";
 import { AgentReadViews1784437024608 } from "./0013-AgentReadViews.js";
 import { Tag1784472971884 } from "./0014-Tag.js";
 import { RemoveRecipeApplicationScore1784513440481 } from "./0015-RemoveRecipeApplicationScore.js";
+import { RecipeVerdict1784516563637 } from "./0016-RecipeVerdict.js";
 
 /** 읽기 모델 스키마의 마이그레이션 순서다. */
 export const TRACER_MIGRATIONS = [
@@ -31,4 +32,5 @@ export const TRACER_MIGRATIONS = [
     AgentReadViews1784437024608,
     Tag1784472971884,
     RemoveRecipeApplicationScore1784513440481,
+    RecipeVerdict1784516563637,
 ] as const;

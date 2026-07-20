@@ -19,12 +19,16 @@ function manualApplication(userId: string, recipeId: string, taskId: string, now
     application.injectedVia = "manual";
     application.outcome = null;
     application.note = null;
+    application.anchorEventId = null;
+    application.anchorSeq = null;
+    application.verdict = null;
+    application.verdictEvidence = null;
     application.createdAt = now;
     application.resolvedAt = null;
     return application;
 }
 
-/** 에이전트가 스스로 보고하는 레시피 성과이며 이 태스크에 열린 적용 이력이 없으면 즉석에서 하나 만든다. */
+/** 권위가 관측에 있는 자기보고이며 이 태스크에 열린 적용 이력이 없으면 즉석에서 하나 만들되 판정은 종결시키지 않는다. */
 @Injectable()
 export class ReportRecipeOutcomeUseCase {
     constructor(
@@ -49,8 +53,7 @@ export class ReportRecipeOutcomeUseCase {
         const now = this.clock.now();
         const open = (await this.applications.findOpenByTask(taskId)).find((a) => a.recipeId === recipeId);
         const application = open ?? manualApplication(userId, recipeId, taskId, now);
-        application.resolve(outcome, now);
-        application.note = note ?? null;
+        application.reportOutcome(outcome, note ?? null);
         await this.applications.upsert(application);
 
         return { application: mapRecipeApplication(application) };

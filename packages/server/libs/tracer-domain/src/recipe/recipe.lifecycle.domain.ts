@@ -1,37 +1,52 @@
-import { COMPLETED_TASK_STATUS, ERRORED_TASK_STATUS, RECIPE_OUTCOME, type TaskStatus } from "@monitor/kernel";
+import {
+    COMPLETED_TASK_STATUS,
+    ERRORED_TASK_STATUS,
+    RECIPE_VERDICT,
+    type RecipeStepDto,
+    type TaskStatus,
+} from "@monitor/kernel";
 import type { RecipeEntity } from "./recipe.entity.js";
 import type { RecipeApplicationEntity } from "./application/recipe.application.entity.js";
 import type { RecipeStats } from "./recipe.types.js";
+import { evaluateRecipeCompliance, type RecipeVerifyWindowEvent } from "./model/recipe.compliance.model.js";
+import { composeRecipeVerdict } from "./model/recipe.verdict.model.js";
 
-/** 레시피와 적용 이력을 합쳐 성과를 집계하고 미해결 이력을 판정한다. */
+/** 레시피와 적용 이력을 합쳐 성과를 집계하고 미해결 적용의 판정을 전진시킨다. */
 export class RecipeLifecycle {
     constructor(
         private readonly recipe: RecipeEntity,
         private readonly applications: readonly RecipeApplicationEntity[],
     ) {}
 
+    /** unknown은 관측 실패이지 성과가 아니므로 분모에서 뺀다. */
     stats(): RecipeStats {
-        const applied = this.applications.length;
-        const success = this.applications.filter((a) => a.outcome === RECIPE_OUTCOME.completed).length;
-        return { applied, success, successRate: applied > 0 ? success / applied : 0 };
+        const decided = this.applications.filter(
+            (a) => a.verdict !== null && a.verdict !== RECIPE_VERDICT.unknown,
+        );
+        const success = decided.filter((a) => a.verdict === RECIPE_VERDICT.followedAndHelped).length;
+        return { applied: decided.length, success, successRate: decided.length > 0 ? success / decided.length : 0 };
     }
 
     shouldRetire(now: Date): boolean {
         return this.recipe.shouldRetire(now, this.stats());
     }
 
-    /** 종료된 작업의 미해결 적용 이력에 결과를 부여하고 바뀐 이력만 반환한다. */
-    resolveOutcomes(taskStatus: TaskStatus, taskId: string, now: Date): RecipeApplicationEntity[] {
-        const outcome = taskStatus === COMPLETED_TASK_STATUS
-            ? RECIPE_OUTCOME.completed
-            : taskStatus === ERRORED_TASK_STATUS
-                ? RECIPE_OUTCOME.abandoned
-                : null;
-        if (outcome === null) return [];
+    /** 종료된 작업의 미해결 적용마다 창 이벤트로 이행을 관측해 판정을 종결하고, 바뀐 이력만 반환한다. */
+    resolveVerdicts(
+        taskStatus: TaskStatus,
+        taskId: string,
+        windowEventsByApplicationId: ReadonlyMap<string, readonly RecipeVerifyWindowEvent[]>,
+        now: Date,
+    ): RecipeApplicationEntity[] {
+        if (taskStatus !== COMPLETED_TASK_STATUS && taskStatus !== ERRORED_TASK_STATUS) return [];
+        const steps = this.recipe.steps as readonly RecipeStepDto[];
         const changed: RecipeApplicationEntity[] = [];
         for (const application of this.applications) {
-            if (application.taskId !== taskId || application.isResolved()) continue;
-            application.resolve(outcome, now);
+            if (application.taskId !== taskId || application.isVerdictResolved()) continue;
+            const windowEvents = windowEventsByApplicationId.get(application.id) ?? [];
+            const compliance = evaluateRecipeCompliance(steps, windowEvents);
+            const { verdict, evidence } = composeRecipeVerdict(compliance, taskStatus, application.outcome);
+            application.resolveVerdict(verdict, evidence, now);
             changed.push(application);
         }
         return changed;

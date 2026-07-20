@@ -20,6 +20,7 @@ export interface RunProjectionRepositories {
 export interface RecipeProjectionRepositories {
     readonly recipes: RecipeRepository;
     readonly recipeApplications: RecipeApplicationRepository;
+    readonly events: Pick<EventRepository, "findByTaskSinceSeq">;
 }
 
 /** 실행 이벤트 라우팅에 필요한 실행·레시피 저장소 경계다. */

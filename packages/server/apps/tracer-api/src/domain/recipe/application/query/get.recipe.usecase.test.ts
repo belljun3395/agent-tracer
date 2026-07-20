@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RECIPE_OUTCOME } from "@monitor/kernel";
+import { RECIPE_VERDICT } from "@monitor/kernel";
 import { RecipeApplicationEntity, RecipeEntity, type RecipeCandidateInput } from "@monitor/tracer-domain";
 import { InMemoryRecipeApplicationRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.application.repository.js";
 import { InMemoryRecipeRepository } from "~tracer-api/domain/recipe/port/__fakes__/in-memory.recipe.repository.js";
@@ -23,14 +23,19 @@ function candidateInput(id: string): RecipeCandidateInput {
     };
 }
 
-function makeApplication(recipeId: string, outcome: RecipeApplicationEntity["outcome"]): RecipeApplicationEntity {
+function makeApplication(recipeId: string, verdict: RecipeApplicationEntity["verdict"]): RecipeApplicationEntity {
     const app = new RecipeApplicationEntity();
     app.id = `app-${Math.random()}`;
     app.userId = "u1";
     app.recipeId = recipeId;
     app.taskId = "task-1";
     app.injectedVia = "pull";
-    app.outcome = outcome;
+    app.outcome = null;
+    app.note = null;
+    app.anchorEventId = null;
+    app.anchorSeq = null;
+    app.verdict = verdict;
+    app.verdictEvidence = null;
     app.createdAt = new Date("2026-01-01T00:00:00.000Z");
     app.resolvedAt = null;
     return app;
@@ -49,8 +54,8 @@ describe("GetRecipeUseCase", () => {
         const applications = new InMemoryRecipeApplicationRepository();
         recipes.seed(RecipeEntity.candidate(candidateInput("r1"), new Date("2026-01-01T00:00:00.000Z")));
         applications.seed(
-            makeApplication("r1", RECIPE_OUTCOME.completed),
-            makeApplication("r1", RECIPE_OUTCOME.abandoned),
+            makeApplication("r1", RECIPE_VERDICT.followedAndHelped),
+            makeApplication("r1", RECIPE_VERDICT.abandoned),
         );
         const useCase = new GetRecipeUseCase(recipes, applications);
         const detail = await useCase.execute("u1", "r1");

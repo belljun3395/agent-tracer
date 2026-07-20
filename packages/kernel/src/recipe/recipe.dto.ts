@@ -1,5 +1,5 @@
 import type { RecipeInjectedVia } from "../ingest/event.kind.const.js";
-import type { RecipeEditor, RecipeOutcome, RecipeStatus } from "./recipe.const.js";
+import type { RecipeEditor, RecipeOutcome, RecipeStatus, RecipeVerdict } from "./recipe.const.js";
 
 export interface RecipeStatsDto {
     readonly applied: number;
@@ -84,6 +84,15 @@ export interface RecipeWithStatsDto extends RecipeDto {
     readonly stats: RecipeStatsDto;
 }
 
+/** 레시피 적용의 최종 판정이 어떤 근거로 나왔는지 사람이 볼 수 있게 남기는 값이다. */
+export interface RecipeVerdictEvidenceDto {
+    readonly verifiableStepCount: number;
+    readonly followedStepOrders: readonly number[];
+    readonly unclassifiedEventCount: number;
+    readonly windowComplete: boolean;
+    readonly source: "observed" | "self-report";
+}
+
 export interface RecipeApplicationDto {
     readonly id: string;
     readonly userId: string;
@@ -92,6 +101,8 @@ export interface RecipeApplicationDto {
     readonly injectedVia: RecipeInjectedVia;
     readonly outcome: RecipeOutcome | null;
     readonly note: string | null;
+    readonly verdict: RecipeVerdict | null;
+    readonly verdictEvidence: RecipeVerdictEvidenceDto | null;
     readonly createdAt: string;
     readonly resolvedAt: string | null;
 }

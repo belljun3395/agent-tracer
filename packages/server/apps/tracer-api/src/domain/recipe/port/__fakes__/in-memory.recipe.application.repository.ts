@@ -21,7 +21,7 @@ export class InMemoryRecipeApplicationRepository implements RecipeApplicationRep
     }
 
     findOpenByTask(taskId: string): Promise<RecipeApplicationEntity[]> {
-        const rows = this.all().filter((application) => application.taskId === taskId && application.outcome === null);
+        const rows = this.all().filter((application) => application.taskId === taskId && application.verdict === null);
         return Promise.resolve(rows);
     }
 

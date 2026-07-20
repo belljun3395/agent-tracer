@@ -73,6 +73,30 @@ describe("EventRepository.findTimelineWindow 커서", () => {
     });
 });
 
+describe("EventRepository.findByTaskSinceSeq", () => {
+    it("주어진 seq부터(포함) 그 태스크의 이후 이벤트를 seq 오름차순으로 반환한다", async () => {
+        const repo = createInMemoryRepository<EventEntity>();
+        repo.seed(makeEvent("e1", "1"), makeEvent("e2", "2"), makeEvent("e3", "3"));
+        const repository = new EventRepository(asRepository(repo));
+
+        const events = await repository.findByTaskSinceSeq("t1", "2");
+
+        expect(events.map((e) => e.id)).toEqual(["e2", "e3"]);
+    });
+
+    it("다른 태스크의 이벤트는 섞이지 않는다", async () => {
+        const repo = createInMemoryRepository<EventEntity>();
+        const other = makeEvent("other-1", "1");
+        other.taskId = "t2";
+        repo.seed(makeEvent("e1", "1"), other);
+        const repository = new EventRepository(asRepository(repo));
+
+        const events = await repository.findByTaskSinceSeq("t1", "1");
+
+        expect(events.map((e) => e.id)).toEqual(["e1"]);
+    });
+});
+
 describe("EventRepository.countByTask", () => {
     it("페이지 상한과 무관하게 해당 태스크의 전체 이벤트 수를 센다", async () => {
         const repo = createInMemoryRepository<EventEntity>();

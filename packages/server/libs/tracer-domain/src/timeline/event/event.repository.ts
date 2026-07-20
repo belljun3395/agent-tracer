@@ -41,6 +41,16 @@ export class EventRepository {
             .getMany();
     }
 
+    // 레시피 적용의 판정 창이며 anchor는 events 테이블에 없는 원장 이벤트라 seq 비교로 직접 연다.
+    async findByTaskSinceSeq(taskId: string, seq: string): Promise<EventEntity[]> {
+        return this.repo
+            .createQueryBuilder("e")
+            .where("e.task_id = :taskId", { taskId })
+            .andWhere("e.seq >= :seq", { seq })
+            .orderBy("e.seq", "ASC")
+            .getMany();
+    }
+
     // anchor된 규칙의 판정 창의 현재 끝(최대 seq)이며 anchor가 원장에 없어 창이 비면 null이다.
     async maxSeqSinceEvent(taskId: string, anchorEventId: string): Promise<string | null> {
         const row = await this.repo

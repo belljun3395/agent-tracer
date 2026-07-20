@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { KIND, type EventKind, type NotificationEnvelope } from "@monitor/kernel";
 import type { ArrivalProjection } from "~projector/domain/project/application/arrival.projection.js";
+import type { RecipeProjection } from "~projector/domain/project/application/recipe.projection.js";
 import type { RunProjection } from "~projector/domain/project/application/run.projection.js";
 import type { TimelineProjection } from "~projector/domain/project/application/timeline.projection.js";
 import type { NotificationPublisherPort } from "~projector/domain/project/port/notification.publisher.port.js";
@@ -76,7 +77,7 @@ function makeHarness(): Harness {
         run as unknown as RunProjection,
         timeline as unknown as TimelineProjection,
         ruleEvaluation,
-        recipe,
+        recipe as unknown as RecipeProjection,
         arrival as unknown as ArrivalProjection,
         notifier,
     );

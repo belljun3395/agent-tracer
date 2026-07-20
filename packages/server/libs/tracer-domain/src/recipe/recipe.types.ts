@@ -21,6 +21,15 @@ export interface RecipeTouchedFile {
     readonly role: "read" | "write" | "both";
 }
 
+/** 레시피 적용 판정의 근거이며, 관측이 아니라 자기보고로 대체됐는지를 source가 말한다. */
+export interface RecipeVerdictEvidence {
+    readonly verifiableStepCount: number;
+    readonly followedStepOrders: readonly number[];
+    readonly unclassifiedEventCount: number;
+    readonly windowComplete: boolean;
+    readonly source: "observed" | "self-report";
+}
+
 export interface RecipeRevisionInput {
     readonly title?: string;
     readonly intent?: string;

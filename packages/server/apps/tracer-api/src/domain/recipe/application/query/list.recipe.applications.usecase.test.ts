@@ -31,6 +31,11 @@ function application(id: string, recipeId: string, createdAt: string): RecipeApp
     entity.taskId = "t1";
     entity.injectedVia = "pull";
     entity.outcome = null;
+    entity.note = null;
+    entity.anchorEventId = null;
+    entity.anchorSeq = null;
+    entity.verdict = null;
+    entity.verdictEvidence = null;
     entity.createdAt = new Date(createdAt);
     entity.resolvedAt = null;
     return entity;
@@ -50,7 +55,7 @@ function makeUseCase(
 describe("ListRecipeApplicationsUseCase", () => {
     it("해당 레시피의 적용 이력만 골라 DTO로 반환한다", async () => {
         const target = application("a1", "r1", "2026-01-01T00:00:00.000Z");
-        target.resolve(RECIPE_OUTCOME.completed, new Date("2026-01-02T00:00:00.000Z"));
+        target.reportOutcome(RECIPE_OUTCOME.completed, null);
         const other = application("a2", "r2", "2026-01-01T00:00:00.000Z");
         const recipe = RecipeEntity.candidate(candidateInput("r1", "u1"), new Date("2026-01-01T00:00:00.000Z"));
         const useCase = makeUseCase([target, other], [recipe]);
