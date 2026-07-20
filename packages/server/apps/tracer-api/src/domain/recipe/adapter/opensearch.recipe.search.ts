@@ -1,21 +1,23 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Client } from "@opensearch-project/opensearch";
 import type { RecipeEntity } from "@monitor/tracer-domain";
-import type { RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
+import type { RecipeSearchHit, RecipeSearchPort } from "~tracer-api/domain/recipe/port/recipe.search.port.js";
 import { OPENSEARCH_CLIENT, RECIPES_INDEX } from "~tracer-api/config/opensearch.client.const.js";
 
-export interface RecipeSearchHit {
-    readonly id: string;
-    readonly title: string;
-    readonly intent: string;
-    readonly status: string;
-    readonly userEdited: boolean;
-    readonly updatedAt?: string;
+/** 얇은 코퍼스에서 실측해 정한 값이라 레시피가 쌓이면 다시 재본다. */
+const MINIMUM_SHOULD_MATCH = "30%";
+/** 얇은 코퍼스에서 실측해 정한 값이라 레시피가 쌓이면 다시 재본다. */
+const RELATIVE_SCORE_CUTOFF_RATIO = 0.4;
+
+interface SearchHit {
+    readonly _id: string;
+    readonly _score?: number | null;
+    readonly _source?: Record<string, unknown>;
 }
 
 interface SearchResponseBody {
     readonly hits: {
-        readonly hits: ReadonlyArray<{ readonly _id: string; readonly _source?: Record<string, unknown> }>;
+        readonly hits: readonly SearchHit[];
     };
 }
 
@@ -49,7 +51,7 @@ export class OpenSearchRecipeSearch implements RecipeSearchPort {
         }
     }
 
-    async search(userId: string, q: string, limit: number): Promise<RecipeSearchHit[]> {
+    async search(userId: string, q: string, limit: number): Promise<readonly RecipeSearchHit[]> {
         const response = await this.client.search({
             index: RECIPES_INDEX,
             body: {
@@ -58,20 +60,28 @@ export class OpenSearchRecipeSearch implements RecipeSearchPort {
                     bool: {
                         must: [
                             {
-                                more_like_this: {
-                                    fields: ["title", "intent", "summaryMd"],
-                                    like: q,
+                                multi_match: {
+                                    query: q,
+                                    fields: ["title", "intent", "description", "summaryMd"],
+                                    minimum_should_match: MINIMUM_SHOULD_MATCH,
                                 },
                             },
                         ],
-                        filter: [{ term: { userId } }],
+                        filter: [{ term: { userId } }, { term: { status: "active" } }],
                     },
                 },
             },
         });
         const body = response.body as unknown as SearchResponseBody;
-        return body.hits.hits.map((hit) => toRecipeHit(hit._id, hit._source ?? {}));
+        return applyRelativeCutoff(body.hits.hits).map((hit) => toRecipeHit(hit._id, hit._source ?? {}, hit._score ?? 0));
     }
+}
+
+function applyRelativeCutoff(hits: readonly SearchHit[]): readonly SearchHit[] {
+    const topScore = hits[0]?._score ?? 0;
+    if (topScore <= 0) return hits;
+    const threshold = topScore * RELATIVE_SCORE_CUTOFF_RATIO;
+    return hits.filter((hit) => (hit._score ?? 0) >= threshold);
 }
 
 function toRecipeDoc(recipe: RecipeEntity): Record<string, unknown> {
@@ -95,13 +105,15 @@ function touchedFilePaths(touchedFiles: readonly unknown[]): string[] {
         .filter((path): path is string => typeof path === "string");
 }
 
-function toRecipeHit(id: string, source: Record<string, unknown>): RecipeSearchHit {
+function toRecipeHit(id: string, source: Record<string, unknown>, score: number): RecipeSearchHit {
     return {
         id,
         title: readString(source["title"]) ?? "",
         intent: readString(source["intent"]) ?? "",
+        description: readString(source["description"]) ?? "",
         status: readString(source["status"]) ?? "",
         userEdited: source["userEdited"] === true,
+        score,
         ...(readString(source["updatedAt"]) !== undefined ? { updatedAt: readString(source["updatedAt"])! } : {}),
     };
 }
