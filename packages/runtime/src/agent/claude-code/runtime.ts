@@ -107,7 +107,7 @@ const recipe: RecipeHook = {
 const recipeOutcomeMark: RecipeOutcomeMarkHook = {
     markOpened: new MarkRecipeOpenedUsecase(new FileRecipePendingMarkAdapter(), clock),
     clearMark: new ClearRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
-    readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter()),
+    readPendingMark: new ReadPendingRecipeMarkUsecase(new FileRecipePendingMarkAdapter(), clock),
 };
 
 const logger: HookLogger = createHookLogger({

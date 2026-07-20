@@ -93,10 +93,10 @@ async function recordRecipeInjection(target: BoundSession, recipeId: string): Pr
                 injectedVia: "pull",
             }),
         ]);
-        onRecipeOpened(mcpRuntime.recipeOutcomeMark, target.taskId, recipeId);
     } catch {
-        return;
+        // 스풀 기록 실패가 넛지 트리거인 마크까지 지우지는 않는다.
     }
+    onRecipeOpened(mcpRuntime.recipeOutcomeMark, target.taskId, recipeId);
 }
 
 /** tools/call이 넘긴 도구 이름과 인자를 실제 처리로 위임하고 사람이 읽을 결과 텍스트를 만든다. */

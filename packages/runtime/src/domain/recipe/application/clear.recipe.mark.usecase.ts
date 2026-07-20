@@ -7,6 +7,8 @@ export class ClearRecipeMarkUsecase {
 
     execute(taskId: string, recipeId: string): void {
         if (taskId === "" || recipeId === "") return;
-        this.marks.write(clearRecipeMark(this.marks.read(), taskId, recipeId));
+        const marks = this.marks.read(taskId);
+        const next = clearRecipeMark(marks, recipeId);
+        if (next.length !== marks.length) this.marks.write(taskId, next);
     }
 }

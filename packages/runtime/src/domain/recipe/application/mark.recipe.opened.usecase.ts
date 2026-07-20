@@ -12,6 +12,6 @@ export class MarkRecipeOpenedUsecase {
     execute(taskId: string, recipeId: string): void {
         if (taskId === "" || recipeId === "") return;
         const openedAt = new Date(this.clock.now()).toISOString();
-        this.marks.write(markRecipeOpened(this.marks.read(), taskId, recipeId, openedAt));
+        this.marks.write(taskId, markRecipeOpened(this.marks.read(taskId), recipeId, openedAt));
     }
 }

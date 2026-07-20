@@ -14,11 +14,18 @@
   텍스트 조립. 넛지는 상태 없는 고정 문구이므로 `model/recipe.nudge.model.ts`를 훅이 직접
   부른다. 레시피 목록은 프롬프트에 싣지 않는다 — 관련성 판단은 에이전트가 `search_recipes`로
   질의어를 던져 얻은 결정 수준 정보(제목·의도·설명·점수)로 내리고, 적용할 레시피 전체 본문은
-  `get_recipe`가 그때마다 서버에서 직접 가져온다. `get_recipe`가 성공하면 태스크에 미보고
-  마크를 로컬에 남기고(`model/recipe.pending.mark.model.ts`), 다음 `UserPromptSubmit`이 그
-  마크를 보면 고정 넛지 대신 `report_recipe_outcome`을 지금 부르라는 넛지를 낸다
-  (`model/recipe.outcome.nudge.model.ts`). `report_recipe_outcome`이 성공하면 마크를 지운다.
-  마크는 넛지 트리거일 뿐이라 파일을 잃어도 넛지 하나를 놓칠 뿐 오류로 새지 않는다.
+  `get_recipe`가 그때마다 서버에서 직접 가져온다. 서버 호출은 "없다는 확답(404)"과 "확답을
+  못 받음(그 외 실패·타임아웃)"을 구분해 내며(`support/fetched.ts`의 `Fetched<T>`), 확답을
+  못 받으면 도구 호출이 `isError`로 재시도를 안내하고 로컬 상태를 건드리지 않는다. `get_recipe`가
+  성공하면 태스크에 미보고 마크를 남기고(`model/recipe.pending.mark.model.ts`), 다음
+  `UserPromptSubmit`이 그 마크를 보면 고정 넛지 대신 `report_recipe_outcome`을 지금 부르라는
+  넛지를 낸다(`model/recipe.outcome.nudge.model.ts`). 마크는 태스크마다
+  `~/.agent-tracer/recipe-pending/<taskId>.json` 파일 하나에 최대 3개까지 쌓이며 recipeId별로
+  개별 보고·해제된다 — 세션마다 MCP 프로세스가 하나이므로 파일을 나누면 잠금이나 읽기-수정-쓰기
+  경합이 필요 없다. `report_recipe_outcome`이 서버에서 수락되거나 그 레시피가 이미 없다고
+  확답받으면 마크를 지우고, 확답을 못 받으면 마크를 그대로 둬 다음에도 넛지가 다시 뜨게 한다.
+  마크는 읽을 때마다 하루가 지난 것을 스스로 정리한다. 마크는 넛지 트리거일 뿐이라 파일을
+  잃어도 넛지 하나를 놓칠 뿐 오류로 새지 않는다.
 - `rulegen`: 규칙 생성 프롬프트 명세와 도구 명세.
 - `binding` `session` `turn`: 이벤트와 세션·턴의 의미 추론.
 - `memo`: 에이전트가 스스로 남기는 메모의 쓰기·조회 도구다.

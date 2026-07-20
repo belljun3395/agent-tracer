@@ -1,53 +1,69 @@
 import {describe, expect, it} from "vitest";
 import {
+    MAX_PENDING_MARKS_PER_TASK,
     clearRecipeMark,
+    dropExpiredMarks,
     markRecipeOpened,
-    pendingRecipeMarkFor,
 } from "~runtime/domain/recipe/model/recipe.pending.mark.model.js";
 
 describe("markRecipeOpened", () => {
-    it("태스크에 마크를 남긴다", () => {
-        const store = markRecipeOpened({}, "task-1", "recipe-1", "2026-07-14T00:00:00.000Z");
+    it("마크를 목록에 더한다", () => {
+        const marks = markRecipeOpened([], "recipe-1", "2026-07-14T00:00:00.000Z");
 
-        expect(pendingRecipeMarkFor(store, "task-1")).toEqual({
-            taskId: "task-1",
-            recipeId: "recipe-1",
-            openedAt: "2026-07-14T00:00:00.000Z",
-        });
+        expect(marks).toEqual([{recipeId: "recipe-1", openedAt: "2026-07-14T00:00:00.000Z"}]);
     });
 
-    it("같은 태스크에 이미 마크가 있으면 최신 호출로 덮어쓴다", () => {
-        const first = markRecipeOpened({}, "task-1", "recipe-1", "2026-07-14T00:00:00.000Z");
-        const second = markRecipeOpened(first, "task-1", "recipe-2", "2026-07-14T01:00:00.000Z");
+    it("같은 recipeId가 이미 있으면 최신 시각으로 갱신하고 자리를 맨 끝으로 옮긴다", () => {
+        const first = markRecipeOpened([], "recipe-1", "2026-07-14T00:00:00.000Z");
+        const withSecond = markRecipeOpened(first, "recipe-2", "2026-07-14T00:01:00.000Z");
+        const reopened = markRecipeOpened(withSecond, "recipe-1", "2026-07-14T00:02:00.000Z");
 
-        expect(pendingRecipeMarkFor(second, "task-1")?.recipeId).toBe("recipe-2");
+        expect(reopened).toEqual([
+            {recipeId: "recipe-2", openedAt: "2026-07-14T00:01:00.000Z"},
+            {recipeId: "recipe-1", openedAt: "2026-07-14T00:02:00.000Z"},
+        ]);
     });
-});
 
-describe("pendingRecipeMarkFor", () => {
-    it("마크가 없는 태스크는 undefined를 낸다", () => {
-        expect(pendingRecipeMarkFor({}, "task-1")).toBeUndefined();
+    it(`상한 ${MAX_PENDING_MARKS_PER_TASK}개를 넘기면 가장 오래된 마크부터 밀어낸다`, () => {
+        const marks = ["recipe-1", "recipe-2", "recipe-3", "recipe-4"].reduce(
+            (acc, recipeId, index) => markRecipeOpened(acc, recipeId, `2026-07-14T00:0${index}:00.000Z`),
+            [] as ReturnType<typeof markRecipeOpened>,
+        );
+
+        expect(marks.map((mark) => mark.recipeId)).toEqual(["recipe-2", "recipe-3", "recipe-4"]);
     });
 });
 
 describe("clearRecipeMark", () => {
-    it("recipeId가 일치하면 마크를 지운다", () => {
-        const store = markRecipeOpened({}, "task-1", "recipe-1", "2026-07-14T00:00:00.000Z");
+    it("recipeId가 일치하는 마크만 지운다", () => {
+        const marks = markRecipeOpened(
+            markRecipeOpened([], "recipe-1", "2026-07-14T00:00:00.000Z"),
+            "recipe-2",
+            "2026-07-14T00:01:00.000Z",
+        );
 
-        const cleared = clearRecipeMark(store, "task-1", "recipe-1");
+        const cleared = clearRecipeMark(marks, "recipe-1");
 
-        expect(pendingRecipeMarkFor(cleared, "task-1")).toBeUndefined();
+        expect(cleared).toEqual([{recipeId: "recipe-2", openedAt: "2026-07-14T00:01:00.000Z"}]);
     });
 
-    it("recipeId가 다르면 더 최신 마크를 건드리지 않는다", () => {
-        const store = markRecipeOpened({}, "task-1", "recipe-2", "2026-07-14T01:00:00.000Z");
+    it("일치하는 마크가 없으면 그대로 둔다", () => {
+        expect(clearRecipeMark([], "recipe-1")).toEqual([]);
+    });
+});
 
-        const result = clearRecipeMark(store, "task-1", "recipe-1");
+describe("dropExpiredMarks", () => {
+    const TTL_MS = 1000;
 
-        expect(pendingRecipeMarkFor(result, "task-1")?.recipeId).toBe("recipe-2");
+    it("ttl을 넘긴 마크를 지운다", () => {
+        const marks = [{recipeId: "recipe-1", openedAt: new Date(0).toISOString()}];
+
+        expect(dropExpiredMarks(marks, TTL_MS + 1, TTL_MS)).toEqual([]);
     });
 
-    it("마크가 없는 태스크는 그대로 둔다", () => {
-        expect(clearRecipeMark({}, "task-1", "recipe-1")).toEqual({});
+    it("ttl 안의 마크는 그대로 둔다", () => {
+        const marks = [{recipeId: "recipe-1", openedAt: new Date(0).toISOString()}];
+
+        expect(dropExpiredMarks(marks, TTL_MS - 1, TTL_MS)).toEqual(marks);
     });
 });

@@ -14,7 +14,7 @@ export interface AgentTracerPaths {
     readonly configPath: string;
     readonly bindingsPath: string;
     readonly bindingsLockPath: string;
-    readonly recipePendingPath: string;
+    readonly recipePendingDir: string;
     readonly socketPath: string;
     readonly logPath: string;
     readonly resumeTokenPath: string;
@@ -35,7 +35,7 @@ export function resolveAgentTracerPaths(env: NodeJS.ProcessEnv = process.env): A
         configPath: path.join(homeDir, "config.json"),
         bindingsPath: path.join(homeDir, "bindings.json"),
         bindingsLockPath: path.join(homeDir, "bindings.lock"),
-        recipePendingPath: path.join(homeDir, "recipe-pending.json"),
+        recipePendingDir: path.join(homeDir, "recipe-pending"),
         socketPath: explicitSocket || path.join(homeDir, "daemon.sock"),
         logPath: path.join(homeDir, "daemon.log"),
         resumeTokenPath: path.join(homeDir, "resume.token"),
@@ -59,4 +59,9 @@ export function ensureAgentTracerHome(paths: AgentTracerPaths = resolveAgentTrac
 export function ensureSpoolDir(paths: AgentTracerPaths = resolveAgentTracerPaths()): void {
     mkdirSecure(paths.homeDir);
     mkdirSecure(paths.spoolDir);
+}
+
+export function ensureRecipePendingDir(paths: AgentTracerPaths = resolveAgentTracerPaths()): void {
+    mkdirSecure(paths.homeDir);
+    mkdirSecure(paths.recipePendingDir);
 }

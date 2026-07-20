@@ -1,30 +1,35 @@
 import * as fs from "node:fs";
-import {ensureAgentTracerHome, resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
-import type {RecipePendingMarkStore} from "~runtime/domain/recipe/model/recipe.pending.mark.model.js";
+import * as path from "node:path";
+import {ensureRecipePendingDir, resolveAgentTracerPaths, type AgentTracerPaths} from "~runtime/config/home.paths.js";
+import type {RecipePendingMark} from "~runtime/domain/recipe/model/recipe.pending.mark.model.js";
 import type {RecipePendingMarkPort} from "~runtime/domain/recipe/port/recipe.pending.mark.port.js";
-import {isRecord} from "~runtime/support/json.js";
 
-/** 마크 파일을 홈 디렉터리에 원자적으로 쓰고, 읽기나 쓰기가 깨지면 마크가 없는 것으로 친다. */
+/** 태스크마다 파일 하나이므로 세션 두 개가 같은 파일을 동시에 고치는 일이 없다. */
 export class FileRecipePendingMarkAdapter implements RecipePendingMarkPort {
     constructor(private readonly paths: AgentTracerPaths = resolveAgentTracerPaths()) {}
 
-    read(): RecipePendingMarkStore {
+    read(taskId: string): readonly RecipePendingMark[] {
         try {
-            const parsed: unknown = JSON.parse(fs.readFileSync(this.paths.recipePendingPath, "utf8"));
-            return isRecord(parsed) ? (parsed as RecipePendingMarkStore) : {};
+            const parsed: unknown = JSON.parse(fs.readFileSync(this.filePath(taskId), "utf8"));
+            return Array.isArray(parsed) ? (parsed as RecipePendingMark[]) : [];
         } catch {
-            return {};
+            return [];
         }
     }
 
-    write(store: RecipePendingMarkStore): void {
+    write(taskId: string, marks: readonly RecipePendingMark[]): void {
         try {
-            ensureAgentTracerHome(this.paths);
-            const tmp = `${this.paths.recipePendingPath}.tmp`;
-            fs.writeFileSync(tmp, JSON.stringify(store));
-            fs.renameSync(tmp, this.paths.recipePendingPath);
+            ensureRecipePendingDir(this.paths);
+            const target = this.filePath(taskId);
+            const tmp = `${target}.tmp`;
+            fs.writeFileSync(tmp, JSON.stringify(marks));
+            fs.renameSync(tmp, target);
         } catch {
             return;
         }
+    }
+
+    private filePath(taskId: string): string {
+        return path.join(this.paths.recipePendingDir, `${encodeURIComponent(taskId)}.json`);
     }
 }
