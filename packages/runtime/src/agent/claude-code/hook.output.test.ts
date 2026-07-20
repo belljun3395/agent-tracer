@@ -17,9 +17,9 @@ describe("emitAgentContext", () => {
     it("titleNudge가 있으면 additionalContext에 담아 낸다", () => {
         const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 
-        const emission = emitAgentContext("UserPromptSubmit", {...EMPTY_CONTEXT_INPUT, titleNudge: "<agent-tracer-task-title>call set_task_title</agent-tracer-task-title>"});
+        const emitted = emitAgentContext("UserPromptSubmit", {...EMPTY_CONTEXT_INPUT, titleNudge: "<agent-tracer-task-title>call set_task_title</agent-tracer-task-title>"});
 
-        expect(emission.emitted).toBe(true);
+        expect(emitted).toBe(true);
         const written = JSON.parse(stdoutSpy.mock.calls[0]?.[0] as string) as {
             hookSpecificOutput: {additionalContext: string};
         };
@@ -29,9 +29,9 @@ describe("emitAgentContext", () => {
     it("titleNudge가 비어 있고 다른 섹션도 없으면 아무것도 내지 않는다", () => {
         const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 
-        const emission = emitAgentContext("UserPromptSubmit", EMPTY_CONTEXT_INPUT);
+        const emitted = emitAgentContext("UserPromptSubmit", EMPTY_CONTEXT_INPUT);
 
-        expect(emission.emitted).toBe(false);
+        expect(emitted).toBe(false);
         expect(stdoutSpy).not.toHaveBeenCalled();
     });
 });

@@ -15,25 +15,20 @@ export interface AgentContextInput {
     readonly titleNudge: string;
 }
 
-export interface AgentContextEmission {
-    readonly emitted: boolean;
-    readonly recipeBytes: number;
-}
-
 export function emitAgentContext(
     hookEventName: ContextHookName,
     input: AgentContextInput,
-): AgentContextEmission {
+): boolean {
     const sections = [
         formatRulesContext(input.rules),
         formatHintsContext(input.hints),
         input.recipeContext,
         input.titleNudge,
     ].filter((section) => section !== "");
-    if (sections.length === 0) return {emitted: false, recipeBytes: 0};
+    if (sections.length === 0) return false;
 
     writeStdout({hookSpecificOutput: {hookEventName, additionalContext: sections.join("\n")}});
-    return {emitted: true, recipeBytes: Buffer.byteLength(input.recipeContext, "utf8")};
+    return true;
 }
 
 /** 힌트만 있는 훅에서 다음 턴 앞에 붙일 컨텍스트를 낸다. */
