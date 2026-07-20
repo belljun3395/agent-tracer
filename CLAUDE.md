@@ -3,6 +3,65 @@
 코딩 에이전트의 활동을 수집하고 조회하고 분석하는 모니터링 시스템이다.
 쓰기와 읽기가 데이터베이스를 공유하지 않고 변경 데이터 캡처로 연결된다.
 
+## 데이터가 흐르는 길
+
+무엇을 고치든 이 흐름의 어느 지점을 건드리는지 먼저 안다.
+
+```mermaid
+flowchart LR
+    RT["runtime<br/><small>훅·MCP·데몬</small>"] -->|이벤트| RA["runtime-api"]
+    RA -->|추가만| L[("원장<br/>runtime DB")]
+    L -->|CDC| RP["Redpanda"]
+    RP --> PJ["projector"]
+    PJ --> TR[("읽기 모델<br/>tracer DB")]
+    PJ --> OS[("OpenSearch")]
+    TA["tracer-api"] --> TR
+    TA --> OS
+    TA -->|잡 등록| AW["ai-agent-worker"]
+    AW <--> AG["agents<br/><small>Python</small>"]
+    AW --> TR
+    WB["web"] --> TA
+```
+
+원장은 추가만 되고 읽기 모델은 언제든 원장에서 다시 만들 수 있다. 이 관계를 깨는 변경은
+투영 재생성을 깨뜨린다.
+
+## 어디를 고칠 것인가
+
+| 바꾸려는 것 | 가는 곳 |
+|---|---|
+| 훅이 도구 호출을 어떤 이벤트로 만드는가 | `packages/runtime/src/domain/ingest/model/` |
+| 에이전트가 스스로 부르는 MCP 도구 | `packages/runtime/src/agent/claude-code/mcp/`와 해당 도메인 `model/` |
+| 턴을 막는 규칙 판정 | `packages/runtime/src/domain/guardrail/`와 `packages/kernel/src/rule/` |
+| 이벤트 종류·속성 이름 | `packages/kernel/src/ingest/` |
+| 원장 스키마 | `packages/server/apps/runtime-api`의 엔티티와 마이그레이션 |
+| 읽기 모델 스키마와 그 도메인 규칙 | `packages/server/libs/tracer-domain/` |
+| 원장을 읽기 모델로 옮기는 처리 | `packages/server/apps/projector/src/domain/project/` |
+| 조회 API의 엔드포인트 | `packages/server/apps/tracer-api/src/domain/<슬라이스>/` |
+| AI 잡의 재시도·취소·시간 초과 | `packages/server/apps/ai-agent-worker/src/domain/<슬라이스>/inbound/` |
+| 에이전트의 프롬프트·도구·출력 스키마 | 워커 슬라이스의 `model/`과 `packages/agents/src/agent_graph/agents/` |
+| 두 백엔드가 같아야 하는 사실 | `packages/kernel/src/agent/__fixtures__/` |
+| 대시보드 화면 | `packages/web/src/{pages,widgets,features,entities}/` |
+| 구조 규칙 자체 | `architecture.manifest.mjs` |
+
+## 새 코드를 어디에 둘 것인가
+
+```mermaid
+flowchart TD
+    A{"도메인 어휘가 있는가"} -->|있다| B["domain/&lt;슬라이스&gt;/"]
+    A -->|없다| C{"IO나 배선이 있는가"}
+    C -->|있다| D["config/"]
+    C -->|없다| E["support/"]
+    B --> F{"무엇을 하는가"}
+    F -->|바깥에서 들어온다| G["inbound/"]
+    F -->|이 도메인이 하는 일| H["application/"]
+    F -->|바깥에 요구하는 계약| I["port/"]
+    F -->|포트의 구현| J["adapter/"]
+    F -->|순수 규칙| K["model/"]
+```
+
+`src/` 바로 아래에 계층 이름이 보이면 축이 뒤집힌 것이다. `src/domain/<슬라이스>/<계층>`이다.
+
 ## 문서 지도
 
 **구조를 바꾸거나 새 코드를 어디에 둘지 정할 때는 `ARCHITECTURE.md`를 먼저 읽는다.**
@@ -55,6 +114,8 @@
 - 문서와 주석에 링크·다른 문서 참조·이력 서술을 쓰지 않는다.
 - 동작은 테스트가 소유한다. 주석은 포트 계약, 와이어 타입의 의미, 외부 제약만 담는다.
 - 300줄 초과 파일과 테스트 없는 유스케이스의 허용치는 0이다. 올리지 않는다.
+- 스키마는 엔티티가 소유한다. 마이그레이션에만 있는 컬럼이나 인덱스를 만들지 않는다.
+- zod는 `*.schema.ts`에만 있다. runtime과 web은 그것을 값으로 import하지 못한다.
 - 루트의 작업 노트(`*.md`)는 의도적으로 추적하지 않는다. `git add -A`를 쓰지 않는다.
 - 커밋 본문에 `Constraint:` `Rejected:` `Confidence:` `Tested:` 같은 정형 블록을 쓰지 않는다.
   본문은 없거나 네 줄 이내다. 도구가 제 습관대로 붙이면 지우고 커밋한다.
@@ -66,7 +127,7 @@
 
 | 목적 | 명령 |
 |---|---|
-| 인프라 기동 (PG×2·Redpanda·OpenSearch·Temporal) | `npm run infra:up` |
+| 인프라 기동 (PG×2·Redpanda·OpenSearch·Temporal·진입점 `127.0.0.1:3847`) | `npm run infra:up` |
 | 인프라 종료 | `npm run infra:down` |
 | 전체 dev 서버 (인프라 선행 필수, agents 포함) | `npm run dev` |
 | 배포되는 이미지 그대로 전체 기동 (진입점 `127.0.0.1:3847`) | `npm run stack:up` / `stack:down` / `stack:logs` |
@@ -80,7 +141,11 @@
 | 읽기 모델 투영 통째 재생성 | `npm run projection:rebuild -- --confirm` |
 | 검색 인덱스 재인덱싱 | `npm run search:reindex` |
 | 결정적 실패 시나리오 (인프라 필요, 느림) | `npm run e2e:failure` |
+| 관측 스택까지 기동 | `npm run monitoring:up` / `monitoring:down` |
 | 외부 프로젝트에 Claude Code 플러그인 연결 | `npm run setup:external -- --target <path>` |
+
+`packages/agents`는 npm 워크스페이스 밖이라 위 검증에 걸리지 않는다. 그쪽을 고쳤다면
+`packages/agents/CLAUDE.md`의 검증 루프를 따로 돌린다.
 
 ## 작업 완료 판정
 

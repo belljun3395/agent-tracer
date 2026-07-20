@@ -6,12 +6,32 @@
 
 Feature-Sliced Design 여섯 레이어를 쓴다. 위에서 아래로만 import한다.
 
-- `app/`: 조립, 라우팅, 프로바이더, 전역 스타일.
-- `pages/`: 라우트 단위 화면.
-- `widgets/`: 독립 UI 블록.
-- `features/`: 사용자 행동 단위.
-- `entities/`: 도메인 모델과 그 표현.
-- `shared/`: UI 킷, 유틸, API 클라이언트, 설정.
+```mermaid
+flowchart TD
+    A["app/<br/><small>조립·라우팅·프로바이더·전역 스타일</small>"] --> P["pages/<br/><small>라우트 단위 화면</small>"]
+    P --> W["widgets/<br/><small>독립 UI 블록</small>"]
+    W --> F["features/<br/><small>사용자 행동 단위</small>"]
+    F --> E["entities/<br/><small>도메인 모델과 그 표현</small>"]
+    E --> S["shared/<br/><small>UI 킷·유틸·API 클라이언트·설정</small>"]
+```
+
+같은 레이어의 슬라이스끼리는 직접 import하지 않는다. 목록 화면이 상세 화면을 부르고 싶으면
+둘 다 위쪽 레이어가 조립한다.
+
+## 라우트
+
+| 경로 | 페이지 |
+|---|---|
+| `/tasks` | 태스크 목록 |
+| `/tasks/:taskId` | 한 태스크의 타임라인 |
+| `/rules` | 규칙과 판정 |
+| `/recipes` | 레시피 후보와 적용 이력 |
+| `/memos` | 메모 |
+| `/tags` | 태그 관리와 태그별 모아보기 |
+| `/jobs` | AI 잡의 진행·궤적·비용 |
+| `/settings` | 언어 모델 키·에이전트 백엔드·정리 정책 |
+
+서버 상태를 가져오는 훅은 그 도메인의 `entities/` 안에 산다. 전역 상태 폴더에 모으지 않는다.
 
 ## 이 패키지만의 제약
 

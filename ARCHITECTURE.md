@@ -13,6 +13,21 @@
 배포 단위  →  도메인  →  계층
 ```
 
+```mermaid
+flowchart TD
+    P["packages/"] --> U1["tracer-api<br/><small>1축 · 배포 단위</small>"]
+    P --> U2["projector"]
+    P --> U3["runtime"]
+    U1 --> S1["domain/task<br/><small>2축 · 도메인</small>"]
+    U1 --> S2["domain/rule"]
+    U1 --> S3["domain/tag"]
+    S1 --> L1["inbound/<br/><small>3축 · 계층</small>"]
+    S1 --> L2["application/"]
+    S1 --> L3["port/"]
+    S1 --> L4["adapter/"]
+    S1 --> L5["model/"]
+```
+
 1축은 배포 단위다. 따로 배포되고 따로 죽는 것이 따로 있는다. `packages/*`가 곧 배포 단위이며
 언어는 축이 아니다.
 
@@ -76,6 +91,19 @@ adapter      →  port, model, config, support, 외부 SDK
 model        →  support
 ```
 
+```mermaid
+flowchart LR
+    IN["inbound"] --> APP["application"]
+    APP --> PORT["port"]
+    PORT --> MODEL["model"]
+    ADP["adapter"] --> PORT
+    ADP --> MODEL
+    IN --> MODEL
+    APP --> MODEL
+```
+
+`application`은 `adapter`를 모른다. 화살표가 없는 방향은 금지다.
+
 `application`은 `adapter`를 모른다. `model`과 `port`는 프레임워크를 모른다.
 `adapter`는 `application`과 `inbound`를 모른다.
 
@@ -99,6 +127,17 @@ support  ↛  config, domain
 server ⊥ web ⊥ runtime ⊥ agents      직접 import 금지. 예외 없음
 넷 다 kernel만 공유한다
 kernel은 어느 배포 단위도 알지 않는다
+```
+
+```mermaid
+flowchart TD
+    SV["server"] --> K["kernel"]
+    WB["web"] --> K
+    RT["runtime"] --> K
+    AG["agents"] -.->|계약 픽스처를 테스트로 읽는다| K
+    SV x--x WB
+    WB x--x RT
+    RT x--x SV
 ```
 
 ## 5. config와 support
@@ -150,6 +189,38 @@ IO와 배선이 있고 도메인 어휘가 없다.
 번역이 필요할 때 쓴다.
 
 ## 8. 배포 단위
+
+배포 단위는 아홉이고 셋으로 갈린다. 원장에 쓰는 쪽, 읽기 모델을 만들고 읽는 쪽, 그리고
+사용자의 기계에서 도는 쪽이다.
+
+```mermaid
+flowchart TB
+    subgraph local["사용자의 기계"]
+        RT["runtime"]
+    end
+    subgraph srv["server"]
+        RA["runtime-api<br/><small>쓰기 전용</small>"]
+        PJ["projector<br/><small>투영</small>"]
+        TA["tracer-api<br/><small>조회·잡</small>"]
+        AW["ai-agent-worker<br/><small>오케스트레이션</small>"]
+        PF["libs/platform"]
+        TD["libs/tracer-domain"]
+    end
+    AG["agents<br/><small>Python</small>"]
+    WB["web"]
+
+    RT --> RA
+    RA --> PJ
+    PJ --> TD
+    TA --> TD
+    AW --> TD
+    AW <--> AG
+    WB --> TA
+    RA -.-> PF
+    TA -.-> PF
+    PJ -.-> PF
+    AW -.-> PF
+```
 
 ### kernel
 

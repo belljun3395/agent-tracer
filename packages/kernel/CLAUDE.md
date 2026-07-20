@@ -9,9 +9,13 @@
 
 - `ingest/`: 이벤트 종류·계약 버전·수집 스키마. 골든 픽스처 테스트가 여기 산다.
 - `rule/definition` `rule/evaluation` `rule/proposal`: 규칙 정의·판정·제안 계약.
-- `recipe/` `task/` `timeline/`: 레시피·태스크·타임라인 계약.
+- `recipe/` `task/` `timeline/` `memo/` `tag/`: 레시피·태스크·타임라인·메모·태그 계약.
 - `job/` `agent/` `notification/` `settings/` `session/` `user/`: 잡·에이전트·알림·설정·세션·사용자 계약.
 - `api/` `kafka/` `daemon/` `cleanup/` `observability/`: 경계 넘는 요청·브로커 토픽·소켓 계약·정리 정책·관측 어휘.
+
+`agent/__fixtures__/`가 두 실행 백엔드의 계약을 소유한다. 도구 인자·출력 스키마·예산·합격
+기준이 여기 있고 TypeScript와 Python의 테스트가 같은 파일을 읽는다. 한쪽만 고치면 그쪽이
+깨진다.
 
 ## 이 패키지만의 제약
 

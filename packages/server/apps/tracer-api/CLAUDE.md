@@ -9,6 +9,24 @@
 `health` `memo` `tag` 열세 개다. 각 슬라이스는
 `{inbound,application,port,adapter,model}` 뼈대를 따르되 쓰는 계층만 둔다.
 
+| 슬라이스 | 노출하는 경로 |
+|---|---|
+| `task` | `/api/v1/tasks`, `/api/v1/tasks/:taskId`(+`children` `turns` `user-inputs` `archive` `openinference`) |
+| `timeline` | `/api/v1/tasks/:taskId/timeline`, `/api/v1/tasks/:taskId/verifications` |
+| `rule` | `/api/v1/rules`(+`:id` `approve` `reevaluate` `nudge` `:ruleId/evidence`) |
+| `recipe` | `/api/v1/recipes`(+`applications` `:id` `accept` `dismiss` `outcome` `retire`) |
+| `job` | `/api/v1/jobs`(+`history` `latest` `:id` `steps` `cancel` `start` `lease` `release` `results` `fail`) |
+| `search` | `/api/v1/tasks/search`, `/api/v1/events/search` |
+| `memo` | `/api/v1/memos`, `/api/v1/memos/:id` |
+| `tag` | `/api/v1/tags`, `/api/v1/tags/:id`, `/api/v1/task-tags` |
+| `cleanup` | `/api/v1/task-cleanup/suggestions`(+`accept` `dismiss`) |
+| `settings` | `/api/v1/settings`, `/api/v1/settings/:key` |
+| `user` | `/api/v1/users/me`, `/api/v1/users/onboarding` |
+| `session` | `/api/v1/session`, WebSocket `/ws` |
+| `health` | `/health`, `/health/ready`, `/api/v1/daemon-health` |
+
+메모·규칙·태그처럼 다른 배포 단위가 함께 부르는 경로는 커널의 상수가 소유한다.
+
 ## 이 패키지만의 제약
 
 - `job`이 `@monitor/platform`의 Temporal 클라이언트 포트로 AI 잡 워크플로를 등록한다.

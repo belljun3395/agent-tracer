@@ -32,16 +32,19 @@
 지난(기본값, `PROJECTOR_AI_JOB_STEP_RETENTION_MS`) recipe-scan 잡 궤적을 최대 1,000건씩
 어드바이저리 락 아래에서 지운다. 이 30일은 코드가 실제로 강제하는 값이며 제안이 아니다.
 `ai_jobs`, `agent_completion_inbox`, `rules`, `recipes`, `app_settings`, `users`,
-`task_user_state`, `task_cleanup_suggestions`, `daemon_health`에는 자동 삭제가 없다.
+`task_user_state`, `task_cleanup_suggestions`, `daemon_health`, `memos`, `tags`,
+`task_tags`에는 자동 삭제가 없다.
 `ai_jobs`의 `lease_expires_at`과 `agent_completion_inbox`의 `expires_at`은 리스 회수와
 콜백 만료라는 업무 상태 전이에 쓰일 뿐 행을 지우지 않으므로, 두 테이블 모두 무기한 쌓인다.
 `search_outbox`는 검색 색인에 반영된 뒤 지워지는 큐이므로 장기 보존 대상이 아니다. 각
 테이블의 삭제 여부와 기간은 그 엔티티의 스키마를 소유한 배포 단위가 정한다. tracer-api가
 쓰는 `rules`, `recipes`, `app_settings`, `users`, `task_user_state`,
-`task_cleanup_suggestions`는 tracer-api가, projector가 쓰는 `ai_jobs`,
-`agent_completion_inbox`, `daemon_health`는 projector가 소유자다. 이 문서는 값을
+`task_cleanup_suggestions`, `memos`, `tags`, `task_tags`는 tracer-api가, projector가 쓰는
+`ai_jobs`, `agent_completion_inbox`, `daemon_health`는 projector가 소유자다. 이 문서는 값을
 제안한다: 사용자가 명시적으로 만들거나 바꾼 상태(`rules`, `recipes`, `app_settings`,
-`users`, `task_user_state`)는 사용자가 지우기 전까지 무기한 보존을 제안한다. 판정이 끝난
+`users`, `task_user_state`, `memos`, `tags`, `task_tags`)는 사용자가 지우기 전까지 무기한
+보존을 제안한다. 태그는 살아 있는 태스크를 거르는 수단이고 메모는 사람이 남긴 맥락이므로,
+둘 다 사용자가 지우기 전까지 남는 것이 기대에 맞는다. 판정이 끝난
 `task_cleanup_suggestions`(수락 또는 기각)는 재사용 가치가 낮으므로 종결 후 90일 삭제를
 제안한다. 운영 상태에 가까운 `agent_completion_inbox`의 종결 행과 `daemon_health`는
 30일 삭제를 제안한다. `ai_jobs`는 사용자에게 실행 이력으로 보여지므로 무기한 보존을
@@ -91,8 +94,8 @@ projector가 내린다.
   정하지 못해 비활성화만 해둔 것인지는 코드에 남아있지 않다. runtime-api가 이 값을
   확정해야 한다.
 - `ai_jobs`, `agent_completion_inbox`, `rules`, `recipes`, `app_settings`, `users`,
-  `task_user_state`, `task_cleanup_suggestions`, `daemon_health`에는 자동 삭제가 없고
-  무기한 쌓인다. 이 문서가 제안한 기간(사용자 상태는 무기한, 종결된 제안은 90일, 운영성
+  `task_user_state`, `task_cleanup_suggestions`, `daemon_health`, `memos`, `tags`,
+  `task_tags`에는 자동 삭제가 없고 무기한 쌓인다. 이 문서가 제안한 기간(사용자 상태는 무기한, 종결된 제안은 90일, 운영성
   기록은 30일)은 확정값이 아니며 각 테이블을 소유한 배포 단위가 채택하거나 다른 값으로
   바꿀 수 있다.
 - `tasks`와 `recipes` 검색 색인에는 자동 삭제가 없다. 문서 수가 적어 당장 급하지 않지만
