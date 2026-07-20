@@ -1,6 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { ModelUsage, SDKResultError } from "@anthropic-ai/claude-agent-sdk";
 import { GEN_AI_PROVIDER, type AiJobStepToolCall } from "@monitor/kernel";
+import { logWarn } from "~ai-agent-worker/support/log.js";
 import { AGENT_ERROR_SUBTYPE } from "~ai-agent-worker/support/llm/agent.error.js";
 import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.js";
 import { buildAgentEnv } from "./claude.env.js";
@@ -149,6 +150,19 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                     } else {
                         errorSubtype = normalizeClaudeResultSubtype(msg.subtype);
                         errorSummary = `${msg.subtype}${msg.errors.length > 0 ? `: ${msg.errors.join("; ")}` : ""}`;
+                        if (msg.subtype === "error_max_budget_usd" || msg.subtype === "error_max_turns") {
+                            logWarn({
+                                msg: "agent.query.exhausted",
+                                reason: msg.subtype,
+                                label: request.label,
+                                jobId: request.jobId ?? null,
+                                model: request.model,
+                                turns: numTurns,
+                                maxTurns: request.maxTurns,
+                                costUsd,
+                                maxBudgetUsd: request.maxBudgetUsd ?? null,
+                            });
+                        }
                     }
                     break;
                 }
@@ -183,7 +197,7 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
             // Agent SDK는 공급자 요청 식별자를 노출하지 않는다.
             providerRequestId: null,
         };
-        logAgentQuery(request.label, GEN_AI_PROVIDER.anthropic, request.model, result);
+        logAgentQuery(request.label, GEN_AI_PROVIDER.anthropic, request.model, result, request.jobId);
         return result;
     }
 }

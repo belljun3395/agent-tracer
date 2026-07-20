@@ -34,7 +34,7 @@ import { ClaudeQueryRunner } from "~ai-agent-worker/config/llm/claude.query.runn
 import { AgentGraphClient } from "~ai-agent-worker/config/llm/graph.client.js";
 import { AgentCompletionServer } from "~ai-agent-worker/config/llm/agent.completion.server.js";
 import { DurableCompletionInbox } from "~ai-agent-worker/config/llm/durable.completion.inbox.js";
-import { errorMessage, logError, logInfo } from "~ai-agent-worker/config/log.js";
+import { errorMessage, logError, logInfo } from "~ai-agent-worker/support/log.js";
 import { createNotificationPublisher } from "~ai-agent-worker/config/notification.js";
 import { createTemporalWorkers } from "~ai-agent-worker/config/temporal.worker.js";
 import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
@@ -65,6 +65,8 @@ import { FinalizeTitleSuggestionUsecase } from "~ai-agent-worker/domain/title/ap
 import { PrepareTitleSuggestionUsecase } from "~ai-agent-worker/domain/title/application/prepare.title.suggestion.usecase.js";
 import { SuggestTitleUsecase } from "~ai-agent-worker/domain/title/application/suggest.title.usecase.js";
 import { TitleActivity } from "~ai-agent-worker/domain/title/inbound/title.activity.js";
+
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function bootstrap(): Promise<void> {
     const config = loadApplicationConfig();
@@ -183,9 +185,18 @@ async function bootstrap(): Promise<void> {
     try {
         await workers.run();
     } finally {
-        await producer.disconnect().catch(() => undefined);
-        await workers.close().catch(() => undefined);
-        await dataSource.destroy().catch(() => undefined);
+        const forceExit = setTimeout(() => {
+            logError({ msg: "ai-agent-worker.shutdown.timeout" });
+            process.exit(1);
+        }, SHUTDOWN_TIMEOUT_MS);
+        forceExit.unref();
+        await producer.disconnect().catch((error: unknown) =>
+            logError({ msg: "ai-agent-worker.shutdown.producer.failed", error: errorMessage(error) }));
+        await workers.close().catch((error: unknown) =>
+            logError({ msg: "ai-agent-worker.shutdown.worker.failed", error: errorMessage(error) }));
+        await dataSource.destroy().catch((error: unknown) =>
+            logError({ msg: "ai-agent-worker.shutdown.datasource.failed", error: errorMessage(error) }));
+        clearTimeout(forceExit);
     }
 }
 

@@ -1,4 +1,5 @@
 import { ApplicationFailure, Context } from "@temporalio/activity";
+import { errorMessage, logError, logInfo, logWarn } from "~ai-agent-worker/support/log.js";
 import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
 import { isNonRetryableCleanupError } from "~ai-agent-worker/domain/cleanup/model/cleanup.error.js";
 import type {
@@ -25,13 +26,13 @@ export class CleanupActivity {
     ) {}
 
     prepareTaskCleanup = async (input: TaskCleanupInput): Promise<TaskCleanupPrep> =>
-        this.guard(() => this.prepare.execute(input));
+        this.guard("prepareTaskCleanup", input.jobId, () => this.prepare.execute(input));
 
     generateTaskCleanupSuggestions = async (prep: TaskCleanupPrep): Promise<TaskCleanupGenerateOutput> => {
         const ctx = Context.current();
         const heartbeat = setInterval(() => Context.current().heartbeat(), HEARTBEAT_MS);
         try {
-            return await this.guard(() =>
+            return await this.guard("generateTaskCleanupSuggestions", prep.jobId, () =>
                 this.suggest.execute(prep, {
                     attempt: ctx.info.attempt,
                     idempotencyKey: `${ctx.info.workflowExecution?.workflowId ?? prep.jobId}-${ctx.info.activityId}`,
@@ -44,20 +45,35 @@ export class CleanupActivity {
     };
 
     finalizeTaskCleanup = async (input: TaskCleanupFinalizeInput): Promise<void> =>
-        this.guard(() => this.finalize.execute(input));
+        this.guard("finalizeTaskCleanup", input.jobId, () => this.finalize.execute(input));
 
     markCleanupJobFailed = async (input: FailCleanupJobInput): Promise<void> =>
-        this.guard(() => this.fail.execute(input));
+        this.guard("markCleanupJobFailed", input.jobId, () => this.fail.execute(input));
 
-    private async guard<T>(run: () => Promise<T>): Promise<T> {
+    private async guard<T>(activity: string, jobId: string, run: () => Promise<T>): Promise<T> {
+        const attempt = Context.current().info.attempt;
+        const startedAt = Date.now();
         try {
-            return await run();
+            const result = await run();
+            logInfo({ msg: "activity.completed", activity, jobId, attempt, durationMs: Date.now() - startedAt });
+            return result;
         } catch (err) {
+            const durationMs = Date.now() - startedAt;
             if (!(err instanceof Error)) throw err;
             if (isNonRetryableCleanupError(err)) {
+                logError({ msg: "activity.abandoned", activity, jobId, attempt, durationMs, error: errorMessage(err) });
                 throw ApplicationFailure.nonRetryable(err.message, err.name, err);
             }
             if (err instanceof AgentExecutionFailure && err.retryAfterMs !== null) {
+                logWarn({
+                    msg: "activity.rate_limited",
+                    activity,
+                    jobId,
+                    attempt,
+                    durationMs,
+                    nextRetryDelay: err.retryAfterMs,
+                    error: errorMessage(err),
+                });
                 throw ApplicationFailure.create({
                     message: err.message,
                     type: err.name,
@@ -66,6 +82,7 @@ export class CleanupActivity {
                     nextRetryDelay: err.retryAfterMs,
                 });
             }
+            logError({ msg: "activity.failed", activity, jobId, attempt, durationMs, error: errorMessage(err) });
             throw err;
         }
     }

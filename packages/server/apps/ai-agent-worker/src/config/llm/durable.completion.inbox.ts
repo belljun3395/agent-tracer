@@ -5,6 +5,7 @@ import {
     type CompletionInboxStatus,
 } from "@monitor/tracer-domain";
 import type { AgentCompletionInboxRepository } from "@monitor/tracer-domain";
+import { logWarn } from "~ai-agent-worker/support/log.js";
 
 export { COMPLETION_INBOX_STATUS } from "@monitor/tracer-domain";
 
@@ -72,6 +73,7 @@ export class DurableCompletionInbox implements CompletionInbox {
             return entryOf(entry);
         }
         await this.repository.closePending(entry.runKey, "expired", this.now());
+        logWarn({ msg: "completion.inbox.expired", runKey: entry.runKey, expiresAt: entry.expiresAt.toISOString() });
         return { status: COMPLETION_INBOX_STATUS.expired, response: null };
     }
 }

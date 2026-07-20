@@ -1,4 +1,5 @@
 import { ApplicationFailure, Context } from "@temporalio/activity";
+import { errorMessage, logError, logInfo, logWarn } from "~ai-agent-worker/support/log.js";
 import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
 import { isNonRetryableRecipeError } from "~ai-agent-worker/domain/recipe/model/recipe.error.js";
 import type {
@@ -25,13 +26,13 @@ export class RecipeActivity {
     ) {}
 
     prepareRecipeScan = async (input: RecipeScanInput): Promise<RecipeScanPrep> =>
-        this.guard(() => this.prepare.execute(input));
+        this.guard("prepareRecipeScan", input.jobId, () => this.prepare.execute(input));
 
     generateRecipeCandidates = async (prep: RecipeScanPrep): Promise<RecipeScanGenerateOutput> => {
         const ctx = Context.current();
         const heartbeat = setInterval(() => Context.current().heartbeat(), HEARTBEAT_MS);
         try {
-            return await this.guard(() =>
+            return await this.guard("generateRecipeCandidates", prep.jobId, () =>
                 this.scan.execute(prep, {
                     attempt: ctx.info.attempt,
                     idempotencyKey: `${ctx.info.workflowExecution?.workflowId ?? prep.jobId}-${ctx.info.activityId}`,
@@ -44,20 +45,35 @@ export class RecipeActivity {
     };
 
     finalizeRecipeScan = async (input: RecipeScanFinalizeInput): Promise<void> =>
-        this.guard(() => this.finalize.execute(input));
+        this.guard("finalizeRecipeScan", input.jobId, () => this.finalize.execute(input));
 
     markRecipeJobFailed = async (input: FailRecipeJobInput): Promise<void> =>
-        this.guard(() => this.fail.execute(input));
+        this.guard("markRecipeJobFailed", input.jobId, () => this.fail.execute(input));
 
-    private async guard<T>(run: () => Promise<T>): Promise<T> {
+    private async guard<T>(activity: string, jobId: string, run: () => Promise<T>): Promise<T> {
+        const attempt = Context.current().info.attempt;
+        const startedAt = Date.now();
         try {
-            return await run();
+            const result = await run();
+            logInfo({ msg: "activity.completed", activity, jobId, attempt, durationMs: Date.now() - startedAt });
+            return result;
         } catch (err) {
+            const durationMs = Date.now() - startedAt;
             if (!(err instanceof Error)) throw err;
             if (isNonRetryableRecipeError(err)) {
+                logError({ msg: "activity.abandoned", activity, jobId, attempt, durationMs, error: errorMessage(err) });
                 throw ApplicationFailure.nonRetryable(err.message, err.name, err);
             }
             if (err instanceof AgentExecutionFailure && err.retryAfterMs !== null) {
+                logWarn({
+                    msg: "activity.rate_limited",
+                    activity,
+                    jobId,
+                    attempt,
+                    durationMs,
+                    nextRetryDelay: err.retryAfterMs,
+                    error: errorMessage(err),
+                });
                 throw ApplicationFailure.create({
                     message: err.message,
                     type: err.name,
@@ -66,6 +82,7 @@ export class RecipeActivity {
                     nextRetryDelay: err.retryAfterMs,
                 });
             }
+            logError({ msg: "activity.failed", activity, jobId, attempt, durationMs, error: errorMessage(err) });
             throw err;
         }
     }

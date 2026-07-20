@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { logInfo, logWarn } from "~ai-agent-worker/support/log.js";
 import {
     COMPLETION_PATH,
     badRequestMessage,
@@ -53,7 +54,12 @@ export class AgentCompletionServer {
         const accepted = await this.completionInbox.accept(body.token, body.response);
         if (accepted === "accepted") return send(res, 200, { accepted: true });
         // 완료 결과는 pending inbox만 수락해 취소·만료 뒤 늦은 결과를 버린다.
-        if (accepted === "duplicate") return send(res, 200, { accepted: true, duplicate: true });
+        if (accepted === "duplicate") {
+            logInfo({ msg: "completion.callback.duplicate" });
+            return send(res, 200, { accepted: true, duplicate: true });
+        }
+        // 늦게 도착한 콜백이 이미 닫힌(취소·만료) 창구나 알 수 없는 토큰과 만나 유료 결과가 버려지는 경로다.
+        logWarn({ msg: "completion.callback.rejected", outcome: accepted });
         return send(res, accepted === "unknown" ? 403 : 409, { error: "completion callback is closed" });
     }
 }
