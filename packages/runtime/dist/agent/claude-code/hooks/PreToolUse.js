@@ -55,10 +55,13 @@ var SEVERITY_RANK = {
 };
 
 // src/domain/hint/model/hint.model.ts
+var MAX_ANNOUNCED_HINTS = 4;
+var SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 function formatHintsContext(hints) {
   if (hints.length === 0) return "";
+  const shown = [...hints].sort((left, right) => SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]).slice(0, MAX_ANNOUNCED_HINTS);
   const lines = ["<agent-tracer-preprocessing>"];
-  for (const hint of hints) {
+  for (const hint of shown) {
     const icon = hint.severity === "critical" ? "\u26D4" : hint.severity === "warning" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
     lines.push(`${icon} [${hint.type}] ${hint.title}`);
     lines.push(`   ${hint.message}`);

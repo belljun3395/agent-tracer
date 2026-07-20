@@ -94,10 +94,13 @@ function describeExpectation(expectation) {
 }
 
 // src/domain/hint/model/hint.model.ts
+var MAX_ANNOUNCED_HINTS = 4;
+var SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 function formatHintsContext(hints) {
   if (hints.length === 0) return "";
+  const shown = [...hints].sort((left, right) => SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]).slice(0, MAX_ANNOUNCED_HINTS);
   const lines = ["<agent-tracer-preprocessing>"];
-  for (const hint of hints) {
+  for (const hint of shown) {
     const icon = hint.severity === "critical" ? "\u26D4" : hint.severity === "warning" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
     lines.push(`${icon} [${hint.type}] ${hint.title}`);
     lines.push(`   ${hint.message}`);
@@ -114,9 +117,9 @@ function emitAgentContext(hookEventName, input) {
     input.recipeContext,
     input.titleNudge
   ].filter((section) => section !== "");
-  if (sections.length === 0) return { emitted: false, recipeBytes: 0 };
+  if (sections.length === 0) return false;
   writeStdout({ hookSpecificOutput: { hookEventName, additionalContext: sections.join("\n") } });
-  return { emitted: true, recipeBytes: Buffer.byteLength(input.recipeContext, "utf8") };
+  return true;
 }
 function writeStdout(value) {
   process.stdout.write(`${JSON.stringify(value)}
@@ -586,11 +589,9 @@ function parseDaemonVersionResponse(value) {
 function isDaemonAckResponse(value) {
   return isRecord(value) && value["ok"] === true;
 }
-function parseDaemonHintsResponse(value) {
-  return isRecord(value) && Array.isArray(value["hints"]) ? { hints: value["hints"] } : null;
-}
-function parseDaemonRulesResponse(value) {
-  return isRecord(value) && Array.isArray(value["rules"]) ? { rules: value["rules"] } : null;
+function parseDaemonPromptContextResponse(value) {
+  if (!isRecord(value) || !Array.isArray(value["rules"]) || !Array.isArray(value["hints"])) return null;
+  return { rules: value["rules"], hints: value["hints"] };
 }
 
 // src/daemon/lifecycle/daemon.version.ts
@@ -673,6 +674,7 @@ async function waitUntilSocketFree(socketPath, timeoutMs = SOCKET_FREE_TIMEOUT_M
 
 // src/daemon/ipc/hook.client.ts
 var HINTS_TIMEOUT_MS = 500;
+var EMPTY_PROMPT_CONTEXT = { rules: [], hints: [] };
 var SOURCE_LOADER = "@swc-node/register/esm-register";
 function daemonEntry() {
   const root = resolveRuntimeRoot();
@@ -715,36 +717,24 @@ async function ensureDaemonRunning(env = process.env) {
   const paths = resolveAgentTracerPaths(env);
   if (await resolveDaemonAction(paths) === "spawn") spawnDaemon(paths);
 }
-async function queryDaemonHints(taskId, request) {
-  if (!taskId) return [];
+async function queryDaemonPromptContext(taskId) {
+  if (!taskId) return EMPTY_PROMPT_CONTEXT;
   const paths = resolveAgentTracerPaths();
   try {
     return await requestDaemon(
       paths.socketPath,
-      { type: "hints", taskId, request },
+      {
+        type: "prompt-context",
+        taskId,
+        request: { trigger: "user_prompt" }
+      },
       HINTS_TIMEOUT_MS,
-      (parsed) => parseDaemonHintsResponse(parsed)?.hints ?? [],
-      []
+      (parsed) => parseDaemonPromptContextResponse(parsed) ?? EMPTY_PROMPT_CONTEXT,
+      EMPTY_PROMPT_CONTEXT
     );
   } catch {
     void ensureDaemonRunning();
-    return [];
-  }
-}
-async function queryDaemonRules(taskId) {
-  if (!taskId) return [];
-  const paths = resolveAgentTracerPaths();
-  try {
-    return await requestDaemon(
-      paths.socketPath,
-      { type: "rules", taskId },
-      HINTS_TIMEOUT_MS,
-      (parsed) => parseDaemonRulesResponse(parsed)?.rules ?? [],
-      []
-    );
-  } catch {
-    void ensureDaemonRunning();
-    return [];
+    return EMPTY_PROMPT_CONTEXT;
   }
 }
 
@@ -4128,13 +4118,12 @@ function onRecipeScanRequested(hook, request) {
 }
 
 // src/domain/session/model/task.title.nudge.model.ts
-function formatTitleNudge(sessionId) {
+function formatTitleNudge() {
   return [
     "<agent-tracer-task-title>",
     "This task just opened with a crude placeholder title.",
-    `Your sessionId is ${sessionId}.`,
-    `If the work ahead is already scoped and worth tracking on its own, call the \`set_task_title\` tool now, before doing anything else, passing sessionId exactly as ${sessionId}.`,
-    "If this is a trivial, throwaway, or one-off question, skip it \u2014 that judgment call is yours.",
+    "If the work ahead is already scoped and worth tracking on its own, call `set_task_title` now.",
+    "If this is a trivial or one-off question, skip it \u2014 that judgment call is yours.",
     "</agent-tracer-task-title>"
   ].join("\n");
 }
@@ -4192,16 +4181,13 @@ await runHook("UserPromptSubmit", {
       eventId,
       prompt: payload.prompt
     });
-    const [rules, hints] = await Promise.all([
-      queryDaemonRules(target.taskId),
-      queryDaemonHints(target.taskId, { trigger: "user_prompt" })
-    ]);
+    const { rules, hints } = await queryDaemonPromptContext(target.taskId);
     const recipeMenu = systemNotification ? "" : onRecipeMenu(claudeRuntime.recipe);
     emitAgentContext("UserPromptSubmit", {
       rules,
       hints,
       recipeContext: recipeMenu,
-      titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge(payload.sessionId) : ""
+      titleNudge: target.firstTitling && !systemNotification ? formatTitleNudge() : ""
     });
   }
 });

@@ -28523,7 +28523,6 @@ var KIND = {
 };
 var TERMINAL_COMMAND_TOOL_NAME = "Bash";
 var POWERSHELL_TOOL_NAME = "PowerShell";
-var ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
 function toolNameOf(event) {
   const fromMetadata = event.metadata[SEMCONV_ATTR.toolName];
   if (typeof fromMetadata === "string" && fromMetadata.trim()) return fromMetadata;
@@ -29026,755 +29025,28 @@ function readVerdictStatus(value) {
   return VERDICT_STATUSES.find((status) => status === value) ?? null;
 }
 
-// src/domain/ingest/model/command.target.model.ts
-function pathTargets(args) {
-  return args.filter((arg) => arg.length > 0 && !arg.startsWith("-") && !isLikelyExpression(arg)).map((arg) => ({ type: targetTypeForPath(arg), value: arg }));
-}
-function urlTargets(args) {
-  return args.filter((arg) => /^https?:\/\//.test(arg)).map((arg) => ({ type: "url", value: arg }));
-}
-function gitPathspecTargets(args) {
-  const separatorIndex = args.indexOf("--");
-  const candidates = separatorIndex >= 0 ? args.slice(separatorIndex + 1) : args.filter((arg) => !arg.startsWith("-") && !looksLikeGitRevision(arg));
-  return pathTargets(candidates);
-}
-function uniqueTargets(targets) {
-  const seen = /* @__PURE__ */ new Set();
-  const result = [];
-  for (const target of targets) {
-    const key = `${target.type}:${target.value}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(target);
-  }
-  return result;
-}
-function targetTypeForPath(value) {
-  if (value === "-" || value === "/dev/stdin") return "stream";
-  if (value === "." || value.endsWith("/")) return "directory";
-  if (value.includes("*")) return "path";
-  return "file";
-}
-function containsComplexShell(command) {
-  return command.includes("$(") || command.includes("`") || command.includes("<<");
-}
-function isLikelyExpression(value) {
-  return /^[0-9,$/{}().*+?[\\\]^]+p?$/.test(value);
-}
-function looksLikeGitRevision(value) {
-  return value === "HEAD" || /^[A-Fa-f0-9]{7,40}$/.test(value) || value.includes("..");
-}
-
-// src/domain/ingest/model/command.classifier.model.ts
-var READ_COMMANDS = /* @__PURE__ */ new Set(["cat", "head", "tail", "wc", "stat", "file", "which", "whereis"]);
-var LIST_COMMANDS = /* @__PURE__ */ new Set(["pwd", "ls", "tree"]);
-var SEARCH_COMMANDS = /* @__PURE__ */ new Set(["rg", "grep", "fd", "find"]);
-var STREAM_TRANSFORM_COMMANDS = /* @__PURE__ */ new Set(["head", "tail", "wc", "sort"]);
-var DESTRUCTIVE_COMMANDS = /* @__PURE__ */ new Set(["rm", "rmdir"]);
-var WRITE_COMMANDS = /* @__PURE__ */ new Set(["mv", "cp", "chmod", "chown", "mkdir", "touch"]);
-var NETWORK_COMMANDS = /* @__PURE__ */ new Set(["curl", "wget"]);
-var DANGEROUS_ARG_PATTERNS = [/\bdrop\s+(table|database)\b/i];
-function hasDangerousArgs(raw) {
-  return DANGEROUS_ARG_PATTERNS.some((pattern) => pattern.test(raw));
-}
-function buildBaseStep(part, commandName, redirects) {
-  return {
-    raw: part.raw,
-    commandName,
-    operation: "unknown",
-    targets: redirects.map((redirect) => redirect.target),
-    effect: "unknown",
-    confidence: containsComplexShell(part.raw) ? "low" : "medium",
-    ...part.operatorFromPrevious ? { operatorFromPrevious: part.operatorFromPrevious } : {},
-    ...redirects.length > 0 ? { redirects } : {}
-  };
-}
-function withStep(base, patch) {
-  return {
-    ...base,
-    ...patch,
-    targets: uniqueTargets([...base.targets, ...patch.targets ?? []])
-  };
-}
-function analyzeSed(base, args) {
-  const lineRange = args.map(extractSedLineRange).find((value) => value !== void 0);
-  const targets = pathTargets(
-    args.filter((arg) => !arg.startsWith("-") && extractSedLineRange(arg) === void 0)
-  );
-  const inPlace = args.some((arg) => arg === "--in-place" || arg.startsWith("--in-place=") || /^-i/.test(arg));
-  if (inPlace) {
-    return withStep(base, {
-      operation: "edit_in_place",
-      effect: "write",
-      targets,
-      confidence: targets.length > 0 ? "high" : "medium",
-      ...lineRange ? { selectors: { lineRange } } : {}
-    });
-  }
-  return withStep(base, {
-    operation: lineRange ? "read_range" : "read_file",
-    effect: "read_only",
-    targets,
-    confidence: targets.length > 0 ? "high" : "medium",
-    ...lineRange ? { selectors: { lineRange } } : {}
-  });
-}
-function analyzeSearch(base, args) {
-  const pattern = args.find((arg) => !arg.startsWith("-"));
-  const targetArgs = pattern ? args.slice(args.indexOf(pattern) + 1) : args;
-  return withStep(base, {
-    operation: "search",
-    effect: "read_only",
-    targets: pathTargets(targetArgs),
-    confidence: "high",
-    ...pattern ? { selectors: { pattern } } : {}
-  });
-}
-function analyzeFind(base, args) {
-  const targets = [];
-  for (const arg of args) {
-    if (arg.startsWith("-") || isFindExpressionValue(arg)) break;
-    targets.push({ type: targetTypeForPath(arg), value: arg });
-  }
-  const resolvedTargets = targets.length > 0 ? targets : [{ type: "directory", value: "." }];
-  const action = findAction(args);
-  if (action) {
-    return withStep(base, { operation: action.operation, effect: action.effect, targets: resolvedTargets, confidence: "high" });
-  }
-  return withStep(base, { operation: "search", effect: "read_only", targets: resolvedTargets, confidence: "high" });
-}
-var FIND_EXEC_ACTIONS = /* @__PURE__ */ new Set(["-exec", "-execdir", "-ok", "-okdir"]);
-var FIND_DESTRUCTIVE_EXEC = /* @__PURE__ */ new Set(["rm", "rmdir", "unlink"]);
-function findAction(args) {
-  if (args.includes("-delete")) return { operation: "delete_file", effect: "destructive" };
-  const execIndex = args.findIndex((arg) => FIND_EXEC_ACTIONS.has(arg));
-  if (execIndex < 0) return null;
-  const execCommand = args[execIndex + 1];
-  if (execCommand !== void 0 && FIND_DESTRUCTIVE_EXEC.has(execCommand)) {
-    return { operation: "delete_file", effect: "destructive" };
-  }
-  return { operation: "execute", effect: "write" };
-}
-function analyzeRipgrep(base, args) {
-  const filesMode = args.includes("--files");
-  const optionsWithValue = /* @__PURE__ */ new Set(["-g", "--glob", "--type", "-t", "--type-not", "-T", "-e", "--regexp"]);
-  const positional = stripOptionArguments(args, optionsWithValue).filter((arg) => !arg.startsWith("-"));
-  if (filesMode) {
-    return withStep(base, {
-      operation: "list",
-      effect: "read_only",
-      targets: positional.length > 0 ? pathTargets(positional) : [{ type: "directory", value: "." }],
-      confidence: "high"
-    });
-  }
-  const [pattern, ...targetArgs] = positional;
-  return withStep(base, {
-    operation: "search",
-    effect: "read_only",
-    targets: targetArgs.length > 0 ? pathTargets(targetArgs) : [],
-    confidence: "high",
-    ...pattern ? { selectors: { pattern } } : {}
-  });
-}
-function analyzeRead(base, args) {
-  const targets = pathTargets(args);
-  return withStep(base, {
-    operation: "read_file",
-    effect: "read_only",
-    targets,
-    confidence: targets.length > 0 ? "high" : "medium"
-  });
-}
-function analyzeList(base, args) {
-  const targets = pathTargets(args);
-  return withStep(base, {
-    operation: "list",
-    effect: "read_only",
-    targets: targets.length > 0 ? targets : [{ type: "directory", value: "." }],
-    confidence: "high"
-  });
-}
-function analyzeStreamTransform(base, args) {
-  const targets = pathTargets(args);
-  return withStep(base, {
-    operation: base.commandName === "sort" ? "sort_output" : "limit_output",
-    effect: "read_only",
-    targets: targets.length > 0 ? targets : [{ type: "stream", value: "stdin" }],
-    confidence: "medium"
-  });
-}
-function extractSedLineRange(arg) {
-  const match = arg.match(/^(\d+)(?:,(\d+))?p$/);
-  if (!match) return void 0;
-  return match[2] ? `${match[1]},${match[2]}` : match[1];
-}
-function stripOptionArguments(args, optionsWithValue) {
-  const result = [];
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (optionsWithValue.has(arg)) {
-      index += 1;
-      continue;
-    }
-    if ([...optionsWithValue].some((option) => arg.startsWith(`${option}=`))) continue;
-    result.push(arg);
-  }
-  return result;
-}
-function isFindExpressionValue(arg) {
-  return arg === "!" || arg === "(" || arg === ")" || arg === "{}" || arg === ";";
-}
-
-// src/domain/ingest/model/command.git.model.ts
-function analyzeGit(base, args) {
-  const subcommand = args[0];
-  if (!subcommand) return withStep(base, { operation: "unknown", effect: "unknown", confidence: "medium" });
-  if (["status", "log", "show"].includes(subcommand)) {
-    return withStep(base, {
-      subcommand,
-      operation: subcommand === "status" ? "inspect_status" : "inspect_history",
-      effect: "read_only",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  if (subcommand === "diff") {
-    return withStep(base, {
-      subcommand,
-      operation: "inspect_diff",
-      effect: "read_only",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  if (["add", "commit", "restore", "checkout", "switch", "merge", "rebase", "reset"].includes(subcommand)) {
-    return withStep(base, {
-      subcommand,
-      operation: "vcs_write",
-      effect: subcommand === "reset" ? "destructive" : "write",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  if (["push", "pull", "fetch", "clone"].includes(subcommand)) {
-    const forcePush = subcommand === "push" && hasForceFlag(args.slice(1));
-    return withStep(base, {
-      subcommand,
-      operation: subcommand === "push" ? forcePush ? "force_publish" : "publish" : "fetch_repo",
-      effect: subcommand === "push" ? forcePush ? "destructive" : "network" : "read_only",
-      targets: [],
-      confidence: "high"
-    });
-  }
-  if (subcommand === "clean") {
-    const forced = hasForceFlag(args.slice(1));
-    return withStep(base, {
-      subcommand,
-      operation: forced ? "clean_worktree" : "inspect_clean",
-      effect: forced ? "destructive" : "read_only",
-      targets: gitPathspecTargets(args.slice(1)),
-      confidence: "high"
-    });
-  }
-  return withStep(base, { subcommand, operation: "git_command", effect: "unknown", confidence: "medium" });
-}
-function hasForceFlag(args) {
-  return args.some((arg) => arg === "--force" || arg === "--force-with-lease" || arg === "--force-if-includes" || /^-[a-z]*f/.test(arg));
-}
-
-// src/domain/ingest/model/command.runner.model.ts
-var COMMAND_WRAPPERS = [
-  { name: "npx" },
-  { name: "bunx" },
-  { name: "uv", subcommand: "run" },
-  { name: "uvx" },
-  { name: "poetry", subcommand: "run" },
-  { name: "pipenv", subcommand: "run" },
-  { name: "pnpm", subcommand: "dlx" },
-  { name: "yarn", subcommand: "dlx" },
-  { name: "bun", subcommand: "run" },
-  { name: "deno", subcommand: "run" },
-  { name: "python", subcommand: "-m" },
-  { name: "python3", subcommand: "-m" }
-];
-var WRAPPER_VALUE_FLAGS = /* @__PURE__ */ new Set(["-p", "--package", "-c", "--call"]);
-var RUNNER_SPECS = [
-  { command: "vitest", operation: "run_test", effect: "execute_check" },
-  { command: "jest", operation: "run_test", effect: "execute_check" },
-  { command: "mocha", operation: "run_test", effect: "execute_check" },
-  { command: "ava", operation: "run_test", effect: "execute_check" },
-  { command: "pytest", operation: "run_test", effect: "execute_check" },
-  { command: "phpunit", operation: "run_test", effect: "execute_check" },
-  { command: "rspec", operation: "run_test", effect: "execute_check" },
-  { command: "tsc", operation: "run_build", effect: "execute_check" },
-  { command: "eslint", operation: "run_lint", effect: "execute_check" },
-  { command: "prettier", operation: "run_lint", effect: "execute_check" },
-  { command: "biome", operation: "run_lint", effect: "execute_check" },
-  { command: "ruff", operation: "run_lint", effect: "execute_check" },
-  { command: "black", operation: "run_lint", effect: "execute_check" },
-  { command: "flake8", operation: "run_lint", effect: "execute_check" },
-  { command: "mypy", operation: "run_build", effect: "execute_check" },
-  { command: "go", subcommand: "test", operation: "run_test", effect: "execute_check" },
-  { command: "go", subcommand: "build", operation: "run_build", effect: "execute_check" },
-  { command: "go", subcommand: "vet", operation: "run_lint", effect: "execute_check" },
-  { command: "cargo", subcommand: "test", operation: "run_test", effect: "execute_check" },
-  { command: "cargo", subcommand: "build", operation: "run_build", effect: "execute_check" },
-  { command: "cargo", subcommand: "check", operation: "run_build", effect: "execute_check" },
-  { command: "cargo", subcommand: "clippy", operation: "run_lint", effect: "execute_check" },
-  { command: "gradle", subcommand: "test", operation: "run_test", effect: "execute_check" },
-  { command: "gradle", subcommand: "build", operation: "run_build", effect: "execute_check" },
-  { command: "mvn", subcommand: "test", operation: "run_test", effect: "execute_check" },
-  { command: "mvn", subcommand: "package", operation: "run_build", effect: "execute_check" },
-  { command: "mvn", subcommand: "install", operation: "run_build", effect: "execute_check" },
-  { command: "make", subcommand: "test", operation: "run_test", effect: "execute_check" },
-  { command: "make", subcommand: "build", operation: "run_build", effect: "execute_check" },
-  { command: "make", subcommand: "lint", operation: "run_lint", effect: "execute_check" },
-  { command: "make", subcommand: "check", operation: "run_test", effect: "execute_check" }
-];
-function unwrapCommand(tokens) {
-  let current = tokens;
-  for (; ; ) {
-    const stripped = stripWrapperOnce(current);
-    if (stripped === null) return current;
-    current = stripped;
-  }
-}
-function stripWrapperOnce(tokens) {
-  const head = tokens[0];
-  if (head === void 0) return null;
-  const wrapper = COMMAND_WRAPPERS.find((entry) => entry.name === head);
-  if (!wrapper) return null;
-  if (wrapper.subcommand !== void 0 && tokens[1] !== wrapper.subcommand) return null;
-  const rest = tokens.slice(wrapper.subcommand !== void 0 ? 2 : 1);
-  const inner = skipLeadingFlags(rest);
-  return inner.length > 0 ? inner : null;
-}
-function skipLeadingFlags(tokens) {
-  let index = 0;
-  while (index < tokens.length) {
-    const token = tokens[index] ?? "";
-    if (!token.startsWith("-")) break;
-    index += WRAPPER_VALUE_FLAGS.has(token) ? 2 : 1;
-  }
-  return tokens.slice(index);
-}
-function runnerStepFrom(base, commandName, args) {
-  const spec = matchRunner(commandName, args[0]);
-  if (!spec) return null;
-  return withStep(base, {
-    operation: spec.operation,
-    effect: spec.effect,
-    confidence: "high",
-    ...spec.subcommand ? { subcommand: spec.subcommand } : {}
-  });
-}
-function matchRunner(commandName, firstArg) {
-  const withSubcommand = RUNNER_SPECS.find(
-    (spec) => spec.command === commandName && spec.subcommand === firstArg
-  );
-  if (withSubcommand) return withSubcommand;
-  return RUNNER_SPECS.find((spec) => spec.command === commandName && spec.subcommand === void 0);
-}
-function runnerOperationFromArgs(args) {
-  const found = /* @__PURE__ */ new Set();
-  for (let index = 0; index < args.length; index += 1) {
-    const spec = matchRunner(args[index] ?? "", args[index + 1]);
-    if (spec) found.add(spec.operation);
-  }
-  if (found.has("run_test")) return "run_test";
-  if (found.has("run_lint")) return "run_lint";
-  if (found.has("run_build")) return "run_build";
-  return void 0;
-}
-
-// src/domain/ingest/model/command.package.model.ts
-function analyzePackageManager(base, args) {
-  const workspace = extractWorkspace(args);
-  const scriptName = extractScriptName(base.commandName, args);
-  const operation = scriptOperation(scriptName, args);
-  const effect = packageManagerEffect(operation, args);
-  const targets = workspace ? [{ type: "workspace", value: workspace }] : [];
-  return withStep(base, {
-    operation,
-    effect,
-    targets,
-    confidence: operation === "run_command" ? "medium" : "high",
-    ...workspace ? { workspace } : {},
-    ...scriptName ? { scriptName } : {}
-  });
-}
-function extractWorkspace(args) {
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (arg === "--workspace" || arg === "-w") return args[index + 1];
-    const equalsMatch = arg.match(/^--workspace=(.+)$/);
-    if (equalsMatch) return equalsMatch[1];
-  }
-  return void 0;
-}
-function extractScriptName(commandName, args) {
-  const filtered = stripPackageManagerOptions(args);
-  if (commandName === "yarn" && filtered[0] && filtered[0] !== "run") return filtered[0];
-  if (filtered[0] === "run" || filtered[0] === "run-script") return filtered[1];
-  return filtered[0];
-}
-function scriptOperation(scriptName, args) {
-  const name = (scriptName ?? "").toLowerCase();
-  if (name.includes("test")) return "run_test";
-  if (name.includes("lint") || name.includes("format")) return "run_lint";
-  if (name.includes("build")) return "run_build";
-  const runnerOperation = runnerOperationFromArgs(args);
-  if (runnerOperation) return runnerOperation;
-  if (["install", "add", "i"].includes(name)) return "install_dependency";
-  if (name === "publish") return "publish";
-  return "run_command";
-}
-function packageManagerEffect(operation, args) {
-  if (operation === "install_dependency" || operation === "publish") return "network";
-  if (["run_test", "run_lint", "run_build"].includes(operation)) return "execute_check";
-  if (args.some((arg) => arg === "install" || arg === "add" || arg === "i")) return "network";
-  return "unknown";
-}
-function stripPackageManagerOptions(args) {
-  const result = [];
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (arg === "--workspace" || arg === "-w" || arg === "--prefix") {
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("--workspace=") || arg.startsWith("--prefix=")) continue;
-    if (arg.startsWith("-")) continue;
-    result.push(arg);
-  }
-  return result;
-}
-
-// src/domain/ingest/model/command.parser.model.ts
-function splitSequence(command) {
-  const parts = [];
-  let current = "";
-  let pendingOperator;
-  const state = { quote: null, escaped: false, parenDepth: 0 };
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index] ?? "";
-    const next = command[index + 1] ?? "";
-    updateShellState(state, char);
-    if (!state.quote && state.parenDepth === 0 && command[index - 1] !== "\\") {
-      const operator = char === "&" && next === "&" ? "&&" : char === "|" && next === "|" ? "||" : char === ";" ? ";" : char === "\n" ? ";" : null;
-      if (operator) {
-        pushSequencePart(parts, current, pendingOperator);
-        current = "";
-        pendingOperator = operator;
-        if (char !== "\n" && operator !== ";") index += 1;
-        continue;
-      }
-    }
-    current += char;
-  }
-  pushSequencePart(parts, current, pendingOperator);
-  return parts;
-}
-function splitPipeline(command) {
-  const parts = [];
-  let current = "";
-  const state = { quote: null, escaped: false, parenDepth: 0 };
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index] ?? "";
-    const next = command[index + 1] ?? "";
-    updateShellState(state, char);
-    if (!state.quote && state.parenDepth === 0 && char === "|" && next !== "|" && command[index - 1] !== "\\") {
-      const trimmed3 = current.trim();
-      if (trimmed3) parts.push(trimmed3);
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-  const trimmed2 = current.trim();
-  if (trimmed2) parts.push(trimmed2);
-  return parts;
-}
-function tokenizeShell(command) {
-  const tokens = [];
-  let current = "";
-  let quote = null;
-  let escaped = false;
-  for (const char of command) {
-    if (escaped) {
-      current += char;
-      escaped = false;
-      continue;
-    }
-    if (char === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (char === quote) quote = null;
-      else current += char;
-      continue;
-    }
-    if (char === "'" || char === '"') {
-      quote = char;
-      continue;
-    }
-    if (/\s/.test(char)) {
-      if (current) {
-        tokens.push(current);
-        current = "";
-      }
-      continue;
-    }
-    current += char;
-  }
-  if (current) tokens.push(current);
-  return tokens;
-}
-function extractRedirects(tokens) {
-  const cleanTokens = [];
-  const redirects = [];
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
-    const next = tokens[index + 1];
-    const attached = token.match(/^(2>>|2>|>>|>|<|&>)(.+)$/);
-    if (attached) {
-      const value = attached[2] ?? "";
-      if (value) redirects.push({ operator: attached[1] ?? token, target: redirectTarget(value) });
-      continue;
-    }
-    if (isRedirectOperator(token)) {
-      if (next && !isRedirectOperator(next)) {
-        redirects.push({ operator: token, target: redirectTarget(next) });
-        index += 1;
-      }
-      continue;
-    }
-    cleanTokens.push(token);
-  }
-  return { tokens: cleanTokens, redirects };
-}
-function isEnvAssignment(token) {
-  return /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
-}
-function redirectTarget(value) {
-  if (/^&\d*-?$/.test(value)) return { type: "stream", value };
-  const devices = ["/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr", "/dev/tty"];
-  if (devices.includes(value)) return { type: "stream", value };
-  return { type: "file", value };
-}
-function updateShellState(state, char) {
-  if (state.escaped) {
-    state.escaped = false;
-    return;
-  }
-  if (char === "\\") {
-    state.escaped = true;
-    return;
-  }
-  if (state.quote) {
-    if (char === state.quote) state.quote = null;
-    return;
-  }
-  if (char === "'" || char === '"') {
-    state.quote = char;
-    return;
-  }
-  if (char === "(") state.parenDepth += 1;
-  if (char === ")" && state.parenDepth > 0) state.parenDepth -= 1;
-}
-function pushSequencePart(parts, raw, operatorFromPrevious) {
-  const trimmed2 = raw.trim();
-  if (!trimmed2) return;
-  parts.push({ raw: trimmed2, ...operatorFromPrevious ? { operatorFromPrevious } : {} });
-}
-function isRedirectOperator(token) {
-  return ["<", ">", ">>", "2>", "2>>", "&>"].includes(token);
-}
-
-// src/domain/ingest/model/command.semantic.model.ts
-function analyzeCommand(command) {
-  const raw = command.trim();
-  if (!raw) {
-    return { raw: command, structure: "simple", overallEffect: "unknown", confidence: "low", steps: [] };
-  }
-  const sequence = splitSequence(raw);
-  const steps = sequence.map((part) => analyzeSequencePart(part));
-  const failureMasked = detectFailureMasked(sequence);
-  return {
-    raw,
-    structure: resolveStructure(sequence, steps),
-    overallEffect: combineEffects(steps.map((step) => step.effect)),
-    confidence: combineConfidence(steps.map((step) => step.confidence)),
-    steps,
-    ...failureMasked ? { failureMasked } : {}
-  };
-}
-function analyzeSequencePart(part) {
-  const pipelineParts = splitPipeline(part.raw);
-  if (pipelineParts.length > 1) {
-    const pipeline = pipelineParts.map((rawStep) => analyzeSimpleCommand({ raw: rawStep }));
-    return {
-      raw: part.raw,
-      commandName: pipeline[0]?.commandName ?? "pipeline",
-      operation: "pipeline",
-      targets: uniqueTargets(pipeline.flatMap((step) => step.targets)),
-      effect: combineEffects(pipeline.map((step) => step.effect)),
-      confidence: combineConfidence(pipeline.map((step) => step.confidence)),
-      ...part.operatorFromPrevious ? { operatorFromPrevious: part.operatorFromPrevious } : {},
-      pipeline
-    };
-  }
-  return analyzeSimpleCommand(part);
-}
-function analyzeSimpleCommand(part) {
-  const { tokens: commandTokens, redirects } = extractRedirects(tokenizeShell(part.raw));
-  const usefulTokens = unwrapCommand(commandTokens.filter((token) => !isEnvAssignment(token)));
-  const commandName = usefulTokens[0] ?? "shell";
-  const args = usefulTokens.slice(1);
-  const base = buildBaseStep(part, commandName, redirects);
-  const step = dispatchSimpleCommand(base, commandName, args, redirects, part.raw);
-  return hasDangerousArgs(part.raw) ? withStep(step, { effect: "destructive" }) : step;
-}
-function dispatchSimpleCommand(base, commandName, args, redirects, raw) {
-  if (commandName === "sed") return analyzeSed(base, args);
-  if (commandName === "git") return analyzeGit(base, args);
-  if (["npm", "pnpm", "yarn"].includes(commandName)) return analyzePackageManager(base, args);
-  const runner = runnerStepFrom(base, commandName, args);
-  if (runner) return runner;
-  if (STREAM_TRANSFORM_COMMANDS.has(commandName)) return analyzeStreamTransform(base, args);
-  if (commandName === "find") return analyzeFind(base, args);
-  if (commandName === "rg") return analyzeRipgrep(base, args);
-  if (SEARCH_COMMANDS.has(commandName)) return analyzeSearch(base, args);
-  if (READ_COMMANDS.has(commandName)) return analyzeRead(base, args);
-  if (LIST_COMMANDS.has(commandName)) return analyzeList(base, args);
-  if (DESTRUCTIVE_COMMANDS.has(commandName)) {
-    return withStep(base, { operation: "delete_file", effect: "destructive", targets: pathTargets(args), confidence: "medium" });
-  }
-  if (WRITE_COMMANDS.has(commandName)) {
-    return withStep(base, { operation: "write_file", effect: "write", targets: pathTargets(args), confidence: "medium" });
-  }
-  if (NETWORK_COMMANDS.has(commandName)) {
-    return withStep(base, { operation: "fetch_url", effect: "network", targets: urlTargets(args), confidence: "medium" });
-  }
-  return withStep(base, {
-    operation: "unknown",
-    effect: redirects.some((redirect) => redirect.operator.includes(">")) ? "write" : "unknown",
-    confidence: containsComplexShell(raw) ? "low" : "medium"
-  });
-}
-function resolveStructure(sequence, steps) {
-  if (sequence.length > 1) {
-    return steps.some((step) => step.pipeline && step.pipeline.length > 0) ? "compound" : "sequence";
-  }
-  if (steps[0]?.pipeline && steps[0].pipeline.length > 0) return "pipeline";
-  return "simple";
-}
-function combineEffects(effects) {
-  if (effects.includes("destructive")) return "destructive";
-  if (effects.includes("write")) return "write";
-  if (effects.includes("network")) return "network";
-  if (effects.includes("execute_check")) return "execute_check";
-  if (effects.length > 0 && effects.every((effect) => effect === "read_only")) return "read_only";
-  return "unknown";
-}
-function combineConfidence(values) {
-  if (values.includes("low")) return "low";
-  if (values.includes("medium")) return "medium";
-  return "high";
-}
-function detectFailureMasked(sequence) {
-  return sequence.some((part) => part.operatorFromPrevious === "||" && /^(true|:)\b/.test(part.raw.trim()));
-}
-
 // src/domain/hint/model/command.repetition.model.ts
 var COMMAND_LOOKBACK = 20;
 var REPETITION_THRESHOLD = 3;
 var RECENT_WINDOW_MS = 10 * 60 * 1e3;
-var PATH_BEARING_TARGETS = /* @__PURE__ */ new Set(["file", "directory", "path"]);
-var SHORT_PATH_MAX = 50;
 function detectCommandRepetition(recent, command, now) {
   const normalized = command.trim();
   if (!normalized) return [];
   const prior = recent.filter((event) => isTerminalCommand(event)).slice(-COMMAND_LOOKBACK);
-  const hints = [];
-  const targetCounts = /* @__PURE__ */ new Map();
   let sameCommand = 0;
-  let destructiveCount = 0;
   for (const event of prior) {
     const ageMs = now - Date.parse(event.occurredAt);
     if (!Number.isFinite(ageMs) || ageMs > RECENT_WINDOW_MS) continue;
     const priorCommand = event.metadata[AGENT_TRACER_ATTR.command];
     if (typeof priorCommand === "string" && priorCommand.trim() === normalized) sameCommand += 1;
-    const analysis = event.metadata["commandAnalysis"];
-    for (const target of extractCommandAnalysisPaths(analysis)) {
-      targetCounts.set(target, (targetCounts.get(target) ?? 0) + 1);
-    }
-    if (isRecord(analysis) && analysis["overallEffect"] === "destructive") destructiveCount += 1;
   }
-  if (sameCommand >= REPETITION_THRESHOLD) {
-    hints.push({
-      type: "command_repetition",
-      severity: "warning",
-      title: "Identical command repeated",
-      message: `You've run this exact command ${sameCommand} times in the last 10 min, so check the prior output before retrying.`
-    });
-  }
-  for (const [target, count] of targetCounts) {
-    if (count < REPETITION_THRESHOLD || !normalized.includes(target)) continue;
-    hints.push({
-      type: "command_repetition",
-      severity: "info",
-      title: `Repeated reads of ${shortPath(target)}`,
-      message: `${target} has been read ${count} times recently. Cache the content mentally or read a larger range once.`
-    });
-    break;
-  }
-  if (analyzeCommand(command).overallEffect === "destructive") {
-    hints.push(destructiveCount > 0 ? {
-      type: "destructive_risk",
-      severity: "critical",
-      title: "Destructive command in a destructive streak",
-      message: "Recent commands include destructive operations. Double-check the target path before running this one."
-    } : {
-      type: "destructive_risk",
-      severity: "warning",
-      title: "Destructive command incoming",
-      message: "This command appears destructive. Confirm the target is correct and that the user authorized it."
-    });
-  }
-  return hints;
-}
-function extractCommandAnalysisPaths(analysis) {
-  if (!isRecord(analysis) || !Array.isArray(analysis["steps"])) return [];
-  const paths2 = [];
-  for (const step of flattenSteps(analysis["steps"])) {
-    const targets = Array.isArray(step["targets"]) ? step["targets"] : [];
-    for (const target of targets) {
-      const value = targetPath(target);
-      if (value) paths2.push(value);
-    }
-  }
-  return paths2;
-}
-function flattenSteps(values) {
-  const flattened = [];
-  for (const value of values) {
-    if (!isRecord(value)) continue;
-    flattened.push(value);
-    if (Array.isArray(value["pipeline"])) flattened.push(...flattenSteps(value["pipeline"]));
-  }
-  return flattened;
-}
-function targetPath(target) {
-  if (!isRecord(target)) return void 0;
-  if (typeof target["type"] !== "string" || !PATH_BEARING_TARGETS.has(target["type"])) return void 0;
-  if (typeof target["value"] !== "string") return void 0;
-  const value = target["value"].trim();
-  return value ? value : void 0;
-}
-function shortPath(target) {
-  return target.length <= SHORT_PATH_MAX ? target : `\u2026${target.slice(-(SHORT_PATH_MAX - 3))}`;
+  if (sameCommand < REPETITION_THRESHOLD) return [];
+  return [{
+    type: "command_repetition",
+    severity: "warning",
+    title: "Identical command repeated",
+    message: `You've run this exact command ${sameCommand} times in the last 10 min, so check the prior output before retrying.`
+  }];
 }
 
 // src/domain/hint/model/context.pressure.model.ts
@@ -29816,57 +29088,6 @@ function readNumber(metadata, key) {
   return typeof value === "number" && Number.isFinite(value) ? value : void 0;
 }
 
-// src/support/text.ts
-function truncate(value, maxLength) {
-  if (maxLength <= 0) return "";
-  if (value.length <= maxLength) return value;
-  const cut = value.slice(0, maxLength);
-  return isHighSurrogate(cut.charCodeAt(cut.length - 1)) ? cut.slice(0, -1) : cut;
-}
-function isHighSurrogate(code) {
-  return code >= 55296 && code <= 56319;
-}
-
-// src/domain/hint/model/duplicate.question.model.ts
-var QUESTION_LOOKBACK = 30;
-var DUPLICATE_AGE_MS = 24 * 60 * 60 * 1e3;
-function detectDuplicateQuestion(recent, questions, now) {
-  const incoming = questions.map(normalizeQuestion).filter((question) => question.length > 0);
-  if (incoming.length === 0) return [];
-  const prior = recent.filter((event) => event.kind === KIND.questionLogged).slice(-QUESTION_LOOKBACK);
-  const hints = [];
-  for (const question of incoming) {
-    for (const event of prior) {
-      const ageMs = now - Date.parse(event.occurredAt);
-      if (!Number.isFinite(ageMs) || ageMs > DUPLICATE_AGE_MS) continue;
-      const previous = normalizeQuestion(event.body ?? event.title ?? "");
-      if (previous.length === 0) continue;
-      if (previous !== question && !previous.startsWith(question) && !question.startsWith(previous)) continue;
-      hints.push({
-        type: "duplicate_question",
-        severity: "warning",
-        title: "Same question already asked",
-        message: `You already asked the user this question ${formatRelativeTime(ageMs)} ago, so re-check the prior response in the timeline before asking again.`
-      });
-      break;
-    }
-  }
-  return hints;
-}
-function normalizeQuestion(text) {
-  if (!text) return "";
-  const normalized = text.toLowerCase().replace(/\s+/g, " ").replace(/[?.!,;:'"`]+/g, "").trim();
-  return truncate(normalized, 240);
-}
-function formatRelativeTime(ms2) {
-  const minutes = Math.floor(ms2 / 6e4);
-  if (minutes < 1) return "less than a minute";
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h`;
-  return `${Math.floor(hours / 24)} d`;
-}
-
 // src/domain/hint/application/compute.hints.usecase.ts
 var COMMAND_TOOLS = /* @__PURE__ */ new Set([TERMINAL_COMMAND_TOOL_NAME, POWERSHELL_TOOL_NAME]);
 var ComputeHintsUsecase = class {
@@ -29879,9 +29100,6 @@ var ComputeHintsUsecase = class {
     const hints = [...detectContextPressure(recent, now)];
     if (request.trigger !== "pre_tool") return hints;
     const toolName = request.toolName ?? "";
-    if (toolName === ASK_USER_QUESTION_TOOL_NAME && request.questions && request.questions.length > 0) {
-      hints.push(...detectDuplicateQuestion(recent, request.questions, now));
-    }
     if (COMMAND_TOOLS.has(toolName) && request.command) {
       hints.push(...detectCommandRepetition(recent, request.command, now));
     }
@@ -31092,6 +30310,17 @@ var ClaudeRuleAgentRunnerAdapter = class {
     }
   }
 };
+
+// src/support/text.ts
+function truncate(value, maxLength) {
+  if (maxLength <= 0) return "";
+  if (value.length <= maxLength) return value;
+  const cut = value.slice(0, maxLength);
+  return isHighSurrogate(cut.charCodeAt(cut.length - 1)) ? cut.slice(0, -1) : cut;
+}
+function isHighSurrogate(code) {
+  return code >= 55296 && code <= 56319;
+}
 
 // src/domain/rulegen/model/evidence.model.ts
 var TURN_DIGEST_MAX_TURNS = 30;
@@ -33931,8 +33160,12 @@ function parseDaemonRequest(value) {
       } : null;
     case "delivery":
       return { type: "delivery" };
-    case "rules":
-      return typeof value["taskId"] === "string" ? { type: "rules", taskId: value["taskId"] } : null;
+    case "prompt-context":
+      return typeof value["taskId"] === "string" && isRecord(value["request"]) ? {
+        type: "prompt-context",
+        taskId: value["taskId"],
+        request: value["request"]
+      } : null;
     case "guardrail":
       return typeof value["taskId"] === "string" ? {
         type: "guardrail",
@@ -34043,11 +33276,21 @@ async function handleMessage(socket, line, context) {
 `);
         return;
       }
-      case "rules":
-        send(socket, {
-          rules: context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId))
-        });
+      case "prompt-context": {
+        const hints = onHintsRequested(context.hint, context.ring.recent(request.taskId), request.request);
+        const rules = context.readRules().filter((rule) => isEnforceableRule(rule, request.taskId));
+        const body = JSON.stringify({ rules, hints });
+        context.interventions.recordHintsInjected(
+          Date.now(),
+          request.taskId,
+          request.request.trigger,
+          hints,
+          Buffer.byteLength(body, "utf8")
+        );
+        socket.end(`${body}
+`);
         return;
+      }
       case "delivery":
         send(socket, context.readDelivery());
         return;
