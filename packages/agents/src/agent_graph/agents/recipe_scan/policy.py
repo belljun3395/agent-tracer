@@ -7,6 +7,7 @@ from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.orchestration import clamp_rounds
+from ..runtime.routing import build_validation_router
 from .models import (
     MAX_RECIPE_CANDIDATES,
     MAX_TOOL_ROUNDS,
@@ -139,22 +140,10 @@ def validate_recipe_candidate(
 
 def build_routes(trace: ExecutionTrace, validation_node: str) -> ValidationRoute:
     """검증 결과에 따른 분기 함수를 만든다."""
-
-    def route_validation(state: RecipeScanState) -> Literal["repair", "finalize", "empty"]:
-        if not state["validation_errors"]:
-            route: Literal["repair", "finalize", "empty"] = "finalize"
-            reason = "candidate passed deterministic provenance validation"
-        elif not state["repair_attempted"]:
-            route = "repair"
-            reason = "candidate failed validation and the one repair attempt is available"
-        else:
-            route = "empty"
-            reason = "candidate remained invalid after the repair attempt"
-        trace.record_graph_event(
-            "route.selected",
-            f"{validation_node} -> {route}: {reason}",
-            node_name=validation_node,
-        )
-        return route
-
-    return route_validation
+    return build_validation_router(
+        trace,
+        validation_node,
+        pass_reason="candidate passed deterministic provenance validation",
+        repair_reason="candidate failed validation and the one repair attempt is available",
+        exhausted_reason="candidate remained invalid after the repair attempt",
+    )

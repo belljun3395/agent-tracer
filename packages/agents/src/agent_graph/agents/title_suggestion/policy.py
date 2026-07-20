@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.routing import build_validation_router
 from .models import TitleSuggestionDraft, TitleSuggestionState
 
 TITLE_MAX_OUTPUT_TOKENS = 4_000
@@ -52,27 +53,13 @@ def validate_title_candidate(
 
 def build_routes(trace: ExecutionTrace, validation_node: str) -> ValidationRoute:
     """후보 검증 결과에 따른 분기 함수를 만든다."""
-
-    def route_validation(
-        state: TitleSuggestionState,
-    ) -> Literal["repair", "finalize", "empty"]:
-        if not state["validation_errors"]:
-            route: Literal["repair", "finalize", "empty"] = "finalize"
-            reason = "candidate passed deterministic title validation"
-        elif not state["repair_attempted"]:
-            route = "repair"
-            reason = "candidate failed validation and one repair attempt remains"
-        else:
-            route = "empty"
-            reason = "candidate remained invalid after the repair attempt"
-        trace.record_graph_event(
-            "route.selected",
-            f"{validation_node} -> {route}: {reason}",
-            node_name=validation_node,
-        )
-        return route
-
-    return route_validation
+    return build_validation_router(
+        trace,
+        validation_node,
+        pass_reason="candidate passed deterministic title validation",
+        repair_reason="candidate failed validation and one repair attempt remains",
+        exhausted_reason="candidate remained invalid after the repair attempt",
+    )
 
 
 def _normalize_title(value: str) -> str:

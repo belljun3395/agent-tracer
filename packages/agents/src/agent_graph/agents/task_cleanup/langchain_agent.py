@@ -1,54 +1,25 @@
-"""task-cleanup의 표준 LangChain agent와 도구 직렬화 락 컨텍스트를 제공한다."""
+"""task-cleanup의 표준 LangChain agent를 도구 직렬화와 함께 조립한다."""
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
 from typing import Any
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import (
     AgentMiddleware,
     ModelCallLimitMiddleware,
-    ToolCallRequest,
     ToolRetryMiddleware,
 )
 from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.types import Command
 from pydantic import BaseModel
 
-from ..runtime.llm.standard_agent import (
-    StandardAgentContext,
-    StandardAgentMiddleware,
-    tool_context,
-)
+from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import CleanupDraft
 from .policy import MAX_TOOL_ROUNDS
-
-
-@dataclass(kw_only=True)
-class CleanupAgentContext(StandardAgentContext):
-    """cleanup 도구 호출을 요청 안에서 직렬화할 락을 표준 실행 의존성에 더한다."""
-
-    tool_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-
-
-class CleanupAgentMiddleware(StandardAgentMiddleware):
-    """공유 근거 장부를 쓰는 cleanup 도구를 기존 호출 순서대로 실행한다."""
-
-    async def awrap_tool_call(
-        self,
-        request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
-    ) -> ToolMessage | Command[Any]:
-        context = tool_context(request, CleanupAgentContext)
-        async with context.tool_lock:
-            return await super().awrap_tool_call(request, handler)
 
 
 def _tool_retry(transient_errors: tuple[type[Exception], ...]) -> ToolRetryMiddleware:
@@ -78,7 +49,7 @@ def build_cleanup_agent(
     )
     middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
-        CleanupAgentMiddleware(),
+        StandardAgentMiddleware(serialize_tools=True),
         _tool_retry(transient_errors),
     ]
     # noinspection PyTypeChecker
@@ -88,6 +59,6 @@ def build_cleanup_agent(
         system_prompt=system,
         middleware=middleware,
         response_format=ToolStrategy(output, handle_errors=True),
-        context_schema=CleanupAgentContext,
+        context_schema=StandardAgentContext,
         name="task-cleanup-investigator",
     )

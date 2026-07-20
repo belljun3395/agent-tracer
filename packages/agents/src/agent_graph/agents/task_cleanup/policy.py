@@ -7,6 +7,7 @@ from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
 from ..runtime.orchestration import clamp_rounds
+from ..runtime.routing import build_validation_router
 from .models import (
     CleanupDraftSuggestion,
     InspectAssignment,
@@ -103,24 +104,11 @@ def validate_suggestions(
 
 def build_routes(trace: ExecutionTrace, validation_node: str) -> ValidationRoute:
     """검증 결과에 따른 분기 함수를 만든다."""
-
-    def route_validation(state: TaskCleanupState) -> Literal["repair", "finalize", "empty"]:
-        if not state["validation_errors"]:
-            route: Literal["repair", "finalize", "empty"] = (
-                "finalize" if state["suggestions"] else "empty"
-            )
-            reason = "suggestions passed deterministic provenance validation"
-        elif not state["repair_attempted"]:
-            route = "repair"
-            reason = "suggestions failed validation and one repair attempt remains"
-        else:
-            route = "finalize" if state["suggestions"] else "empty"
-            reason = "invalid suggestions were dropped after the repair attempt"
-        trace.record_graph_event(
-            "route.selected",
-            f"{validation_node} -> {route}: {reason}",
-            node_name=validation_node,
-        )
-        return route
-
-    return route_validation
+    return build_validation_router(
+        trace,
+        validation_node,
+        pass_reason="suggestions passed deterministic provenance validation",
+        repair_reason="suggestions failed validation and one repair attempt remains",
+        exhausted_reason="invalid suggestions were dropped after the repair attempt",
+        has_result=lambda state: bool(state["suggestions"]),
+    )

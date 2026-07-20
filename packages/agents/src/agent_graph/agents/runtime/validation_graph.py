@@ -16,9 +16,9 @@ type ValidationNode = Callable[[Any], Awaitable[dict[str, Any]]]
 type ValidationRouteName = Literal["repair", "finalize", "empty"]
 type ValidationRoute = Callable[[Any], ValidationRouteName]
 
-REPAIR = "repair"
-FINALIZE = "finalize"
-EMPTY = "empty"
+REPAIR: ValidationRouteName = "repair"
+FINALIZE: ValidationRouteName = "finalize"
+EMPTY: ValidationRouteName = "empty"
 
 
 @dataclass(frozen=True)

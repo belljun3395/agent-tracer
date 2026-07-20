@@ -8,9 +8,10 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
 from ...runtime.node import GraphNode
-from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
+from ..langchain_agent import build_cleanup_agent
 from ..models import (
     CleanupDraft,
     InvestigateUpdate,
@@ -72,7 +73,7 @@ class _DecisionAgent(GraphNode):
             registry.transient_errors(),
             output=CleanupDraft,
         )
-        context = CleanupAgentContext(
+        context = StandardAgentContext(
             agent_name=self._agent_name,
             trace=self._usage,
             budget=budget,

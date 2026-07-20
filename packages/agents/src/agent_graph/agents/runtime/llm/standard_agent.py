@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -45,6 +46,11 @@ class StandardAgentContext:
 class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
     """모델 비용과 실행 궤적과 도구 결과를 제품 계약으로 기록한다."""
 
+    def __init__(self, *, serialize_tools: bool = False) -> None:
+        """공유 장부를 쓰는 도구를 이 인스턴스가 쥔 락으로 직렬화할지 정한다."""
+        super().__init__()
+        self._tool_lock = asyncio.Lock() if serialize_tools else None
+
     async def awrap_model_call(
         self,
         request: ModelRequest[StandardAgentContext],
@@ -63,6 +69,16 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         return response
 
     async def awrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
+    ) -> ToolMessage | Command[Any]:
+        if self._tool_lock is None:
+            return await self._invoke_tool(request, handler)
+        async with self._tool_lock:
+            return await self._invoke_tool(request, handler)
+
+    async def _invoke_tool(
         self,
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],

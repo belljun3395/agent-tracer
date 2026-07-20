@@ -8,9 +8,10 @@ from langchain_core.language_models import BaseChatModel
 
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.llm.budget import ToolLoopBudget
+from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.llm.structured_agent import invoke_structured_agent
 from ...runtime.node import GraphNode
-from ..langchain_agent import CleanupAgentContext, build_cleanup_agent
+from ..langchain_agent import build_cleanup_agent
 from ..models import (
     CLEANUP_REVIEWER_ROLE,
     MAX_INSPECT_REASON_CHARS,
@@ -93,7 +94,7 @@ class TriageNode(GraphNode):
                     "content": build_triage_prompt(len(req.batch.candidates), inspection_rounds()),
                 }
             ],
-            context=CleanupAgentContext(
+            context=StandardAgentContext(
                 agent_name=triage_name,
                 trace=self._usage,
                 budget=budget,
@@ -168,7 +169,7 @@ class InspectNode(GraphNode):
                         "content": build_inspect_prompt(assignment.taskId, assignment.rounds),
                     }
                 ],
-                context=CleanupAgentContext(
+                context=StandardAgentContext(
                     agent_name=name,
                     trace=self._usage,
                     budget=budget,

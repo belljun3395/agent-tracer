@@ -13,7 +13,7 @@ from .get_task_events import (
     GetTaskEventsArgs,
     GetTaskEventsTool,
 )
-from .registry import build_title_registry, validate_tool_args
+from .registry import build_title_registry
 
 __all__ = [
     "DEFAULT_EVENT_LIMIT",
@@ -26,5 +26,4 @@ __all__ = [
     "GetTaskEventsArgs",
     "GetTaskEventsTool",
     "build_title_registry",
-    "validate_tool_args",
 ]
