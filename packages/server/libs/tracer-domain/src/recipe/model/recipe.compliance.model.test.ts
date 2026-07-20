@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_TRACER_ATTR, KIND } from "@monitor/kernel";
+import { AGENT_TRACER_ATTR, KIND, SEMCONV_ATTR } from "@monitor/kernel";
 import type { RecipeStepDto } from "@monitor/kernel";
 import { evaluateRecipeCompliance, type RecipeVerifyWindowEvent } from "./recipe.compliance.model.js";
 
@@ -65,6 +65,14 @@ describe("evaluateRecipeCompliance", () => {
         const result = evaluateRecipeCompliance(steps, events);
         expect(result.verifiableStepCount).toBe(1);
         expect(result.followedStepOrders).toEqual([2]);
+    });
+
+    it("도구 이름이 열이 아니라 metadata에 실려 와도 도구 계열을 알아본다", () => {
+        const steps = [step(1, { kind: "action", tool: "file-write" })];
+        const events = [toolEvent({ metadata: { [SEMCONV_ATTR.toolName]: "Edit" } })];
+        const result = evaluateRecipeCompliance(steps, events);
+        expect(result.followedStepOrders).toEqual([1]);
+        expect(result.windowComplete).toBe(true);
     });
 
     it.each([

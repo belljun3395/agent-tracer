@@ -1,4 +1,4 @@
-import { AGENT_TRACER_ATTR, TOOL_ACTIVITY_EVENT_KINDS, isTerminalCommand } from "@monitor/kernel";
+import { AGENT_TRACER_ATTR, SEMCONV_ATTR, TOOL_ACTIVITY_EVENT_KINDS, isTerminalCommand } from "@monitor/kernel";
 import type { RecipeStepDto, RecipeVerifyDto, RecipeVerifyTool } from "@monitor/kernel";
 
 const TOOL_ACTIVITY_KIND_SET = new Set<string>(TOOL_ACTIVITY_EVENT_KINDS);
@@ -28,10 +28,20 @@ function readCommand(event: RecipeVerifyWindowEvent): string | undefined {
     return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
+/** 도구 이름은 열보다 metadata에 실려 오는 쪽이 압도적으로 많으므로 metadata를 먼저 본다. */
+function readToolName(event: RecipeVerifyWindowEvent): string | undefined {
+    for (const key of [SEMCONV_ATTR.toolName, AGENT_TRACER_ATTR.sourceTool]) {
+        const value = event.metadata[key];
+        if (typeof value === "string" && value.trim().length > 0) return value;
+    }
+    const column = event.toolName;
+    return column !== null && column.trim().length > 0 ? column : undefined;
+}
+
 function classifyToolFamily(event: RecipeVerifyWindowEvent): RecipeVerifyTool | null {
     if (isTerminalCommand(event)) return "command";
-    const toolName = event.toolName;
-    if (toolName === null) return null;
+    const toolName = readToolName(event);
+    if (toolName === undefined) return null;
     if (WRITE_TOOL_NAMES.has(toolName)) return "file-write";
     if (READ_TOOL_NAMES.has(toolName)) return "file-read";
     if (WEB_TOOL_NAMES.has(toolName)) return "web";
@@ -70,8 +80,9 @@ function stepSatisfiedBy(verify: RecipeVerifyDto, event: RecipeVerifyWindowEvent
 
 function isUnclassifiedToolActivity(event: RecipeVerifyWindowEvent): boolean {
     if (!TOOL_ACTIVITY_KIND_SET.has(event.kind)) return false;
-    const toolName = event.toolName !== null && event.toolName.trim().length > 0;
-    return !toolName && event.filePaths.length === 0 && readCommand(event) === undefined;
+    return readToolName(event) === undefined
+        && event.filePaths.length === 0
+        && readCommand(event) === undefined;
 }
 
 /** 창 안 이벤트만으로 verify를 가진 스텝의 이행을 판정하며, 도구를 못 읽은 도구 활동이 하나라도 있으면 창을 불완전으로 표시한다. */
