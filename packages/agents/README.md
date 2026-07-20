@@ -27,8 +27,8 @@ DTO를 검증·저장한다.
 셋은 같은 위상을 쓴다. `investigate` → 검증(`validate_candidate` 또는 `validate_decisions`) →
 `repair`(검증으로 되돌아간다) → `finalize` 또는 `empty`다. 수리는 한 번만 시도하고, 그래도 검증을
 통과하지 못하면 `empty`로 끝난다. 슬라이스마다 다른 것은 위상이 아니라 프롬프트와 도구와
-검증 규칙이다. 데이터 조회는 `toolCallback`으로 실행하며, 사용자 권한과 저장소를 아는 핸들러는
-ai-agent-worker가 소유한다.
+검증 규칙이다. 데이터 조회는 읽기 모델의 `agent_*_view`를 직접 질의하며, 모든 질의가
+`user_id`를 조건에 실어 소유 범위를 스스로 지킨다.
 
 - `GET /health`: 헬스체크.
 - `POST /agents/runs/{run_id}/cancel`: 진행 중 실행 취소.
@@ -74,9 +74,9 @@ python -m agent_graph               # 로컬 기동(기본 :8800)
 | `OTEL_SDK_DISABLED` | 없음 | `true`면 엔드포인트가 있어도 관측을 끈다 |
 | `OTEL_SERVICE_NAME` | `agents` | 스팬에 붙는 서비스 이름 |
 
-설정은 바인딩 주소와 관측 뿐이다. 이 서비스는 DB·OpenSearch에 직접 접속하지 않는다. 에이전트
-도구의 데이터 조회는 요청 본문 `toolCallback`(URL+토큰)으로 ai-agent-worker를 되불러서만 이뤄지고,
-소유 스코프는 그 토큰이 정한다.
+이 서비스는 읽기 모델에 직접 접속한다. 에이전트 도구의 데이터 조회는 `agent_*_view` 뷰만
+질의하며, 원장 테이블과 OpenSearch에는 닿지 않는다. 소유 스코프는 모든 질의에 실리는
+`user_id` 조건이 정한다.
 
 다만 프로세스 안에는 상태가 있다. 취소를 걸 수 있게 진행 중 실행을 등록해 두고, 같은 요청이
 다시 오면 재실행하지 않도록 멱등 캐시를 5분간 들고 있다. 둘 다 프로세스 로컬이라 인스턴스를

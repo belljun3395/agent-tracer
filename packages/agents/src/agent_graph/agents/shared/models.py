@@ -47,7 +47,6 @@ class AgentExecutionRequest(BaseModel):
                 "deadlineMs",
                 "idempotencyKey",
                 "completionCallback",
-                "toolCallback",
             },
         )
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
