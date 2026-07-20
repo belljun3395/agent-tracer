@@ -583,6 +583,14 @@ async function postJson(url, headers2, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
     signal: resolveTimeoutSignal(timeoutMs)
   });
 }
+async function patchJson(url, headers2, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  return fetch(url, {
+    method: "PATCH",
+    headers: jsonHeaders(headers2),
+    body: JSON.stringify(body),
+    signal: resolveTimeoutSignal(timeoutMs)
+  });
+}
 
 // src/domain/memo/adapter/http.memo.search.adapter.ts
 var FETCH_TIMEOUT_MS = 3e3;
@@ -795,9 +803,9 @@ function readTouchedFiles(value) {
   const files = [];
   for (const entry of value) {
     if (!isRecord(entry)) continue;
-    const path5 = readString(entry, "path");
+    const path4 = readString(entry, "path");
     const role = entry["role"];
-    if (path5 && (role === "read" || role === "write" || role === "both")) files.push({ path: path5, role });
+    if (path4 && (role === "read" || role === "write" || role === "both")) files.push({ path: path4, role });
   }
   return files;
 }
@@ -1098,6 +1106,41 @@ var SearchRecipesUsecase = class {
   }
 };
 
+// ../kernel/src/ingest/task.const.ts
+var AGENT_TITLE_RANK = "agent";
+
+// src/domain/session/adapter/http.task.rename.adapter.ts
+var HttpTaskRenameAdapter = class {
+  constructor(baseUrl2, headers2) {
+    this.baseUrl = baseUrl2;
+    this.headers = headers2;
+  }
+  baseUrl;
+  headers;
+  async rename(taskId, title) {
+    const url = `${this.baseUrl}/api/v1/tasks/${encodeURIComponent(taskId)}`;
+    const response = await patchJson(url, this.headers, { title, titleRank: AGENT_TITLE_RANK });
+    return response.ok;
+  }
+};
+
+// src/domain/session/application/set.task.title.usecase.ts
+var SetTaskTitleUsecase = class {
+  constructor(renamer) {
+    this.renamer = renamer;
+  }
+  renamer;
+  async execute(taskId, title) {
+    const trimmed2 = title.trim();
+    if (taskId === "" || trimmed2 === "") return false;
+    try {
+      return await this.renamer.rename(taskId, trimmed2);
+    } catch {
+      return false;
+    }
+  }
+};
+
 // src/agent/claude-code/mcp/composition.ts
 var identity = resolveMonitorIdentity();
 var baseUrl = identity.baseUrl;
@@ -1119,6 +1162,9 @@ var memo = {
   createMemo: new CreateMemoUsecase(new HttpMemoWriteAdapter(baseUrl, headers)),
   searchMemos: new SearchMemosUsecase(new HttpMemoSearchAdapter(baseUrl, headers))
 };
+var session = {
+  setTaskTitle: new SetTaskTitleUsecase(new HttpTaskRenameAdapter(baseUrl, headers))
+};
 var readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
 var appendIngestEvents = new AppendEventsUsecase(
   new SpoolEventSinkAdapter(),
@@ -1129,268 +1175,9 @@ var appendIngestEvents = new AppendEventsUsecase(
 var mcpRuntime = {
   recipe,
   recipeOutcomeMark,
-  memo
+  memo,
+  session
 };
-
-// src/daemon/ipc/hook.client.ts
-import { spawn } from "node:child_process";
-import * as fs8 from "node:fs";
-import * as path4 from "node:path";
-
-// src/daemon/ipc/socket.client.ts
-import * as net from "node:net";
-
-// src/daemon/ipc/socket.framing.ts
-function createLineFramer() {
-  let buffer = "";
-  return (chunk) => {
-    buffer += chunk.toString("utf8");
-    const index = buffer.indexOf("\n");
-    if (index === -1) return null;
-    return buffer.slice(0, index).trim();
-  };
-}
-
-// src/daemon/ipc/socket.client.ts
-var SOCKET_CONNECT_TIMEOUT_MS = 200;
-function probeSocket(socketPath, timeoutMs = SOCKET_CONNECT_TIMEOUT_MS) {
-  return new Promise((resolve2) => {
-    const socket = net.createConnection(socketPath);
-    let settled = false;
-    const finish = (alive) => {
-      if (settled) return;
-      settled = true;
-      socket.destroy();
-      resolve2(alive);
-    };
-    socket.setTimeout(timeoutMs, () => finish(false));
-    socket.once("error", () => finish(false));
-    socket.once("connect", () => finish(true));
-  });
-}
-function requestDaemon(socketPath, message, timeoutMs, parse, empty) {
-  return new Promise((resolve2, reject) => {
-    const socket = net.createConnection(socketPath);
-    const frame = createLineFramer();
-    let settled = false;
-    const finish = (value, error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      socket.destroy();
-      if (error) reject(error);
-      else resolve2(value ?? empty);
-    };
-    const timer = setTimeout(
-      () => finish(void 0, new Error(`daemon ${message.type} timeout`)),
-      timeoutMs
-    );
-    socket.once("error", (error) => finish(void 0, error));
-    socket.once("connect", () => {
-      socket.write(`${JSON.stringify(message)}
-`);
-    });
-    socket.on("data", (chunk) => {
-      const line = frame(chunk);
-      if (line === null) return;
-      try {
-        finish(parse(JSON.parse(line)));
-      } catch {
-        finish(empty);
-      }
-    });
-  });
-}
-
-// src/daemon/lifecycle/daemon.pid.ts
-import * as fs7 from "node:fs";
-function readDaemonPid(paths) {
-  const pid = readPidFile(paths);
-  if (pid === void 0 || pid === process.pid) return void 0;
-  return isProcessAlive(pid) ? pid : void 0;
-}
-function readPidFile(paths) {
-  let raw;
-  try {
-    raw = fs7.readFileSync(paths.pidPath, "utf8");
-  } catch {
-    return void 0;
-  }
-  const pid = Number.parseInt(raw.trim(), 10);
-  return Number.isInteger(pid) && pid > 0 ? pid : void 0;
-}
-function isProcessAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-
-// src/daemon/port/mcp.socket.port.ts
-function parseDaemonSetTaskTitleResponse(value) {
-  if (!isRecord(value) || typeof value["ok"] !== "boolean") return null;
-  return {
-    ok: value["ok"],
-    ...typeof value["reason"] === "string" ? { reason: value["reason"] } : {}
-  };
-}
-
-// src/daemon/port/daemon.socket.port.ts
-function parseDaemonVersionResponse(value) {
-  if (!isRecord(value) || typeof value["version"] !== "string") return null;
-  return {
-    version: value["version"],
-    ...typeof value["pid"] === "number" ? { pid: value["pid"] } : {}
-  };
-}
-function isDaemonAckResponse(value) {
-  return isRecord(value) && value["ok"] === true;
-}
-
-// src/daemon/lifecycle/daemon.version.ts
-var VERSION_CHECK_TIMEOUT_MS = 200;
-var SHUTDOWN_ACK_TIMEOUT_MS = 1500;
-var SOCKET_FREE_TIMEOUT_MS = 2e3;
-var SOCKET_FREE_POLL_MS = 50;
-function isDaemonOutdated(hookVersion, daemonVersion) {
-  const hook = parseVersion(hookVersion);
-  if (hook === null) return false;
-  const daemon = parseVersion(daemonVersion);
-  if (daemon === null) return true;
-  const length = Math.max(hook.length, daemon.length);
-  for (let index = 0; index < length; index += 1) {
-    const left = hook[index] ?? 0;
-    const right = daemon[index] ?? 0;
-    if (left !== right) return left > right;
-  }
-  return false;
-}
-async function resolveDaemonAction(paths, hookVersion = resolveDaemonVersion()) {
-  if (!await probeSocket(paths.socketPath)) return "spawn";
-  if (hookVersion === UNKNOWN_DAEMON_VERSION) return "keep";
-  let remote;
-  try {
-    remote = await requestVersion(paths.socketPath, hookVersion);
-  } catch {
-    return "keep";
-  }
-  if (!isDaemonOutdated(hookVersion, remote.version)) return "keep";
-  await shutdownDaemon(paths, remote.pid, `hook=${hookVersion} daemon=${remote.version}`);
-  await waitUntilSocketFree(paths.socketPath);
-  return "spawn";
-}
-function parseVersion(version) {
-  const core = version.trim().split(/[-+]/)[0] ?? "";
-  const parts = core.split(".");
-  if (parts.length === 0 || parts.some((part) => !/^\d+$/.test(part))) return null;
-  return parts.map((part) => Number.parseInt(part, 10));
-}
-function requestVersion(socketPath, hookVersion) {
-  return requestDaemon(
-    socketPath,
-    { type: "version", hookVersion },
-    VERSION_CHECK_TIMEOUT_MS,
-    (parsed) => parseDaemonVersionResponse(parsed) ?? { version: UNKNOWN_DAEMON_VERSION },
-    { version: UNKNOWN_DAEMON_VERSION }
-  );
-}
-async function shutdownDaemon(paths, pid, reason) {
-  if (await requestShutdownAck(paths.socketPath, reason)) return;
-  const target = pid ?? readDaemonPid(paths);
-  if (target === void 0) return;
-  try {
-    process.kill(target, "SIGTERM");
-  } catch {
-    return;
-  }
-}
-async function requestShutdownAck(socketPath, reason) {
-  try {
-    return await requestDaemon(
-      socketPath,
-      { type: "shutdown", reason },
-      SHUTDOWN_ACK_TIMEOUT_MS,
-      isDaemonAckResponse,
-      false
-    );
-  } catch {
-    return false;
-  }
-}
-async function waitUntilSocketFree(socketPath, timeoutMs = SOCKET_FREE_TIMEOUT_MS) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (!await probeSocket(socketPath, 100)) return;
-    await new Promise((resolve2) => setTimeout(resolve2, SOCKET_FREE_POLL_MS));
-  }
-}
-
-// src/daemon/ipc/hook.client.ts
-var SOURCE_LOADER = "@swc-node/register/esm-register";
-function daemonEntry() {
-  const root = resolveRuntimeRoot();
-  const compiled = path4.join(root, "dist/daemon/main.js");
-  if (fs8.existsSync(compiled)) return { executable: process.execPath, args: [compiled] };
-  return {
-    executable: process.execPath,
-    args: ["--import", SOURCE_LOADER, path4.join(root, "src/daemon/main.ts")]
-  };
-}
-function spawnDaemon(paths) {
-  const { executable, args } = daemonEntry();
-  ensureAgentTracerHome(paths);
-  let logFd;
-  try {
-    logFd = fs8.openSync(paths.logPath, "a");
-  } catch {
-    logFd = void 0;
-  }
-  const child = spawn(executable, [...args], {
-    detached: true,
-    stdio: logFd !== void 0 ? ["ignore", logFd, logFd] : "ignore",
-    env: {
-      ...process.env,
-      AGENT_TRACER_DAEMON_CHILD: "1",
-      AGENT_TRACER_DAEMON_SOCKET: paths.socketPath
-    }
-  });
-  child.unref();
-  if (logFd === void 0) return;
-  try {
-    fs8.closeSync(logFd);
-  } catch {
-    return;
-  }
-}
-async function ensureDaemonRunning(env = process.env) {
-  if (env.AGENT_TRACER_DAEMON_CHILD === "1") return;
-  if (env.AGENT_TRACER_DAEMON_AUTOSTART === "0") return;
-  const paths = resolveAgentTracerPaths(env);
-  if (await resolveDaemonAction(paths) === "spawn") spawnDaemon(paths);
-}
-
-// src/daemon/ipc/mcp.client.ts
-var REQUEST_TIMEOUT_MS3 = 3e3;
-var NO_DAEMON_TITLE = { ok: false, reason: "daemon_unreachable" };
-var UNKNOWN_SESSION = "unknown_session";
-async function setTaskTitleViaDaemon(title) {
-  const sessionId = resolveClaudeSessionId();
-  if (sessionId === void 0) return { ok: false, reason: UNKNOWN_SESSION };
-  const paths = resolveAgentTracerPaths();
-  try {
-    return await requestDaemon(
-      paths.socketPath,
-      { type: "set-task-title", title, sessionId },
-      REQUEST_TIMEOUT_MS3,
-      (parsed) => parseDaemonSetTaskTitleResponse(parsed) ?? NO_DAEMON_TITLE,
-      NO_DAEMON_TITLE
-    );
-  } catch {
-    return NO_DAEMON_TITLE;
-  }
-}
 
 // src/domain/memo/model/create.memo.tool.model.ts
 var CREATE_MEMO_TOOL = {
@@ -1582,18 +1369,6 @@ var RECIPE_OUTCOMES = [
   RECIPE_OUTCOME.abandoned,
   RECIPE_OUTCOME.superseded
 ];
-var RECIPE_VERDICT = {
-  followedAndHelped: "followed_and_helped",
-  followedNotHelped: "followed_not_helped",
-  abandoned: "abandoned",
-  unknown: "unknown"
-};
-var RECIPE_VERDICTS = [
-  RECIPE_VERDICT.followedAndHelped,
-  RECIPE_VERDICT.followedNotHelped,
-  RECIPE_VERDICT.abandoned,
-  RECIPE_VERDICT.unknown
-];
 
 // src/domain/recipe/model/report.recipe.outcome.tool.model.ts
 var REPORT_RECIPE_OUTCOME_TOOL = {
@@ -1682,6 +1457,11 @@ function onRecipeMarkCleared(hook, taskId, recipeId) {
   hook.clearMark.execute(taskId, recipeId);
 }
 
+// src/domain/session/inbound/session.hook.ts
+function onSetTaskTitleRequested(hook, taskId, title) {
+  return hook.setTaskTitle.execute(taskId, title);
+}
+
 // src/domain/session/model/set.task.title.tool.model.ts
 var SET_TASK_TITLE_TOOL = {
   name: "set_task_title",
@@ -1702,7 +1482,7 @@ function parseSetTaskTitleArgs(value) {
 
 // src/agent/claude-code/mcp/tool.dispatch.ts
 var MCP_RECIPE_SCAN_PROMPT = "/recipe";
-var UNKNOWN_SESSION2 = "unknown_session";
+var UNKNOWN_SESSION = "unknown_session";
 var MCP_TOOLS = [
   GET_RECIPE_TOOL,
   SEARCH_RECIPES_TOOL,
@@ -1760,7 +1540,7 @@ async function callTool(name, args) {
       if (!parsed) return invalidArgs();
       const target = resolveTarget();
       if (target === void 0) {
-        return { text: `Could not record outcome (${UNKNOWN_SESSION2}).`, isError: true };
+        return { text: `Could not record outcome (${UNKNOWN_SESSION}).`, isError: true };
       }
       const ok = await onRecipeOutcomeReported(mcpRuntime.recipe, {
         recipeId: parsed.recipeId,
@@ -1773,7 +1553,7 @@ async function callTool(name, args) {
     }
     case REQUEST_RECIPE_SCAN_TOOL.name: {
       const target = resolveTarget();
-      if (target === void 0) return { text: `Scan not queued (${UNKNOWN_SESSION2}).`, isError: true };
+      if (target === void 0) return { text: `Scan not queued (${UNKNOWN_SESSION}).`, isError: true };
       const queued = await onRecipeScanRequested(mcpRuntime.recipe, {
         taskId: target.taskId,
         eventId: generateUlid(),
@@ -1784,15 +1564,18 @@ async function callTool(name, args) {
     case SET_TASK_TITLE_TOOL.name: {
       const parsed = parseSetTaskTitleArgs(args);
       if (!parsed) return invalidArgs();
-      await ensureDaemonRunning();
-      const result = await setTaskTitleViaDaemon(parsed.title);
-      return result.ok ? { text: "Task title updated.", isError: false } : { text: `Could not update title${result.reason ? ` (${result.reason})` : ""}.`, isError: true };
+      const target = resolveTarget();
+      if (target === void 0) {
+        return { text: `Could not update title (${UNKNOWN_SESSION}).`, isError: true };
+      }
+      const ok = await onSetTaskTitleRequested(mcpRuntime.session, target.taskId, parsed.title);
+      return ok ? { text: "Task title updated.", isError: false } : { text: "Could not update title.", isError: true };
     }
     case CREATE_MEMO_TOOL.name: {
       const parsed = parseCreateMemoArgs(args);
       if (!parsed) return invalidArgs();
       const target = resolveTarget();
-      if (target === void 0) return { text: `Could not save memo (${UNKNOWN_SESSION2}).`, isError: true };
+      if (target === void 0) return { text: `Could not save memo (${UNKNOWN_SESSION}).`, isError: true };
       const ok = await onMemoCreateRequested(mcpRuntime.memo, {
         taskId: target.taskId,
         body: parsed.body,
