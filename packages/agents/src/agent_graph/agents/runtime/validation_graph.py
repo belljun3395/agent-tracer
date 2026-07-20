@@ -56,8 +56,8 @@ def add_validation_tail(graph: StateGraph[Any, Any, Any, Any], validation_node: 
     graph.add_edge(EMPTY, END)
 
 
+# noinspection PyTypeChecker
 def _dispatch(node_name: str) -> Callable[..., Awaitable[dict[str, Any]]]:
-    # noinspection PyTypeChecker
     async def run(state: Any, runtime: Runtime[ValidationGraphContext]) -> dict[str, Any]:
         context = runtime.context
         trace = context.trace

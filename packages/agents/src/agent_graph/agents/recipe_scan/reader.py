@@ -70,9 +70,10 @@ class RecipeLedgerReader:
             task = await connection.fetchrow(_TASK, task_id, self._user_id)
             if task is None:
                 return None
+            found = dict(task)
             rows = await connection.fetch(_EVENTS_ASC, task_id, self._user_id, None, window)
             total = await connection.fetchval(_EVENT_COUNT, task_id, self._user_id)
-        return {"task": dict(task), "rows": [dict(row) for row in rows], "total": int(total)}
+        return {"task": found, "rows": [dict(row) for row in rows], "total": int(total)}
 
     async def task_events(
         self, task_id: str, limit: int, cursor: str | None, order: Literal["asc", "desc"]

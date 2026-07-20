@@ -51,6 +51,7 @@ class StandardAgentMiddleware(AgentMiddleware[Any, StandardAgentContext, Any]):
         super().__init__()
         self._tool_lock = asyncio.Lock() if serialize_tools else None
 
+    # noinspection PyTypeChecker
     async def awrap_model_call(
         self,
         request: ModelRequest[StandardAgentContext],

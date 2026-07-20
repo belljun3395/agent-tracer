@@ -130,7 +130,7 @@ def token_measurements(usage: UsageDTO | None) -> list[tuple[int, dict[str, str]
     ]
 
 
-def _normalize_parameter(value: object) -> object:
+def _normalize_parameter(value: Any) -> object:
     if isinstance(value, Mapping):
         return {str(key): _normalize_parameter(value[key]) for key in sorted(value, key=str)}
     if isinstance(value, list | tuple):
