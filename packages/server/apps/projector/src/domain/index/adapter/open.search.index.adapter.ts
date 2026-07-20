@@ -96,8 +96,14 @@ implements SearchIndexWriterPort, SearchIndexAdminPort, SearchIndexRetentionPort
     }
 
     async resolveAlias(alias: string): Promise<readonly string[]> {
-        const response = await this.client.indices.getAlias({ name: alias }).catch(() => null);
-        return response === null ? [] : Object.keys(response.body);
+        try {
+            const response = await this.client.indices.getAlias({ name: alias });
+            return Object.keys(response.body);
+        } catch (error) {
+            // 연결 실패를 별칭 없음으로 읽으면 별칭 교체가 거짓 위에서 돈다.
+            if (!isNotFound(error)) throw error;
+            return [];
+        }
     }
 
     async reindex(sourceIndex: string, targetIndex: string): Promise<void> {
