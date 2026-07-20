@@ -255,6 +255,15 @@ services:
     ports: ["127.0.0.1:3847:3847"]
     depends_on: [runtime-api, tracer-api]
 
+  # 호스트에서 도는 dev 서버 앞에 같은 진입점을 세운다. 프로필이 있어 이름을 대야만 뜨므로
+  # 앱까지 컨테이너로 띄우는 경로와 3847을 두고 다투지 않는다.
+  edge-dev:
+    image: nginx:1.27-alpine
+    profiles: [dev]
+    volumes: [./infra/edge/nginx.dev.conf:/etc/nginx/nginx.conf:ro]
+    ports: ["127.0.0.1:3847:3847"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
   web:
     build: { context: ., dockerfile: Dockerfile, target: web }
     ports: ["127.0.0.1:5173:80"]
