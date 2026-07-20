@@ -40,7 +40,6 @@ export const monitorQueryKeys = {
       string,
       ...(readonly TaskId[]),
     ],
-  verdictCounts: (taskId: TaskId) => ["monitor", "task", taskId, "verdict-counts"] as const,
   settings: () => ["monitor", "settings"] as const,
   ruleEvidence: (taskId: TaskId, ruleId: string) =>
     ["monitor", "task", taskId, "rule", ruleId, "evidence"] as const,

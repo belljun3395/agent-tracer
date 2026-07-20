@@ -73,13 +73,3 @@ export function needsReview(rule: RuleRecord): boolean {
   return rule.reviewState === RULE_REVIEW_STATE.pendingReview;
 }
 
-/** 규칙은 하나의 사용자 발화에서 나오므로 그 발화별로 묶어 보여준다. */
-export function groupRulesByAnchor(rules: readonly RuleRecord[]): readonly (readonly RuleRecord[])[] {
-  const groups = new Map<string, RuleRecord[]>();
-  for (const rule of rules) {
-    const bucket = groups.get(rule.anchorEventId);
-    if (bucket === undefined) groups.set(rule.anchorEventId, [rule]);
-    else bucket.push(rule);
-  }
-  return [...groups.values()];
-}

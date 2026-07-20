@@ -2,7 +2,6 @@ import { z } from "zod";
 import { RECIPE_OUTCOMES, RECIPE_STATUSES } from "@monitor/kernel";
 
 export const listQuerySchema = z.object({ status: z.enum(RECIPE_STATUSES).optional() });
-export const applicationsQuerySchema = z.object({ recipeId: z.string().trim().min(1) });
 export const searchQuerySchema = z.object({
     q: z.string().trim().min(1),
     limit: z.coerce.number().int().positive().optional(),
@@ -20,7 +19,6 @@ export const outcomeBodySchema = z.object({
 });
 
 export type ListQuery = z.infer<typeof listQuerySchema>;
-export type ApplicationsQuery = z.infer<typeof applicationsQuerySchema>;
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
 export type EditBody = z.infer<typeof editBodySchema>;
 export type OutcomeBody = z.infer<typeof outcomeBodySchema>;

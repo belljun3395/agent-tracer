@@ -11,9 +11,7 @@ import { TimelineProjection } from "~projector/domain/project/application/timeli
 import { DbConsumer } from "~projector/domain/project/inbound/db.consumer.js";
 import { NOTIFICATION_PUBLISHER as PROJECT_NOTIFICATION_PUBLISHER } from "~projector/domain/project/port/notification.publisher.port.js";
 import { TRACER_DATABASE, type TracerDatabase } from "~projector/domain/project/port/tracer.database.port.js";
-import { NotifyUseCase } from "~projector/domain/notify/application/notify.usecase.js";
 import { KafkaNotificationPublisher } from "~projector/domain/notify/adapter/kafka.notification.publisher.js";
-import { NOTIFICATION_PUBLISHER as NOTIFY_NOTIFICATION_PUBLISHER } from "~projector/domain/notify/port/notification.publisher.port.js";
 import { IndexSearchUseCase } from "~projector/domain/index/application/index.search.usecase.js";
 import { SearchEventsReaperService } from "~projector/domain/index/application/search.events.reaper.service.js";
 import { SearchOutboxDrainService } from "~projector/domain/index/application/search.outbox.drain.service.js";
@@ -77,9 +75,7 @@ export class ProjectorModule {
                 { provide: TRACER_DATABASE, useValue: deps.database },
                 { provide: PROJECT_NOTIFICATION_PUBLISHER, useExisting: KafkaNotificationPublisher },
 
-                NotifyUseCase,
                 KafkaNotificationPublisher,
-                { provide: NOTIFY_NOTIFICATION_PUBLISHER, useExisting: KafkaNotificationPublisher },
                 { provide: NOTIFICATION_PRODUCER, useValue: deps.producer },
 
                 IndexSearchUseCase,

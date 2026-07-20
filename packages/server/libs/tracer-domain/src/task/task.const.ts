@@ -1,4 +1,4 @@
-import { COMPLETED_TASK_STATUS, USER_TASK_ORIGIN, type TaskOrigin, type TaskStatus } from "@monitor/kernel";
+import { type TaskOrigin, type TaskStatus } from "@monitor/kernel";
 import { InvariantViolationError } from "../error/invariant.error.js";
 
 // 목록 표시용 직렬화 형태는 공유 계약에서 온다(web과 동일 타입).
@@ -47,10 +47,4 @@ export function decodeTaskPageCursor(raw: string): TaskPageCursor {
     };
 }
 
-// 작업이 레시피 스캔 앵커가 될 조건의 SQL 표현이며, archived는 호출자가 따로 정한다(보관된 작업도 앵커가 될 수 있다).
-export const RECIPE_SCAN_ANCHOR_FILTER = {
-    origin: USER_TASK_ORIGIN,
-    status: COMPLETED_TASK_STATUS,
-    rootOnly: true,
-} as const satisfies Omit<TaskPageFilter, "limit">;
 

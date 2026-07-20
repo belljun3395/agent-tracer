@@ -12,7 +12,6 @@ import { DismissRecipeUseCase } from "~tracer-api/domain/recipe/application/comm
 import { EditRecipeUseCase } from "~tracer-api/domain/recipe/application/command/edit.recipe.usecase.js";
 import { RetireRecipeUseCase } from "~tracer-api/domain/recipe/application/command/retire.recipe.usecase.js";
 import { GetRecipeUseCase } from "~tracer-api/domain/recipe/application/query/get.recipe.usecase.js";
-import { ListRecipeApplicationsUseCase } from "~tracer-api/domain/recipe/application/query/list.recipe.applications.usecase.js";
 import { SearchRecipesUseCase } from "~tracer-api/domain/recipe/application/query/search.recipes.usecase.js";
 import { ReportRecipeOutcomeUseCase } from "~tracer-api/domain/recipe/application/command/report.recipe.outcome.usecase.js";
 import { ListRecipesUseCase } from "~tracer-api/domain/recipe/application/query/list.recipes.usecase.js";
@@ -34,7 +33,6 @@ export const recipeFeature: { readonly controllers: readonly Type[]; readonly pr
         EditRecipeUseCase,
         RetireRecipeUseCase,
         GetRecipeUseCase,
-        ListRecipeApplicationsUseCase,
         SearchRecipesUseCase,
         ReportRecipeOutcomeUseCase,
         ListRecipesUseCase,

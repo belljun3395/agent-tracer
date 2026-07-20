@@ -7,19 +7,16 @@ import { DismissRecipeUseCase } from "~tracer-api/domain/recipe/application/comm
 import { EditRecipeUseCase } from "~tracer-api/domain/recipe/application/command/edit.recipe.usecase.js";
 import { RetireRecipeUseCase } from "~tracer-api/domain/recipe/application/command/retire.recipe.usecase.js";
 import { DeleteRecipeUseCase } from "~tracer-api/domain/recipe/application/command/delete.recipe.usecase.js";
-import { ListRecipeApplicationsUseCase } from "~tracer-api/domain/recipe/application/query/list.recipe.applications.usecase.js";
 import { SearchRecipesUseCase } from "~tracer-api/domain/recipe/application/query/search.recipes.usecase.js";
 import { ReportRecipeOutcomeUseCase } from "~tracer-api/domain/recipe/application/command/report.recipe.outcome.usecase.js";
 import { SchemaValidationPipe } from "~tracer-api/support/schema.validation.pipe.js";
 import { pathParamPipe } from "~tracer-api/support/path-param.pipe.js";
 import { resolveUserId } from "~tracer-api/support/request-user.js";
 import {
-    applicationsQuerySchema,
     editBodySchema,
     listQuerySchema,
     outcomeBodySchema,
     searchQuerySchema,
-    type ApplicationsQuery,
     type EditBody,
     type ListQuery,
     type OutcomeBody,
@@ -36,7 +33,6 @@ export class RecipeController {
         private readonly editRecipe: EditRecipeUseCase,
         private readonly retireRecipe: RetireRecipeUseCase,
         private readonly deleteRecipe: DeleteRecipeUseCase,
-        private readonly listApplications: ListRecipeApplicationsUseCase,
         private readonly searchRecipes: SearchRecipesUseCase,
         private readonly reportOutcome: ReportRecipeOutcomeUseCase,
     ) {}
@@ -49,15 +45,6 @@ export class RecipeController {
         return this.listRecipes.execute(resolveUserId(user), query.status);
     }
 
-    @Get("recipes/applications")
-    async applications(
-        @Headers(MONITOR_USER_HEADER) user: string | undefined,
-        @Query(new SchemaValidationPipe(applicationsQuerySchema)) query: ApplicationsQuery,
-    ) {
-        const result = await this.listApplications.execute(resolveUserId(user), query.recipeId);
-        if (result === null) throw new NotFoundException("Recipe not found");
-        return result;
-    }
 
     @Get("recipes/search")
     async search(

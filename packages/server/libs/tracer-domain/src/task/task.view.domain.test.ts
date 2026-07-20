@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { RECIPE_SCAN_ANCHOR_FILTER } from "./task.const.js";
 import { TaskEntity } from "./task.entity.js";
 import { TaskUserStateEntity } from "./user-state/task.user.state.entity.js";
 import { TaskView } from "./task.view.domain.js";
@@ -106,14 +105,6 @@ describe("TaskView", () => {
             const task = makeAnchorTask();
             task.parentTaskId = "parent";
             expect(new TaskView(task, null).isRecipeScanEligible()).toBe(false);
-        });
-
-        it("RECIPE_SCAN_ANCHOR_FILTER가 술어와 같은 조건을 표현한다", () => {
-            const task = makeAnchorTask();
-            expect(task.origin).toBe(RECIPE_SCAN_ANCHOR_FILTER.origin);
-            expect(task.status).toBe(RECIPE_SCAN_ANCHOR_FILTER.status);
-            expect(RECIPE_SCAN_ANCHOR_FILTER.rootOnly).toBe(true);
-            expect(task.parentTaskId).toBeNull();
         });
     });
 

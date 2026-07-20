@@ -5,12 +5,6 @@ export interface RecipeStats {
     readonly successRate: number;
 }
 
-export const EMPTY_RECIPE_STATS: RecipeStats = {
-    applicationCount: 0,
-    decidedCount: 0,
-    successRate: 0,
-};
-
 export interface RecipeCorrection {
     readonly whatAgentDid: string;
     readonly howCorrected: string;
