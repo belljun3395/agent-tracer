@@ -34,7 +34,7 @@ class GetTaskEventsArgs(BaseModel):
 GET_TASK_EVENTS_DESCRIPTION = (
     "Get a page of a task's chronological event sequence (user messages, assistant messages, tool "
     f"runs), up to {MAX_EVENT_LIMIT} events per page. You choose how much to read: pick limit, pass "
-    "the response's nextCursor back as cursor to keep paging, and set order=\"desc\" to start from "
+    'the response\'s nextCursor back as cursor to keep paging, and set order="desc" to start from '
     "the latest events (e.g. to see how a long task ended). truncated/total tell you whether more "
     "events exist. Call this when the conversation excerpt in the prompt is too thin to name the work."
 )

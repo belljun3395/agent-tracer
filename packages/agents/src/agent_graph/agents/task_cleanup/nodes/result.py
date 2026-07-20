@@ -13,9 +13,7 @@ class FinalizeNode(GraphNode):
     name = FINALIZE
 
     async def run(self, state: TaskCleanupState) -> ResultUpdate:
-        suggestions = [
-            item.model_dump() for item in state["suggestions"][: state["max_suggestions"]]
-        ]
+        suggestions = [item.model_dump() for item in state["suggestions"][: state["max_suggestions"]]]
         return {"result": {"suggestions": suggestions}}
 
 

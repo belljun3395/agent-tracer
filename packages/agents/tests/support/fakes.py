@@ -95,15 +95,18 @@ class FakeToolLoopChat:
             name = probe_tool.name
             override = (self.report or {}).get(name) if isinstance(self.report, dict) else self.report
             report = override if override is not None else _AUTO_REPORTS[name]
-            return mk_ai(
-                tool_calls=[{"name": name, "args": report, "id": "call-probe", "type": "tool_call"}]
-            )
+            return mk_ai(tool_calls=[{"name": name, "args": report, "id": "call-probe", "type": "tool_call"}])
         if not self.turns:
             raise AssertionError("no fake turn remains")
         turn = self.turns.pop(0)
         if isinstance(turn, list):
             calls = [
-                {"name": call["name"], "args": call.get("args", {}), "id": f"call-{index}", "type": "tool_call"}
+                {
+                    "name": call["name"],
+                    "args": call.get("args", {}),
+                    "id": f"call-{index}",
+                    "type": "tool_call",
+                }
                 for index, call in enumerate(turn)
             ]
             return mk_ai(tool_calls=calls)
@@ -114,9 +117,7 @@ class FakeToolLoopChat:
         if structured_tool is not None:
             tool_name = structured_tool.name
             return mk_ai(
-                tool_calls=[
-                    {"name": tool_name, "args": turn, "id": "call-structured", "type": "tool_call"}
-                ]
+                tool_calls=[{"name": tool_name, "args": turn, "id": "call-structured", "type": "tool_call"}]
             )
         return mk_ai(content=_json.dumps(turn, ensure_ascii=False))
 
@@ -127,14 +128,8 @@ class FakeToolLoopChat:
         for message in last:
             content = getattr(message, "content", None)
             if isinstance(content, list):
-                found += sum(
-                    1
-                    for block in content
-                    if isinstance(block, dict) and "cache_control" in block
-                )
+                found += sum(1 for block in content if isinstance(block, dict) and "cache_control" in block)
         return found
-
-
 
 
 class FakeLedgerConnection:

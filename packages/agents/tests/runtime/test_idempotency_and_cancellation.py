@@ -94,7 +94,9 @@ async def test_실패한_idempotency_key는_다음_Temporal_시도에서_다시_
     assert calls == 2
 
 
-async def test_만료시각이_지나도_진행중인_실행은_다시_시작하지_않는다(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_만료시각이_지나도_진행중인_실행은_다시_시작하지_않는다(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import agent_graph.agents.runtime.execution.registry as registry
 
     calls = 0
@@ -257,9 +259,7 @@ class TestCancelRun:
             started.set()
             await asyncio.Event().wait()  # 영원히 대기(취소로만 끝난다)
 
-        task = asyncio.ensure_future(
-            execute("recipe-scan", "model", 5_000, body, job_id="job-cancel-1")
-        )
+        task = asyncio.ensure_future(execute("recipe-scan", "model", 5_000, body, job_id="job-cancel-1"))
         await started.wait()
         task.cancel()
 
@@ -275,9 +275,7 @@ class TestCancelRun:
             await release.wait()
             return {"ok": True}
 
-        task = asyncio.ensure_future(
-            execute("recipe-scan", "model", 5_000, body, run_id="run-1")
-        )
+        task = asyncio.ensure_future(execute("recipe-scan", "model", 5_000, body, run_id="run-1"))
         await started.wait()
 
         assert cancel_run("run-1") is True
@@ -294,9 +292,7 @@ class TestCancelRun:
             await release.wait()
             return {"ok": True}
 
-        task = asyncio.ensure_future(
-            execute("recipe-scan", "model", 5_000, body, job_id="job-cancel-2")
-        )
+        task = asyncio.ensure_future(execute("recipe-scan", "model", 5_000, body, job_id="job-cancel-2"))
         await started.wait()
 
         assert cancel_run("job-cancel-2") is True

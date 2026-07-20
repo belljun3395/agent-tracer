@@ -17,9 +17,7 @@ MAX_POOL_SIZE = 8
 
 # 드라이버는 jsonb를 문자열로 내주므로 연결마다 해석 코덱을 걸어야 목록과 사전으로 읽힌다.
 async def _decode_json(connection: Any) -> None:
-    await connection.set_type_codec(
-        "jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
-    )
+    await connection.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
 class LedgerPoolProvider:

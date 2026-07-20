@@ -19,14 +19,10 @@ def allocate_cost_shares[Assignment: RoundAssignment](
     total_rounds = sum(assignment.rounds for assignment in assignments)
     if total_rounds <= 0:
         raise ValueError("worker assignments must allocate at least one round")
-    return [
-        (assignment, assignment.rounds / total_rounds) for assignment in assignments
-    ]
+    return [(assignment, assignment.rounds / total_rounds) for assignment in assignments]
 
 
-def clamp_rounds[Assignment: RoundAssignment](
-    assignments: Sequence[Assignment], available: int
-) -> list[int]:
+def clamp_rounds[Assignment: RoundAssignment](assignments: Sequence[Assignment], available: int) -> list[int]:
     """각 워커의 최소 한 라운드를 보존하며 요청 라운드를 가용량에 비례해 줄인다."""
     floor = len(assignments)
     if floor > available:
@@ -36,10 +32,7 @@ def clamp_rounds[Assignment: RoundAssignment](
     requested = sum(assignment.rounds for assignment in assignments)
     spare = max(available - floor, 0)
     over = requested - floor
-    granted = [
-        1 + ((assignment.rounds - 1) * spare // over if over else 0)
-        for assignment in assignments
-    ]
+    granted = [1 + ((assignment.rounds - 1) * spare // over if over else 0) for assignment in assignments]
     priority = sorted(
         range(len(granted)),
         key=lambda position: assignments[position].rounds,

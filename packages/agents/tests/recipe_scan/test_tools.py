@@ -343,7 +343,8 @@ def test_발췌는_상한을_넘으면_거부한다() -> None:
             probe="timeline",
             verdict="v",
             excerpts=[
-                Excerpt(taskId="t", eventId=f"e{index}", text="x") for index in range(MAX_EXCERPTS_PER_PROBE + 1)
+                Excerpt(taskId="t", eventId=f"e{index}", text="x")
+                for index in range(MAX_EXCERPTS_PER_PROBE + 1)
             ],
         )
 

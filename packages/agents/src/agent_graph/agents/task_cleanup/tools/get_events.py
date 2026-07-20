@@ -30,16 +30,13 @@ class GetTaskEventsArgs(BaseModel):
         ge=1,
         le=MAX_EVENT_LIMIT,
         description=(
-            f"Max events to return in this page (default {DEFAULT_EVENT_LIMIT}, "
-            f"hard cap {MAX_EVENT_LIMIT})"
+            f"Max events to return in this page (default {DEFAULT_EVENT_LIMIT}, hard cap {MAX_EVENT_LIMIT})"
         ),
     )
     cursor: TrimmedStr | None = Field(
         default=None,
         min_length=1,
-        description=(
-            "Opaque cursor from a previous call's nextCursor. Omit to start from the first page."
-        ),
+        description=("Opaque cursor from a previous call's nextCursor. Omit to start from the first page."),
     )
     order: EventOrder | None = Field(
         default=None,

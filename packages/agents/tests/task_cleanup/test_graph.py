@@ -69,9 +69,7 @@ def _event_rows(*event_ids: str) -> list[dict[str, Any]]:
     ]
 
 
-async def _run(
-    chat: FakeToolLoopChat, ledger: FakeLedger, *candidates: dict[str, object]
-) -> AgentResponse:
+async def _run(chat: FakeToolLoopChat, ledger: FakeLedger, *candidates: dict[str, object]) -> AgentResponse:
     req = _request(*candidates)
     return await execute(
         "task-cleanup",
@@ -163,26 +161,28 @@ async def test_모델이_후보를_스스로_열람하고_이벤트를_읽은_�
 ) -> None:
     ledger = FakeLedger(_event_rows("event-1"))
     candidates = [_candidate("task-1", has_events=True), _candidate("task-2", has_events=False)]
-    chat = FakeToolLoopChat([
-        [{"name": "list_candidate_tasks", "args": {}}],
-        [{"name": "get_task_events", "args": {"taskId": "task-1"}}],
-        {
-            "suggestions": [
-                {
-                    "kind": "archive",
-                    "taskId": "task-1",
-                    "rationale": "의미 있는 작업이 없다",
-                    "evidenceEventIds": ["event-1"],
-                },
-                {
-                    "kind": "archive",
-                    "taskId": "task-2",
-                    "rationale": "빈 껍데기다",
-                    "evidenceEventIds": [],
-                },
-            ]
-        },
-    ])
+    chat = FakeToolLoopChat(
+        [
+            [{"name": "list_candidate_tasks", "args": {}}],
+            [{"name": "get_task_events", "args": {"taskId": "task-1"}}],
+            {
+                "suggestions": [
+                    {
+                        "kind": "archive",
+                        "taskId": "task-1",
+                        "rationale": "의미 있는 작업이 없다",
+                        "evidenceEventIds": ["event-1"],
+                    },
+                    {
+                        "kind": "archive",
+                        "taskId": "task-2",
+                        "rationale": "빈 껍데기다",
+                        "evidenceEventIds": [],
+                    },
+                ]
+            },
+        ]
+    )
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
 
     res = await _run(chat, ledger, *candidates)
@@ -209,20 +209,22 @@ async def test_모델이_후보를_스스로_열람하고_이벤트를_읽은_�
 async def test_도구가_보여주지_않은_후보는_버린다(monkeypatch: pytest.MonkeyPatch) -> None:
     ledger = FakeLedger()
     candidates = [_candidate("task-1", has_events=False)]
-    chat = FakeToolLoopChat([
-        [{"name": "list_candidate_tasks", "args": {}}],
-        {
-            "suggestions": [
-                {
-                    "kind": "archive",
-                    "taskId": "ghost",
-                    "rationale": "없는 태스크",
-                    "evidenceEventIds": [],
-                }
-            ]
-        },
-        {"suggestions": []},
-    ])
+    chat = FakeToolLoopChat(
+        [
+            [{"name": "list_candidate_tasks", "args": {}}],
+            {
+                "suggestions": [
+                    {
+                        "kind": "archive",
+                        "taskId": "ghost",
+                        "rationale": "없는 태스크",
+                        "evidenceEventIds": [],
+                    }
+                ]
+            },
+            {"suggestions": []},
+        ]
+    )
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
 
     res = await _run(chat, ledger, *candidates)
@@ -238,20 +240,22 @@ async def test_이벤트를_읽지_않은_후보는_제안으로_받지_않는�
 ) -> None:
     ledger = FakeLedger()
     candidates = [_candidate("task-1", has_events=True)]
-    chat = FakeToolLoopChat([
-        [{"name": "list_candidate_tasks", "args": {}}],
-        {
-            "suggestions": [
-                {
-                    "kind": "archive",
-                    "taskId": "task-1",
-                    "rationale": "근거 없이 제안",
-                    "evidenceEventIds": [],
-                }
-            ]
-        },
-        {"suggestions": []},
-    ])
+    chat = FakeToolLoopChat(
+        [
+            [{"name": "list_candidate_tasks", "args": {}}],
+            {
+                "suggestions": [
+                    {
+                        "kind": "archive",
+                        "taskId": "task-1",
+                        "rationale": "근거 없이 제안",
+                        "evidenceEventIds": [],
+                    }
+                ]
+            },
+            {"suggestions": []},
+        ]
+    )
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
 
     res = await _run(chat, ledger, *candidates)
@@ -259,9 +263,7 @@ async def test_이벤트를_읽지_않은_후보는_제안으로_받지_않는�
     assert res.error is None and res.data == {"suggestions": []}
     failures = [step for step in res.steps if step.eventKind == "validation.failed"]
     assert failures and "was never inspected" in failures[0].content
-    narrate(
-        "task-cleanup :: 이벤트가 있는데 열어보지도 않은 후보는 제안으로 받지 않는다", chat, res
-    )
+    narrate("task-cleanup :: 이벤트가 있는데 열어보지도 않은 후보는 제안으로 받지 않는다", chat, res)
 
 
 async def test_읽었더니_이벤트가_없는_후보는_인용_없이도_받는다(
@@ -269,29 +271,29 @@ async def test_읽었더니_이벤트가_없는_후보는_인용_없이도_받�
 ) -> None:
     ledger = FakeLedger()
     candidates = [_candidate("task-1", has_events=True)]
-    chat = FakeToolLoopChat([
-        [{"name": "list_candidate_tasks", "args": {}}],
-        [{"name": "get_task_events", "args": {"taskId": "task-1"}}],
-        {
-            "suggestions": [
-                {
-                    "kind": "archive",
-                    "taskId": "task-1",
-                    "rationale": "알맹이가 없다",
-                    "evidenceEventIds": [],
-                }
-            ]
-        },
-    ])
+    chat = FakeToolLoopChat(
+        [
+            [{"name": "list_candidate_tasks", "args": {}}],
+            [{"name": "get_task_events", "args": {"taskId": "task-1"}}],
+            {
+                "suggestions": [
+                    {
+                        "kind": "archive",
+                        "taskId": "task-1",
+                        "rationale": "알맹이가 없다",
+                        "evidenceEventIds": [],
+                    }
+                ]
+            },
+        ]
+    )
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *a, **k: chat)
 
     res = await _run(chat, ledger, *candidates)
 
     assert res.error is None
     assert [item["taskId"] for item in res.data["suggestions"]] == ["task-1"]
-    narrate(
-        "task-cleanup :: 읽어봤더니 이벤트가 없던 후보는 인용 없이도 제안으로 받는다", chat, res
-    )
+    narrate("task-cleanup :: 읽어봤더니 이벤트가 없던 후보는 인용 없이도 제안으로 받는다", chat, res)
 
 
 async def test_아무_도구도_부르지_않으면_빈_결과로_끝낸다(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -383,6 +385,4 @@ async def test_고른_후보만_각자_예산으로_병렬_조사된다(monkeypa
     assert res.error is None
     inspected = [step for step in res.steps if step.nodeName == "inspect"]
     assert sum(1 for step in inspected if step.eventKind == "node.completed") == 2
-    narrate(
-        "task-cleanup :: 조율자가 고른 후보만 각자 예산으로 병렬 조사된다", chat, res
-    )
+    narrate("task-cleanup :: 조율자가 고른 후보만 각자 예산으로 병렬 조사된다", chat, res)

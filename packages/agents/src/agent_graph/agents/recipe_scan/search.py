@@ -115,9 +115,7 @@ class RecipeSearchReader:
                 "size": limit,
                 "query": {
                     "bool": {
-                        "must": [
-                            {"more_like_this": {"fields": ["title", "intent", "summaryMd"], "like": q}}
-                        ],
+                        "must": [{"more_like_this": {"fields": ["title", "intent", "summaryMd"], "like": q}}],
                         "filter": [{"term": {"userId": self._user_id}}],
                     }
                 },

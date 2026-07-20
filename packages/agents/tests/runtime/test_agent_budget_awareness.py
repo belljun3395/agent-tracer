@@ -78,9 +78,7 @@ class GreedyChat:
         self.notices.append(directives[-1])
         if FINALIZE_DIRECTIVE in directives[-1]:
             return mk_ai(
-                tool_calls=[
-                    {"name": "CleanupDraft", "args": _DRAFT, "id": "call-out", "type": "tool_call"}
-                ],
+                tool_calls=[{"name": "CleanupDraft", "args": _DRAFT, "id": "call-out", "type": "tool_call"}],
                 usage=self.usage,
             )
         return mk_ai(

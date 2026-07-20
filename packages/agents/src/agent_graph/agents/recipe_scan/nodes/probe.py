@@ -89,9 +89,7 @@ class ProbeNode(GraphNode):
                 messages=[
                     {
                         "role": "user",
-                        "content": build_probe_prompt(
-                            req.taskId, assignment.question, assignment.rounds
-                        ),
+                        "content": build_probe_prompt(req.taskId, assignment.question, assignment.rounds),
                     }
                 ],
                 context=StandardAgentContext(

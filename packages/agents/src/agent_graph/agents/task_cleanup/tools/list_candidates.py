@@ -23,8 +23,7 @@ class ListCandidateTasksArgs(BaseModel):
         ge=1,
         le=MAX_CANDIDATE_LIMIT,
         description=(
-            f"Max candidates in this page (default {DEFAULT_CANDIDATE_LIMIT}, "
-            f"hard cap {MAX_CANDIDATE_LIMIT})"
+            f"Max candidates in this page (default {DEFAULT_CANDIDATE_LIMIT}, hard cap {MAX_CANDIDATE_LIMIT})"
         ),
     )
     cursor: TrimmedStr | None = Field(

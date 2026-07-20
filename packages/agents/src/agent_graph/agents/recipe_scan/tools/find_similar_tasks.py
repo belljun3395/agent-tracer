@@ -60,7 +60,5 @@ class FindSimilarTasksTool(AgentTool[FindSimilarTasksArgs]):
         anchor = await self._reader.task_with_events(args.anchorTaskId, 1)
         if anchor is None:
             return f"Task {args.anchorTaskId} not found."
-        similar = await self._search.similar_tasks(
-            anchor["task"]["title"], args.anchorTaskId, args.limit
-        )
+        similar = await self._search.similar_tasks(anchor["task"]["title"], args.anchorTaskId, args.limit)
         return json.dumps(similar, ensure_ascii=False)

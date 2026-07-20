@@ -19,15 +19,11 @@ def configure_observability() -> Callable[[], None]:
         trace_api = importlib.import_module("opentelemetry.trace")
         trace_sdk = importlib.import_module("opentelemetry.sdk.trace")
         trace_export = importlib.import_module("opentelemetry.sdk.trace.export")
-        otlp_trace = importlib.import_module(
-            "opentelemetry.exporter.otlp.proto.http.trace_exporter"
-        )
+        otlp_trace = importlib.import_module("opentelemetry.exporter.otlp.proto.http.trace_exporter")
         metrics_api = importlib.import_module("opentelemetry.metrics")
         metrics_sdk = importlib.import_module("opentelemetry.sdk.metrics")
         metrics_export = importlib.import_module("opentelemetry.sdk.metrics.export")
-        otlp_metric = importlib.import_module(
-            "opentelemetry.exporter.otlp.proto.http.metric_exporter"
-        )
+        otlp_metric = importlib.import_module("opentelemetry.exporter.otlp.proto.http.metric_exporter")
     except ModuleNotFoundError:
         return _noop
 
@@ -35,9 +31,7 @@ def configure_observability() -> Callable[[], None]:
     resource = resource_mod.Resource.create({"service.name": service_name})
     tracer_provider = trace_sdk.TracerProvider(resource=resource)
     tracer_provider.add_span_processor(
-        trace_export.BatchSpanProcessor(
-            otlp_trace.OTLPSpanExporter(endpoint=f"{otlp_endpoint}/v1/traces")
-        )
+        trace_export.BatchSpanProcessor(otlp_trace.OTLPSpanExporter(endpoint=f"{otlp_endpoint}/v1/traces"))
     )
     trace_api.set_tracer_provider(tracer_provider)
 

@@ -74,9 +74,10 @@ class TestAttributes:
             parameters={"limit": 20, "q": "cookie"},
         )
 
-        assert left["agent_tracer.tool.parameters.fingerprint"] == right[
-            "agent_tracer.tool.parameters.fingerprint"
-        ]
+        assert (
+            left["agent_tracer.tool.parameters.fingerprint"]
+            == right["agent_tracer.tool.parameters.fingerprint"]
+        )
         assert len(str(left["agent_tracer.tool.parameters.fingerprint"])) == 16
         assert "cookie" not in left.values()
 
@@ -130,9 +131,7 @@ class TestTraceContextPropagation:
     ) -> None:
         async with invoke_agent_span(job_id=None, agent_name="recipe-scan", model="m") as agent_span:
             trace_id = agent_span.get_span_context().trace_id
-            async with spans.tool_span(
-                "search_events", agent_name="recipe-scan"
-            ) as tool_span_obj:
+            async with spans.tool_span("search_events", agent_name="recipe-scan") as tool_span_obj:
                 assert tool_span_obj.get_span_context().trace_id == trace_id
                 headers: dict[str, str] = {}
                 inject_trace_context(headers)

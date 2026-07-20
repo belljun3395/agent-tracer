@@ -20,12 +20,20 @@ _TOOLS: dict[str, object] = {
         {
             "name": "get_task_summary",
             "description": "Get the task summary.",
-            "parameters": {"type": "object", "properties": {"taskId": {"type": "string"}}, "required": ["taskId"]},
+            "parameters": {
+                "type": "object",
+                "properties": {"taskId": {"type": "string"}},
+                "required": ["taskId"],
+            },
         },
         {
             "name": "list_rules",
             "description": "List applicable rules.",
-            "parameters": {"type": "object", "properties": {"taskId": {"type": "string"}}, "required": ["taskId"]},
+            "parameters": {
+                "type": "object",
+                "properties": {"taskId": {"type": "string"}},
+                "required": ["taskId"],
+            },
         },
     ],
     "toolCallback": {"url": "http://worker:8810/tools/invoke", "token": "tok-1"},

@@ -23,9 +23,7 @@ class TestClassifyException:
         assert classify_exception(OutputTruncated("절단")).subtype == "max_tokens"
 
     def test_도구_예산_소진은_max_turns_exceeded로_비재시도(self) -> None:
-        err = ModelCallLimitExceededError(
-            thread_count=0, run_count=18, thread_limit=None, run_limit=18
-        )
+        err = ModelCallLimitExceededError(thread_count=0, run_count=18, thread_limit=None, run_limit=18)
 
         classified = classify_exception(err)
 

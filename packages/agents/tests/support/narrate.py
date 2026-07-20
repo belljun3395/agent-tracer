@@ -28,7 +28,9 @@ def _print_prompts(chat: FakeToolLoopChat) -> None:
     for call_index, messages in enumerate(chat.requests, start=1):
         is_continuation = messages[: len(previous)] == previous
         new_messages = messages[len(previous) :] if is_continuation else messages
-        heading = "call 1 (전체 조립)" if call_index == 1 else f"call {call_index} (+{len(new_messages)}개 추가)"
+        heading = (
+            "call 1 (전체 조립)" if call_index == 1 else f"call {call_index} (+{len(new_messages)}개 추가)"
+        )
         print(f"  [{heading}]")
         for message in new_messages:
             _print_message(message)

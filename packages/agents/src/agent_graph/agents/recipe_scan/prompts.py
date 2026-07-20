@@ -164,9 +164,7 @@ def render_plan(plan: DispatchPlan | None) -> str:
     if plan is None:
         return ""
     probes = plan.probes
-    lines = [
-        f"- {probe.probe} ({probe.rounds} rounds): {probe.question}" for probe in probes
-    ]
+    lines = [f"- {probe.probe} ({probe.rounds} rounds): {probe.question}" for probe in probes]
     return "\n\nYour own plan for this investigation:\n" + "\n".join(lines)
 
 

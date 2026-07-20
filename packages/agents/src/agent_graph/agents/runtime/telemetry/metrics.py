@@ -47,9 +47,7 @@ def _metric_instruments() -> dict[str, Any] | None:
     meter = metrics_mod.get_meter(_METER_NAME)
     _METRIC_INSTRUMENTS = {
         "token_usage": meter.create_histogram("gen_ai.client.token.usage", unit="{token}"),
-        "client_duration": meter.create_histogram(
-            "gen_ai.client.operation.duration", unit="s"
-        ),
+        "client_duration": meter.create_histogram("gen_ai.client.operation.duration", unit="s"),
         "tool_duration": meter.create_histogram("gen_ai.execute_tool.duration", unit="s"),
     }
     return _METRIC_INSTRUMENTS

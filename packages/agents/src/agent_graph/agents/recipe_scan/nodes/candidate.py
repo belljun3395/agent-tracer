@@ -58,9 +58,7 @@ class _CandidateAgent(GraphNode):
         )
         rounds = synthesis_rounds(state["plan"])
         catalog = state["provenance"]
-        registry = build_recipe_registry(
-            self._reader, self._search, catalog, agent_name=self._agent_name
-        )
+        registry = build_recipe_registry(self._reader, self._search, catalog, agent_name=self._agent_name)
         agent = build_recipe_agent(
             self._chat,
             INVESTIGATOR_SYSTEM_PROMPT,
@@ -146,11 +144,7 @@ class ValidateCandidateNode(GraphNode):
         self._usage = usage
 
     async def run(self, state: RecipeScanState) -> ValidateCandidateUpdate:
-        errors = validate_recipe_candidates(
-            state["candidates"], state["task_id"], state["provenance"]
-        )
+        errors = validate_recipe_candidates(state["candidates"], state["task_id"], state["provenance"])
         if errors:
-            self._usage.record_graph_event(
-                "validation.failed", "; ".join(errors), node_name=self.name
-            )
+            self._usage.record_graph_event("validation.failed", "; ".join(errors), node_name=self.name)
         return {"validation_errors": errors}

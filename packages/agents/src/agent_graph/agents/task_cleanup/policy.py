@@ -56,6 +56,7 @@ def clamp_triage(plan: TriagePlan, available: int) -> tuple[TriagePlan, int]:
     clamped = TriagePlan(inspect=shrunk)
     return clamped, requested - clamped.total_rounds()
 
+
 # 라운드 예산은 agent의 호출 한도가 집행한다. 한 라운드가 before_model·model·after_model·tools
 # 네 슈퍼스텝을 도는 데다 미들웨어를 더하면 더 늘어나므로, 재귀 한도는 예산을 세는 자리가 아니라
 # 폭주만 끊는 그물이다.

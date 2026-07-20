@@ -84,9 +84,7 @@ class InvestigateNode(_CandidateAgent):
             [
                 {
                     "role": "user",
-                    "content": build_user_prompt(
-                        state["task_id"], state["context"], state["language"]
-                    ),
+                    "content": build_user_prompt(state["task_id"], state["context"], state["language"]),
                 }
             ],
             state["model_cost_usd"],

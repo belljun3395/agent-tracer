@@ -90,16 +90,13 @@ def build_user_prompt(
     reports: Sequence[InspectReport] | None = None,
 ) -> str:
     """정리 스캔 시점과 제안 상한과 출력 언어와 조사 결과를 담은 최초 지시문이다."""
-    return (
-        "\n".join(
-            [
-                f"Scan time: {scanned_at}",
-                f"Propose at most {max_suggestions} tasks to archive.",
-                f"Output language: {LANGUAGE_DIRECTIVES[language]}",
-            ]
-        )
-        + render_reports(reports)
-    )
+    return "\n".join(
+        [
+            f"Scan time: {scanned_at}",
+            f"Propose at most {max_suggestions} tasks to archive.",
+            f"Output language: {LANGUAGE_DIRECTIVES[language]}",
+        ]
+    ) + render_reports(reports)
 
 
 TRIAGE_SYSTEM_PROMPT = f"""You decide which cleanup candidates are worth opening.

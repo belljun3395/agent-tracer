@@ -13,10 +13,7 @@ class FinalizeNode(GraphNode):
     name = FINALIZE
 
     async def run(self, state: RecipeScanState) -> ResultUpdate:
-        recipes = [
-            candidate.model_dump(mode="json", exclude_none=True)
-            for candidate in state["candidates"]
-        ]
+        recipes = [candidate.model_dump(mode="json", exclude_none=True) for candidate in state["candidates"]]
         return {"result": {"recipes": recipes}}
 
 

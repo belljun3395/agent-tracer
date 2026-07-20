@@ -33,7 +33,7 @@ async def invoke_agent_span(
     attrs = build_invoke_agent_attributes(job_id=job_id, agent_name=agent_name, model=model)
     tracer = trace.get_tracer(_TRACER_NAME)
     with tracer.start_as_current_span(
-        f'{GEN_AI_OPERATION["invoke_agent"]} {agent_name}',
+        f"{GEN_AI_OPERATION['invoke_agent']} {agent_name}",
         context=parent_context,
         kind=SpanKind.INTERNAL,
         attributes=attrs,
@@ -54,7 +54,7 @@ async def tool_span(
     metric_attrs = build_tool_attributes(tool_name, agent_name)
     tracer = trace.get_tracer(_TRACER_NAME)
     with tracer.start_as_current_span(
-        f'{GEN_AI_OPERATION["execute_tool"]} {tool_name}',
+        f"{GEN_AI_OPERATION['execute_tool']} {tool_name}",
         kind=SpanKind.INTERNAL,
         attributes=span_attrs,
     ) as span:

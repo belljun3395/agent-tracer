@@ -63,9 +63,7 @@ async def run_registered(
         cached = _idempotency_cache.get(cache_key)
         if cached is not None:
             if cached.model != model or cached.job_id != job_id or cached.input_hash != input_hash:
-                _log.warning(
-                    "idempotency key reused with a different model or input: %s", cache_key
-                )
+                _log.warning("idempotency key reused with a different model or input: %s", cache_key)
                 raise IdempotencyConflict("idempotency key was reused with a different model or input")
             return await _await_idempotent(cache_key, run_key, cached.task)
         task = asyncio.ensure_future(factory())

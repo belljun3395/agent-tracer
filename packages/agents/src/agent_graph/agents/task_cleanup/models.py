@@ -146,9 +146,7 @@ def merged_candidates(
     return {**left, **right}
 
 
-def merged_event_ids(
-    left: dict[str, set[str]], right: dict[str, set[str]]
-) -> dict[str, set[str]]:
+def merged_event_ids(left: dict[str, set[str]], right: dict[str, set[str]]) -> dict[str, set[str]]:
     """태스크마다 실제로 열어본 이벤트를 합집합으로 합친다."""
     combined = {task_id: set(ids) for task_id, ids in left.items()}
     for task_id, ids in right.items():
@@ -172,9 +170,7 @@ class CleanupDraftSuggestion(BaseModel):
 class CleanupDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    suggestions: list[CleanupDraftSuggestion] = Field(
-        default_factory=list, max_length=MAX_SUGGESTIONS
-    )
+    suggestions: list[CleanupDraftSuggestion] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)
 
 
 class TriageUpdate(TypedDict):
