@@ -1,16 +1,16 @@
 import type {McpToolSpec} from "~runtime/support/mcp.tool.js";
 import {isRecord} from "~runtime/support/json.js";
 
-/** 에이전트가 스스로 남기는 메모 도구이며, 데몬이 활성 태스크를 추정해 붙이는 한계를 설명에 못박는다. */
+/** 에이전트가 스스로 남기는 메모 도구이며, 메모가 어느 태스크에 붙는지를 설명에 못박는다. */
 export const CREATE_MEMO_TOOL: McpToolSpec = {
     name: "create_memo",
     description:
-        "Leave a short note on the current task in Agent Tracer, visible to the human operator later. "
+        "Leave a short note on this session's task in Agent Tracer, visible to the human operator later. "
         + "Call this when you notice something worth flagging for a human but that does not belong in your "
         + "normal response — an assumption you made, a workaround you had to use, or a risk you could not "
-        + "resolve yourself. Best-effort: this tool cannot see which session it is attached to, so it "
-        + "attaches to whichever task in this workspace was most recently active. If several sessions or "
-        + "subagents may be active at once, expect it to occasionally land on the wrong task.",
+        + "resolve yourself. The note is attached to the task of the session this tool runs in, which it "
+        + "identifies on its own — you do not pass a session or task id. If you are a subagent, the note "
+        + "lands on the task of the session that launched you, not on your own subagent task.",
     inputSchema: {
         type: "object",
         properties: {

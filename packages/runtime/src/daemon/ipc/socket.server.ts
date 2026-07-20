@@ -54,12 +54,8 @@ export interface DaemonSocketContext {
     readonly memo: MemoHook;
     readonly readRules: () => readonly GuardrailRule[];
     readonly readDelivery: () => DaemonDeliveryResponse;
-    /** MCP 도구처럼 자기 세션을 모르는 호출자를 위해 가장 최근 활성 태스크를 추정한다. */
-    readonly findActiveTaskId: () => string | undefined;
-    /** get_recipe가 이벤트를 붙일 세션과 턴까지 함께 필요할 때 쓰는 전체 활성 타깃이다. */
-    readonly findActiveTarget: () => IngestTarget | undefined;
-    /** 넛지가 박아 준 sessionId로 바인딩을 정확히 찾는다. */
-    readonly findTaskIdBySession: (sessionId: string) => string | undefined;
+    /** MCP 도구가 실은 자기 세션 식별자로 바인딩을 지목하며 못 찾으면 undefined이고 추정하지 않는다. */
+    readonly findTargetBySession: (sessionId: string) => IngestTarget | undefined;
     readonly setTaskTitle: (taskId: string, title: string) => Promise<boolean>;
     readonly appendIngestEvents: (events: readonly RunEventInput[]) => Promise<void>;
     readonly refreshHistory: () => void;
@@ -151,7 +147,9 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
             case "recipe-get": {
                 const body = onGetRecipe(context.recipe, request.recipeId);
                 if (body !== null) {
-                    const target = context.findActiveTarget();
+                    const target = request.sessionId === undefined
+                        ? undefined
+                        : context.findTargetBySession(request.sessionId);
                     if (target !== undefined) {
                         context.interventions.recordRecipeInjected(
                             Date.now(),
@@ -172,9 +170,9 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "recipe-outcome": {
-                const taskId = context.findActiveTaskId();
+                const taskId = context.findTargetBySession(request.sessionId)?.taskId;
                 if (taskId === undefined) {
-                    send(socket, {ok: false, reason: "no_active_task"} satisfies DaemonRecipeOutcomeResponse);
+                    send(socket, {ok: false, reason: "unknown_session"} satisfies DaemonRecipeOutcomeResponse);
                     return;
                 }
                 const ok = await onRecipeOutcomeReported(context.recipe, {
@@ -187,9 +185,9 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "recipe-scan-request": {
-                const taskId = context.findActiveTaskId();
+                const taskId = context.findTargetBySession(request.sessionId)?.taskId;
                 if (taskId === undefined) {
-                    send(socket, {queued: false, reason: "no_active_task"} satisfies DaemonRecipeScanResponse);
+                    send(socket, {queued: false, reason: "unknown_session"} satisfies DaemonRecipeScanResponse);
                     return;
                 }
                 // 기존 /recipe 슬래시 명령 경로를 그대로 타도록 같은 명령 접두사를 합성한다.
@@ -202,7 +200,7 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "set-task-title": {
-                const taskId = context.findTaskIdBySession(request.sessionId);
+                const taskId = context.findTargetBySession(request.sessionId)?.taskId;
                 if (taskId === undefined) {
                     send(socket, {ok: false, reason: "unknown_session"} satisfies DaemonSetTaskTitleResponse);
                     return;
@@ -212,9 +210,9 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "memo-create": {
-                const taskId = context.findActiveTaskId();
+                const taskId = context.findTargetBySession(request.sessionId)?.taskId;
                 if (taskId === undefined) {
-                    send(socket, {ok: false, reason: "no_active_task"} satisfies DaemonMemoCreateResponse);
+                    send(socket, {ok: false, reason: "unknown_session"} satisfies DaemonMemoCreateResponse);
                     return;
                 }
                 const ok = await onMemoCreateRequested(context.memo, {
@@ -226,9 +224,9 @@ async function handleMessage(socket: net.Socket, line: string, context: DaemonSo
                 return;
             }
             case "memo-search": {
-                const taskId = context.findActiveTaskId();
+                const taskId = context.findTargetBySession(request.sessionId)?.taskId;
                 if (taskId === undefined) {
-                    send(socket, {items: [], reason: "no_active_task"} satisfies DaemonMemoSearchResponse);
+                    send(socket, {items: [], reason: "unknown_session"} satisfies DaemonMemoSearchResponse);
                     return;
                 }
                 const items = await onMemoSearchRequested(context.memo, {

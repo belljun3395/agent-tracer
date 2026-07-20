@@ -31,6 +31,12 @@ export function resolveMonitorTransportConfig(env: NodeJS.ProcessEnv = process.e
     };
 }
 
+/** Claude Code가 MCP 서버 프로세스에 심어 주는, 그 서버가 딸린 세션의 식별자다. */
+export function resolveClaudeSessionId(env: NodeJS.ProcessEnv = process.env): string | undefined {
+    const sessionId = (env.CLAUDE_CODE_SESSION_ID ?? "").trim();
+    return sessionId || undefined;
+}
+
 /** 개발 모드에서만 훅 로그를 stderr로도 흘린다. */
 export function isVerboseLogging(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.NODE_ENV === "development";

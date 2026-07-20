@@ -11,7 +11,9 @@ export const REPORT_RECIPE_OUTCOME_TOOL: McpToolSpec = {
         + "abandon the recipe partway through because it did not fit. This is the only feedback signal "
         + "recipe effectiveness is measured by: call it every time you acted on a recipe, whether you "
         + "opened it with get_recipe or judged it from the menu alone, even when the outcome was mixed "
-        + "or negative.",
+        + "or negative. The report is filed against the task of the session this tool runs in, which it "
+        + "identifies on its own — you do not pass a session or task id; if you are a subagent, it is "
+        + "filed against the task of the session that launched you.",
     inputSchema: {
         type: "object",
         properties: {

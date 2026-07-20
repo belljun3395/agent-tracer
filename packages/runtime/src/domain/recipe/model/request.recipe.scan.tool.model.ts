@@ -8,7 +8,9 @@ export const REQUEST_RECIPE_SCAN_TOOL: McpToolSpec = {
         + "candidate for later review. Call this near the end of a task, once you judge that the "
         + "approach you used — a non-obvious fix, a multi-step setup, a workaround worth remembering — "
         + "would be worth reusing the next time this kind of work comes up in this workspace. "
-        + "Equivalent to the user typing /recipe. Runs in the background and does not return the "
-        + "recipe itself, so don't call this expecting immediate output.",
+        + "Equivalent to the user typing /recipe. The task scanned is the one belonging to the session "
+        + "this tool runs in, which it identifies on its own — you do not pass a session or task id; if "
+        + "you are a subagent, it scans the task of the session that launched you. Runs in the "
+        + "background and does not return the recipe itself, so don't call this expecting immediate output.",
     inputSchema: {type: "object", properties: {}},
 };

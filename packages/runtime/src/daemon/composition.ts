@@ -7,8 +7,7 @@ import type {GuardrailHook} from "~runtime/domain/guardrail/inbound/guardrail.ho
 import {ComputeHintsUsecase} from "~runtime/domain/hint/application/compute.hints.usecase.js";
 import type {HintHook} from "~runtime/domain/hint/inbound/hint.hook.js";
 import {FileBindingStoreAdapter} from "~runtime/domain/binding/adapter/file.binding.store.adapter.js";
-import {FindActiveBindingUsecase} from "~runtime/domain/binding/application/find.active.binding.usecase.js";
-import {ReadBindingUsecase} from "~runtime/domain/binding/application/read.binding.usecase.js";
+import {ReadBindingUsecase, type BoundSession} from "~runtime/domain/binding/application/read.binding.usecase.js";
 import {SpoolEventSinkAdapter} from "~runtime/domain/ingest/adapter/spool.event.sink.adapter.js";
 import {AppendEventsUsecase} from "~runtime/domain/ingest/application/append.events.usecase.js";
 import type {IdGeneratorPort} from "~runtime/domain/ingest/port/id.generator.port.js";
@@ -49,8 +48,7 @@ export interface DaemonHooks {
     readonly recipe: RecipeHook;
     readonly rulegen: RulegenHook;
     readonly recipeCache: RecipeCachePort;
-    readonly findActiveBinding: FindActiveBindingUsecase;
-    readonly findTaskIdBySession: (sessionId: string) => string | undefined;
+    readonly findTargetBySession: (sessionId: string) => BoundSession | undefined;
     readonly setTaskTitle: SetTaskTitleUsecase;
     readonly appendIngestEvents: AppendEventsUsecase;
     readonly memo: MemoHook;
@@ -89,10 +87,9 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         reportOutcome: new ReportRecipeOutcomeUsecase(new HttpRecipeOutcomeReportAdapter(baseUrl, headers)),
     };
 
-    const findActiveBinding = new FindActiveBindingUsecase(new FileBindingStoreAdapter());
     const readBinding = new ReadBindingUsecase(new FileBindingStoreAdapter());
-    const findTaskIdBySession = (sessionId: string): string | undefined =>
-        readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId)?.taskId;
+    const findTargetBySession = (sessionId: string): BoundSession | undefined =>
+        readBinding.execute(CLAUDE_RUNTIME_SOURCE, sessionId);
     const ids: IdGeneratorPort = {next: generateUlid};
     const sink = new SpoolEventSinkAdapter();
     const setTaskTitle = new SetTaskTitleUsecase(sink, ids, clock);
@@ -130,8 +127,7 @@ export function composeDaemonHooks(leaseOwner: string): DaemonHooks {
         recipe,
         rulegen,
         recipeCache,
-        findActiveBinding,
-        findTaskIdBySession,
+        findTargetBySession,
         setTaskTitle,
         appendIngestEvents,
         memo,

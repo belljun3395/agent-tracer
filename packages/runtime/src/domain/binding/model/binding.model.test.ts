@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {mostRecentActiveBinding, mostRecentBindingWhere, toBoundSession, type BindingRecord} from "~runtime/domain/binding/model/binding.model.js";
+import {mostRecentBindingWhere, toBoundSession, type BindingRecord} from "~runtime/domain/binding/model/binding.model.js";
 
 function binding(overrides: Partial<BindingRecord>): BindingRecord {
     return {
@@ -12,27 +12,18 @@ function binding(overrides: Partial<BindingRecord>): BindingRecord {
     };
 }
 
-describe("mostRecentActiveBinding", () => {
+describe("mostRecentBindingWhere", () => {
     it("바인딩이 없으면 undefined다", () => {
-        expect(mostRecentActiveBinding({})).toBeUndefined();
-    });
-
-    it("턴이 열린 시각이 가장 늦은 바인딩을 고른다", () => {
-        const older = binding({taskId: "older", turnStartedAt: "2026-07-14T00:01:00.000Z"});
-        const newer = binding({taskId: "newer", turnStartedAt: "2026-07-14T00:05:00.000Z"});
-        const result = mostRecentActiveBinding({a: older, b: newer});
-        expect(result?.taskId).toBe("newer");
+        expect(mostRecentBindingWhere({}, () => true)).toBeUndefined();
     });
 
     it("열린 턴이 없으면 생성 시각으로 비교한다", () => {
         const older = binding({taskId: "older", createdAt: "2026-07-14T00:00:00.000Z"});
         const newer = binding({taskId: "newer", createdAt: "2026-07-14T00:10:00.000Z"});
-        const result = mostRecentActiveBinding({a: older, b: newer});
+        const result = mostRecentBindingWhere({a: older, b: newer}, () => true);
         expect(result?.taskId).toBe("newer");
     });
-});
 
-describe("mostRecentBindingWhere", () => {
     it("아무것도 조건을 만족하지 않으면 undefined다", () => {
         const a = binding({taskId: "a"});
         const result = mostRecentBindingWhere({a}, (candidate) => candidate.taskId === "no-match");

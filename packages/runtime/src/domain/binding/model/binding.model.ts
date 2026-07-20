@@ -79,11 +79,6 @@ function activityTimestamp(binding: BindingRecord): number {
     return Date.parse(binding.turnStartedAt ?? binding.createdAt);
 }
 
-/** MCP 브리지는 자기 세션을 알 방법이 없으므로 가장 최근에 턴이 열린 바인딩을 현재 작업으로 추정한다. */
-export function mostRecentActiveBinding(bindings: BindingStore): BindingRecord | undefined {
-    return mostRecentBindingWhere(bindings, () => true);
-}
-
 /** 조건을 만족하는 바인딩 중 가장 최근에 턴이 열린 것을 고른다. */
 export function mostRecentBindingWhere(
     bindings: BindingStore,
