@@ -83,42 +83,59 @@ export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
         error: null,
       }));
 
+      // 밀려난 턴의 늦은 SSE가 현재 턴이나 새 스레드의 상태를 오염시키지 못하게, 이 턴의 일련번호가 아직 유효할 때만 이벤트를 반영한다.
+      const isStale = () => turnSeqRef.current !== turnSeq;
+
       void streamChatMessage(
         threadId,
         { content: trimmed, ...(agentBackend ? { agentBackend } : {}) },
         {
-          onAssistantDelta: (text) =>
-            setState((prev) => ({ ...prev, assistantDraft: prev.assistantDraft + text })),
-          onToolCall: (call) =>
+          onAssistantDelta: (text) => {
+            if (isStale()) return;
+            setState((prev) => ({ ...prev, assistantDraft: prev.assistantDraft + text }));
+          },
+          onToolCall: (call) => {
+            if (isStale()) return;
             setState((prev) => ({
               ...prev,
               toolActivity: [...prev.toolActivity, { call, result: null }],
-            })),
-          onToolResult: (result) =>
+            }));
+          },
+          onToolResult: (result) => {
+            if (isStale()) return;
             setState((prev) => ({
               ...prev,
               toolActivity: prev.toolActivity.map((activity) =>
                 activity.call.id === result.toolCallId ? { ...activity, result } : activity,
               ),
-            })),
-          onConfirmRequest: (request) =>
+            }));
+          },
+          onConfirmRequest: (request) => {
+            if (isStale()) return;
             setState((prev) => ({
               ...prev,
               pendingConfirms: [...prev.pendingConfirms, request],
-            })),
-          onMemoryUpdated: (update) =>
-            setState((prev) => ({ ...prev, memoryUpdates: [...prev.memoryUpdates, update] })),
+            }));
+          },
+          onMemoryUpdated: (update) => {
+            if (isStale()) return;
+            setState((prev) => ({ ...prev, memoryUpdates: [...prev.memoryUpdates, update] }));
+          },
           onDone: () => {
+            if (isStale()) return;
             // 빈 말풍선이 번쩍이지 않도록, 스트리밍한 텍스트를 그대로 둔 채 히스토리를 다시 불러오고 저장된 메시지가 자리를 잡은 뒤에야 드래프트를 지운다.
             setState((prev) => ({ ...prev, isStreaming: false }));
             void queryClient
               .invalidateQueries({ queryKey: monitorQueryKeys.chatMessages(threadId) })
               .then(() => {
-                if (turnSeqRef.current !== turnSeq) return;
+                if (isStale()) return;
                 setState((prev) => ({ ...prev, assistantDraft: "", toolActivity: [] }));
               });
           },
-          onError: (message) => setState((prev) => ({ ...prev, isStreaming: false, error: message })),
+          onError: (message) => {
+            if (isStale()) return;
+            setState((prev) => ({ ...prev, isStreaming: false, error: message }));
+          },
         },
         controller.signal,
       );

@@ -193,6 +193,65 @@ describe("useChatTurn", () => {
     expect(result.current.pendingConfirms).toHaveLength(0);
   });
 
+  it("새 턴을 시작하면 밀려난 이전 턴의 늦은 델타가 새 드래프트에 섞이지 않는다", () => {
+    const handlersByCall: ChatStreamHandlers[] = [];
+    streamChatMessageMock.mockImplementation(
+      (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
+        handlersByCall.push(handlers);
+        return Promise.resolve();
+      },
+    );
+
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
+
+    act(() => result.current.sendMessage("first"));
+    act(() => handlersByCall[0]?.onAssistantDelta?.("A"));
+    expect(result.current.assistantDraft).toBe("A");
+
+    // 두 번째 전송(턴 B)이 첫 턴을 밀어낸 뒤,
+    act(() => result.current.sendMessage("second"));
+    expect(result.current.assistantDraft).toBe("");
+
+    // 턴 A의 늦은 델타·도구 이벤트가 도착해도 턴 B의 상태를 오염시키지 않는다.
+    act(() => handlersByCall[0]?.onAssistantDelta?.("stale"));
+    act(() => handlersByCall[0]?.onToolCall?.({ id: "call-a", name: "get_task", args: {} }));
+    expect(result.current.assistantDraft).toBe("");
+    expect(result.current.toolActivity).toHaveLength(0);
+
+    // 턴 B의 델타는 정상 반영된다.
+    act(() => handlersByCall[1]?.onAssistantDelta?.("B"));
+    expect(result.current.assistantDraft).toBe("B");
+  });
+
+  it("스레드를 전환하면 이전 스레드 턴의 늦은 이벤트가 무시된다", () => {
+    const handlersByCall: ChatStreamHandlers[] = [];
+    streamChatMessageMock.mockImplementation(
+      (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
+        handlersByCall.push(handlers);
+        return Promise.resolve();
+      },
+    );
+
+    const { result, rerender } = renderHook(
+      ({ threadId }: { threadId: string }) => useChatTurn(ChatThreadId(threadId)),
+      { wrapper, initialProps: { threadId: "thread-1" } },
+    );
+
+    act(() => result.current.sendMessage("hello"));
+    rerender({ threadId: "thread-2" });
+    expect(result.current.assistantDraft).toBe("");
+
+    // thread-1 턴의 늦은 델타·도구 이벤트가 thread-2 화면에 새지 않는다.
+    act(() => handlersByCall[0]?.onAssistantDelta?.("leak"));
+    act(() => handlersByCall[0]?.onToolCall?.({ id: "call-1", name: "get_task", args: {} }));
+    act(() =>
+      handlersByCall[0]?.onMemoryUpdated?.({ key: "tz", content: "KST" }),
+    );
+    expect(result.current.assistantDraft).toBe("");
+    expect(result.current.toolActivity).toHaveLength(0);
+    expect(result.current.memoryUpdates).toHaveLength(0);
+  });
+
   it("빈 내용이나 스레드가 없으면 스트림을 시작하지 않는다", () => {
     const { result } = renderHook(() => useChatTurn(null), { wrapper });
     act(() => result.current.sendMessage("hello"));
