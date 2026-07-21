@@ -10,6 +10,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from ...runtime.telemetry.spans import tool_span
 from ..models import ChatFact, MemoryWrite, ProposedWrite
 from ..reader import ChatReadClient
+from ..store import ChatMemoryStore, memory_namespace
 from .specs import ARGS_MODELS, MEMORY_TOOL_NAMES, READ_TOOL_NAMES, WRITE_TOOL_NAMES
 
 # 모델에게 제안이 실행되지 않았음을 못박아 확정으로 오인하지 않게 한다.
@@ -39,14 +40,16 @@ def build_chat_registry(
     descriptions: dict[str, str],
     *,
     agent_name: str,
+    store: ChatMemoryStore | None = None,
+    user_id: str = "",
 ) -> ChatToolRegistry:
-    """읽기 진입점과 사용자 사실과 제안·기억 장부를 쥔 chat 도구 레지스트리를 만든다."""
+    """읽기 진입점과 사용자 사실과 제안·기억 장부와 장기기억 저장소를 쥔 chat 도구 레지스트리를 만든다."""
     _assert_memory_names()
     tools: list[BaseTool] = [
         *(_read_tool(name, read_client, descriptions, agent_name) for name in READ_TOOL_NAMES),
         *(_proposal_tool(name, proposals, descriptions, agent_name) for name in WRITE_TOOL_NAMES),
-        _recall_tool(facts, descriptions, agent_name),
-        _remember_tool(memories, descriptions, agent_name),
+        _recall_tool(facts, descriptions, agent_name, store, user_id),
+        _remember_tool(memories, descriptions, agent_name, store, user_id),
     ]
     return ChatToolRegistry(tools)
 
@@ -92,23 +95,46 @@ def _proposal_tool(
     return _structured(name, descriptions, run)
 
 
-def _recall_tool(facts: list[ChatFact], descriptions: dict[str, str], agent_name: str) -> StructuredTool:
+def _recall_tool(
+    facts: list[ChatFact],
+    descriptions: dict[str, str],
+    agent_name: str,
+    store: ChatMemoryStore | None,
+    user_id: str,
+) -> StructuredTool:
     async def run(**_kwargs: Any) -> str:
         async with tool_span("recall_facts", agent_name=agent_name, parameters={}):
-            payload = [{"key": fact.key, "content": fact.content} for fact in facts]
+            payload = await _recall_payload(facts, store, user_id)
             return json.dumps({"facts": payload}, ensure_ascii=False)
 
     return _structured("recall_facts", descriptions, run)
 
 
+async def _recall_payload(
+    facts: list[ChatFact], store: ChatMemoryStore | None, user_id: str
+) -> list[dict[str, str]]:
+    if store is None:
+        return [{"key": fact.key, "content": fact.content} for fact in facts]
+    # 저장소가 있으면 이번 턴에 방금 기억한 사실까지 정본에서 다시 읽는다.
+    items = await store.asearch(memory_namespace(user_id))
+    return [{"key": item.key, "content": str(item.value.get("content", ""))} for item in items]
+
+
 def _remember_tool(
-    memories: list[MemoryWrite], descriptions: dict[str, str], agent_name: str
+    memories: list[MemoryWrite],
+    descriptions: dict[str, str],
+    agent_name: str,
+    store: ChatMemoryStore | None,
+    user_id: str,
 ) -> StructuredTool:
     async def run(**kwargs: Any) -> str:
         args = _clean(kwargs)
         key = str(args["key"])
         content = str(args.get("content", ""))
         async with tool_span("remember_fact", agent_name=agent_name, parameters={"key": key}):
+            if store is not None:
+                await store.aput(memory_namespace(user_id), key, {"content": content})
+            # 워커가 memory_updated를 흘리고 정본에 못 박도록 기억 쓰기는 계속 결과로 되돌린다.
             memories.append(MemoryWrite(key=key, content=content))
             return json.dumps({"key": key, "content": content, "status": "remembered"}, ensure_ascii=False)
 

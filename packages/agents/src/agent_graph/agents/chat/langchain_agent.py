@@ -13,7 +13,9 @@ from langchain.agents.middleware import (
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.store.base import BaseStore
 
 from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
@@ -39,8 +41,10 @@ def build_chat_agent(
     *,
     max_turns: int = MAX_MODEL_TURNS,
     fallback_chat: BaseChatModel | None = None,
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
+    store: BaseStore | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
-    """도구 실행과 자유 텍스트 응답을 갖춘 chat 대화 agent를 컴파일한다."""
+    """도구 실행과 자유 텍스트 응답을 갖춘 chat 대화 agent를 스레드·사용자 기억과 함께 컴파일한다."""
     system = SystemMessage(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
@@ -58,5 +62,7 @@ def build_chat_agent(
         system_prompt=system,
         middleware=middleware,
         context_schema=StandardAgentContext,
+        checkpointer=checkpointer,
+        store=store,
         name="chat-conversation",
     )
