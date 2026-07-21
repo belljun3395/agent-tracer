@@ -37,6 +37,7 @@ export const CHAT_TOOL = {
     dismissCleanup: "dismiss_cleanup",
     upsertSetting: "upsert_setting",
     deleteSetting: "delete_setting",
+    enqueueJob: "enqueue_job",
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
@@ -69,6 +70,7 @@ export const CHAT_MUTATION_TOOLS: readonly ChatToolName[] = [
     CHAT_TOOL.dismissCleanup,
     CHAT_TOOL.upsertSetting,
     CHAT_TOOL.deleteSetting,
+    CHAT_TOOL.enqueueJob,
 ];
 
 /** 수치 인자의 기본값과 상하한이다. */

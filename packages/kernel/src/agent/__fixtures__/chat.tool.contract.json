@@ -122,6 +122,13 @@
       "optional": [],
       "mutation": true,
       "key": { "values": ["anthropic.api_key", "anthropic.model", "ruleGen.maxRulesPerTask", "taskCleanup.maxSuggestions", "claude.outputLanguage"] }
+    },
+    "enqueue_job": {
+      "required": ["kind", "input"],
+      "optional": ["agentBackend"],
+      "mutation": true,
+      "kind": { "values": ["title.suggestion", "recipe.scan", "task.cleanup", "rule.generation"] },
+      "agentBackend": { "values": ["python", "claude-sdk"] }
     }
   },
   "responses": {
@@ -377,7 +384,8 @@
     "accept_cleanup": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
     "dismiss_cleanup": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
     "upsert_setting": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
-    "delete_setting": { "proposal": ["confirmationId", "toolName", "status", "summary"] }
+    "delete_setting": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "enqueue_job": { "proposal": ["confirmationId", "toolName", "status", "summary"] }
   },
   "descriptions": {
     "search_tasks": "List the user's tasks newest-first, filtered by status (running/waiting/completed/errored), origin (user/server-sdk), archived, or root-only, and scoped to a parentTaskId for subtasks. Page with cursor: pass the response's nextCursor back as cursor until it is null. limit is up to 100 per page, default 30. Use this to find which task the user means before drilling in.",
@@ -414,6 +422,7 @@
     "accept_cleanup": "PROPOSAL (requires user confirmation): accept a task-cleanup suggestion by suggestionId, applying its proposed change. Queued until the user approves.",
     "dismiss_cleanup": "PROPOSAL (requires user confirmation): dismiss a task-cleanup suggestion by suggestionId. Queued until the user approves.",
     "upsert_setting": "PROPOSAL (requires user confirmation): set an application setting. key is one of anthropic.api_key/anthropic.model/ruleGen.maxRulesPerTask/taskCleanup.maxSuggestions/claude.outputLanguage; value is the new string value. Queued until the user approves.",
-    "delete_setting": "PROPOSAL (requires user confirmation): clear an application setting by key (one of anthropic.api_key/anthropic.model/ruleGen.maxRulesPerTask/taskCleanup.maxSuggestions/claude.outputLanguage). Queued until the user approves."
+    "delete_setting": "PROPOSAL (requires user confirmation): clear an application setting by key (one of anthropic.api_key/anthropic.model/ruleGen.maxRulesPerTask/taskCleanup.maxSuggestions/claude.outputLanguage). Queued until the user approves.",
+    "enqueue_job": "PROPOSAL (requires user confirmation, and running it starts a real, metered agent run that costs money): launch an AI job. kind is one of title.suggestion (auto-title a task), recipe.scan (distill a recipe from a task), task.cleanup (suggest cleanup across tasks), or rule.generation (draft verification rules for a task). input is a JSON object with the fields that kind needs: title.suggestion takes {\"taskId\":\"...\"}; recipe.scan takes {\"taskId\":\"...\"} plus optional userPrompt, language, and trigger (dashboard/session); task.cleanup takes {} or {\"filters\":{\"maxSuggestions\":N}}; rule.generation takes {\"taskId\":\"...\"} plus optional anchorEventId, focus (recent), maxRules, and intent describing what to verify. agentBackend optionally forces python or claude-sdk instead of the default. Queued until the user approves — never claim the job has started yet."
   }
 }
