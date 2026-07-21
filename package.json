@@ -33,6 +33,7 @@
     "infra:up": "docker compose up -d runtime-db tracer-db redpanda redpanda-init opensearch connect connect-init temporal temporal-ui",
     "infra:down": "docker compose down",
     "stack:up": "node scripts/stack.mjs up",
+    "stack:up:local": "node scripts/stack.mjs up --local",
     "stack:down": "node scripts/stack.mjs down",
     "stack:logs": "node scripts/stack.mjs logs",
     "monitoring:up": "docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d",

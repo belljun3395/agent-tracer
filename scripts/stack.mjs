@@ -1,6 +1,7 @@
 // 소스 실행이 아니라 배포되는 이미지 그대로 앱 전체를 도커로 띄운다.
 //
 //   npm run stack:up                   인프라와 앱을 전부 띄운다
+//   npm run stack:up:local             AI 잡을 Claude SDK + 구독 토큰으로 돌리는 로컬 오버라이드로 띄운다
 //   npm run stack:down                 전부 내린다 (볼륨은 남는다)
 //   npm run stack:down -- --volumes    볼륨까지 지운다
 //   npm run stack:logs                 앱 로그를 따라간다
@@ -13,9 +14,14 @@ const ENTRYPOINT = "http://127.0.0.1:3847";
 const READY_TIMEOUT_MS = 5 * 60_000;
 const POLL_MS = 3_000;
 
+// --local이면 로컬 오버라이드 compose를 겹쳐 읽는다(down/logs는 같은 프로젝트라 불필요).
+const COMPOSE_FILES = process.argv.includes("--local")
+    ? ["-f", "docker-compose.yml", "-f", "docker-compose.local.yml"]
+    : [];
+
 function compose(args, options = {}) {
     try {
-        return execFileSync("docker", ["compose", ...args], { stdio: "inherit", ...options });
+        return execFileSync("docker", ["compose", ...COMPOSE_FILES, ...args], { stdio: "inherit", ...options });
     } catch (error) {
         // 도커가 이미 이유를 출력했으므로 노드 스택을 덧붙이지 않는다.
         process.exit(typeof error.status === "number" ? error.status : 1);
@@ -23,7 +29,7 @@ function compose(args, options = {}) {
 }
 
 function services() {
-    const raw = execFileSync("docker", ["compose", "ps", "-a", "--format", "json"], { encoding: "utf8" });
+    const raw = execFileSync("docker", ["compose", ...COMPOSE_FILES, "ps", "-a", "--format", "json"], { encoding: "utf8" });
     return raw
         .split("\n")
         .filter((line) => line.trim().length > 0)
