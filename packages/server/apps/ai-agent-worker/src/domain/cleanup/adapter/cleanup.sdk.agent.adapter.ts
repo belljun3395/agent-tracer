@@ -106,12 +106,27 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
         // 조율자가 아직 판정 못 한 후보를 지목하면 남은 예산 안에서 후보를 한 번 더 열어보고 다시 결정한다.
         for (
             let round = 0;
-            round < MAX_REDISPATCH_ROUNDS && wantsRedispatch(decision.data) && budget.hasRemainingBudget();
+            round < MAX_REDISPATCH_ROUNDS
+            && wantsRedispatch(decision.data)
+            && budget.hasRemainingCapacity(MIN_DECISION_TURNS + 1);
             round += 1
         ) {
-            const redispatchPlan: TriagePlan = { inspect: decision.data.redispatch };
+            const candidateIds = new Set(batch.candidates.map((candidate) => candidate.id));
+            const redispatch = decision.data.redispatch.filter((assignment) => candidateIds.has(assignment.taskId));
+            if (redispatch.length === 0) break;
+            const redispatchFloorLease = budget.reserve(MIN_DECISION_TURNS, 0);
+            const redispatchPlan: TriagePlan = { inspect: redispatch };
             reports.push(...(await this.dispatch(ctx, batch, budget, redispatchPlan, coordinatorLedger, segments)));
-            decision = await this.decide(ctx, batch, budget, decisionFloorLease, reports, coordinatorLedger, input, segments);
+            decision = await this.decide(
+                ctx,
+                batch,
+                budget,
+                redispatchFloorLease,
+                reports,
+                coordinatorLedger,
+                input,
+                segments,
+            );
         }
 
         const checked = validateCleanupSuggestions(decision.data.suggestions, coordinatorLedger.snapshot(), input.maxSuggestions);
@@ -172,12 +187,14 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
         coordinatorLedger: CleanupProvenanceLedger,
         segments: RunSegment[],
     ): Promise<InspectReport[]> {
+        const candidateIds = new Set(batch.candidates.map((candidate) => candidate.id));
+        const assignments = plan.inspect.filter((assignment) => candidateIds.has(assignment.taskId));
         const leases = budget.leaseMany(
-            plan.inspect.map((assignment) => assignment.weight),
+            assignments.map((assignment) => assignment.weight),
             1,
         );
         const runs = await Promise.all(
-            plan.inspect.map((assignment, index) => runCleanupInspect(ctx, this.deps, batch, assignment, leases[index]!)),
+            assignments.map((assignment, index) => runCleanupInspect(ctx, this.deps, batch, assignment, leases[index]!)),
         );
 
         const reports: InspectReport[] = [];
@@ -201,7 +218,6 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
         input: GenerateCleanupSuggestionsInput,
         segments: RunSegment[],
     ): Promise<CleanupDecisionRun> {
-        // 결정에 먼저 떼어 둔 바닥에 아직 안 쓴 잔량 전부를 얹어 준다. 재파견 라운드마다 잔량은 정산으로 줄어 있다.
         const lease = combineLeases([floorLease, budget.lease(1)]);
         const prompt = buildCleanupUserPrompt(input.maxSuggestions, input.scannedAt, reports);
         const run = await runCleanupDecision(
@@ -220,7 +236,6 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
     }
 }
 
-/** 조율자가 결정 대신 재조사를 요청했는지 판정한다. 결정이 비고 재조사 목록이 있을 때만 따르며, 둘 다 오면 결정을 택해 왕복을 아낀다. */
 function wantsRedispatch(decision: CleanupDecision): boolean {
     return decision.suggestions.length === 0 && decision.redispatch.length > 0;
 }

@@ -110,7 +110,7 @@ const INPUT: GenerateCleanupSuggestionsInput = {
     userId: "u1",
     language: "en",
     scannedAt: "2026-07-14T00:00:00Z",
-    candidates: [candidate("task-1")],
+    candidates: [candidate("task-1"), candidate("task-2"), candidate("task-3")],
     truncated: false,
     maxSuggestions: 5,
 };
@@ -153,7 +153,7 @@ describe("CleanupSdkAgentAdapter", () => {
         const assignments = Array.from({ length: 20 }, (_, index) => ({ taskId: `task-${index}`, weight: 4 }));
         const runner = new ScriptedRunner([{ data: plan(...assignments) }]);
 
-        await adapterFor(runner).generate(INPUT);
+        await adapterFor(runner).generate({ ...INPUT, candidates: assignments.map(({ taskId }) => candidate(taskId)) });
 
         const inspectRequests = runner.requests.filter((request) => request.label.includes(":inspect:"));
         expect(inspectRequests).toHaveLength(20);
@@ -322,6 +322,7 @@ describe("CleanupSdkAgentAdapter", () => {
         const secondDecision = runner.requests[4]!;
         expect(secondDecision.prompt).toContain("still unclear");
         expect(secondDecision.prompt).toContain("empty shell");
+        expect(secondDecision.maxTurns).toBe(5);
         expect(output.suggestions).toEqual([]);
     });
 
@@ -356,6 +357,19 @@ describe("CleanupSdkAgentAdapter", () => {
             "task-cleanup:investigate",
             "task-cleanup:repair",
         ]);
+        expect(output.suggestions).toEqual([]);
+    });
+
+    it("후보 배치에 없는 태스크는 재조사를 요청해도 실행하지 않는다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan() },
+            { data: { suggestions: [], redispatch: [{ taskId: "ghost", weight: 2 }] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests.map((request) => request.label)).not.toContain("task-cleanup:inspect:ghost");
+        expect(runner.requests).toHaveLength(2);
         expect(output.suggestions).toEqual([]);
     });
 

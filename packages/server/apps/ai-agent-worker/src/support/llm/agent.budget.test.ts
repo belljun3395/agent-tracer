@@ -8,19 +8,27 @@ describe("ExecutionBudget", () => {
         expect(budget.lease(1)).toEqual({ maxBudgetUsd: 2, maxTurns: 15 });
     });
 
-    it("잔여 예산이 있으면 hasRemainingBudget가 참이고 다 쓰면 거짓이다", () => {
+    it("턴과 비용 잔량이 있으면 hasRemainingCapacity가 참이고 다 쓰면 거짓이다", () => {
         const budget = new ExecutionBudget({ maxBudgetUsd: 2, maxTurns: 15 });
-        expect(budget.hasRemainingBudget()).toBe(true);
+        expect(budget.hasRemainingCapacity()).toBe(true);
 
         budget.settle(budget.lease(1), { costUsd: 2, numTurns: 15 });
-        expect(budget.hasRemainingBudget()).toBe(false);
+        expect(budget.hasRemainingCapacity()).toBe(false);
     });
 
-    it("비용 상한이 없으면 hasRemainingBudget는 항상 참이다", () => {
+    it("비용 상한이 없어도 턴을 다 쓰면 hasRemainingCapacity가 거짓이다", () => {
         const budget = new ExecutionBudget({ maxBudgetUsd: undefined, maxTurns: 5 });
+        expect(budget.hasRemainingCapacity()).toBe(true);
 
         budget.settle(budget.lease(1), { costUsd: null, numTurns: 5 });
-        expect(budget.hasRemainingBudget()).toBe(true);
+        expect(budget.hasRemainingCapacity()).toBe(false);
+    });
+
+    it("요청한 턴을 감당할 잔량이 없으면 hasRemainingCapacity가 거짓이다", () => {
+        const budget = new ExecutionBudget({ maxBudgetUsd: undefined, maxTurns: 3 });
+
+        expect(budget.hasRemainingCapacity(3)).toBe(true);
+        expect(budget.hasRemainingCapacity(4)).toBe(false);
     });
 
     it("실제 지출을 반영해 잔량을 줄이고 다음 lease는 잔량만 받는다", () => {
