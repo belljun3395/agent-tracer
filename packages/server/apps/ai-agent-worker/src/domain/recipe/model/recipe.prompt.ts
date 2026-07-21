@@ -1,5 +1,6 @@
 import { KIND, RECIPE_CANDIDATE_LIMIT } from "@monitor/kernel";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
+import type { DispatchPlan, ProbeReport } from "./recipe.dispatch.schema.js";
 
 export const RECIPE_SCAN_MAX_TURNS = 15;
 
@@ -81,6 +82,8 @@ export function buildRecipeUserPrompt(
     taskId: string,
     userPrompt: string | undefined,
     language: OutputLanguage,
+    plan: DispatchPlan | null = null,
+    reports: readonly ProbeReport[] = [],
 ): string {
     const lines: string[] = [`Anchor taskId: ${taskId}`];
     if (userPrompt !== undefined && userPrompt.trim().length > 0) {
@@ -92,5 +95,72 @@ export function buildRecipeUserPrompt(
         "",
         `Return one candidate per distinct reusable workflow, up to ${RECIPE_CANDIDATE_LIMIT}.`,
     );
+    return lines.join("\n") + renderRecipePlan(plan) + renderRecipeReports(reports);
+}
+
+/** 조율자가 세운 계획을 종합 호출이 읽을 지시문으로 편다. */
+function renderRecipePlan(plan: DispatchPlan | null): string {
+    if (plan === null || plan.probes.length === 0) return "";
+    const lines = plan.probes.map((probe) => `- ${probe.probe} (weight ${probe.weight}): ${probe.question}`);
+    return "\n\nYour own plan for this investigation:\n" + lines.join("\n");
+}
+
+/** 전문가들이 올린 보고를 종합 호출이 읽을 근거로 편다. */
+function renderRecipeReports(reports: readonly ProbeReport[]): string {
+    if (reports.length === 0) return "";
+    const blocks = reports.map((report) => {
+        const lines = [`### ${report.probe}` + (report.exhausted ? " (turns exhausted)" : ""), report.verdict];
+        for (const excerpt of report.excerpts) lines.push(`- [${excerpt.taskId}/${excerpt.eventId}] ${excerpt.text}`);
+        return lines.join("\n");
+    });
+    return "\n\nWhat your specialists reported:\n\n" + blocks.join("\n\n");
+}
+
+const SURVEY_SYSTEM_PROMPT = `You plan one recipe-scan investigation before it starts.
+
+Three specialists can be dispatched, each reading in its own isolated context:
+
+- timeline: reads the anchor task's own events end to end.
+- rules: reads the rules that already govern the anchor and the recipes that already exist.
+- repetition: searches other tasks for the same workflow to judge whether it recurs.
+
+Assign only the specialists this anchor actually needs, give each a concrete question, and set each a
+weight for its share of the investigation. Put weight where the evidence is; a specialist you do not
+need is a specialist you should not dispatch. Return an empty probes list to investigate the anchor
+yourself instead of dispatching anyone. Weights are relative: only their ratio matters, and the runtime
+splits the budget between specialists in proportion to them.`;
+
+export function buildRecipeSurveySystemPrompt(): string {
+    return SURVEY_SYSTEM_PROMPT;
+}
+
+export function buildRecipeSurveyPrompt(
+    taskId: string,
+    userPrompt: string | undefined,
+    availableTurns: number,
+): string {
+    const lines = [`Anchor task ID: ${taskId}`, `Investigation turns available in total: ${availableTurns}`];
+    if (userPrompt !== undefined && userPrompt.trim().length > 0) {
+        lines.push(`What the user asked for: ${userPrompt.trim()}`);
+    }
     return lines.join("\n");
+}
+
+const PROBE_SYSTEM_PROMPT = `You are one specialist in a recipe-scan investigation.
+
+You investigate the one question the coordinator gave you, using only the tools you hold, and report
+back. You do not write recipes; the coordinator does that from your report and the other specialists'.
+
+Report a verdict that answers your question directly, and attach the excerpts the coordinator needs to
+write from — quote the evidence rather than summarising it away, because the coordinator cannot see
+what you read. Every excerpt must name the event it came from. Verify with check_citations before you
+report: an ID the coordinator cannot cite is worse than no evidence at all. If your turns run out with
+the question still open, say so in exhausted so the coordinator can decide whether to spend more.`;
+
+export function buildRecipeProbeSystemPrompt(): string {
+    return PROBE_SYSTEM_PROMPT;
+}
+
+export function buildRecipeProbePrompt(taskId: string, question: string, turns: number): string {
+    return [`Anchor task ID: ${taskId}`, `Your question: ${question}`, `Turns available: ${turns}`].join("\n");
 }

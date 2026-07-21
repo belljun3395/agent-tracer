@@ -35,6 +35,23 @@ export class ProvenanceLedger {
         this.recipeRevs.set(recipeId, rev);
     }
 
+    /** 전문가별 장부를 조율자 장부로 합칠 때, 다른 장부가 모은 것을 이 장부로 흡수한다. */
+    mergeFrom(other: ProvenanceLedger): void {
+        const seen = other.snapshot();
+        for (const [taskId, ids] of Object.entries(seen.eventIdsByTask)) {
+            const set = this.eventIdsByTask.get(taskId) ?? new Set<string>();
+            for (const id of ids) set.add(id);
+            this.eventIdsByTask.set(taskId, set);
+        }
+        for (const [taskId, ids] of Object.entries(seen.turnIdsByTask)) {
+            const set = this.turnIdsByTask.get(taskId) ?? new Set<string>();
+            for (const id of ids) set.add(id);
+            this.turnIdsByTask.set(taskId, set);
+        }
+        this.recordRules(seen.ruleIds);
+        for (const [recipeId, rev] of Object.entries(seen.recipeRevs)) this.recordRecipe(recipeId, rev);
+    }
+
     snapshot(): ProvenanceSnapshot {
         return {
             eventIdsByTask: collect(this.eventIdsByTask),

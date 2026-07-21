@@ -1,4 +1,5 @@
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
+import type { InspectReport } from "./cleanup.dispatch.schema.js";
 
 export const TASK_CLEANUP_MAX_TURNS = 16;
 
@@ -65,11 +66,61 @@ export function buildCleanupRepairPrompt(
     ].join("\n");
 }
 
-export function buildCleanupUserPrompt(maxSuggestions: number, scannedAt: string): string {
-    return [
+export function buildCleanupUserPrompt(
+    maxSuggestions: number,
+    scannedAt: string,
+    reports: readonly InspectReport[] = [],
+): string {
+    const lines = [
         `Scan time: ${scannedAt}`,
         `Propose at most ${maxSuggestions} archive suggestions.`,
         "",
         "Start by listing the candidates, then inspect the events of the ones you intend to propose.",
+    ];
+    return lines.join("\n") + renderInspectReports(reports);
+}
+
+/** 후보별 조사자가 올린 판정을 결정 호출이 읽을 근거로 편다. */
+function renderInspectReports(reports: readonly InspectReport[]): string {
+    if (reports.length === 0) return "";
+    const lines = reports.map(
+        (report) =>
+            `- ${report.taskId}: ${report.archivable ? "archivable" : "keep"} — ${report.reason}` +
+            (report.citedEventIds.length > 0 ? ` (events: ${report.citedEventIds.join(", ")})` : ""),
+    );
+    return "\n\nWhat your inspectors reported:\n" + lines.join("\n");
+}
+
+const TRIAGE_SYSTEM_PROMPT = `You decide which cleanup candidates are worth opening.
+
+You see the qualified candidates and nothing else. Opening a task spends budget, so choose the ones whose
+archivability you genuinely cannot judge from the listing, and give each a weight for how much of the
+inspection budget it deserves. A candidate with no events needs no inspection at all; a long-running one
+may deserve more. Weights are relative: only their ratio matters, and the runtime splits the inspection
+budget between candidates in proportion to them.`;
+
+export function buildCleanupTriageSystemPrompt(): string {
+    return TRIAGE_SYSTEM_PROMPT;
+}
+
+export function buildCleanupTriagePrompt(availableTurns: number): string {
+    return [
+        `Inspection turns available in total: ${availableTurns}`,
+        "Call list_candidate_tasks to see the candidates before deciding.",
     ].join("\n");
+}
+
+const INSPECT_SYSTEM_PROMPT = `You judge one cleanup candidate by reading what actually happened in it.
+
+Read the task's events and decide whether it can be archived. Report the event IDs that back your
+judgement — the coordinator cannot see what you read, and a task with events may only be proposed for
+archival when its own events are cited. If the task turns out to hold real work, say so; refusing to
+archive is as useful an answer as approving it.`;
+
+export function buildCleanupInspectSystemPrompt(): string {
+    return INSPECT_SYSTEM_PROMPT;
+}
+
+export function buildCleanupInspectPrompt(taskId: string, turns: number): string {
+    return [`Task to judge: ${taskId}`, `Turns available: ${turns}`].join("\n");
 }

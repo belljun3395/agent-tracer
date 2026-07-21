@@ -72,3 +72,13 @@ const NON_RETRYABLE_SUBTYPES: ReadonlySet<string> = new Set([
 export function isNonRetryableSubtype(subtype: string | null): boolean {
     return subtype !== null && NON_RETRYABLE_SUBTYPES.has(subtype);
 }
+
+const BUDGET_EXHAUSTED_SUBTYPES: ReadonlySet<string> = new Set([
+    AGENT_ERROR_SUBTYPE.maxTurnsExceeded,
+    AGENT_ERROR_SUBTYPE.budgetExceeded,
+]);
+
+/** 예약된 몫으로도 모델이 턴이나 비용을 다 써버려 빈 출력조차 내지 못한 실패인지 본다. */
+export function isBudgetExhaustedFailure(error: unknown): error is AgentExecutionFailure {
+    return error instanceof AgentExecutionFailure && BUDGET_EXHAUSTED_SUBTYPES.has(error.errorSubtype ?? "");
+}
