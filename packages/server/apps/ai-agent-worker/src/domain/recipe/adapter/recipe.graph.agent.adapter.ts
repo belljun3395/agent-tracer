@@ -45,6 +45,7 @@ export class RecipeGraphAgentAdapter implements RecipeAgentPort {
                 language: input.language,
                 ...(input.userPrompt !== undefined ? { userPrompt: input.userPrompt } : {}),
                 deadlineMs: limits.deadlineMs,
+                ...(model !== limits.fallbackModel ? { fallbackModel: limits.fallbackModel } : {}),
                 ...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {}),
             },
             RECIPE_SCAN_SPEC.outputSchema,

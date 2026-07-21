@@ -35,6 +35,12 @@ async def run_recipe_scan(
         req.deadlineMs,
         max_output_tokens=RECIPE_MAX_OUTPUT_TOKENS,
     )
+    fallback_model = req.effective_fallback_model()
+    fallback_chat = (
+        make_chat(fallback_model, req.apiKey, req.deadlineMs, max_output_tokens=RECIPE_MAX_OUTPUT_TOKENS)
+        if fallback_model is not None
+        else None
+    )
     reader = RecipeLedgerReader(ledger, req.userId)
     search_reader = RecipeSearchReader(search, req.userId)
     context = ValidationGraphContext(
@@ -43,10 +49,12 @@ async def run_recipe_scan(
         node_registry(
             [
                 SurveyNode(req, usage, chat),
-                ProbeNode(req, reader, search_reader, usage, chat, agent_name=AGENT_NAME),
-                InvestigateNode(req, reader, search_reader, usage, chat, agent_name=AGENT_NAME),
+                ProbeNode(req, reader, search_reader, usage, chat, fallback_chat, agent_name=AGENT_NAME),
+                InvestigateNode(
+                    req, reader, search_reader, usage, chat, fallback_chat, agent_name=AGENT_NAME
+                ),
                 ValidateCandidateNode(usage),
-                RepairNode(req, reader, search_reader, usage, chat, agent_name=AGENT_NAME),
+                RepairNode(req, reader, search_reader, usage, chat, fallback_chat, agent_name=AGENT_NAME),
                 FinalizeNode(),
                 EmptyNode(),
             ]

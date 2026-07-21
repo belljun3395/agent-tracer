@@ -56,6 +56,7 @@ class _DecisionAgent(GraphNode, ABC):
         reader: CleanupLedgerReader,
         usage: ExecutionTrace,
         chat: BaseChatModel,
+        fallback_chat: BaseChatModel | None,
         *,
         agent_name: str,
     ) -> None:
@@ -63,6 +64,7 @@ class _DecisionAgent(GraphNode, ABC):
         self._reader = reader
         self._usage = usage
         self._chat = chat
+        self._fallback_chat = fallback_chat
         self._agent_name = agent_name
 
     async def _invoke_agent(
@@ -89,6 +91,7 @@ class _DecisionAgent(GraphNode, ABC):
             registry.langchain_tools(COORDINATOR_TOOL_NAMES),
             registry.transient_errors(),
             output=CleanupDraft,
+            fallback_chat=self._fallback_chat,
         )
         context = StandardAgentContext(
             agent_name=self._agent_name,

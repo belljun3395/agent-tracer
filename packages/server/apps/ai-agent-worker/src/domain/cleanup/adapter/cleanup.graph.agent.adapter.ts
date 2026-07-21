@@ -45,6 +45,7 @@ export class CleanupGraphAgentAdapter implements CleanupAgentPort {
                 scannedAt: input.scannedAt,
                 maxSuggestions: input.maxSuggestions,
                 deadlineMs: limits.deadlineMs,
+                ...(model !== limits.fallbackModel ? { fallbackModel: limits.fallbackModel } : {}),
                 ...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {}),
                 batch: { candidates: input.candidates, batchTruncated: input.truncated },
             },

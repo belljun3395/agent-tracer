@@ -53,6 +53,7 @@ async def test_후보_조사_예외는_실패_보고로_강등된다() -> None:
         CleanupLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
         ExecutionTrace(),
         BoomChat([]),
+        None,
         agent_name="task-cleanup",
     )
 

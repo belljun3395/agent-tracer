@@ -41,6 +41,7 @@ class _CandidateAgent(GraphNode, ABC):
         reader: TitleLedgerReader,
         usage: ExecutionTrace,
         chat: BaseChatModel,
+        fallback_chat: BaseChatModel | None,
         *,
         agent_name: str,
     ) -> None:
@@ -48,6 +49,7 @@ class _CandidateAgent(GraphNode, ABC):
         self._reader = reader
         self._usage = usage
         self._chat = chat
+        self._fallback_chat = fallback_chat
         self._agent_name = agent_name
 
     async def _invoke_agent(
@@ -55,7 +57,12 @@ class _CandidateAgent(GraphNode, ABC):
     ) -> tuple[TitleSuggestionDraft, list[Any], float]:
         budget = ToolLoopBudget(self._agent_name, self._req.model, MAX_TITLE_MODEL_COST_USD, spent)
         registry = build_title_registry(self._reader, agent_name=self._agent_name)
-        agent = build_title_agent(self._chat, INVESTIGATOR_SYSTEM_PROMPT, registry.langchain_tools())
+        agent = build_title_agent(
+            self._chat,
+            INVESTIGATOR_SYSTEM_PROMPT,
+            registry.langchain_tools(),
+            fallback_chat=self._fallback_chat,
+        )
         context = StandardAgentContext(
             agent_name=self._agent_name,
             trace=self._usage,

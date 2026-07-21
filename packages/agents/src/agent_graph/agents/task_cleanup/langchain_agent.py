@@ -18,6 +18,7 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
+from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import CleanupDraft
 from .policy import MAX_TOOL_ROUNDS, TASK_CLEANUP_MAX_TOOL_CALLS
@@ -42,6 +43,7 @@ def build_cleanup_agent(
     *,
     max_rounds: int = MAX_TOOL_ROUNDS,
     output: type[BaseModel] = CleanupDraft,
+    fallback_chat: BaseChatModel | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 task-cleanup agent를 컴파일한다."""
     system = SystemMessage(
@@ -53,6 +55,8 @@ def build_cleanup_agent(
         ToolCallLimitMiddleware(run_limit=TASK_CLEANUP_MAX_TOOL_CALLS, exit_behavior="error"),
         _tool_retry(transient_errors),
     ]
+    if fallback_chat is not None:
+        middleware.append(FallbackModelMiddleware(fallback_chat))
     # noinspection PyTypeChecker
     return create_agent(
         chat,

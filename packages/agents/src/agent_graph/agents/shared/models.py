@@ -35,6 +35,10 @@ class AgentExecutionRequest(BaseModel):
         default=None,
         description="같은 키의 성공한 실행 결과를 단일 프로세스의 제한된 시간 동안 재사용한다.",
     )
+    fallbackModel: str | None = Field(
+        default=None,
+        description="primary 모델 호출이 공급자 오류로 실패했을 때 한 번만 대체할 모델이다.",
+    )
     completionCallback: CompletionCallback
 
     def idempotency_input_hash(self) -> str:
@@ -46,11 +50,18 @@ class AgentExecutionRequest(BaseModel):
                 "jobId",
                 "deadlineMs",
                 "idempotencyKey",
+                "fallbackModel",
                 "completionCallback",
             },
         )
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         return hashlib.sha256(encoded.encode()).hexdigest()
+
+    def effective_fallback_model(self) -> str | None:
+        """폴백 모델이 없거나 primary와 같으면 생략 대상임을 알린다."""
+        if self.fallbackModel is None or self.fallbackModel == self.model:
+            return None
+        return self.fallbackModel
 
 
 class AgentAccepted(BaseModel):

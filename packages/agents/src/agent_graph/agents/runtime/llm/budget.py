@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 
 from ..errors import BudgetExceeded
 from ..pricing import estimate_cost_usd
-from .trajectory import extract_token_usage
+from .trajectory import extract_token_usage, message_identity
 
 
 class ToolLoopBudget:
@@ -36,9 +36,12 @@ class ToolLoopBudget:
 
     def charge(self, message: AIMessage) -> None:
         usage = extract_token_usage(message)
-        cost = estimate_cost_usd(self._model, usage.to_dto()) if usage else None
+        # 폴백이 걸리면 응답이 primary와 다른 모델에서 왔으므로 실제 응답 모델로 단가를 고른다.
+        actual_model, _request_id = message_identity(message)
+        priced_model = actual_model or self._model
+        cost = estimate_cost_usd(priced_model, usage.to_dto()) if usage else None
         if cost is None:
-            raise BudgetExceeded(f"{self._agent} cannot enforce its internal budget for model {self._model}")
+            raise BudgetExceeded(f"{self._agent} cannot enforce its internal budget for model {priced_model}")
         self._spent += cost
         self._peak = max(self._peak, cost)
         # 착지한 뒤의 지출은 이미 끝난 실행의 마지막 호출이라 끊어봐야 산출물만 잃는다.

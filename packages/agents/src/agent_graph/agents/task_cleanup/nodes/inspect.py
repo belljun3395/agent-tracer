@@ -59,6 +59,7 @@ class TriageNode(GraphNode):
         reader: CleanupLedgerReader,
         usage: ExecutionTrace,
         chat: BaseChatModel,
+        fallback_chat: BaseChatModel | None,
         *,
         agent_name: str,
     ) -> None:
@@ -66,6 +67,7 @@ class TriageNode(GraphNode):
         self._reader = reader
         self._usage = usage
         self._chat = chat
+        self._fallback_chat = fallback_chat
         self._agent_name = agent_name
 
     async def run(self, _state: TaskCleanupState) -> TriageUpdate:
@@ -84,6 +86,7 @@ class TriageNode(GraphNode):
             registry.transient_errors(),
             max_rounds=TRIAGE_ROUNDS,
             output=TriagePlan,
+            fallback_chat=self._fallback_chat,
         )
         result = await invoke_structured_agent(
             agent,
@@ -129,6 +132,7 @@ class InspectNode(GraphNode):
         reader: CleanupLedgerReader,
         usage: ExecutionTrace,
         chat: BaseChatModel,
+        fallback_chat: BaseChatModel | None,
         *,
         agent_name: str,
     ) -> None:
@@ -136,6 +140,7 @@ class InspectNode(GraphNode):
         self._reader = reader
         self._usage = usage
         self._chat = chat
+        self._fallback_chat = fallback_chat
         self._agent_name = agent_name
 
     async def run(self, payload: InspectDispatch) -> InspectUpdate:
@@ -158,6 +163,7 @@ class InspectNode(GraphNode):
                 registry.transient_errors(),
                 max_rounds=assignment.rounds,
                 output=InspectReport,
+                fallback_chat=self._fallback_chat,
             )
             result = await invoke_structured_agent(
                 agent,

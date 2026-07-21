@@ -12,6 +12,7 @@ from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
+from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import TitleSuggestionDraft
 from .policy import MAX_TOOL_ROUNDS, TITLE_MAX_TOOL_CALLS
@@ -21,6 +22,8 @@ def build_title_agent(
     chat: BaseChatModel,
     system_prompt: str,
     tools: list[BaseTool],
+    *,
+    fallback_chat: BaseChatModel | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 title agent를 컴파일한다."""
     system = SystemMessage(
@@ -31,6 +34,8 @@ def build_title_agent(
         StandardAgentMiddleware(),
         ToolCallLimitMiddleware(run_limit=TITLE_MAX_TOOL_CALLS, exit_behavior="error"),
     ]
+    if fallback_chat is not None:
+        middleware.append(FallbackModelMiddleware(fallback_chat))
     # noinspection PyTypeChecker
     return create_agent(
         chat,

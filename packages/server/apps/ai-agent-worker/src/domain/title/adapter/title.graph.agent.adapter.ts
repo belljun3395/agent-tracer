@@ -45,6 +45,7 @@ export class TitleGraphAgentAdapter implements TitleAgentPort {
                 language: input.language,
                 context: input.context,
                 deadlineMs: limits.deadlineMs,
+                ...(model !== limits.fallbackModel ? { fallbackModel: limits.fallbackModel } : {}),
                 ...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {}),
             },
             TITLE_SUGGESTION_SPEC.outputSchema,

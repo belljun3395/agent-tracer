@@ -31,17 +31,25 @@ async def run_task_cleanup(
         req.deadlineMs,
         max_output_tokens=TASK_CLEANUP_MAX_OUTPUT_TOKENS,
     )
+    fallback_model = req.effective_fallback_model()
+    fallback_chat = (
+        make_chat(
+            fallback_model, req.apiKey, req.deadlineMs, max_output_tokens=TASK_CLEANUP_MAX_OUTPUT_TOKENS
+        )
+        if fallback_model is not None
+        else None
+    )
     reader = CleanupLedgerReader(ledger, req.userId)
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
         node_registry(
             [
-                TriageNode(req, reader, usage, chat, agent_name=AGENT_NAME),
-                InspectNode(req, reader, usage, chat, agent_name=AGENT_NAME),
-                InvestigateNode(req, reader, usage, chat, agent_name=AGENT_NAME),
+                TriageNode(req, reader, usage, chat, fallback_chat, agent_name=AGENT_NAME),
+                InspectNode(req, reader, usage, chat, fallback_chat, agent_name=AGENT_NAME),
+                InvestigateNode(req, reader, usage, chat, fallback_chat, agent_name=AGENT_NAME),
                 ValidateDecisionsNode(usage),
-                RepairNode(req, reader, usage, chat, agent_name=AGENT_NAME),
+                RepairNode(req, reader, usage, chat, fallback_chat, agent_name=AGENT_NAME),
                 FinalizeNode(),
                 EmptyNode(),
             ]

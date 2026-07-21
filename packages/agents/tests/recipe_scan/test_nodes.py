@@ -43,6 +43,7 @@ async def test_전문가_실행_예외는_실패_보고로_강등된다() -> Non
         RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
         ExecutionTrace(),
         BoomChat([]),
+        None,
         agent_name="recipe-scan",
     )
 

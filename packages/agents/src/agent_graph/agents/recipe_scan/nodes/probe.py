@@ -46,6 +46,7 @@ class ProbeNode(GraphNode):
         search: RecipeSearchReader,
         usage: ExecutionTrace,
         chat: BaseChatModel,
+        fallback_chat: BaseChatModel | None,
         *,
         agent_name: str,
     ) -> None:
@@ -54,6 +55,7 @@ class ProbeNode(GraphNode):
         self._search = search
         self._usage = usage
         self._chat = chat
+        self._fallback_chat = fallback_chat
         self._agent_name = agent_name
 
     async def run(self, payload: ProbeDispatch) -> ProbeUpdate:
@@ -80,6 +82,7 @@ class ProbeNode(GraphNode):
                 registry.transient_errors(),
                 max_rounds=assignment.rounds,
                 output=ProbeReport,
+                fallback_chat=self._fallback_chat,
             )
             result = await invoke_structured_agent(
                 agent,
