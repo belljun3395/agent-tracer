@@ -23,8 +23,11 @@ interface SdkUsage {
 
 /** Claude Agent SDK로 도구 사용 질의를 실행한다. */
 export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
+    // useLocalCliAuth면 API 키를 주입하지 않아 하위 claude CLI가 자기 로그인(구독) 자격증명으로 실행된다.
+    constructor(private readonly useLocalCliAuth = false) {}
+
     requiresLocalApiKey(): boolean {
-        return true;
+        return !this.useLocalCliAuth;
     }
 
     async run(request: AgentQueryRequest<ClaudeQueryOptions>): Promise<AgentQueryResult> {

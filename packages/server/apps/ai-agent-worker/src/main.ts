@@ -97,7 +97,7 @@ async function bootstrap(): Promise<void> {
     const tx = new TransactionRunner(dataSource);
     const search = createOpenSearchClient();
 
-    const defaultBackend = resolveDefaultAgentBackend();
+    const defaultBackend = resolveDefaultAgentBackend(config.profile);
     const callbacks = new AgentCompletionServer(
         config.agentGraph.callbackPort,
         new DurableCompletionInbox(config.agentGraph.callbackUrl, completionInbox),
@@ -107,8 +107,8 @@ async function bootstrap(): Promise<void> {
         config.agentGraph.callbackUrl,
         completionInbox,
     ));
-    // 세 에이전트 모두 도구를 쓰므로 Claude 쪽은 Agent SDK 러너 하나로 충분하다.
-    const claudeRunner = new ClaudeQueryRunner();
+    // local 프로파일이면 API 키 없이 로그인된 claude CLI(구독) 자격증명으로 SDK를 실행한다.
+    const claudeRunner = new ClaudeQueryRunner(config.profile === "local");
 
     const recipeTools = { tasks, events, rules, search };
     const recipeRepository = new RecipeRepositoryAdapter(jobs, tasks, taskStates, settings, tx);
