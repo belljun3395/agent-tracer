@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Response } from "express";
-import { CHAT_TOOL } from "@monitor/kernel";
+import { AI_AGENT_BACKEND, CHAT_TOOL } from "@monitor/kernel";
 import { ChatPendingToolEntity } from "@monitor/tracer-domain";
 import { InMemoryChatThreadRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.thread.repository.js";
 import { InMemoryChatMessageRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.message.repository.js";
@@ -8,6 +8,7 @@ import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/
 import { InMemoryChatUserMemoryRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.user.memory.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import { FakeChatAgent, fakeChatRegistry } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.agent.js";
+import { FakeChatSettingReader } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.setting.reader.js";
 import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.summarizer.js";
 import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command/create.thread.usecase.js";
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
@@ -37,6 +38,8 @@ function build() {
             messages,
             new InMemoryChatUserMemoryRepository(),
             registry,
+            AI_AGENT_BACKEND.claudeSdk,
+            new FakeChatSettingReader(),
             clock,
             new SummarizeThreadProjection(threads, new FakeChatSummarizer(), clock),
         ),

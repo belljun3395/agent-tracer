@@ -15,10 +15,11 @@ export class FakeChatAgent implements ChatAgentPort {
         private readonly text = "answer",
         private readonly toolCalls: readonly ChatTurnToolCall[] = [],
         private readonly backend: AiAgentBackend = AI_AGENT_BACKEND.claudeSdk,
+        private readonly needsApiKey = false,
     ) {}
 
     requiresLocalApiKey(): boolean {
-        return false;
+        return this.needsApiKey;
     }
 
     converse(input: ChatTurnInput, sink: ChatTurnSink): Promise<ChatTurnResult> {
@@ -38,10 +39,10 @@ export class FakeChatAgent implements ChatAgentPort {
     }
 }
 
-/** claude-sdk 자리에 대역을, python 자리에 던지는 대역을 채운 전 백엔드 레지스트리를 만든다. */
-export function fakeChatRegistry(claude: ChatAgentPort): ChatAgentRegistry {
+/** claude-sdk 자리에 대역을, python 자리엔 넘긴 대역이나 기본으로 던지는 대역을 채운 전 백엔드 레지스트리를 만든다. */
+export function fakeChatRegistry(claude: ChatAgentPort, python?: ChatAgentPort): ChatAgentRegistry {
     return {
-        [AI_AGENT_BACKEND.python]: {
+        [AI_AGENT_BACKEND.python]: python ?? {
             requiresLocalApiKey: () => false,
             converse: () => Promise.reject(new Error("python backend not wired in test")),
         },

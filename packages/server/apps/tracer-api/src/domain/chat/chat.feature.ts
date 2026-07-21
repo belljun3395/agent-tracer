@@ -1,4 +1,4 @@
-import { AI_AGENT_BACKEND } from "@monitor/kernel";
+import { AI_AGENT_BACKEND, normalizeAiAgentBackend, type AiAgentBackend } from "@monitor/kernel";
 import { loadApplicationConfig, SystemClock } from "@monitor/platform";
 import { AgentGraphClient, ClaudeQueryRunner, DurableCompletionInbox } from "@monitor/llm-runtime";
 import {
@@ -46,6 +46,8 @@ import {
     type ChatUserMemoryRepositoryPort,
 } from "~tracer-api/domain/chat/port/chat.repository.port.js";
 import { CHAT_AGENT_REGISTRY, type ChatAgentRegistry } from "~tracer-api/domain/chat/port/chat.agent.port.js";
+import { CHAT_DEFAULT_AGENT_BACKEND } from "~tracer-api/domain/chat/port/agent.backend.port.js";
+import { CHAT_SETTING_READER } from "~tracer-api/domain/chat/port/setting.reader.port.js";
 import { CHAT_EVENT_SEARCH, type ChatEventSearchPort } from "~tracer-api/domain/chat/port/chat.search.port.js";
 import { CHAT_SUMMARIZER } from "~tracer-api/domain/chat/port/chat.summarizer.port.js";
 
@@ -114,6 +116,14 @@ function buildRunner(): ClaudeQueryRunner {
     return new ClaudeQueryRunner(loadApplicationConfig().profile === "local");
 }
 
+// 대화 턴이 백엔드를 지정하지 않았을 때의 기본값이며, local 프로파일은 키 없이 도는 claude-sdk로 향한다.
+function resolveDefaultAgentBackend(): AiAgentBackend {
+    return normalizeAiAgentBackend(
+        process.env["AGENT_BACKEND"],
+        loadApplicationConfig().profile === "local" ? AI_AGENT_BACKEND.claudeSdk : AI_AGENT_BACKEND.python,
+    );
+}
+
 function buildSummarizer(): ChatSummarizerAdapter {
     return new ChatSummarizerAdapter(buildRunner());
 }
@@ -137,6 +147,8 @@ export const chatFeature = {
         { provide: CHAT_PENDING_TOOL_REPOSITORY, useExisting: ChatPendingToolRepository },
         { provide: CHAT_USER_MEMORY_REPOSITORY, useExisting: ChatUserMemoryRepository },
         { provide: CHAT_AGENT_REGISTRY, inject: REGISTRY_DEPS, useFactory: buildRegistry },
+        { provide: CHAT_DEFAULT_AGENT_BACKEND, useFactory: resolveDefaultAgentBackend },
+        { provide: CHAT_SETTING_READER, useExisting: AppSettingRepository },
         { provide: CHAT_SUMMARIZER, useFactory: buildSummarizer },
     ],
 };

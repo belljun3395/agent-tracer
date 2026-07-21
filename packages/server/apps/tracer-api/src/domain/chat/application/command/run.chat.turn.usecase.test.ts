@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
+import { AI_AGENT_BACKEND, type AiAgentBackend } from "@monitor/kernel";
 import { CHAT_MESSAGE_ROLE, ChatMessageEntity, ChatThreadEntity, ChatUserMemoryEntity } from "@monitor/tracer-domain";
 import { InMemoryChatThreadRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.thread.repository.js";
 import { InMemoryChatMessageRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.message.repository.js";
 import { InMemoryChatUserMemoryRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.user.memory.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import { FakeChatAgent, fakeChatRegistry } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.agent.js";
+import {
+    chatApiKeySetting,
+    FakeChatSettingReader,
+} from "~tracer-api/domain/chat/port/__fakes__/fake.chat.setting.reader.js";
 import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.summarizer.js";
+import type { ChatAgentPort } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import type { ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import { CHAT_SUMMARY_SPEC } from "~tracer-api/domain/chat/model/chat.summary.spec.js";
+import { ChatMissingApiKeyError } from "~tracer-api/domain/chat/model/chat.errors.js";
 import { SummarizeThreadProjection } from "./summarize.thread.projection.js";
 import { RunChatTurnUseCase } from "./run.chat.turn.usecase.js";
 
@@ -30,8 +37,22 @@ function buildUseCase(
     messages: InMemoryChatMessageRepository,
     agent: FakeChatAgent,
     memories: InMemoryChatUserMemoryRepository = new InMemoryChatUserMemoryRepository(),
+    options: {
+        readonly defaultBackend?: AiAgentBackend;
+        readonly settingReader?: FakeChatSettingReader;
+        readonly python?: ChatAgentPort;
+    } = {},
 ): RunChatTurnUseCase {
-    return new RunChatTurnUseCase(threads, messages, memories, fakeChatRegistry(agent), new FixedClock(NOW), buildProjection(threads));
+    return new RunChatTurnUseCase(
+        threads,
+        messages,
+        memories,
+        fakeChatRegistry(agent, options.python),
+        options.defaultBackend ?? AI_AGENT_BACKEND.claudeSdk,
+        options.settingReader ?? new FakeChatSettingReader(),
+        new FixedClock(NOW),
+        buildProjection(threads),
+    );
 }
 
 function collectingSink(): { sink: ChatTurnSink; deltas: string[] } {
@@ -139,5 +160,56 @@ describe("RunChatTurnUseCase", () => {
         await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
 
         expect(agent.lastInput?.facts).toBeUndefined();
+    });
+
+    it("local 프로파일 기본값(claude-sdk)이 키가 필요 없으면 설정을 읽지 않고 apiKey도 넘기지 않는다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const agent = new FakeChatAgent("답", [], AI_AGENT_BACKEND.claudeSdk, false);
+        const settingReader = new FakeChatSettingReader(chatApiKeySetting("sk-should-not-be-read"));
+        const useCase = buildUseCase(threads, messages, agent, undefined, {
+            defaultBackend: AI_AGENT_BACKEND.claudeSdk,
+            settingReader,
+        });
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(settingReader.calls).toBe(0);
+        expect(agent.lastInput?.apiKey).toBeUndefined();
+    });
+
+    it("기본값이 python(키 필요)이고 키가 설정돼 있으면 읽어서 apiKey로 넘긴다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const python = new FakeChatAgent("파이썬 답", [], AI_AGENT_BACKEND.python, true);
+        const settingReader = new FakeChatSettingReader(chatApiKeySetting("sk-configured"));
+        const useCase = buildUseCase(threads, messages, new FakeChatAgent(), undefined, {
+            defaultBackend: AI_AGENT_BACKEND.python,
+            settingReader,
+            python,
+        });
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(settingReader.calls).toBe(1);
+        expect(python.lastInput?.apiKey).toBe("sk-configured");
+    });
+
+    it("키가 필요한 백엔드에 설정된 키가 없으면 MissingApiKey로 실패한다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const python = new FakeChatAgent("파이썬 답", [], AI_AGENT_BACKEND.python, true);
+        const useCase = buildUseCase(threads, messages, new FakeChatAgent(), undefined, {
+            defaultBackend: AI_AGENT_BACKEND.python,
+            settingReader: new FakeChatSettingReader(null),
+            python,
+        });
+
+        await expect(
+            useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink),
+        ).rejects.toBeInstanceOf(ChatMissingApiKeyError);
     });
 });
