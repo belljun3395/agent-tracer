@@ -1,6 +1,6 @@
 import { ApplicationFailure, Context } from "@temporalio/activity";
 import { errorMessage, logError, logInfo, logWarn } from "~ai-agent-worker/support/log.js";
-import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
+import { AgentExecutionFailure } from "@monitor/llm-runtime";
 import { isNonRetryableTitleError } from "~ai-agent-worker/domain/title/model/title.error.js";
 import type {
     FailTitleJobInput,

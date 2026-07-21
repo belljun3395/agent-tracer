@@ -1,7 +1,6 @@
 import type { TitleSuggestionPayload } from "@monitor/kernel";
-import type { AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
-import type { AgentUsageSummary } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
+import { type AgentBackend, type GeneratedAiJobStep } from "@monitor/llm-runtime";
+import { type AgentUsageSummary } from "~ai-agent-worker/support/llm/job.attempt.js";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import type { TitleContext } from "./title.context.model.js";
 

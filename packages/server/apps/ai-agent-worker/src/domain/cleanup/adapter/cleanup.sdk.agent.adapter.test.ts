@@ -1,7 +1,11 @@
 import type { AiJobStepPayload } from "@monitor/kernel";
 import { describe, expect, it } from "vitest";
-import type { AgentQueryRequest, AgentQueryResult, IQueryRunner } from "~ai-agent-worker/config/llm/llm.runner.js";
-import type { ClaudeQueryOptions } from "~ai-agent-worker/config/llm/claude.query.options.js";
+import {
+    type AgentQueryRequest,
+    type AgentQueryResult,
+    type IQueryRunner,
+    type ClaudeQueryOptions,
+} from "@monitor/llm-runtime";
 import type { CleanupCandidate } from "~ai-agent-worker/domain/cleanup/model/cleanup.candidate.model.js";
 import type { GenerateCleanupSuggestionsInput } from "~ai-agent-worker/domain/cleanup/port/cleanup.agent.port.js";
 import { CleanupSdkAgentAdapter } from "./cleanup.sdk.agent.adapter.js";

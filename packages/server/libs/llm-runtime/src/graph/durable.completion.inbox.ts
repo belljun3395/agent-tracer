@@ -5,7 +5,7 @@ import {
     type CompletionInboxStatus,
 } from "@monitor/tracer-domain";
 import type { AgentCompletionInboxRepository } from "@monitor/tracer-domain";
-import { logWarn } from "~ai-agent-worker/support/log.js";
+import { logWarn } from "../observability/log.js";
 
 export { COMPLETION_INBOX_STATUS } from "@monitor/tracer-domain";
 

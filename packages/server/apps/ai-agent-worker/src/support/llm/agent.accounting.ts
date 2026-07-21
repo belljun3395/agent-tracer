@@ -1,4 +1,4 @@
-import type { AgentQueryUsage } from "./agent.usage.js";
+import type { AgentQueryUsage } from "@monitor/llm-runtime";
 
 /** 한 번의 호출이 남긴 회계이며 실행 단위로 합산될 수 있다. */
 export interface AgentCallAccounting {

@@ -1,6 +1,6 @@
 import { AGENT } from "@monitor/kernel";
 import { cleanupSuggestionsListSchema } from "@monitor/kernel/agent/task.cleanup.schema.js";
-import { CLAUDE_MODEL } from "~ai-agent-worker/support/llm/models.const.js";
+import { CLAUDE_MODEL } from "@monitor/llm-runtime";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import { buildCleanupSystemPrompt, buildCleanupUserPrompt, TASK_CLEANUP_MAX_TURNS } from "./cleanup.prompt.js";
 import { TASK_CLEANUP_TOOLS } from "./cleanup.tool.schema.js";

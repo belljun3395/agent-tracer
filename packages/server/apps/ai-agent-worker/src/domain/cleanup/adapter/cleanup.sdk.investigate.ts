@@ -1,7 +1,6 @@
 import type { CleanupSuggestionPayload } from "@monitor/kernel";
-import type { AgentBudgetLease } from "~ai-agent-worker/support/llm/agent.budget.js";
-import { zodToClaudeOutputSchema } from "~ai-agent-worker/config/llm/claude.output.schema.js";
-import type { StructuredQueryResult } from "~ai-agent-worker/config/llm/structured.query.js";
+import { zodToClaudeOutputSchema, type StructuredQueryResult } from "@monitor/llm-runtime";
+import { type AgentBudgetLease } from "~ai-agent-worker/support/llm/agent.budget.js";
 import { buildCleanupSystemPrompt } from "~ai-agent-worker/domain/cleanup/model/cleanup.prompt.js";
 import { CLEANUP_COORDINATOR_TOOLS } from "~ai-agent-worker/domain/cleanup/model/cleanup.dispatch.policy.js";
 import { TASK_CLEANUP_SPEC } from "~ai-agent-worker/domain/cleanup/model/cleanup.spec.js";

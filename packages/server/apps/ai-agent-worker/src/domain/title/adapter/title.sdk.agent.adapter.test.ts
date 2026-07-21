@@ -1,7 +1,11 @@
 import type { AiJobStepPayload } from "@monitor/kernel";
 import { describe, expect, it } from "vitest";
-import type { AgentQueryRequest, AgentQueryResult, IQueryRunner } from "~ai-agent-worker/config/llm/llm.runner.js";
-import type { ClaudeQueryOptions } from "~ai-agent-worker/config/llm/claude.query.options.js";
+import {
+    type AgentQueryRequest,
+    type AgentQueryResult,
+    type IQueryRunner,
+    type ClaudeQueryOptions,
+} from "@monitor/llm-runtime";
 import type { TitleContext } from "~ai-agent-worker/domain/title/model/title.context.model.js";
 import type { TitleToolDeps } from "./title.tools.js";
 import { TitleSdkAgentAdapter } from "./title.sdk.agent.adapter.js";

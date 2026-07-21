@@ -1,5 +1,5 @@
-import type { JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
+import { type GeneratedAiJobStep } from "@monitor/llm-runtime";
+import { type JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
 import type { CleanupTaskSnapshot } from "~ai-agent-worker/domain/cleanup/model/cleanup.candidate.model.js";
 import type { GeneratedCleanupSuggestion } from "~ai-agent-worker/domain/cleanup/model/cleanup.suggestion.model.js";
 

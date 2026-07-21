@@ -1,7 +1,6 @@
 import type { RecipeScanTrigger } from "@monitor/kernel";
-import type { AgentUsageSummary } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
-import type { AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { type GeneratedAiJobStep, type AgentBackend } from "@monitor/llm-runtime";
+import { type AgentUsageSummary } from "~ai-agent-worker/support/llm/job.attempt.js";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import type { GeneratedRecipeCandidate } from "./recipe.candidate.model.js";
 

@@ -1,6 +1,6 @@
 import { APP_SETTING_KEYS } from "@monitor/kernel";
 import type { IClock } from "@monitor/platform";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { AGENT_BACKEND } from "@monitor/llm-runtime";
 import { OUTPUT_LANGUAGE } from "~ai-agent-worker/support/output.language.js";
 import { FakeRecipeAgent } from "~ai-agent-worker/domain/recipe/port/__fakes__/fake.recipe.agent.js";
 import { CapturingRecipeNotification } from "~ai-agent-worker/domain/recipe/port/__fakes__/capturing.recipe.notification.js";

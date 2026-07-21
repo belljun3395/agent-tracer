@@ -1,6 +1,6 @@
 import { AGENT } from "@monitor/kernel";
 import { titleSuggestionsListSchema } from "@monitor/kernel/agent/title.suggestion.schema.js";
-import { CLAUDE_MODEL } from "~ai-agent-worker/support/llm/models.const.js";
+import { CLAUDE_MODEL } from "@monitor/llm-runtime";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import type { TitleContext } from "./title.context.model.js";
 import { buildTitleSystemPrompt, buildTitleUserPrompt, TITLE_SUGGESTION_MAX_TURNS } from "./title.prompt.js";

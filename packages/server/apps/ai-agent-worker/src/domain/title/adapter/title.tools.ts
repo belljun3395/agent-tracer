@@ -1,7 +1,6 @@
 import { AGENT } from "@monitor/kernel";
 import type { EventEntity, EventRepository, TaskRepository } from "@monitor/tracer-domain";
-import type { ToolHandlers } from "~ai-agent-worker/config/llm/llm.runner.js";
-import { withToolTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
+import { type ToolHandlers, withToolTelemetry } from "@monitor/llm-runtime";
 import { clampInt } from "~ai-agent-worker/support/clamp.js";
 import { toTitleEventPage, type TitleSlimEvent } from "~ai-agent-worker/domain/title/model/title.event.model.js";
 import {

@@ -1,7 +1,9 @@
 import { AGENT, JOB_KIND } from "@monitor/kernel";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
-import type { AgentRunnerPort } from "~ai-agent-worker/config/llm/llm.runner.js";
-import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
+import {
+    AGENT_BACKEND,
+    type AgentRunnerPort,
+    withInvokeAgentTelemetry,
+} from "@monitor/llm-runtime";
 import { TASK_CLEANUP_SPEC } from "~ai-agent-worker/domain/cleanup/model/cleanup.spec.js";
 import type {
     CleanupAgentPort,

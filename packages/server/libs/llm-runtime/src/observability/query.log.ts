@@ -1,6 +1,6 @@
 import type { GenAiProvider } from "@monitor/kernel";
-import { logInfo } from "~ai-agent-worker/support/log.js";
-import type { AgentQueryResult } from "./llm.runner.js";
+import { logInfo } from "./log.js";
+import type { AgentQueryResult } from "../runner/llm.runner.js";
 
 /** 언어 모델 호출 결과를 구조화된 한 줄로 남겨 비용 귀속과 계측을 함께 가능하게 한다. */
 export function logAgentQuery(

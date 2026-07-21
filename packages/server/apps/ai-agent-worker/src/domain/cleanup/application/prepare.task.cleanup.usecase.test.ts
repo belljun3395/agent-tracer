@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { APP_SETTING_KEYS, JOB_STATUS } from "@monitor/kernel";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { AGENT_BACKEND } from "@monitor/llm-runtime";
 import { OUTPUT_LANGUAGE } from "~ai-agent-worker/support/output.language.js";
 import { CLEANUP_CANDIDATE_REASON } from "~ai-agent-worker/domain/cleanup/model/cleanup.candidate.model.js";
 import { PrepareTaskCleanupUsecase } from "./prepare.task.cleanup.usecase.js";

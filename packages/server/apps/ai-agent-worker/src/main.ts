@@ -30,14 +30,16 @@ import {
 import { TRACER_MIGRATIONS } from "@monitor/tracer-domain/migrations/registry.js";
 import { TRACER_ENTITIES } from "@monitor/tracer-domain/persistence/tracer.entities.js";
 import { resolveDefaultAgentBackend } from "~ai-agent-worker/config/agent.backend.js";
-import { ClaudeQueryRunner } from "~ai-agent-worker/config/llm/claude.query.runner.js";
-import { AgentGraphClient } from "~ai-agent-worker/config/llm/graph.client.js";
-import { AgentCompletionServer } from "~ai-agent-worker/config/llm/agent.completion.server.js";
-import { DurableCompletionInbox } from "~ai-agent-worker/config/llm/durable.completion.inbox.js";
+import {
+    ClaudeQueryRunner,
+    AgentGraphClient,
+    AgentCompletionServer,
+    DurableCompletionInbox,
+    AGENT_BACKEND,
+} from "@monitor/llm-runtime";
 import { errorMessage, logError, logInfo } from "~ai-agent-worker/support/log.js";
 import { createNotificationPublisher } from "~ai-agent-worker/config/notification.js";
 import { createTemporalWorkers } from "~ai-agent-worker/config/temporal.worker.js";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
 import { CleanupGraphAgentAdapter } from "~ai-agent-worker/domain/cleanup/adapter/cleanup.graph.agent.adapter.js";
 import { CleanupNotificationAdapter } from "~ai-agent-worker/domain/cleanup/adapter/cleanup.notification.adapter.js";
 import { CleanupRepositoryAdapter } from "~ai-agent-worker/domain/cleanup/adapter/cleanup.repository.adapter.js";

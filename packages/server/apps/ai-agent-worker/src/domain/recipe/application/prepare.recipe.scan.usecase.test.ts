@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { APP_SETTING_KEYS, JOB_STATUS, RECIPE_SCAN_TRIGGER } from "@monitor/kernel";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { AGENT_BACKEND } from "@monitor/llm-runtime";
 import { OUTPUT_LANGUAGE } from "~ai-agent-worker/support/output.language.js";
 import { PrepareRecipeScanUsecase } from "./prepare.recipe.scan.usecase.js";
 import {

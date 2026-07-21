@@ -1,4 +1,4 @@
-import type { AgentQueryUsage } from "./agent.usage.js";
+import type { AgentQueryUsage } from "../model/agent.usage.js";
 
 // 백만 토큰당 USD이며 이름 부분일치로 버전 접미사가 붙은 모델도 해석한다.
 export interface ModelRate {

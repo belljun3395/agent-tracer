@@ -1,4 +1,4 @@
-import { isNonRetryableSubtype, AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
+import { isNonRetryableSubtype, AgentExecutionFailure } from "@monitor/llm-runtime";
 
 /** 언어 모델 자격 증명이 없어 재시도로 풀리지 않는 실패다. */
 export class MissingApiKeyError extends Error {

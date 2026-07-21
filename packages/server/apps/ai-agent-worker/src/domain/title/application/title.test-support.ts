@@ -1,6 +1,6 @@
 import { APP_SETTING_KEYS } from "@monitor/kernel";
 import type { IClock } from "@monitor/platform";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { AGENT_BACKEND } from "@monitor/llm-runtime";
 import { OUTPUT_LANGUAGE } from "~ai-agent-worker/support/output.language.js";
 import type { TitleContext } from "~ai-agent-worker/domain/title/model/title.context.model.js";
 import { CapturingTitleNotification } from "~ai-agent-worker/domain/title/port/__fakes__/capturing.title.notification.js";

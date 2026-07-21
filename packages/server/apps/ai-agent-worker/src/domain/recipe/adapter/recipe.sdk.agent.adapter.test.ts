@@ -1,7 +1,11 @@
 import type { AiJobStepPayload } from "@monitor/kernel";
 import { describe, expect, it } from "vitest";
-import type { AgentQueryRequest, AgentQueryResult, IQueryRunner } from "~ai-agent-worker/config/llm/llm.runner.js";
-import type { ClaudeQueryOptions } from "~ai-agent-worker/config/llm/claude.query.options.js";
+import {
+    type AgentQueryRequest,
+    type AgentQueryResult,
+    type IQueryRunner,
+    type ClaudeQueryOptions,
+} from "@monitor/llm-runtime";
 import { RECIPE_MCP_SERVER } from "./recipe.sdk.query.js";
 import { RECIPE_SCAN_TOOL } from "~ai-agent-worker/domain/recipe/model/recipe.tool.schema.js";
 import type { RecipeToolDeps } from "./recipe.tools.js";

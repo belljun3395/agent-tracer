@@ -1,6 +1,6 @@
 import { APP_SETTING_KEYS, DEFAULT_USER_ID, JOB_STATUS } from "@monitor/kernel";
 import type { IClock } from "@monitor/platform";
-import { normalizeAgentBackend, type AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { normalizeAgentBackend, type AgentBackend } from "@monitor/llm-runtime";
 import { normalizeOutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import type {
     TitleSuggestionInput,

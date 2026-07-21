@@ -11,8 +11,8 @@ import {
     type TaskUserStateRepository,
     type TransactionRunner,
 } from "@monitor/tracer-domain";
+import { type GeneratedAiJobStep } from "@monitor/llm-runtime";
 import { foldAttempt, type JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
 import type {
     RecipeAnchorSnapshot,
     RecipeFailedAttempt,

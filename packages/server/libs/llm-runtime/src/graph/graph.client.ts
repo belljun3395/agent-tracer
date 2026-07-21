@@ -3,9 +3,9 @@ import { context, propagation } from "@opentelemetry/api";
 import {
     AGENT_ERROR_SUBTYPE,
     AgentExecutionFailure,
-} from "~ai-agent-worker/support/llm/agent.error.js";
-import { estimateCostUsd } from "~ai-agent-worker/support/llm/pricing.js";
-import type { AgentRunnerPort, OutputSchema, StructuredAgentResult } from "./llm.runner.js";
+} from "../model/agent.error.js";
+import { estimateCostUsd } from "../pricing/pricing.js";
+import type { AgentRunnerPort, OutputSchema, StructuredAgentResult } from "../runner/llm.runner.js";
 import type { AgentGraphResponse } from "./graph.protocol.js";
 import {
     COMPLETION_INBOX_STATUS,

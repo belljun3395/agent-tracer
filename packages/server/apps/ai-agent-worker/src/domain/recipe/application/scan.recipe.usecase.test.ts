@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AI_JOB_STEP_ROLE, type RecipeCandidatePayload } from "@monitor/kernel";
-import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
+import { AgentExecutionFailure } from "@monitor/llm-runtime";
 import { ScanRecipeUsecase } from "./scan.recipe.usecase.js";
 import {
     agentRegistry,

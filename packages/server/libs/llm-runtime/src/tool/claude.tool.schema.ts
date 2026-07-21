@@ -1,7 +1,7 @@
 import { createSdkMcpServer, tool, type McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import type { ZodRawShape } from "zod";
 import { toolFailureText, unknownToolText } from "./tool.failure.js";
-import type { ToolHandlers } from "./llm.runner.js";
+import type { ToolHandlers } from "../runner/llm.runner.js";
 
 /** 백엔드 어댑터가 각자의 방언으로 바꾸는 도구 계약의 구조적 표현이다. */
 export interface LlmToolDefinition {

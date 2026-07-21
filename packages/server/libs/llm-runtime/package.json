@@ -1,8 +1,12 @@
 {
-  "name": "@monitor/ai-agent-worker",
+  "name": "@monitor/llm-runtime",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*.js": "./src/*.ts"
+  },
   "scripts": {
     "lint:types": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
@@ -10,24 +14,14 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.139",
     "@monitor/kernel": "*",
-    "@monitor/llm-runtime": "*",
     "@monitor/platform": "*",
     "@monitor/tracer-domain": "*",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
-    "@opentelemetry/exporter-prometheus": "^0.219.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
-    "@opentelemetry/sdk-node": "^0.219.0",
-    "@temporalio/activity": "^1.18.1",
-    "@temporalio/worker": "^1.18.1",
-    "@temporalio/workflow": "^1.18.1",
     "reflect-metadata": "^0.2.2",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@opentelemetry/context-async-hooks": "^2.8.0",
-    "@opentelemetry/core": "^2.8.0",
     "@types/node": "^24.13.3",
     "typescript": "^5.9.2",
     "vitest": "^3.0.0"

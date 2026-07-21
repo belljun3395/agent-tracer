@@ -11,8 +11,8 @@ import {
     type TransactionRunner,
     type TurnRepository,
 } from "@monitor/tracer-domain";
+import { type GeneratedAiJobStep } from "@monitor/llm-runtime";
 import { foldAttempt, type JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
 import { buildTitleContext } from "~ai-agent-worker/domain/title/model/title.context.model.js";
 import type {
     TitleFailedAttempt,

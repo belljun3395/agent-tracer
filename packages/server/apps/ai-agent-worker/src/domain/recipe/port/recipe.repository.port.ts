@@ -1,5 +1,5 @@
-import type { JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
+import { type GeneratedAiJobStep } from "@monitor/llm-runtime";
+import { type JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import type { GeneratedRecipeCandidate } from "~ai-agent-worker/domain/recipe/model/recipe.candidate.model.js";
 

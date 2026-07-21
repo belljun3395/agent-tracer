@@ -1,6 +1,6 @@
 import { AGENT } from "@monitor/kernel";
 import { recipeCandidatesListSchema } from "@monitor/kernel/agent/recipe.scan.schema.js";
-import { CLAUDE_MODEL } from "~ai-agent-worker/support/llm/models.const.js";
+import { CLAUDE_MODEL } from "@monitor/llm-runtime";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import { buildRecipeSystemPrompt, buildRecipeUserPrompt, RECIPE_SCAN_MAX_TURNS } from "./recipe.prompt.js";
 import { RECIPE_SCAN_TOOLS } from "./recipe.tool.schema.js";

@@ -1,7 +1,7 @@
 import type { AiJobStepPayload } from "@monitor/kernel";
-import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
-import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.js";
-import { parseJsonStrict } from "~ai-agent-worker/support/parse.json.js";
+import { AgentExecutionFailure } from "../model/agent.error.js";
+import type { AgentQueryUsage } from "../model/agent.usage.js";
+import { parseJsonStrict } from "../support/parse.json.js";
 import type { AgentQueryRequest, IQueryRunner, OutputSchema } from "./llm.runner.js";
 
 export interface StructuredQueryResult<T> {

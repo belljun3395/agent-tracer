@@ -1,7 +1,6 @@
 import type { RecipeCandidatePayload } from "@monitor/kernel";
-import type { AgentBudgetLease } from "~ai-agent-worker/support/llm/agent.budget.js";
-import { zodToClaudeOutputSchema } from "~ai-agent-worker/config/llm/claude.output.schema.js";
-import type { StructuredQueryResult } from "~ai-agent-worker/config/llm/structured.query.js";
+import { zodToClaudeOutputSchema, type StructuredQueryResult } from "@monitor/llm-runtime";
+import { type AgentBudgetLease } from "~ai-agent-worker/support/llm/agent.budget.js";
 import { buildRecipeSystemPrompt } from "~ai-agent-worker/domain/recipe/model/recipe.prompt.js";
 import { RECIPE_COORDINATOR_TOOLS } from "~ai-agent-worker/domain/recipe/model/recipe.dispatch.policy.js";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";

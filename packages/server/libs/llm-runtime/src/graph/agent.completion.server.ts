@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { logInfo, logWarn } from "~ai-agent-worker/support/log.js";
+import { logInfo, logWarn } from "../observability/log.js";
 import {
     COMPLETION_PATH,
     badRequestMessage,

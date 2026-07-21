@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AI_JOB_STEP_ROLE } from "@monitor/kernel";
-import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
+import { AgentExecutionFailure } from "@monitor/llm-runtime";
 import { SuggestCleanupUsecase } from "./suggest.cleanup.usecase.js";
 import {
     agentRegistry,

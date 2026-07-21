@@ -10,8 +10,8 @@ import {
     type GenAiOperation,
     type GenAiProvider,
 } from "@monitor/kernel";
-import type { AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
-import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.js";
+import type { AgentBackend } from "../model/agent.backend.js";
+import type { AgentQueryUsage } from "../model/agent.usage.js";
 
 const DEFAULT_AGENT_NAME = "ai-job";
 

@@ -13,8 +13,8 @@ import {
     type GenAiOperation,
     type GenAiProvider,
 } from "@monitor/kernel";
-import { AgentExecutionFailure } from "~ai-agent-worker/support/llm/agent.error.js";
-import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.js";
+import { AgentExecutionFailure } from "../model/agent.error.js";
+import type { AgentQueryUsage } from "../model/agent.usage.js";
 import {
     buildGenAiClientAttributes,
     buildGenAiClientSpanAttributes,
@@ -26,7 +26,7 @@ import {
     type InvokeAgentTelemetryInput,
     type ToolTelemetryInput,
 } from "./telemetry.attributes.js";
-import type { AgentQueryResult } from "./llm.runner.js";
+import type { AgentQueryResult } from "../runner/llm.runner.js";
 
 const tracer = trace.getTracer("ai-agent-worker.ai-jobs");
 const meter = metrics.getMeter("ai-agent-worker.ai-jobs");

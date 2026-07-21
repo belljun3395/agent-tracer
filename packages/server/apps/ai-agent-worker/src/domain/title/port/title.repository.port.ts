@@ -1,6 +1,6 @@
 import type { TitleSuggestionPayload } from "@monitor/kernel";
-import type { JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
-import type { GeneratedAiJobStep } from "~ai-agent-worker/support/llm/job.step.js";
+import { type GeneratedAiJobStep } from "@monitor/llm-runtime";
+import { type JobAttemptRecord } from "~ai-agent-worker/support/llm/job.attempt.js";
 import type { TitleContext } from "~ai-agent-worker/domain/title/model/title.context.model.js";
 
 /** 잡의 실행 중 상태를 보는 최소 표현이다. */

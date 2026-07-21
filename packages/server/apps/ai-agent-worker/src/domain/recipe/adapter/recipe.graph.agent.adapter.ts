@@ -1,7 +1,9 @@
 import { AGENT, JOB_KIND } from "@monitor/kernel";
-import { AGENT_BACKEND } from "~ai-agent-worker/support/llm/agent.backend.js";
-import { withInvokeAgentTelemetry } from "~ai-agent-worker/config/llm/telemetry.js";
-import type { AgentRunnerPort } from "~ai-agent-worker/config/llm/llm.runner.js";
+import {
+    AGENT_BACKEND,
+    withInvokeAgentTelemetry,
+    type AgentRunnerPort,
+} from "@monitor/llm-runtime";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";
 import type {
     GenerateRecipeCandidatesInput,

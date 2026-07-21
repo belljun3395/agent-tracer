@@ -1,5 +1,5 @@
 import type { AiJobStepPayload } from "@monitor/kernel";
-import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.js";
+import type { AgentQueryUsage } from "../model/agent.usage.js";
 
 /** 구조화 출력 검증기의 구조적 표면이며 zod 스키마가 그대로 맞는다. */
 export type SafeParsed<T> =

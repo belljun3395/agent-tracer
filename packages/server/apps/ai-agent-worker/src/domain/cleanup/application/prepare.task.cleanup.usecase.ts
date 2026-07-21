@@ -1,7 +1,7 @@
 import { APP_SETTING_KEYS, DEFAULT_USER_ID, JOB_STATUS } from "@monitor/kernel";
 import type { IClock } from "@monitor/platform";
 import { clampInt } from "~ai-agent-worker/support/clamp.js";
-import { normalizeAgentBackend, type AgentBackend } from "~ai-agent-worker/support/llm/agent.backend.js";
+import { normalizeAgentBackend, type AgentBackend } from "@monitor/llm-runtime";
 import { normalizeOutputLanguage } from "~ai-agent-worker/support/output.language.js";
 import { buildCleanupCandidates } from "~ai-agent-worker/domain/cleanup/model/cleanup.candidate.model.js";
 import type {

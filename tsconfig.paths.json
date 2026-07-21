@@ -29,6 +29,15 @@
       "~tracer-domain/*": [
         "packages/server/libs/tracer-domain/src/*"
       ],
+      "@monitor/llm-runtime": [
+        "packages/server/libs/llm-runtime/src/index.ts"
+      ],
+      "@monitor/llm-runtime/*": [
+        "packages/server/libs/llm-runtime/src/*"
+      ],
+      "~llm-runtime/*": [
+        "packages/server/libs/llm-runtime/src/*"
+      ],
       "~runtime-api/*": [
         "packages/server/apps/runtime-api/src/*"
       ],

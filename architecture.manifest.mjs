@@ -27,6 +27,7 @@ export const UNITS = Object.freeze([
   { name: "kernel", dir: "packages/kernel", alias: "~kernel", shape: "kernel", importable: true },
   { name: "platform", dir: "packages/server/libs/platform", alias: "~platform", shape: "lib", importable: true },
   { name: "tracer-domain", dir: "packages/server/libs/tracer-domain", alias: "~tracer-domain", shape: "lib", importable: true },
+  { name: "llm-runtime", dir: "packages/server/libs/llm-runtime", alias: "~llm-runtime", shape: "lib", importable: true },
   { name: "runtime-api", dir: "packages/server/apps/runtime-api", alias: "~runtime-api", shape: "sliced", importable: false },
   { name: "tracer-api", dir: "packages/server/apps/tracer-api", alias: "~tracer-api", shape: "sliced", importable: false },
   { name: "projector", dir: "packages/server/apps/projector", alias: "~projector", shape: "sliced", importable: false },
