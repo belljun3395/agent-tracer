@@ -1,5 +1,5 @@
-import { normalizeAiAgentBackend } from "@monitor/kernel";
-import { SystemClock } from "@monitor/platform";
+import { AI_AGENT_BACKEND, normalizeAiAgentBackend } from "@monitor/kernel";
+import { loadApplicationConfig, SystemClock } from "@monitor/platform";
 import {
     AiJobRepository,
     AiJobStepRepository,
@@ -67,7 +67,15 @@ export const jobFeature = {
         StructuredJobEventLogAdapter,
         { provide: JOB_EVENT_LOG, useExisting: StructuredJobEventLogAdapter },
         { provide: CLOCK, useClass: SystemClock },
-        { provide: DEFAULT_AGENT_BACKEND, useFactory: () => normalizeAiAgentBackend(process.env["AGENT_BACKEND"]) },
+        {
+            provide: DEFAULT_AGENT_BACKEND,
+            // local 프로파일은 API 키 없이 도는 claude-sdk를 기본값으로 써 키 설정 없이 에이전트를 돌린다.
+            useFactory: () =>
+                normalizeAiAgentBackend(
+                    process.env["AGENT_BACKEND"],
+                    loadApplicationConfig().profile === "local" ? AI_AGENT_BACKEND.claudeSdk : AI_AGENT_BACKEND.python,
+                ),
+        },
         { provide: AI_JOB_REPOSITORY, useExisting: AiJobRepository },
         { provide: AI_JOB_STEP_REPOSITORY, useExisting: AiJobStepRepository },
         { provide: SETTING_READER, useExisting: AppSettingRepository },
