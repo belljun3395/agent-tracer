@@ -122,13 +122,13 @@ async def cancel_run_endpoint(run_id: str) -> dict[str, bool]:
 
 def create_app() -> FastAPI:
     """독립 수명을 가진 에이전트 HTTP 앱을 만든다."""
-    app = FastAPI(title="agent-graph", lifespan=lifespan)
-    app.get("/health")(health)
-    app.post("/agents/title-suggestion", status_code=202)(title_suggestion)
-    app.post("/agents/task-cleanup", status_code=202)(task_cleanup)
-    app.post("/agents/recipe-scan", status_code=202)(recipe_scan)
-    app.post("/agents/runs/{run_id}/cancel")(cancel_run_endpoint)
-    return app
+    application = FastAPI(title="agent-graph", lifespan=lifespan)
+    application.get("/health")(health)
+    application.post("/agents/title-suggestion", status_code=202)(title_suggestion)
+    application.post("/agents/task-cleanup", status_code=202)(task_cleanup)
+    application.post("/agents/recipe-scan", status_code=202)(recipe_scan)
+    application.post("/agents/runs/{run_id}/cancel")(cancel_run_endpoint)
+    return application
 
 
 app = create_app()
