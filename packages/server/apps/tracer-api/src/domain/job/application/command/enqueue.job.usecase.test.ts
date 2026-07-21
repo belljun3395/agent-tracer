@@ -49,11 +49,20 @@ function makeJobLog(): {
 function makeUseCase(
     settings: InMemorySettingReader = makeSettings(),
     defaultBackend: AiAgentBackend = DEFAULT_AI_AGENT_BACKEND,
+    localCliAuth = false,
 ) {
     const store = new InMemoryAiJobRepository();
     const dispatcher = makeDispatcher();
     const { jobLog, enqueuedLogs, idempotencyConflictLogs, llmKeyMissingLogs } = makeJobLog();
-    const useCase = new EnqueueJobUseCase(store, settings, dispatcher, new FixedClock(NOW), defaultBackend, jobLog);
+    const useCase = new EnqueueJobUseCase(
+        store,
+        settings,
+        dispatcher,
+        new FixedClock(NOW),
+        defaultBackend,
+        localCliAuth,
+        jobLog,
+    );
     return { store, dispatcher, useCase, enqueuedLogs, idempotencyConflictLogs, llmKeyMissingLogs };
 }
 
@@ -166,6 +175,27 @@ describe("EnqueueJobUseCase", () => {
             httpStatus: 400,
         });
         expect(llmKeyMissingLogs).toEqual([{ userId: "u1", kind: JOB_KIND.recipeScan }]);
+    });
+
+    it("로컬 CLI 인증이면 키 없이 claude-sdk 잡을 접수한다", async () => {
+        const { store, useCase, llmKeyMissingLogs } = makeUseCase(
+            makeSettings(new Map()),
+            AI_AGENT_BACKEND.claudeSdk,
+            true,
+        );
+
+        await useCase.execute("u1", JOB_KIND.recipeScan, { taskId: "task-1" });
+
+        expect(store.all()).toHaveLength(1);
+        expect(llmKeyMissingLogs).toEqual([]);
+    });
+
+    it("로컬 CLI 인증이라도 python 잡은 키를 요구한다", async () => {
+        const { useCase } = makeUseCase(makeSettings(new Map()), AI_AGENT_BACKEND.python, true);
+
+        await expect(
+            useCase.execute("u1", JOB_KIND.recipeScan, { taskId: "task-1" }),
+        ).rejects.toMatchObject({ code: "job.llm-key-missing" });
     });
 
     it("새 Job을 큐에 넣으면 jobId와 kind와 userId를 로그로 남긴다", async () => {

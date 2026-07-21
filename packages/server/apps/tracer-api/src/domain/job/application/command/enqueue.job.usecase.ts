@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
+    AI_AGENT_BACKEND,
     DEFAULT_USER_ID,
     JOB_KIND,
     JOB_STATUS,
@@ -10,7 +11,9 @@ import {
 import { AiJobEntity, LLM_KEY_SETTING, SettingsCatalog } from "@monitor/tracer-domain";
 import {
     DEFAULT_AGENT_BACKEND,
+    LOCAL_CLI_AUTH,
     type DefaultAgentBackendPort,
+    type LocalCliAuthPort,
 } from "~tracer-api/domain/job/port/agent.backend.port.js";
 import { AI_JOB_REPOSITORY, type AiJobRepositoryPort } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
 import { CLOCK, type ClockPort } from "~tracer-api/domain/job/port/clock.port.js";
@@ -33,6 +36,7 @@ export class EnqueueJobUseCase {
         @Inject(WORKFLOW_DISPATCHER) private readonly dispatcher: WorkflowDispatcherPort,
         @Inject(CLOCK) private readonly clock: ClockPort,
         @Inject(DEFAULT_AGENT_BACKEND) private readonly defaultBackend: DefaultAgentBackendPort,
+        @Inject(LOCAL_CLI_AUTH) private readonly localCliAuth: LocalCliAuthPort,
         @Inject(JOB_EVENT_LOG) private readonly jobLog: JobEventLog,
     ) {}
 
@@ -46,7 +50,9 @@ export class EnqueueJobUseCase {
             ? options.agentBackend
             : options.agentBackend ?? this.defaultBackend;
         const jobInput = withAgentBackend(input, agentBackend);
-        if (kind !== JOB_KIND.ruleGeneration) {
+        // claude-sdk를 로컬 CLI 인증으로 돌리는 경로는 API 키가 필요 없어 접수 검사를 건너뛴다.
+        const keyless = agentBackend === AI_AGENT_BACKEND.claudeSdk && this.localCliAuth;
+        if (kind !== JOB_KIND.ruleGeneration && !keyless) {
             const catalog = new SettingsCatalog(await this.settings.findAllByScope(DEFAULT_USER_ID));
             if (!catalog.llmKeyPresent(LLM_KEY_SETTING)) {
                 this.jobLog.llmKeyMissing({ userId, kind });

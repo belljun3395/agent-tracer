@@ -30,7 +30,7 @@ import { StructuredJobEventLogAdapter } from "~tracer-api/domain/job/adapter/str
 import { JobCommandController } from "~tracer-api/domain/job/inbound/job.command.controller.js";
 import { JobExecutionController } from "~tracer-api/domain/job/inbound/job.execution.controller.js";
 import { JobQueryController } from "~tracer-api/domain/job/inbound/job.query.controller.js";
-import { DEFAULT_AGENT_BACKEND } from "~tracer-api/domain/job/port/agent.backend.port.js";
+import { DEFAULT_AGENT_BACKEND, LOCAL_CLI_AUTH } from "~tracer-api/domain/job/port/agent.backend.port.js";
 import { AI_JOB_REPOSITORY } from "~tracer-api/domain/job/port/ai.job.repository.port.js";
 import { AI_JOB_STEP_REPOSITORY } from "~tracer-api/domain/job/port/ai.job.step.repository.port.js";
 import { CLOCK } from "~tracer-api/domain/job/port/clock.port.js";
@@ -76,6 +76,7 @@ export const jobFeature = {
                     loadApplicationConfig().profile === "local" ? AI_AGENT_BACKEND.claudeSdk : AI_AGENT_BACKEND.python,
                 ),
         },
+        { provide: LOCAL_CLI_AUTH, useFactory: () => loadApplicationConfig().profile === "local" },
         { provide: AI_JOB_REPOSITORY, useExisting: AiJobRepository },
         { provide: AI_JOB_STEP_REPOSITORY, useExisting: AiJobStepRepository },
         { provide: SETTING_READER, useExisting: AppSettingRepository },
