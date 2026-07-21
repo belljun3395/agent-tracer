@@ -53,6 +53,11 @@ async function main() {
         await client.query(`GRANT USAGE ON SCHEMA public TO ${quotedRole}`);
         await client.query(`GRANT SELECT ON ${views.map(quoteIdentifier).join(", ")} TO ${quotedRole}`);
         console.log(`읽기 전용 역할 ${role}에 뷰 ${views.length}개 SELECT 권한을 부여했다.`);
+
+        // LangGraph 장기기억에 한해 read-through-views 경계를 의도적으로 열어, 이 역할에 정본 테이블 직접 읽기·쓰기를 허용한다.
+        const memoryTable = quoteIdentifier("chat_user_memories");
+        await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${memoryTable} TO ${quotedRole}`);
+        console.log(`역할 ${role}에 ${memoryTable} 직접 읽기·쓰기 권한을 부여했다.`);
     } finally {
         await client.end();
     }

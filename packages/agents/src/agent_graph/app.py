@@ -126,7 +126,7 @@ async def chat(
     return accept(
         "chat",
         req,
-        lambda trace: run_chat(req, request.app.state.completion_client, trace),
+        lambda trace: run_chat(req, request.app.state.completion_client, request.app.state.ledger, trace),
         background,
         request,
     )

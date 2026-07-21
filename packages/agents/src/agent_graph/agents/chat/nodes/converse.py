@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
 from ...runtime.execution.trace import ExecutionTrace
+from ...runtime.ledger import LedgerPoolProvider
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.node import GraphNode
@@ -49,6 +50,7 @@ class ConverseNode(GraphNode):
         self,
         req: ChatRequest,
         http_client: httpx.AsyncClient,
+        ledger: LedgerPoolProvider | None,
         usage: ExecutionTrace,
         chat: BaseChatModel,
         fallback_chat: BaseChatModel | None,
@@ -57,6 +59,7 @@ class ConverseNode(GraphNode):
     ) -> None:
         self._req = req
         self._http_client = http_client
+        self._ledger = ledger
         self._usage = usage
         self._chat = chat
         self._fallback_chat = fallback_chat
@@ -138,9 +141,9 @@ class ConverseNode(GraphNode):
         return [ChatFact(key=item.key, content=str(item.value.get("content", ""))) for item in items]
 
     def _store(self) -> ChatMemoryStore | None:
-        if not self._req.readApiBaseUrl:
+        if self._ledger is None:
             return None
-        return ChatMemoryStore(self._http_client, self._req.readApiBaseUrl, self._req.userId)
+        return ChatMemoryStore(self._ledger, self._req.userId)
 
     def _read_client(self) -> ChatReadClient | None:
         if not self._req.readApiBaseUrl:

@@ -33,10 +33,7 @@ import { RenameThreadUseCase } from "~tracer-api/domain/chat/application/command
 import { ListThreadsUseCase } from "~tracer-api/domain/chat/application/query/list.threads.usecase.js";
 import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.thread.usecase.js";
 import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/get.messages.usecase.js";
-import { ListUserMemoriesUseCase } from "~tracer-api/domain/chat/application/query/list.user.memories.usecase.js";
-import { UpsertUserMemoryUseCase } from "~tracer-api/domain/chat/application/command/upsert.user.memory.usecase.js";
 import { ChatController } from "~tracer-api/domain/chat/inbound/chat.controller.js";
-import { ChatMemoryController } from "~tracer-api/domain/chat/inbound/chat.memory.controller.js";
 import { ChatSdkAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.sdk.agent.adapter.js";
 import { ChatGraphAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.graph.agent.adapter.js";
 import { buildChatGraphClient } from "~tracer-api/domain/chat/adapter/chat.graph.client.factory.js";
@@ -101,7 +98,6 @@ function buildRegistry(...args: unknown[]): ChatAgentRegistry {
         [AI_AGENT_BACKEND.python]: new ChatGraphAgentAdapter(
             buildChatGraphClient(completionInbox),
             { pendingTools, clock },
-            { memories: userMemories, clock },
             resolveReadApiBaseUrl(),
         ),
     };
@@ -131,13 +127,11 @@ function buildSummarizer(): ChatSummarizerAdapter {
 
 /** chat 슬라이스가 조립 근원에 공급하는 컨트롤러와 프로바이더 목록이다. */
 export const chatFeature = {
-    controllers: [ChatController, ChatMemoryController],
+    controllers: [ChatController],
     providers: [
         ListThreadsUseCase,
         GetThreadUseCase,
         GetMessagesUseCase,
-        ListUserMemoriesUseCase,
-        UpsertUserMemoryUseCase,
         CreateThreadUseCase,
         AppendUserMessageUseCase,
         RunChatTurnUseCase,

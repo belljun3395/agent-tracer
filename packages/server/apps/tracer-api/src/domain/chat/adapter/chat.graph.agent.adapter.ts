@@ -12,14 +12,12 @@ import type {
 } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import type { ChatAgentPort } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import { buildChatWriteToolHandlers, type ChatWriteToolDeps } from "./chat.write.tools.js";
-import { buildChatMemoryToolHandlers, type ChatMemoryToolDeps } from "./chat.memory.tools.js";
 
 /** Python LangGraph 방언으로 chat 명세를 실행하고, 최종 구조화 결과를 대화 싱크로 이어 준다. */
 export class ChatGraphAgentAdapter implements ChatAgentPort {
     constructor(
         private readonly client: AgentRunnerPort,
         private readonly writeDeps: ChatWriteToolDeps,
-        private readonly memoryDeps: ChatMemoryToolDeps,
         private readonly readApiBaseUrl: string,
     ) {}
 
@@ -89,10 +87,9 @@ export class ChatGraphAgentAdapter implements ChatAgentPort {
             await handler(write.args);
             toolCalls.push({ id: this.ulid(), name: write.toolName, args: write.args });
         }
-        const memoryHandlers = buildChatMemoryToolHandlers({ userId: input.userId, sink }, this.memoryDeps);
-        const remember = memoryHandlers[CHAT_TOOL.rememberFact];
+        // Python store가 이미 정본에 써넣었으므로 어댑터는 다시 쓰지 않고 투명성 통지만 흘린다.
         for (const memory of data.memoryWrites) {
-            if (remember !== undefined) await remember(memory);
+            sink.onMemoryUpdated?.({ key: memory.key, content: memory.content });
             toolCalls.push({ id: this.ulid(), name: CHAT_TOOL.rememberFact, args: { ...memory } });
         }
         return toolCalls;

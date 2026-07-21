@@ -3,7 +3,6 @@ import { AI_AGENT_BACKEND, CHAT_TOOL } from "@monitor/kernel";
 import type { ChatTurnResultPayload } from "@monitor/kernel/agent/chat.result.schema.js";
 import type { AgentRunnerPort, OutputSchema, StructuredAgentResult } from "@monitor/llm-runtime";
 import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.pending.tool.repository.js";
-import { InMemoryChatUserMemoryRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.user.memory.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import type {
     ChatConfirmRequest,
@@ -83,19 +82,12 @@ function buildAdapter(data: ChatTurnResultPayload): {
     adapter: ChatGraphAgentAdapter;
     runner: FakeRunner;
     pendingTools: InMemoryChatPendingToolRepository;
-    memoryRepo: InMemoryChatUserMemoryRepository;
 } {
     const runner = new FakeRunner(data);
     const pendingTools = new InMemoryChatPendingToolRepository();
-    const memoryRepo = new InMemoryChatUserMemoryRepository();
     const clock = new FixedClock(NOW);
-    const adapter = new ChatGraphAgentAdapter(
-        runner,
-        { pendingTools, clock },
-        { memories: memoryRepo, clock },
-        "http://tracer-api:3000",
-    );
-    return { adapter, runner, pendingTools, memoryRepo };
+    const adapter = new ChatGraphAgentAdapter(runner, { pendingTools, clock }, "http://tracer-api:3000");
+    return { adapter, runner, pendingTools };
 }
 
 describe("ChatGraphAgentAdapter", () => {
@@ -149,17 +141,16 @@ describe("ChatGraphAgentAdapter", () => {
         expect(result.toolCalls.map((call) => call.name)).toEqual([CHAT_TOOL.archiveTask]);
     });
 
-    it("기억 쓰기를 즉시 적재하고 갱신을 통지한다", async () => {
-        const { adapter, memoryRepo } = buildAdapter({
+    it("python이 쓴 기억은 재-쓰기 없이 통지와 toolCall로만 남는다", async () => {
+        const { adapter } = buildAdapter({
             assistantText: "기억했습니다",
             proposedWrites: [],
             memoryWrites: [{ key: "lang", content: "한국어를 쓴다" }],
         });
         const { sink, memories } = collectingSink();
-        await adapter.converse(turnInput(), sink);
+        const result = await adapter.converse(turnInput(), sink);
 
         expect(memories).toEqual([{ key: "lang", content: "한국어를 쓴다" }]);
-        const stored = await memoryRepo.listByUser("u1");
-        expect(stored.map((row) => row.key)).toEqual(["lang"]);
+        expect(result.toolCalls.map((call) => call.name)).toEqual([CHAT_TOOL.rememberFact]);
     });
 });

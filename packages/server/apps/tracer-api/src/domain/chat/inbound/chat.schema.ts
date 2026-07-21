@@ -27,9 +27,3 @@ export const confirmToolSchema = z.object({
 });
 
 export type ConfirmToolPayload = z.infer<typeof confirmToolSchema>;
-
-export const upsertMemorySchema = z.object({
-    content: z.string().trim().min(1).max(10_000),
-});
-
-export type UpsertMemoryPayload = z.infer<typeof upsertMemorySchema>;

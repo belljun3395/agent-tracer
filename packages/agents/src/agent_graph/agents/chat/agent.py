@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from ..runtime.execution.trace import ExecutionTrace
+from ..runtime.ledger import LedgerPoolProvider
 from ..runtime.llm.client import make_chat
 from ..runtime.llm.structured_agent import recursion_config
 from ..runtime.node import node_registry
@@ -24,7 +25,12 @@ def _no_validation(_state: Any) -> Any:
     return FINALIZE
 
 
-async def run_chat(req: ChatRequest, http_client: httpx.AsyncClient, usage: ExecutionTrace) -> dict[str, Any]:
+async def run_chat(
+    req: ChatRequest,
+    http_client: httpx.AsyncClient,
+    ledger: LedgerPoolProvider | None,
+    usage: ExecutionTrace,
+) -> dict[str, Any]:
     """chat 노드를 실행 의존성과 결합해 대화 그래프를 수행한다."""
     chat = make_chat(req.model, req.apiKey, req.deadlineMs, max_output_tokens=CHAT_MAX_OUTPUT_TOKENS)
     fallback_model = req.effective_fallback_model()
@@ -36,7 +42,9 @@ async def run_chat(req: ChatRequest, http_client: httpx.AsyncClient, usage: Exec
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
-        node_registry([ConverseNode(req, http_client, usage, chat, fallback_chat, agent_name=AGENT_NAME)]),
+        node_registry(
+            [ConverseNode(req, http_client, ledger, usage, chat, fallback_chat, agent_name=AGENT_NAME)]
+        ),
         _no_validation,
     )
     final = await CHAT_GRAPH.ainvoke(
