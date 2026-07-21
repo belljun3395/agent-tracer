@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import BackgroundTasks, FastAPI, Request
 
+from .agents.chat.agent import run_chat
+from .agents.chat.models import ChatRequest
 from .agents.recipe_scan.agent import run_recipe_scan
 from .agents.recipe_scan.models import RecipeScanRequest
 from .agents.runtime.execution.completion import run_and_deliver
@@ -116,6 +118,20 @@ async def recipe_scan(
     )
 
 
+async def chat(
+    req: ChatRequest,
+    background: BackgroundTasks,
+    request: Request,
+) -> AgentAccepted:
+    return accept(
+        "chat",
+        req,
+        lambda trace: run_chat(req, request.app.state.completion_client, trace),
+        background,
+        request,
+    )
+
+
 async def cancel_run_endpoint(run_id: str) -> dict[str, bool]:
     return {"cancelled": cancel_run(run_id)}
 
@@ -127,6 +143,7 @@ def create_app() -> FastAPI:
     application.post("/agents/title-suggestion", status_code=202)(title_suggestion)
     application.post("/agents/task-cleanup", status_code=202)(task_cleanup)
     application.post("/agents/recipe-scan", status_code=202)(recipe_scan)
+    application.post("/agents/chat", status_code=202)(chat)
     application.post("/agents/runs/{run_id}/cancel")(cancel_run_endpoint)
     return application
 
