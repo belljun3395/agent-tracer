@@ -1,6 +1,6 @@
 import { AI_AGENT_BACKEND, normalizeAiAgentBackend, type AiAgentBackend } from "@monitor/kernel";
 import { loadApplicationConfig, SystemClock } from "@monitor/platform";
-import { AgentGraphClient, ClaudeQueryRunner, DurableCompletionInbox } from "@monitor/llm-runtime";
+import { ClaudeQueryRunner } from "@monitor/llm-runtime";
 import {
     AgentCompletionInboxRepository,
     AiJobRepository,
@@ -33,6 +33,7 @@ import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/ge
 import { ChatController } from "~tracer-api/domain/chat/inbound/chat.controller.js";
 import { ChatSdkAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.sdk.agent.adapter.js";
 import { ChatGraphAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.graph.agent.adapter.js";
+import { buildChatGraphClient } from "~tracer-api/domain/chat/adapter/chat.graph.client.factory.js";
 import { ChatOpenSearchAdapter } from "~tracer-api/domain/chat/adapter/chat.search.adapter.js";
 import { ChatSummarizerAdapter } from "~tracer-api/domain/chat/adapter/chat.summarizer.adapter.js";
 import type { ChatToolDeps } from "~tracer-api/domain/chat/adapter/chat.tools.js";
@@ -92,18 +93,12 @@ function buildRegistry(...args: unknown[]): ChatAgentRegistry {
     return {
         [AI_AGENT_BACKEND.claudeSdk]: new ChatSdkAgentAdapter(buildRunner(), deps, { pendingTools, clock }, { memories: userMemories, clock }),
         [AI_AGENT_BACKEND.python]: new ChatGraphAgentAdapter(
-            buildGraphClient(completionInbox),
+            buildChatGraphClient(completionInbox),
             { pendingTools, clock },
             { memories: userMemories, clock },
             resolveReadApiBaseUrl(),
         ),
     };
-}
-
-// graph 백엔드는 실행을 요청한 HTTP 연결이 아니라 완료 창구로 결과를 되받으므로, DB 완료 창구를 폴링하는 클라이언트로 부른다.
-function buildGraphClient(completionInbox: AgentCompletionInboxRepository): AgentGraphClient {
-    const { agentGraph } = loadApplicationConfig();
-    return new AgentGraphClient(agentGraph.url, new DurableCompletionInbox(agentGraph.callbackUrl, completionInbox));
 }
 
 // Python 에이전트가 읽기 도구로 되읽을 tracer-api 읽기 API의 기점이며, 없으면 자기 루프백을 쓴다.
