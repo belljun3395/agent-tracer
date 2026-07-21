@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -23,6 +25,8 @@ from ..models import (
     ChatRequest,
     ChatResult,
     ChatState,
+    ChatStreamChunk,
+    ChatStreamRequest,
     ConverseUpdate,
     MemoryWrite,
     ProposedWrite,
@@ -48,7 +52,7 @@ class ConverseNode(GraphNode):
 
     def __init__(
         self,
-        req: ChatRequest,
+        req: ChatRequest | ChatStreamRequest,
         http_client: httpx.AsyncClient,
         ledger: LedgerPoolProvider | None,
         usage: ExecutionTrace,
@@ -66,6 +70,50 @@ class ConverseNode(GraphNode):
         self._agent_name = agent_name
 
     async def run(self, state: ChatState) -> ConverseUpdate:
+        prepared = await self._prepare(state)
+        raw: Any = await prepared.agent.ainvoke(
+            {"messages": prepared.messages_in}, context=prepared.context, config=prepared.config
+        )
+        messages = raw["messages"] if isinstance(raw, dict) else []
+        result = ChatResult(
+            assistantText=_final_text(messages),
+            proposedWrites=prepared.proposals,
+            memoryWrites=prepared.memories,
+        )
+        return {
+            "messages": messages,
+            "model_cost_usd": prepared.budget.spent,
+            "result": result.model_dump(mode="json"),
+        }
+
+    async def stream(self, state: ChatState) -> AsyncIterator[ChatStreamChunk]:
+        """도구 루프를 돌리며 어시스턴트 토큰을 delta로 흘리고, 종료 시 최종 구조화 결과를 낸다."""
+        prepared = await self._prepare(state)
+        final_state: dict[str, Any] = {}
+        async for mode, chunk in prepared.agent.astream(
+            {"messages": prepared.messages_in},
+            context=prepared.context,
+            config=prepared.config,
+            stream_mode=["messages", "values"],
+        ):
+            if mode == "messages":
+                message = chunk[0]
+                # 도구 결과·중간 턴이 아닌 어시스턴트 텍스트 조각만 delta로 흘린다.
+                if isinstance(message, AIMessage):
+                    text = _text(message.content)
+                    if text:
+                        yield {"type": "delta", "text": text}
+            elif mode == "values" and isinstance(chunk, dict):
+                final_state = chunk
+        messages = final_state.get("messages", []) if isinstance(final_state, dict) else []
+        result = ChatResult(
+            assistantText=_final_text(messages),
+            proposedWrites=prepared.proposals,
+            memoryWrites=prepared.memories,
+        )
+        yield {"type": "result", "data": result.model_dump(mode="json")}
+
+    async def _prepare(self, state: ChatState) -> _PreparedTurn:
         proposals: list[ProposedWrite] = []
         memories: list[MemoryWrite] = []
         store = self._store()
@@ -102,18 +150,7 @@ class ConverseNode(GraphNode):
         )
         config = self._config()
         messages_in = await self._seed(agent, checkpointer, config)
-        raw: Any = await agent.ainvoke({"messages": messages_in}, context=context, config=config)
-        messages = raw["messages"] if isinstance(raw, dict) else []
-        result = ChatResult(
-            assistantText=_final_text(messages),
-            proposedWrites=proposals,
-            memoryWrites=memories,
-        )
-        return {
-            "messages": messages,
-            "model_cost_usd": budget.spent,
-            "result": result.model_dump(mode="json"),
-        }
+        return _PreparedTurn(agent, messages_in, config, context, budget, proposals, memories)
 
     def _config(self) -> RunnableConfig:
         # thread_id는 체크포인터가 스레드 단기기억을, user_id는 저장소가 장기기억을 범위로 잡는 열쇠다.
@@ -149,6 +186,19 @@ class ConverseNode(GraphNode):
         if not self._req.readApiBaseUrl:
             return None
         return ChatReadClient(self._http_client, self._req.readApiBaseUrl, self._req.userId)
+
+
+@dataclass
+class _PreparedTurn:
+    """blocking·streaming 실행이 공유하는, 조립이 끝난 한 턴의 실행 재료다."""
+
+    agent: CompiledStateGraph[Any, Any, Any, Any]
+    messages_in: list[BaseMessage]
+    config: RunnableConfig
+    context: StandardAgentContext
+    budget: ToolLoopBudget
+    proposals: list[ProposedWrite]
+    memories: list[MemoryWrite]
 
 
 def _replay(history: list[ChatHistoryMessage]) -> list[BaseMessage]:

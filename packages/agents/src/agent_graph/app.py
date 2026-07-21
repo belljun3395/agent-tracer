@@ -7,9 +7,10 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi.responses import StreamingResponse
 
-from .agents.chat.agent import run_chat
-from .agents.chat.models import ChatRequest
+from .agents.chat.agent import run_chat, stream_chat
+from .agents.chat.models import ChatRequest, ChatStreamRequest
 from .agents.recipe_scan.agent import run_recipe_scan
 from .agents.recipe_scan.models import RecipeScanRequest
 from .agents.runtime.execution.completion import run_and_deliver
@@ -132,6 +133,14 @@ async def chat(
     )
 
 
+async def chat_stream(req: ChatStreamRequest, request: Request) -> StreamingResponse:
+    """대화 턴을 열린 HTTP 연결로 토큰 스트림 배달하며, 연결이 끊기면 실행을 취소한다."""
+    return StreamingResponse(
+        stream_chat(req, request.app.state.completion_client, request.app.state.ledger),
+        media_type="application/x-ndjson",
+    )
+
+
 async def cancel_run_endpoint(run_id: str) -> dict[str, bool]:
     return {"cancelled": cancel_run(run_id)}
 
@@ -144,6 +153,7 @@ def create_app() -> FastAPI:
     application.post("/agents/task-cleanup", status_code=202)(task_cleanup)
     application.post("/agents/recipe-scan", status_code=202)(recipe_scan)
     application.post("/agents/chat", status_code=202)(chat)
+    application.post("/agents/chat/stream")(chat_stream)
     application.post("/agents/runs/{run_id}/cancel")(cancel_run_endpoint)
     return application
 

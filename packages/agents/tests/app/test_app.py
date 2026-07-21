@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from typing import Any
 
@@ -10,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agent_graph import app as app_module
+from agent_graph.agents.chat import agent as chat_mod
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.title_suggestion import agent as title_mod
 from tests.conftest import SHARED_SPAN_EXPORTER
@@ -191,6 +193,39 @@ def test_recipe_scan_엔드포인트가_도메인_봉투를_받는다(
     payload = completions.response()
     assert payload["error"] is None
     assert payload["data"] == {"recipes": []}
+
+
+def test_chat_stream은_열린_연결로_delta와_result_줄을_흘린다(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(chat_mod, "make_chat", lambda *_a, **_k: FakeToolLoopChat(["정리했습니다"]))
+    body = {
+        "model": "claude-haiku-4-5",
+        "apiKey": "sk-test",
+        "threadId": "thread-1",
+        "userId": "user-1",
+        "messages": [{"role": "user", "content": "정리해줘"}],
+    }
+
+    # 저장소 없이 도는 경로라 원장을 비워 read/store가 DB로 나가지 않게 한다.
+    original_ledger = client.app.state.ledger
+    client.app.state.ledger = None
+    try:
+        res = client.post("/agents/chat/stream", json=body)
+    finally:
+        client.app.state.ledger = original_ledger
+
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("application/x-ndjson")
+    lines = [json.loads(piece) for piece in res.text.splitlines() if piece]
+    assert lines[-1]["type"] == "result"
+    assert any(line["type"] == "delta" for line in lines)
+    assert lines[-1]["data"]["assistantText"] != ""
+
+
+def test_chat_stream은_완료_창구를_요구하지_않는다(client: TestClient) -> None:
+    res = client.post("/agents/chat/stream", json={"model": "x"})
+    assert res.status_code == 422
 
 
 def test_잘못된_요청은_422(client: TestClient) -> None:
