@@ -107,6 +107,8 @@ export class ChatController {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache, no-transform");
         res.setHeader("Connection", "keep-alive");
+        // 앞단 리버스 프록시(nginx 등)가 기본 proxy_buffering으로 스트림을 모아 두면 토큰이 실시간으로 못 나가므로, 이 응답만 버퍼링을 끄게 지시한다.
+        res.setHeader("X-Accel-Buffering", "no");
         res.flushHeaders();
 
         const abort = new AbortController();
