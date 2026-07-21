@@ -49,7 +49,7 @@ async def test_전문가_실행_예외는_실패_보고로_강등된다() -> Non
 
     result = await node.run(
         ProbeDispatch(
-            assignment=ProbeAssignment(probe="timeline", rounds=2, question="무엇"),
+            assignment=ProbeAssignment(probe="timeline", weight=2, question="무엇"),
             cost_budget=1.0,
         )
     )

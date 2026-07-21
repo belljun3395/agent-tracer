@@ -26,7 +26,6 @@ from ..models import (
 from ..policy import (
     AGENT_RECURSION_LIMIT,
     MAX_TITLE_MODEL_COST_USD,
-    MAX_TOOL_ROUNDS,
     validate_title_candidate,
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
@@ -67,7 +66,6 @@ class _CandidateAgent(GraphNode, ABC):
             agent_name=self._agent_name,
             trace=self._usage,
             budget=budget,
-            max_tool_rounds=MAX_TOOL_ROUNDS,
         )
         result = await invoke_structured_agent(
             agent,

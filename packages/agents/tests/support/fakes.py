@@ -74,7 +74,7 @@ class FakeToolLoopChat:
         # 계획을 안 준 테스트는 전체 예산을 한 전문가에게 몰아준 계획으로 돈다.
         return _FakePlanner(
             schema.model_validate(
-                {"probes": [{"probe": "timeline", "rounds": 10, "question": "무엇을 했나"}]}
+                {"probes": [{"probe": "timeline", "weight": 10, "question": "무엇을 했나"}]}
             )
         )
 

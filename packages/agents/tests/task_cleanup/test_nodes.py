@@ -58,7 +58,7 @@ async def test_후보_조사_예외는_실패_보고로_강등된다() -> None:
     )
 
     result = await node.run(
-        InspectDispatch(assignment=InspectAssignment(taskId="task-1", rounds=2), cost_budget=0.25)
+        InspectDispatch(assignment=InspectAssignment(taskId="task-1", weight=2), cost_budget=0.25)
     )
 
     # 조사가 무너진 후보는 안전하게 보관 불가로, 사유는 실패로 올린다.

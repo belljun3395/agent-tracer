@@ -26,9 +26,6 @@ from ..models import (
 from ..policy import (
     AGENT_RECURSION_LIMIT,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
-    clamp_triage,
-    decision_rounds,
-    inspection_rounds,
     validate_suggestions,
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
@@ -45,8 +42,7 @@ def _plan_redispatch(
     remaining = TASK_CLEANUP_MAX_MODEL_COST_USD - spent
     if remaining <= 0.0:
         return None
-    plan, _cut = clamp_triage(TriagePlan(inspect=draft.redispatch), inspection_rounds())
-    return plan, remaining
+    return TriagePlan(inspect=draft.redispatch), remaining
 
 
 class _DecisionAgent(GraphNode, ABC):
@@ -76,7 +72,6 @@ class _DecisionAgent(GraphNode, ABC):
             TASK_CLEANUP_MAX_MODEL_COST_USD,
             state["model_cost_usd"],
         )
-        rounds = decision_rounds(state["plan"])
         # 조율자는 후보를 직접 열어보지 않고 검토 전문가의 보고만으로 제안을 쓴다.
         registry = build_cleanup_registry(
             self._reader,
@@ -97,7 +92,6 @@ class _DecisionAgent(GraphNode, ABC):
             agent_name=self._agent_name,
             trace=self._usage,
             budget=budget,
-            max_tool_rounds=rounds,
         )
         result = await invoke_structured_agent(
             cleanup_agent,
@@ -146,7 +140,7 @@ class InvestigateNode(_DecisionAgent):
             update["redispatch"] = plan
             update["redispatch_ceiling"] = ceiling
             update["redispatch_count"] = state["redispatch_count"] + 1
-            chosen = ", ".join(f"{item.taskId}:{item.rounds}" for item in plan.assignments)
+            chosen = ", ".join(f"{item.taskId}:{item.weight}" for item in plan.assignments)
             self._usage.record_graph_event(
                 "route.selected", f"{self.name} -> redispatch {chosen}", node_name=self.name
             )

@@ -25,11 +25,11 @@ def test_그래프의_간선_집합을_고정한다() -> None:
     }
 
 
-def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:
+def test_후보_비용_몫은_배분한_weight에_비례한다() -> None:
     plan = TriagePlan(
         inspect=[
-            {"taskId": "task-1", "rounds": 3},  # type: ignore[list-item]
-            {"taskId": "task-2", "rounds": 1},  # type: ignore[list-item]
+            {"taskId": "task-1", "weight": 3},  # type: ignore[list-item]
+            {"taskId": "task-2", "weight": 1},  # type: ignore[list-item]
         ]
     )
 
@@ -38,7 +38,7 @@ def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:
     # Send는 페이로드를 직렬화하지 않고 계약 객체 그대로 노드에 넘긴다.
     assert all(isinstance(send.arg, InspectDispatch) for send in sends)
     budgets = {send.arg.assignment.taskId: send.arg.cost_budget for send in sends}
-    # 4라운드 중 3:1로 나눈 몫에 전체 상한 $0.5를 곱해 0.375:0.125달러가 배분된다.
+    # weight 합 4 중 3:1로 나눈 몫에 전체 상한 $0.5를 곱해 0.375:0.125달러가 배분된다.
     assert budgets == {"task-1": 0.375, "task-2": 0.125}
 
 

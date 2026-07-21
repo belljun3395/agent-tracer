@@ -13,11 +13,11 @@ from .models import TitleSuggestionDraft, TitleSuggestionState
 
 TITLE_MAX_OUTPUT_TOKENS = 4_000
 MAX_TITLE_MODEL_COST_USD = 0.2
-# 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
-MAX_TOOL_ROUNDS = 4
+# 전역 모델 턴 상한이며 계약 maxTurns의 거울이다.
+MAX_MODEL_TURNS = 4
 
-# 한 라운드가 langchain agent의 네 슈퍼스텝을 돌므로 재귀 한도는 예산이 아니라 폭주만 끊는 그물이다.
-AGENT_RECURSION_LIMIT = 10 * MAX_TOOL_ROUNDS
+# 한 턴이 langchain agent의 네 슈퍼스텝을 돌므로 재귀 한도는 예산이 아니라 폭주만 끊는 그물이다.
+AGENT_RECURSION_LIMIT = 10 * MAX_MODEL_TURNS
 
 type ValidationRoute = Callable[[TitleSuggestionState], Literal["repair", "finalize", "empty"]]
 

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
-from .models import MAX_TOOL_ROUNDS, RecipeDraft
+from .models import MAX_MODEL_TURNS, RecipeDraft
 
 
 def _tool_retry(transient_errors: tuple[type[Exception], ...]) -> ToolRetryMiddleware:
@@ -39,7 +39,7 @@ def build_recipe_agent(
     tools: list[BaseTool],
     transient_errors: tuple[type[Exception], ...],
     *,
-    max_rounds: int = MAX_TOOL_ROUNDS,
+    max_rounds: int = MAX_MODEL_TURNS,
     output: type[BaseModel] = RecipeDraft,
     fallback_chat: BaseChatModel | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:

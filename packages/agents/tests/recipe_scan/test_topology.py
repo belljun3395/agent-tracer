@@ -25,11 +25,11 @@ def test_그래프의_간선_집합을_고정한다() -> None:
     }
 
 
-def test_전문가_비용_몫은_배분한_라운드에_비례한다() -> None:
+def test_전문가_비용_몫은_배분한_weight에_비례한다() -> None:
     plan = DispatchPlan(
         probes=[
-            {"probe": "timeline", "rounds": 6, "question": "무엇을 했나"},  # type: ignore[list-item]
-            {"probe": "rules", "rounds": 2, "question": "어떤 규칙이"},  # type: ignore[list-item]
+            {"probe": "timeline", "weight": 6, "question": "무엇을 했나"},  # type: ignore[list-item]
+            {"probe": "rules", "weight": 2, "question": "어떤 규칙이"},  # type: ignore[list-item]
         ]
     )
 
@@ -38,7 +38,7 @@ def test_전문가_비용_몫은_배분한_라운드에_비례한다() -> None:
     # Send는 페이로드를 직렬화하지 않고 계약 객체 그대로 노드에 넘긴다.
     assert all(isinstance(send.arg, ProbeDispatch) for send in sends)
     budgets = {send.arg.assignment.probe: send.arg.cost_budget for send in sends}
-    # 8라운드 중 6:2로 나눈 몫에 전체 상한 $2.0을 곱해 1.5:0.5달러가 배분된다.
+    # weight 합 8 중 6:2로 나눈 몫에 전체 상한 $2.0을 곱해 1.5:0.5달러가 배분된다.
     assert budgets == {"timeline": 1.5, "rules": 0.5}
 
 

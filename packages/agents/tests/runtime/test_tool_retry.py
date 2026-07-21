@@ -51,7 +51,6 @@ def _context() -> StandardAgentContext:
         agent_name="recipe-scan",
         trace=ExecutionTrace(),
         budget=ToolLoopBudget("recipe-scan", _MODEL, 2.0, 0.0),
-        max_tool_rounds=5,
     )
 
 

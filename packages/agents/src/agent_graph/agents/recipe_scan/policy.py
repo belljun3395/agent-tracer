@@ -6,59 +6,18 @@ from collections.abc import Callable
 from typing import Literal
 
 from ..runtime.execution.trace import ExecutionTrace
-from ..runtime.orchestration import clamp_rounds
 from ..runtime.routing import build_validation_router
 from .models import (
     MAX_RECIPE_CANDIDATES,
-    MAX_TOOL_ROUNDS,
-    DispatchPlan,
     ProvenanceCatalog,
     RecipeCandidate,
     RecipeScanState,
 )
 
-# 계획을 세우는 데 한 라운드를 쓰므로 배분 가능한 조사 라운드는 그만큼 줄어든다.
-SURVEY_ROUNDS = 1
-
-# 종합과 인용 확인에 먼저 떼어 두어 전문가에게는 넘기지 않는 최소 몫이다.
-MIN_SYNTHESIS_ROUNDS = 3
-
 MAX_RECIPE_MODEL_COST_USD = 2.0
 RECIPE_MAX_OUTPUT_TOKENS = 16_000
 
 ValidationRoute = Callable[[RecipeScanState], Literal["repair", "finalize", "empty"]]
-
-
-def distributable_rounds() -> int:
-    """계획과 종합 최소 몫을 뗀, 전문가에게 배분할 수 있는 라운드다."""
-    return MAX_TOOL_ROUNDS - SURVEY_ROUNDS - MIN_SYNTHESIS_ROUNDS
-
-
-def synthesis_rounds(plan: DispatchPlan | None) -> int:
-    """계획과 조사에 쓰고 남은, 조율자가 종합에 갖는 라운드다."""
-    if plan is None:
-        return MAX_TOOL_ROUNDS
-    return max(MAX_TOOL_ROUNDS - SURVEY_ROUNDS - plan.total_rounds(), MIN_SYNTHESIS_ROUNDS)
-
-
-def clamp_plan(plan: DispatchPlan, available: int) -> tuple[DispatchPlan, int]:
-    """조율자의 배분을 남은 예산 안으로 비례 축소하고 깎인 라운드 수를 함께 돌려준다."""
-    requested = plan.total_rounds()
-    if requested <= available:
-        return plan, 0
-    if len(plan.probes) > available:
-        # 전문가 수가 예산보다 많으면 많이 요구한 순서대로 남길 만큼만 남긴다.
-        ranked = sorted(plan.probes, key=lambda probe: probe.rounds, reverse=True)[:available]
-        kept = DispatchPlan(probes=[probe.model_copy(update={"rounds": 1}) for probe in ranked])
-        return kept, requested - kept.total_rounds()
-    # 전문가마다 최소 한 라운드는 남겨야 계획이 의미를 잃지 않는다.
-    granted = clamp_rounds(plan.probes, available)
-    shrunk = [
-        probe.model_copy(update={"rounds": rounds})
-        for probe, rounds in zip(plan.probes, granted, strict=True)
-    ]
-    clamped = DispatchPlan(probes=shrunk)
-    return clamped, requested - clamped.total_rounds()
 
 
 def validate_recipe_candidates(

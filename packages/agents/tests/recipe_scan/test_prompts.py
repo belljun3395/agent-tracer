@@ -22,26 +22,25 @@ def _show(role: str, system: str, user: str) -> None:
     print(user)
 
 
-def test_계획자는_앵커와_가용_라운드와_사용자_지시로_계획을_세운다() -> None:
-    user = build_survey_prompt("t1", "마이그레이션만 봐줘", 12)
+def test_계획자는_앵커와_사용자_지시로_계획을_세운다() -> None:
+    user = build_survey_prompt("t1", "마이그레이션만 봐줘")
 
     _show("survey (계획자)", SURVEY_SYSTEM_PROMPT, user)
     assert "Anchor task ID: t1" in user
-    assert "Investigation rounds available: 12" in user
     assert "What the user asked for: 마이그레이션만 봐줘" in user
 
 
-def test_전문가는_맡은_질문과_라운드만_받는다() -> None:
-    user = build_probe_prompt("t1", "무엇을 했나", 5)
+def test_전문가는_맡은_질문만_받는다() -> None:
+    user = build_probe_prompt("t1", "무엇을 했나")
 
     _show("probe (전문가)", PROBE_SYSTEM_PROMPT, user)
-    assert user == "Anchor task ID: t1\nYour question: 무엇을 했나\nRounds available: 5"
+    assert user == "Anchor task ID: t1\nYour question: 무엇을 했나"
     assert "one specialist" in PROBE_SYSTEM_PROMPT
 
 
 def test_조율자는_계획과_전문가_보고를_절로_받는다() -> None:
     plan = DispatchPlan.model_validate(
-        {"probes": [{"probe": "timeline", "rounds": 5, "question": "무엇을 했나"}]}
+        {"probes": [{"probe": "timeline", "weight": 5, "question": "무엇을 했나"}]}
     )
     reports = [
         ProbeReport(
@@ -56,11 +55,11 @@ def test_조율자는_계획과_전문가_보고를_절로_받는다() -> None:
 
     _show("investigate (조율자)", INVESTIGATOR_SYSTEM_PROMPT, user)
     assert "Your own plan for this investigation:" in user
-    assert "- timeline (5 rounds): 무엇을 했나" in user
+    assert "- timeline (weight 5): 무엇을 했나" in user
     assert "What your specialists reported:" in user
     assert "### timeline" in user
     assert "- [t1/event-1] 마이그레이션" in user
-    assert "### rules (rounds exhausted)" in user
+    assert "### rules (budget exhausted)" in user
     assert "coordinator" in INVESTIGATOR_SYSTEM_PROMPT
 
 

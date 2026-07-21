@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from ..shared.models import Language
-from .models import MAX_EVIDENCE_EVENT_IDS, MAX_REDISPATCH_ROUNDS, InspectReport
+from .models import MAX_EVIDENCE_EVENT_IDS, MAX_INSPECT_WEIGHT, MAX_REDISPATCH_ROUNDS, InspectReport
 
 PROMPT_VERSION = "task-cleanup-native-v4"
 
@@ -39,7 +39,7 @@ Evidence discipline:
   - evidenceEventIds must be exactly the event IDs the reviewer cited for that task. Never invent an ID.
 
 When a reviewer report is missing or too thin to judge a candidate you believe matters, you may ask for
-one more round of review instead of finalizing. Return a redispatch request — a list of {{taskId, rounds}}
+one more round of review instead of finalizing. Return a redispatch request — a list of {{taskId, weight}}
 entries naming candidates to (re)inspect — and leave suggestions empty; the graph runs those reviewers
 and returns to you. You get at most {MAX_REDISPATCH_ROUNDS} such round(s); after it you must finalize
 from what you have. Return either suggestions or a redispatch request, never both.
@@ -85,11 +85,11 @@ Prompt version: {PROMPT_VERSION}.
 
 You see the qualified candidates and nothing else. A candidate is proposed for archival only if a
 reviewer reports on it, so assign every candidate you believe may be archivable — a reviewer confirms or
-rejects each one. Opening a task costs rounds: give a long-running one several and a no-events shell just
-one, since its reviewer only has to confirm the shell is empty. Do not assign candidates that clearly
-hold real work; assigning nothing ends the scan with no suggestions. Asking for more rounds than exist
-gets your allocation cut down proportionally, so allocate within what you are told; candidates left
-unassigned when rounds run out are picked up by a future scan.
+rejects each one. For each candidate, assign a weight from 1 to {MAX_INSPECT_WEIGHT} reflecting how much
+scrutiny it deserves: give a long-running one a higher weight and a no-events shell just 1, since its
+reviewer only has to confirm the shell is empty. Weight sets each reviewer's share of the review budget,
+not a fixed count of anything. Do not assign candidates that clearly hold real work; assigning nothing
+ends the scan with no suggestions. Candidates you leave unassigned are picked up by a future scan.
 """
 
 INSPECT_SYSTEM_PROMPT = f"""You judge one cleanup candidate by reading what actually happened in it.
@@ -102,20 +102,19 @@ archive is as useful an answer as approving it.
 """
 
 
-def build_triage_prompt(candidate_count: int, available_rounds: int) -> str:
+def build_triage_prompt(candidate_count: int) -> str:
     """조율자가 무엇을 열어볼지 정하는 데 필요한 사실만 싣는다."""
     return "\n".join(
         [
             f"Candidates in this batch: {candidate_count}",
-            f"Inspection rounds available: {available_rounds}",
             "Call list_candidate_tasks to see them before deciding.",
         ]
     )
 
 
-def build_inspect_prompt(task_id: str, rounds: int) -> str:
+def build_inspect_prompt(task_id: str) -> str:
     """조사자가 후보 하나에만 집중하도록 맡은 범위만 싣는다."""
-    return "\n".join([f"Task to judge: {task_id}", f"Rounds available: {rounds}"])
+    return f"Task to judge: {task_id}"
 
 
 def render_reports(reports: Sequence[InspectReport] | None) -> str:

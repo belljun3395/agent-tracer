@@ -35,7 +35,7 @@
       "excerptRequired": ["taskId", "eventId", "text"]
     },
     "redispatchRequest": {
-      "required": ["probe", "rounds", "question"],
+      "required": ["probe", "weight", "question"],
       "maxProbes": 3
     }
   },

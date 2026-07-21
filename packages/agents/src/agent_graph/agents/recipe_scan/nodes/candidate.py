@@ -16,7 +16,6 @@ from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
     MAX_REDISPATCH_ROUNDS,
-    MAX_TOOL_ROUNDS,
     DispatchPlan,
     InvestigateUpdate,
     ProvenanceCatalog,
@@ -28,9 +27,6 @@ from ..models import (
 )
 from ..policy import (
     MAX_RECIPE_MODEL_COST_USD,
-    clamp_plan,
-    distributable_rounds,
-    synthesis_rounds,
     validate_recipe_candidates,
 )
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
@@ -48,8 +44,7 @@ def _plan_redispatch(
     remaining = MAX_RECIPE_MODEL_COST_USD - spent
     if remaining <= 0.0:
         return None
-    plan, _cut = clamp_plan(DispatchPlan(probes=draft.redispatch), distributable_rounds())
-    return plan, remaining
+    return DispatchPlan(probes=draft.redispatch), remaining
 
 
 class _CandidateAgent(GraphNode, ABC):
@@ -78,7 +73,6 @@ class _CandidateAgent(GraphNode, ABC):
         budget = ToolLoopBudget(
             self._agent_name, self._req.model, MAX_RECIPE_MODEL_COST_USD, state["model_cost_usd"]
         )
-        rounds = synthesis_rounds(state["plan"])
         catalog = state["provenance"]
         # 조율자는 전문가가 합친 장부의 인용만 확인하고 근거를 직접 캐지 않는다.
         registry = build_recipe_registry(
@@ -89,13 +83,10 @@ class _CandidateAgent(GraphNode, ABC):
             INVESTIGATOR_SYSTEM_PROMPT,
             registry.langchain_tools(),
             registry.transient_errors(),
-            max_rounds=MAX_TOOL_ROUNDS,
             output=RecipeDraft,
             fallback_chat=self._fallback_chat,
         )
-        context = StandardAgentContext(
-            agent_name=self._agent_name, trace=self._usage, budget=budget, max_tool_rounds=rounds
-        )
+        context = StandardAgentContext(agent_name=self._agent_name, trace=self._usage, budget=budget)
         result = await invoke_structured_agent(
             agent,
             messages=messages,
@@ -143,7 +134,7 @@ class InvestigateNode(_CandidateAgent):
             update["redispatch"] = plan
             update["redispatch_ceiling"] = ceiling
             update["redispatch_count"] = state["redispatch_count"] + 1
-            chosen = ", ".join(f"{probe.probe}:{probe.rounds}" for probe in plan.probes)
+            chosen = ", ".join(f"{probe.probe}:{probe.weight}" for probe in plan.probes)
             self._usage.record_graph_event(
                 "route.selected", f"{self.name} -> redispatch {chosen}", node_name=self.name
             )

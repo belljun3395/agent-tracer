@@ -27,9 +27,6 @@ from ..models import (
 from ..policy import (
     AGENT_RECURSION_LIMIT,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
-    TRIAGE_ROUNDS,
-    clamp_triage,
-    inspection_rounds,
 )
 from ..prompts import (
     INSPECT_SYSTEM_PROMPT,
@@ -84,7 +81,6 @@ class TriageNode(GraphNode):
             TRIAGE_SYSTEM_PROMPT,
             registry.langchain_tools(TRIAGE_TOOL_NAMES),
             registry.transient_errors(),
-            max_rounds=TRIAGE_ROUNDS,
             output=TriagePlan,
             fallback_chat=self._fallback_chat,
         )
@@ -93,28 +89,27 @@ class TriageNode(GraphNode):
             messages=[
                 {
                     "role": "user",
-                    "content": build_triage_prompt(len(req.batch.candidates), inspection_rounds()),
+                    "content": build_triage_prompt(len(req.batch.candidates)),
                 }
             ],
             context=StandardAgentContext(
                 agent_name=triage_name,
                 trace=self._usage,
                 budget=budget,
-                max_tool_rounds=TRIAGE_ROUNDS,
             ),
             response_type=TriagePlan,
             recursion_limit=AGENT_RECURSION_LIMIT,
             missing_response=f"{self._agent_name} triage produced no structured plan",
         )
-        kept, cut = clamp_triage(result.response, inspection_rounds())
-        chosen = ", ".join(f"{item.taskId}:{item.rounds}" for item in kept.assignments) or "없음"
+        plan = result.response
+        chosen = ", ".join(f"{item.taskId}:{item.weight}" for item in plan.assignments) or "없음"
         self._usage.record_graph_event(
             "route.selected",
-            f"{self.name} -> {chosen}" + (f" (배분 {cut}라운드 축소)" if cut else ""),
+            f"{self.name} -> {chosen}",
             node_name=self.name,
         )
         return {
-            "plan": kept,
+            "plan": plan,
             "exposed_candidates": exposed,
             "event_ids_by_task": event_ids,
             "model_cost_usd": budget.spent,
@@ -161,7 +156,6 @@ class InspectNode(GraphNode):
                 INSPECT_SYSTEM_PROMPT,
                 registry.langchain_tools(INSPECT_TOOL_NAMES),
                 registry.transient_errors(),
-                max_rounds=assignment.rounds,
                 output=InspectReport,
                 fallback_chat=self._fallback_chat,
             )
@@ -170,14 +164,13 @@ class InspectNode(GraphNode):
                 messages=[
                     {
                         "role": "user",
-                        "content": build_inspect_prompt(assignment.taskId, assignment.rounds),
+                        "content": build_inspect_prompt(assignment.taskId),
                     }
                 ],
                 context=StandardAgentContext(
                     agent_name=name,
                     trace=self._usage,
                     budget=budget,
-                    max_tool_rounds=assignment.rounds,
                 ),
                 response_type=InspectReport,
                 recursion_limit=AGENT_RECURSION_LIMIT,

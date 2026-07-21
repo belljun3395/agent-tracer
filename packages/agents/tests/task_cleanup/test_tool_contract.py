@@ -23,7 +23,7 @@ from agent_graph.agents.task_cleanup.models import (
     InspectReport,
 )
 from agent_graph.agents.task_cleanup.policy import (
-    MAX_TOOL_ROUNDS,
+    MAX_MODEL_TURNS,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
     TASK_CLEANUP_MAX_OUTPUT_TOKENS,
 )
@@ -75,7 +75,7 @@ def _partition(args_model: type[BaseModel]) -> tuple[set[str], set[str]]:
 
 
 def test_턴_예산이_골든_계약과_같다() -> None:
-    assert _contract()["maxTurns"] == MAX_TOOL_ROUNDS
+    assert _contract()["maxTurns"] == MAX_MODEL_TURNS
 
 
 def test_모델에게_여는_도구_이름이_골든_계약과_같다() -> None:

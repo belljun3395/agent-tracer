@@ -22,22 +22,18 @@ def _show(role: str, system: str, user: str) -> None:
     print(user)
 
 
-def test_선별자는_후보_수와_라운드만_받는다() -> None:
-    user = build_triage_prompt(7, 6)
+def test_선별자는_후보_수만_받는다() -> None:
+    user = build_triage_prompt(7)
 
     _show("triage (선별자)", TRIAGE_SYSTEM_PROMPT, user)
-    assert user == (
-        "Candidates in this batch: 7\n"
-        "Inspection rounds available: 6\n"
-        "Call list_candidate_tasks to see them before deciding."
-    )
+    assert user == ("Candidates in this batch: 7\nCall list_candidate_tasks to see them before deciding.")
 
 
-def test_조사자는_맡은_후보와_라운드만_받는다() -> None:
-    user = build_inspect_prompt("task-9", 2)
+def test_조사자는_맡은_후보만_받는다() -> None:
+    user = build_inspect_prompt("task-9")
 
     _show("inspect (조사자)", INSPECT_SYSTEM_PROMPT, user)
-    assert user == "Task to judge: task-9\nRounds available: 2"
+    assert user == "Task to judge: task-9"
 
 
 def test_조율자는_스캔_시점과_상한과_조사_보고를_받는다() -> None:

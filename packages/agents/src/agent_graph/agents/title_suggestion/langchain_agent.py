@@ -15,7 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import TitleSuggestionDraft
-from .policy import MAX_TOOL_ROUNDS
+from .policy import MAX_MODEL_TURNS
 
 
 def build_title_agent(
@@ -30,7 +30,7 @@ def build_title_agent(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
     middleware: list[AgentMiddleware[Any, Any, Any]] = [
-        ModelCallLimitMiddleware(run_limit=MAX_TOOL_ROUNDS + 2, exit_behavior="error"),
+        ModelCallLimitMiddleware(run_limit=MAX_MODEL_TURNS + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
     ]
     if fallback_chat is not None:

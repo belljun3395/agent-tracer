@@ -13,11 +13,11 @@ from ..shared.models import AgentExecutionRequest, Language, TrimmedStr
 # 한 태스크가 서로 다른 작업 turn을 담을 수 있어 스캔 한 번이 낼 수 있는 후보 수다.
 MAX_RECIPE_CANDIDATES = 4
 
-# 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이며 커널의 골든 계약이 값을 소유한다.
-MAX_TOOL_ROUNDS = 15
+# 전역 모델 턴 상한이며 계약 maxTurns의 거울이고, 값은 커널의 골든 계약이 소유한다.
+MAX_MODEL_TURNS = 15
 
-# 한 라운드가 langchain agent의 네 슈퍼스텝을 돌므로 재귀 한도는 예산이 아니라 폭주만 끊는 그물이다.
-AGENT_RECURSION_LIMIT = 10 * MAX_TOOL_ROUNDS
+# 한 턴이 langchain agent의 네 슈퍼스텝을 돌므로 재귀 한도는 예산이 아니라 폭주만 끊는 그물이다.
+AGENT_RECURSION_LIMIT = 10 * MAX_MODEL_TURNS
 
 
 class RecipeScanRequest(AgentExecutionRequest):
@@ -35,9 +35,9 @@ class RecipeScanRequest(AgentExecutionRequest):
 
 ProbeName = Literal["timeline", "rules", "repetition"]
 
-# 한 전문가에게 몰아줄 수 있는 최대 라운드이며 조율자의 배분을 이 안으로 가둔다.
+# 전문가 인스턴스의 턴 백스톱과, 조율자가 전문가 하나에 줄 수 있는 최대 weight다.
 MAX_PROBE_ROUNDS = 10
-
+MAX_PROBE_WEIGHT = 10
 # 조율자가 종합 대신 전문가를 다시 부를 수 있는 라운드 수이며 무한 루프를 이 값으로 막는다.
 MAX_REDISPATCH_ROUNDS = 1
 
@@ -46,12 +46,12 @@ MAX_REDISPATCH_PROBES = 3
 
 
 class ProbeAssignment(BaseModel):
-    """조율자가 한 전문가에게 맡긴 질문과 배분한 조사 라운드다."""
+    """조율자가 한 전문가에게 맡긴 질문과 배분한 weight다."""
 
     model_config = ConfigDict(extra="forbid")
 
     probe: ProbeName
-    rounds: int = Field(ge=1, le=MAX_PROBE_ROUNDS)
+    weight: int = Field(ge=1, le=MAX_PROBE_WEIGHT)
     question: TrimmedStr = Field(min_length=1, max_length=300)
 
 
@@ -62,9 +62,9 @@ class DispatchPlan(BaseModel):
 
     probes: list[ProbeAssignment] = Field(min_length=1, max_length=3)
 
-    def total_rounds(self) -> int:
-        """계획이 요구하는 조사 라운드 합이다."""
-        return sum(probe.rounds for probe in self.probes)
+    def total_weight(self) -> int:
+        """계획이 요구하는 weight 합이다."""
+        return sum(probe.weight for probe in self.probes)
 
 
 class ProbeDispatch(BaseModel):

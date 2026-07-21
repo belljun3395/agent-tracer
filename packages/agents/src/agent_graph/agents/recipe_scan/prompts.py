@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from ..shared.models import Language
 from .models import (
+    MAX_PROBE_WEIGHT,
     MAX_RECIPE_CANDIDATES,
     MAX_REDISPATCH_PROBES,
     MAX_REDISPATCH_ROUNDS,
@@ -39,7 +40,7 @@ specialist surfaced is not citable, so never guess IDs.
 
 When the reports leave a specific, answerable gap that blocks a candidate, you may ask for one more round
 of investigation instead of finalizing. Return a redispatch request — a list of up to
-{MAX_REDISPATCH_PROBES} {{probe, rounds, question}} entries, where probe is one of timeline, rules, or
+{MAX_REDISPATCH_PROBES} {{probe, weight, question}} entries, where probe is one of timeline, rules, or
 repetition — and leave recipes empty; the graph runs those specialists and returns to you. You get at
 most {MAX_REDISPATCH_ROUNDS} such round(s); after it you must finalize from what you have. Redispatch
 only for a gap a specialist can actually close, not to re-litigate a report you already hold. Return
@@ -142,10 +143,10 @@ Three specialists can be dispatched, each reading in its own isolated context:
 - rules: reads the rules that already govern the anchor and the recipes that already exist.
 - repetition: searches other tasks for the same workflow to judge whether it recurs.
 
-Assign only the specialists this anchor actually needs, give each a concrete question, and split the
-investigation rounds between them. Spend rounds where the evidence is; a specialist you do not need is
-a specialist you should not dispatch. You are told how many rounds exist in total — asking for more than
-that gets your allocation cut down proportionally, so allocate within it.
+Assign only the specialists this anchor actually needs, give each a concrete question, and assign each a
+weight from 1 to {MAX_PROBE_WEIGHT} reflecting how much effort its question deserves; higher weight gets
+a larger share of the investigation budget. A specialist you do not need is a specialist you should not
+dispatch.
 """
 
 
@@ -155,7 +156,7 @@ def render_reports(reports: Sequence[ProbeReport] | None) -> str:
         return ""
     blocks = []
     for report in reports:
-        lines = [f"### {report.probe}" + (" (rounds exhausted)" if report.exhausted else "")]
+        lines = [f"### {report.probe}" + (" (budget exhausted)" if report.exhausted else "")]
         lines.append(report.verdict)
         lines.extend(f"- [{excerpt.taskId}/{excerpt.eventId}] {excerpt.text}" for excerpt in report.excerpts)
         blocks.append("\n".join(lines))
@@ -167,16 +168,13 @@ def render_plan(plan: DispatchPlan | None) -> str:
     if plan is None:
         return ""
     probes = plan.probes
-    lines = [f"- {probe.probe} ({probe.rounds} rounds): {probe.question}" for probe in probes]
+    lines = [f"- {probe.probe} (weight {probe.weight}): {probe.question}" for probe in probes]
     return "\n\nYour own plan for this investigation:\n" + "\n".join(lines)
 
 
-def build_survey_prompt(task_id: str, user_prompt: str | None, available_rounds: int) -> str:
+def build_survey_prompt(task_id: str, user_prompt: str | None) -> str:
     """조율자가 조사 계획을 세우는 데 필요한 사실만 싣는다."""
-    lines = [
-        f"Anchor task ID: {task_id}",
-        f"Investigation rounds available: {available_rounds}",
-    ]
+    lines = [f"Anchor task ID: {task_id}"]
     if user_prompt:
         lines.append(f"What the user asked for: {user_prompt}")
     return "\n".join(lines)
@@ -191,17 +189,11 @@ back. You do not write recipes; the coordinator does that from your report and t
 Report a verdict that answers your question directly, and attach the excerpts the coordinator needs to
 write from — quote the evidence rather than summarising it away, because the coordinator cannot see
 what you read. Every excerpt must name the event it came from. Verify with check_citations before you
-report: an ID the coordinator cannot cite is worse than no evidence at all. If your rounds run out with
+report: an ID the coordinator cannot cite is worse than no evidence at all. If your budget runs out with
 the question still open, say so in exhausted so the coordinator can decide whether to spend more.
 """
 
 
-def build_probe_prompt(task_id: str, question: str, rounds: int) -> str:
+def build_probe_prompt(task_id: str, question: str) -> str:
     """전문가가 자기 질문 하나에 집중하도록 맡은 범위만 싣는다."""
-    return "\n".join(
-        [
-            f"Anchor task ID: {task_id}",
-            f"Your question: {question}",
-            f"Rounds available: {rounds}",
-        ]
-    )
+    return "\n".join([f"Anchor task ID: {task_id}", f"Your question: {question}"])

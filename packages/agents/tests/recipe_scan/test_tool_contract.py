@@ -9,11 +9,11 @@ import pytest
 from pydantic import ValidationError
 
 from agent_graph.agents.recipe_scan.models import (
+    MAX_MODEL_TURNS,
     MAX_PROBE_ROUNDS,
     MAX_RECIPE_CANDIDATES,
     MAX_REDISPATCH_PROBES,
     MAX_REDISPATCH_ROUNDS,
-    MAX_TOOL_ROUNDS,
     Excerpt,
     ProbeAssignment,
     ProbeReport,
@@ -96,7 +96,7 @@ def _candidate(orders: list[int]) -> RecipeCandidate:
 
 
 def test_턴_예산이_골든_계약과_같다() -> None:
-    assert _contract()["maxTurns"] == MAX_TOOL_ROUNDS
+    assert _contract()["maxTurns"] == MAX_MODEL_TURNS
 
 
 def test_후보_상한과_토큰과_비용_예산이_골든_계약과_같다() -> None:

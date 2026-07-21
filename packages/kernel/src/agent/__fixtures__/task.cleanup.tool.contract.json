@@ -19,7 +19,7 @@
       "required": ["taskId", "archivable", "reason", "citedEventIds"]
     },
     "redispatchRequest": {
-      "required": ["taskId", "rounds"],
+      "required": ["taskId", "weight"],
       "maxTasks": 50
     }
   },

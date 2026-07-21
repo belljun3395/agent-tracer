@@ -89,8 +89,10 @@ class EventPage(BaseModel):
     total: int = Field(ge=0)
 
 
-# 한 후보를 열어보는 데 쓰는 최대 라운드이며 조율자의 배분을 이 안으로 가둔다.
+# 검토 전문가 인스턴스의 턴 백스톱이며 SDK 대응 상수와 계약으로 값을 맞춘다.
 MAX_INSPECT_ROUNDS = 4
+# 조율자가 후보 하나에 줄 수 있는 최대 weight이며 배분 비율의 상한일 뿐 턴 수가 아니다.
+MAX_INSPECT_WEIGHT = 4
 MAX_INSPECT_EXCERPTS = 6
 MAX_INSPECT_REASON_CHARS = 400
 CLEANUP_REVIEWER_ROLE = "cleanup-candidate-reviewer"
@@ -100,12 +102,12 @@ MAX_REDISPATCH_ROUNDS = 1
 
 
 class InspectAssignment(BaseModel):
-    """조율자가 열어보기로 고른 후보 하나와 배분한 라운드다."""
+    """조율자가 열어보기로 고른 후보 하나와 배분한 weight다."""
 
     model_config = ConfigDict(extra="forbid")
 
     taskId: TrimmedStr = Field(min_length=1)
-    rounds: int = Field(ge=1, le=MAX_INSPECT_ROUNDS)
+    weight: int = Field(ge=1, le=MAX_INSPECT_WEIGHT)
 
 
 class TriagePlan(BaseModel):
@@ -117,9 +119,9 @@ class TriagePlan(BaseModel):
         default_factory=list, alias="inspect", max_length=MAX_SUGGESTIONS
     )
 
-    def total_rounds(self) -> int:
-        """계획이 요구하는 조사 라운드 합이다."""
-        return sum(item.rounds for item in self.assignments)
+    def total_weight(self) -> int:
+        """계획이 요구하는 weight 합이다."""
+        return sum(item.weight for item in self.assignments)
 
 
 class InspectDispatch(BaseModel):

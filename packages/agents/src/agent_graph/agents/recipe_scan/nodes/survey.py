@@ -7,14 +7,11 @@ from langchain_core.language_models import BaseChatModel
 from ...runtime.execution.trace import ExecutionTrace
 from ...runtime.node import GraphNode
 from ..models import DispatchPlan, RecipeScanRequest, RecipeScanState, SurveyUpdate
-from ..policy import clamp_plan, distributable_rounds
 from ..prompts import SURVEY_SYSTEM_PROMPT, build_survey_prompt
-
-AVAILABLE_ROUNDS = distributable_rounds()
 
 
 class SurveyNode(GraphNode):
-    """조율자가 어디를 얼마나 팔지 스스로 정하게 하고 배분을 예산 안으로 가둔다."""
+    """조율자가 어디를 얼마나 팔지 weight로 스스로 정하게 한다."""
 
     name = "survey"
 
@@ -30,16 +27,15 @@ class SurveyNode(GraphNode):
                 {"role": "system", "content": SURVEY_SYSTEM_PROMPT},
                 {
                     "role": "user",
-                    "content": build_survey_prompt(req.taskId, req.userPrompt, AVAILABLE_ROUNDS),
+                    "content": build_survey_prompt(req.taskId, req.userPrompt),
                 },
             ]
         )
         plan = raw if isinstance(raw, DispatchPlan) else DispatchPlan.model_validate(raw)
-        kept, cut = clamp_plan(plan, AVAILABLE_ROUNDS)
-        chosen = ", ".join(f"{probe.probe}:{probe.rounds}" for probe in kept.probes)
+        chosen = ", ".join(f"{probe.probe}:{probe.weight}" for probe in plan.probes)
         self._usage.record_graph_event(
             "route.selected",
-            f"{self.name} -> {chosen}" + (f" (배분 {cut}라운드 축소)" if cut else ""),
+            f"{self.name} -> {chosen}",
             node_name=self.name,
         )
-        return {"plan": kept}
+        return {"plan": plan}

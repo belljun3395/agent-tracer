@@ -10,12 +10,8 @@ from langchain_core.messages import HumanMessage
 from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.runtime.llm.standard_agent import FINALIZE_DIRECTIVE
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
-from agent_graph.agents.task_cleanup.models import MAX_INSPECT_ROUNDS, TaskCleanupRequest
-from agent_graph.agents.task_cleanup.policy import MAX_TOOL_ROUNDS
+from agent_graph.agents.task_cleanup.models import TaskCleanupRequest
 from tests.support.fakes import FakeLedger, mk_ai
-
-# 조율자가 도구를 잃었으므로 예산을 태우는 도구 루프는 이제 후보를 읽는 검토자에게서 돈다.
-_REVIEWER_ROUNDS = MAX_INSPECT_ROUNDS
 
 _COMPLETION = {"url": "http://worker:8810/runs/complete", "token": "done-1"}
 
@@ -74,7 +70,7 @@ class GreedyChat:
                 tool_calls=[
                     {
                         "name": "TriagePlan",
-                        "args": {"inspect": [{"taskId": "task-1", "rounds": _REVIEWER_ROUNDS}]},
+                        "args": {"inspect": [{"taskId": "task-1", "weight": 1}]},
                         "id": "call-triage",
                         "type": "tool_call",
                     }
@@ -158,7 +154,7 @@ async def _run(_chat: GreedyChat, ledger: FakeLedger) -> Any:
 
 
 async def test_예산을_다_써도_모은_근거로_결론을_낸다(monkeypatch: pytest.MonkeyPatch) -> None:
-    chat = GreedyChat()
+    chat = GreedyChat(usage=_EXPENSIVE_USAGE)
     ledger = FakeLedger()
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
 
@@ -166,18 +162,6 @@ async def test_예산을_다_써도_모은_근거로_결론을_낸다(monkeypatc
 
     assert res.error is None
     assert res.data["suggestions"] == _DRAFT["suggestions"]
-
-
-async def test_남은_라운드를_매_턴_알려준다(monkeypatch: pytest.MonkeyPatch) -> None:
-    chat = GreedyChat()
-    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
-
-    await _run(chat, FakeLedger())
-
-    # 검토자에게 배분된 라운드가 그 예산이며 매 턴 잔량이 통지된다.
-    total = _REVIEWER_ROUNDS
-    assert f"{total} of {total}" in chat.notices[0]
-    assert f"{total - 1} of {total}" in chat.notices[1]
 
 
 async def test_비용_상한에_닿기_전에_결론을_받아낸다(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -188,14 +172,14 @@ async def test_비용_상한에_닿기_전에_결론을_받아낸다(monkeypatch
 
     assert res.error is None
     assert res.data["suggestions"] == _DRAFT["suggestions"]
-    assert len(chat.notices) < MAX_TOOL_ROUNDS
+    assert len(chat.notices) < 5
     assert FINALIZE_DIRECTIVE in chat.notices[-1]
 
 
-async def test_마지막_라운드에는_조사_도구를_거두고_출력만_남긴다(
+async def test_예산이_바닥나면_조사_도구를_거두고_출력만_남긴다(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    chat = GreedyChat()
+    chat = GreedyChat(usage=_EXPENSIVE_USAGE)
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
 
     await _run(chat, FakeLedger())

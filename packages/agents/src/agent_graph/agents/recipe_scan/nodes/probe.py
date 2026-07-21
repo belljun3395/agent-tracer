@@ -80,7 +80,6 @@ class ProbeNode(GraphNode):
                 PROBE_SYSTEM_PROMPT,
                 registry.langchain_tools(),
                 registry.transient_errors(),
-                max_rounds=assignment.rounds,
                 output=ProbeReport,
                 fallback_chat=self._fallback_chat,
             )
@@ -89,14 +88,13 @@ class ProbeNode(GraphNode):
                 messages=[
                     {
                         "role": "user",
-                        "content": build_probe_prompt(req.taskId, assignment.question, assignment.rounds),
+                        "content": build_probe_prompt(req.taskId, assignment.question),
                     }
                 ],
                 context=StandardAgentContext(
                     agent_name=probe_name,
                     trace=self._usage,
                     budget=budget,
-                    max_tool_rounds=assignment.rounds,
                 ),
                 response_type=ProbeReport,
                 recursion_limit=AGENT_RECURSION_LIMIT,

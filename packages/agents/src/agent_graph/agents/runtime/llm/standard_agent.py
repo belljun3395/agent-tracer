@@ -21,11 +21,6 @@ from ..execution.trace import ExecutionTrace
 from .budget import ToolLoopBudget
 from .trajectory import is_truncated
 
-BUDGET_NOTICE = (
-    "Tool budget: {remaining} of {total} tool-calling rounds remain. "
-    "Choose what to verify next within what is left."
-)
-
 FINALIZE_DIRECTIVE = (
     "The investigation budget is exhausted. Produce the final structured output now "
     "using only the evidence you already verified."
@@ -39,7 +34,6 @@ class StandardAgentContext:
     agent_name: str
     trace: ExecutionTrace
     budget: ToolLoopBudget
-    max_tool_rounds: int
 
 
 # noinspection PyTypeChecker
@@ -102,13 +96,9 @@ def tool_context[ContextT: StandardAgentContext](
 # noinspection PyTypeChecker
 def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[StandardAgentContext]:
     context = request.runtime.context
-    total = context.max_tool_rounds
-    spent = dict(request.state).get("run_model_call_count", 0)
-    remaining = total - (spent if isinstance(spent, int) else 0)
     messages = cache_tool_messages(request.messages)
-    if remaining > 1 and not context.budget.landing:
-        notice = BUDGET_NOTICE.format(remaining=remaining, total=total)
-        return request.override(messages=[*messages, HumanMessage(content=notice)])
+    if not context.budget.landing:
+        return request.override(messages=messages)
     context.budget.land()
     # 구조화 출력 도구는 이 목록 밖에서 붙으므로 조사 도구만 거둬 모델이 결론을 내게 한다.
     return request.override(
