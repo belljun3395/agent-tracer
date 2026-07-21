@@ -83,7 +83,7 @@ describe("chat 도구 계약", () => {
         }
     });
 
-    it("mutation 플래그가 도구마다 있고, Phase 2는 읽기 전용이라 mutation 집합이 비어 있다", () => {
+    it("mutation 플래그가 도구마다 있고, mutation 집합이 픽스처의 쓰기 도구와 정확히 같다", () => {
         const flagged: string[] = [];
         for (const name of CHAT_TOOLS) {
             const spec = CONTRACT.tools[name]!;
@@ -93,7 +93,12 @@ describe("chat 도구 계약", () => {
             }
         }
         expect(new Set(flagged)).toEqual(new Set(CHAT_MUTATION_TOOLS));
-        expect(CHAT_MUTATION_TOOLS).toEqual([]);
+        // 확인 게이트를 세워야 하는 쓰기 도구가 실제로 존재하고, 모든 mutation 도구가 상수에 올라 있다.
+        expect(CHAT_MUTATION_TOOLS.length).toBeGreaterThan(0);
+        expect(new Set(CHAT_MUTATION_TOOLS).size).toBe(CHAT_MUTATION_TOOLS.length);
+        for (const name of CHAT_MUTATION_TOOLS) {
+            expect(CONTRACT.tools[name]?.mutation).toBe(true);
+        }
     });
 
     it("턴당 예산이 폭주 백스톱과 달러·토큰 상한으로만 이뤄지고 분해 계약이 없다", () => {

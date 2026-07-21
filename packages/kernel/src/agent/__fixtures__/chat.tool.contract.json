@@ -74,6 +74,54 @@
       "required": [],
       "optional": [],
       "mutation": false
+    },
+    "update_task": {
+      "required": ["taskId"],
+      "optional": ["title", "status"],
+      "mutation": true,
+      "status": { "values": ["running", "waiting", "completed", "errored"] }
+    },
+    "archive_task": { "required": ["taskId"], "optional": [], "mutation": true },
+    "unarchive_task": { "required": ["taskId"], "optional": [], "mutation": true },
+    "delete_task": { "required": ["taskId"], "optional": [], "mutation": true },
+    "create_memo": { "required": ["taskId", "body"], "optional": ["eventId"], "mutation": true },
+    "update_memo": { "required": ["memoId", "body"], "optional": [], "mutation": true },
+    "delete_memo": { "required": ["memoId"], "optional": [], "mutation": true },
+    "create_rule": {
+      "required": ["taskId", "anchorEventId", "name", "expectation"],
+      "optional": ["severity", "rationale"],
+      "mutation": true,
+      "severity": { "values": ["info", "warn", "block"] }
+    },
+    "update_rule": {
+      "required": ["ruleId"],
+      "optional": ["name", "expectation", "severity", "rationale"],
+      "mutation": true,
+      "severity": { "values": ["info", "warn", "block"] }
+    },
+    "delete_rule": { "required": ["ruleId"], "optional": [], "mutation": true },
+    "approve_rule": { "required": ["ruleId"], "optional": [], "mutation": true },
+    "reevaluate_rule": { "required": ["ruleId"], "optional": [], "mutation": true },
+    "create_tag": { "required": ["name"], "optional": ["color", "description"], "mutation": true },
+    "update_tag": { "required": ["tagId"], "optional": ["name", "color", "description"], "mutation": true },
+    "delete_tag": { "required": ["tagId"], "optional": [], "mutation": true },
+    "set_task_tags": { "required": ["taskId", "tagIds"], "optional": [], "mutation": true },
+    "accept_recipe": { "required": ["recipeId"], "optional": [], "mutation": true },
+    "dismiss_recipe": { "required": ["recipeId"], "optional": [], "mutation": true },
+    "retire_recipe": { "required": ["recipeId"], "optional": [], "mutation": true },
+    "accept_cleanup": { "required": ["suggestionId"], "optional": [], "mutation": true },
+    "dismiss_cleanup": { "required": ["suggestionId"], "optional": [], "mutation": true },
+    "upsert_setting": {
+      "required": ["key", "value"],
+      "optional": [],
+      "mutation": true,
+      "key": { "values": ["anthropic.api_key", "anthropic.model", "ruleGen.maxRulesPerTask", "taskCleanup.maxSuggestions", "claude.outputLanguage"] }
+    },
+    "delete_setting": {
+      "required": ["key"],
+      "optional": [],
+      "mutation": true,
+      "key": { "values": ["anthropic.api_key", "anthropic.model", "ruleGen.maxRulesPerTask", "taskCleanup.maxSuggestions", "claude.outputLanguage"] }
     }
   },
   "responses": {
@@ -306,7 +354,30 @@
     "list_settings": {
       "page": ["items"],
       "item": ["key", "maskedValue", "hasValue", "updatedAt"]
-    }
+    },
+    "update_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "archive_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "unarchive_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "delete_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "create_memo": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "update_memo": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "delete_memo": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "create_rule": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "update_rule": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "delete_rule": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "approve_rule": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "reevaluate_rule": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "create_tag": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "update_tag": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "delete_tag": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "set_task_tags": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "accept_recipe": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "dismiss_recipe": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "retire_recipe": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "accept_cleanup": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "dismiss_cleanup": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "upsert_setting": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
+    "delete_setting": { "proposal": ["confirmationId", "toolName", "status", "summary"] }
   },
   "descriptions": {
     "search_tasks": "List the user's tasks newest-first, filtered by status (running/waiting/completed/errored), origin (user/server-sdk), archived, or root-only, and scoped to a parentTaskId for subtasks. Page with cursor: pass the response's nextCursor back as cursor until it is null. limit is up to 100 per page, default 30. Use this to find which task the user means before drilling in.",
@@ -320,6 +391,29 @@
     "list_recipes": "List the user's recipes (reusable workflows distilled from past tasks), optionally filtered by status (candidate/active/dismissed/superseded/retired). Each entry carries the full recipe (intent, steps, pitfalls, touched files) plus application stats. Use this to surface or explain a saved workflow.",
     "list_cleanup_suggestions": "List task-cleanup suggestions produced for the user, optionally filtered by status (pending/accepted/dismissed). Each names the task it targets, the proposed change, and the rationale. Use this to report what cleanup the system has proposed.",
     "get_job": "Get one AI job by jobId: its kind, executor, status, attempt count, the task it ran against, and its input/result/usage. Use this to report on the outcome of an agent job the user is asking about.",
-    "list_settings": "List the user's application settings by key, with each value masked (only whether a value is set is shown). Use this to tell the user which settings are configured without revealing secret values."
+    "list_settings": "List the user's application settings by key, with each value masked (only whether a value is set is shown). Use this to tell the user which settings are configured without revealing secret values.",
+    "update_task": "PROPOSAL (requires user confirmation, does not run immediately): change a task's title and/or status by taskId. status is one of running/waiting/completed/errored. Pass at least one of title or status. The change is queued and only applied after the user approves; tell the user you are awaiting their confirmation.",
+    "archive_task": "PROPOSAL (requires user confirmation): archive a task by taskId so it drops out of the default listing. Queued until the user approves — never claim it is archived yet.",
+    "unarchive_task": "PROPOSAL (requires user confirmation): restore an archived task by taskId. Queued until the user approves.",
+    "delete_task": "PROPOSAL (requires user confirmation): hide a task by taskId (and its subagent descendants) from the user's views. Queued until the user approves — never claim it is deleted yet.",
+    "create_memo": "PROPOSAL (requires user confirmation): write a new memo with body on a task (taskId), optionally threaded on an eventId. Queued until the user approves.",
+    "update_memo": "PROPOSAL (requires user confirmation): replace the body of an existing memo by memoId. Queued until the user approves.",
+    "delete_memo": "PROPOSAL (requires user confirmation): delete a memo by memoId. Queued until the user approves.",
+    "create_rule": "PROPOSAL (requires user confirmation): create a verification rule on a task. Pass taskId, anchorEventId, a name, and expectation as a JSON object of the form {\"kind\":\"command\",\"commandMatches\":[...]} or {\"kind\":\"pattern\",\"pattern\":\"...\",\"tool\":\"...\"} or {\"kind\":\"action\",\"tool\":\"...\"}; severity is info/warn/block. Queued until the user approves.",
+    "update_rule": "PROPOSAL (requires user confirmation): edit a rule by ruleId — its name, expectation (JSON object as in create_rule), severity (info/warn/block), or rationale. Queued until the user approves.",
+    "delete_rule": "PROPOSAL (requires user confirmation): delete a rule by ruleId. Queued until the user approves.",
+    "approve_rule": "PROPOSAL (requires user confirmation): approve a proposed rule by ruleId and backfill its verdict over the task. Queued until the user approves.",
+    "reevaluate_rule": "PROPOSAL (requires user confirmation): re-run a rule's verdict over its task by ruleId. Queued until the user approves.",
+    "create_tag": "PROPOSAL (requires user confirmation): create a tag with name, optional color (#rrggbb lowercase hex), and optional description. Queued until the user approves.",
+    "update_tag": "PROPOSAL (requires user confirmation): edit a tag by tagId — its name, color (#rrggbb), or description. Queued until the user approves.",
+    "delete_tag": "PROPOSAL (requires user confirmation): delete a tag by tagId and detach it from every task. Queued until the user approves.",
+    "set_task_tags": "PROPOSAL (requires user confirmation): replace the full set of tags on a task. Pass taskId and tagIds as a JSON array of tag ids (an empty array detaches all). Queued until the user approves.",
+    "accept_recipe": "PROPOSAL (requires user confirmation): accept a recipe by recipeId, activating it. Queued until the user approves.",
+    "dismiss_recipe": "PROPOSAL (requires user confirmation): dismiss a recipe by recipeId. Queued until the user approves.",
+    "retire_recipe": "PROPOSAL (requires user confirmation): retire an active recipe by recipeId. Queued until the user approves.",
+    "accept_cleanup": "PROPOSAL (requires user confirmation): accept a task-cleanup suggestion by suggestionId, applying its proposed change. Queued until the user approves.",
+    "dismiss_cleanup": "PROPOSAL (requires user confirmation): dismiss a task-cleanup suggestion by suggestionId. Queued until the user approves.",
+    "upsert_setting": "PROPOSAL (requires user confirmation): set an application setting. key is one of anthropic.api_key/anthropic.model/ruleGen.maxRulesPerTask/taskCleanup.maxSuggestions/claude.outputLanguage; value is the new string value. Queued until the user approves.",
+    "delete_setting": "PROPOSAL (requires user confirmation): clear an application setting by key (one of anthropic.api_key/anthropic.model/ruleGen.maxRulesPerTask/taskCleanup.maxSuggestions/claude.outputLanguage). Queued until the user approves."
   }
 }

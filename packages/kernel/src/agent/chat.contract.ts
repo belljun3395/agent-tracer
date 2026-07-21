@@ -14,6 +14,29 @@ export const CHAT_TOOL = {
     listCleanupSuggestions: "list_cleanup_suggestions",
     getJob: "get_job",
     listSettings: "list_settings",
+    updateTask: "update_task",
+    archiveTask: "archive_task",
+    unarchiveTask: "unarchive_task",
+    deleteTask: "delete_task",
+    createMemo: "create_memo",
+    updateMemo: "update_memo",
+    deleteMemo: "delete_memo",
+    createRule: "create_rule",
+    updateRule: "update_rule",
+    deleteRule: "delete_rule",
+    approveRule: "approve_rule",
+    reevaluateRule: "reevaluate_rule",
+    createTag: "create_tag",
+    updateTag: "update_tag",
+    deleteTag: "delete_tag",
+    setTaskTags: "set_task_tags",
+    acceptRecipe: "accept_recipe",
+    dismissRecipe: "dismiss_recipe",
+    retireRecipe: "retire_recipe",
+    acceptCleanup: "accept_cleanup",
+    dismissCleanup: "dismiss_cleanup",
+    upsertSetting: "upsert_setting",
+    deleteSetting: "delete_setting",
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
@@ -21,8 +44,32 @@ export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
 /** 계약 픽스처의 tools 키와 바이트 단위로 같아야 하는, 이 에이전트의 전체 도구 이름이다. */
 export const CHAT_TOOLS: readonly ChatToolName[] = Object.values(CHAT_TOOL);
 
-/** 사용자에게 쓰기 확인 게이트를 세워야 하는 mutation 도구의 이름이며, 읽기 전용인 Phase 2에서는 비어 있고 쓰기 도구가 들어오는 이후 단계가 픽스처의 tools[*].mutation과 함께 채운다. */
-export const CHAT_MUTATION_TOOLS: readonly ChatToolName[] = [];
+/** 사용자에게 쓰기 확인 게이트를 세워야 하는 mutation 도구의 이름이며, 픽스처 tools[*].mutation이 true인 도구와 바이트 단위로 같아야 한다. */
+export const CHAT_MUTATION_TOOLS: readonly ChatToolName[] = [
+    CHAT_TOOL.updateTask,
+    CHAT_TOOL.archiveTask,
+    CHAT_TOOL.unarchiveTask,
+    CHAT_TOOL.deleteTask,
+    CHAT_TOOL.createMemo,
+    CHAT_TOOL.updateMemo,
+    CHAT_TOOL.deleteMemo,
+    CHAT_TOOL.createRule,
+    CHAT_TOOL.updateRule,
+    CHAT_TOOL.deleteRule,
+    CHAT_TOOL.approveRule,
+    CHAT_TOOL.reevaluateRule,
+    CHAT_TOOL.createTag,
+    CHAT_TOOL.updateTag,
+    CHAT_TOOL.deleteTag,
+    CHAT_TOOL.setTaskTags,
+    CHAT_TOOL.acceptRecipe,
+    CHAT_TOOL.dismissRecipe,
+    CHAT_TOOL.retireRecipe,
+    CHAT_TOOL.acceptCleanup,
+    CHAT_TOOL.dismissCleanup,
+    CHAT_TOOL.upsertSetting,
+    CHAT_TOOL.deleteSetting,
+];
 
 /** 수치 인자의 기본값과 상하한이다. */
 export interface ChatToolArgNumber {
