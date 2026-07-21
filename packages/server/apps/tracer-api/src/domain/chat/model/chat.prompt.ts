@@ -1,5 +1,5 @@
 import { CHAT_MESSAGE_ROLE } from "@monitor/tracer-domain";
-import type { ChatTurnMessage } from "~tracer-api/domain/chat/model/chat.turn.model.js";
+import type { ChatTurnMessage, ChatUserFact } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 
 export const CHAT_LANGUAGE = {
     auto: "auto",
@@ -40,8 +40,17 @@ Output language: ${directive(language)}`;
 }
 
 /** 러너가 단발이라 대화 전체를 한 프롬프트로 재생하며, 마지막 사용자 메시지가 이번 턴의 질문이다. */
-export function renderChatPrompt(messages: readonly ChatTurnMessage[], summary?: string | null): string {
+export function renderChatPrompt(
+    messages: readonly ChatTurnMessage[],
+    summary?: string | null,
+    facts?: readonly ChatUserFact[],
+): string {
     const lines: string[] = [];
+    if (facts !== undefined && facts.length > 0) {
+        lines.push("Durable facts you know about this user:");
+        for (const fact of facts) lines.push(`- ${fact.key}: ${fact.content}`);
+        lines.push("");
+    }
     if (summary !== undefined && summary !== null && summary.trim().length > 0) {
         lines.push("Summary of earlier conversation:", summary.trim(), "");
     }

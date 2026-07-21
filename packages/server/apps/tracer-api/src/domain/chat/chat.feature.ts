@@ -7,6 +7,7 @@ import {
     ChatMessageRepository,
     ChatPendingToolRepository,
     ChatThreadRepository,
+    ChatUserMemoryRepository,
     EventRepository,
     MemoRepository,
     RecipeApplicationRepository,
@@ -39,7 +40,9 @@ import {
     CHAT_MESSAGE_REPOSITORY,
     CHAT_PENDING_TOOL_REPOSITORY,
     CHAT_THREAD_REPOSITORY,
+    CHAT_USER_MEMORY_REPOSITORY,
     type ChatPendingToolRepositoryPort,
+    type ChatUserMemoryRepositoryPort,
 } from "~tracer-api/domain/chat/port/chat.repository.port.js";
 import { CHAT_AGENT_REGISTRY, type ChatAgentRegistry } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import { CHAT_EVENT_SEARCH, type ChatEventSearchPort } from "~tracer-api/domain/chat/port/chat.search.port.js";
@@ -62,25 +65,26 @@ const REGISTRY_DEPS = [
     AppSettingRepository,
     CHAT_EVENT_SEARCH,
     CHAT_PENDING_TOOL_REPOSITORY,
+    ChatUserMemoryRepository,
     CHAT_CLOCK,
 ];
 
 function buildRegistry(...args: unknown[]): ChatAgentRegistry {
     const [
         tasks, taskUserStates, sessions, events, memos, rules, verdicts, tags, taskTags,
-        recipes, recipeApplications, cleanupSuggestions, jobs, settings, search, pendingTools, clock,
+        recipes, recipeApplications, cleanupSuggestions, jobs, settings, search, pendingTools, userMemories, clock,
     ] = args as [
         TaskRepository, TaskUserStateRepository, SessionRepository, EventRepository, MemoRepository,
         RuleRepository, VerdictRepository, TagRepository, TaskTagRepository, RecipeRepository,
         RecipeApplicationRepository, TaskCleanupSuggestionRepository, AiJobRepository, AppSettingRepository,
-        ChatEventSearchPort, ChatPendingToolRepositoryPort, ClockPort,
+        ChatEventSearchPort, ChatPendingToolRepositoryPort, ChatUserMemoryRepositoryPort, ClockPort,
     ];
     const deps: ChatToolDeps = {
         tasks, taskUserStates, sessions, events, memos, rules, verdicts, tags, taskTags,
         recipes, recipeApplications, cleanupSuggestions, jobs, settings, search,
     };
     return {
-        [AI_AGENT_BACKEND.claudeSdk]: new ChatSdkAgentAdapter(buildRunner(), deps, { pendingTools, clock }),
+        [AI_AGENT_BACKEND.claudeSdk]: new ChatSdkAgentAdapter(buildRunner(), deps, { pendingTools, clock }, { memories: userMemories, clock }),
         [AI_AGENT_BACKEND.python]: new ChatPythonAgentPlaceholder(),
     };
 }
@@ -111,6 +115,7 @@ export const chatFeature = {
         { provide: CHAT_THREAD_REPOSITORY, useExisting: ChatThreadRepository },
         { provide: CHAT_MESSAGE_REPOSITORY, useExisting: ChatMessageRepository },
         { provide: CHAT_PENDING_TOOL_REPOSITORY, useExisting: ChatPendingToolRepository },
+        { provide: CHAT_USER_MEMORY_REPOSITORY, useExisting: ChatUserMemoryRepository },
         { provide: CHAT_AGENT_REGISTRY, inject: REGISTRY_DEPS, useFactory: buildRegistry },
         { provide: CHAT_SUMMARIZER, useFactory: buildSummarizer },
     ],

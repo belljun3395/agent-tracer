@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundException } from "@nestjs/common";
-import { CHAT_MESSAGE_ROLE, ChatMessageEntity, ChatThreadEntity } from "@monitor/tracer-domain";
+import { CHAT_MESSAGE_ROLE, ChatMessageEntity, ChatThreadEntity, ChatUserMemoryEntity } from "@monitor/tracer-domain";
 import { InMemoryChatThreadRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.thread.repository.js";
 import { InMemoryChatMessageRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.message.repository.js";
+import { InMemoryChatUserMemoryRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.user.memory.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import { FakeChatAgent, fakeChatRegistry } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.agent.js";
 import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.summarizer.js";
@@ -24,6 +25,15 @@ function buildProjection(threads: InMemoryChatThreadRepository): SummarizeThread
     return new SummarizeThreadProjection(threads, new FakeChatSummarizer(), new FixedClock(NOW));
 }
 
+function buildUseCase(
+    threads: InMemoryChatThreadRepository,
+    messages: InMemoryChatMessageRepository,
+    agent: FakeChatAgent,
+    memories: InMemoryChatUserMemoryRepository = new InMemoryChatUserMemoryRepository(),
+): RunChatTurnUseCase {
+    return new RunChatTurnUseCase(threads, messages, memories, fakeChatRegistry(agent), new FixedClock(NOW), buildProjection(threads));
+}
+
 function collectingSink(): { sink: ChatTurnSink; deltas: string[] } {
     const deltas: string[] = [];
     return {
@@ -42,13 +52,7 @@ describe("RunChatTurnUseCase", () => {
         const messages = new InMemoryChatMessageRepository();
         seed(threads, messages);
         const agent = new FakeChatAgent("답", [{ id: "c1", name: "get_task", args: { taskId: "t1" } }]);
-        const useCase = new RunChatTurnUseCase(
-            threads,
-            messages,
-            fakeChatRegistry(agent),
-            new FixedClock(NOW),
-            buildProjection(threads),
-        );
+        const useCase = buildUseCase(threads, messages, agent);
         const { sink, deltas } = collectingSink();
 
         const { message } = await useCase.execute({ userId: "u1", threadId: "th1" }, sink);
@@ -65,13 +69,7 @@ describe("RunChatTurnUseCase", () => {
         const threads = new InMemoryChatThreadRepository();
         const messages = new InMemoryChatMessageRepository();
         seed(threads, messages);
-        const useCase = new RunChatTurnUseCase(
-            threads,
-            messages,
-            fakeChatRegistry(new FakeChatAgent()),
-            new FixedClock(NOW),
-            buildProjection(threads),
-        );
+        const useCase = buildUseCase(threads, messages, new FakeChatAgent());
 
         await expect(useCase.execute({ userId: "u2", threadId: "th1" }, collectingSink().sink)).rejects.toBeInstanceOf(
             NotFoundException,
@@ -97,13 +95,7 @@ describe("RunChatTurnUseCase", () => {
             );
         }
         const agent = new FakeChatAgent("답");
-        const useCase = new RunChatTurnUseCase(
-            threads,
-            messages,
-            fakeChatRegistry(agent),
-            new FixedClock(NOW),
-            buildProjection(threads),
-        );
+        const useCase = buildUseCase(threads, messages, agent);
 
         await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
 
@@ -116,16 +108,36 @@ describe("RunChatTurnUseCase", () => {
         const messages = new InMemoryChatMessageRepository();
         seed(threads, messages);
         const agent = new FakeChatAgent("답");
-        const useCase = new RunChatTurnUseCase(
-            threads,
-            messages,
-            fakeChatRegistry(agent),
-            new FixedClock(NOW),
-            buildProjection(threads),
-        );
+        const useCase = buildUseCase(threads, messages, agent);
 
         await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
 
         expect(agent.lastInput?.messages).toHaveLength(1);
+    });
+
+    it("기억해 둔 사실을 다음 턴의 입력에 주입한다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const memories = new InMemoryChatUserMemoryRepository();
+        memories.seed(ChatUserMemoryEntity.create({ id: "mem1", userId: "u1", key: "tone", content: "간결하게", now: NOW }));
+        const agent = new FakeChatAgent("답");
+        const useCase = buildUseCase(threads, messages, agent, memories);
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(agent.lastInput?.facts).toEqual([{ key: "tone", content: "간결하게" }]);
+    });
+
+    it("기억이 없으면 facts를 넘기지 않는다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const agent = new FakeChatAgent("답");
+        const useCase = buildUseCase(threads, messages, agent);
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(agent.lastInput?.facts).toBeUndefined();
     });
 });

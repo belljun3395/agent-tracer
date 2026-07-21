@@ -7,8 +7,10 @@ import { CHAT_CLOCK, type ClockPort } from "~tracer-api/domain/chat/port/clock.p
 import {
     CHAT_MESSAGE_REPOSITORY,
     CHAT_THREAD_REPOSITORY,
+    CHAT_USER_MEMORY_REPOSITORY,
     type ChatMessageRepositoryPort,
     type ChatThreadRepositoryPort,
+    type ChatUserMemoryRepositoryPort,
 } from "~tracer-api/domain/chat/port/chat.repository.port.js";
 import { CHAT_AGENT_REGISTRY, type ChatAgentRegistry } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import { toChatTurnMessage, type ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
@@ -35,6 +37,8 @@ export class RunChatTurnUseCase {
         private readonly threads: ChatThreadRepositoryPort,
         @Inject(CHAT_MESSAGE_REPOSITORY)
         private readonly messages: ChatMessageRepositoryPort,
+        @Inject(CHAT_USER_MEMORY_REPOSITORY)
+        private readonly userMemories: ChatUserMemoryRepositoryPort,
         @Inject(CHAT_AGENT_REGISTRY)
         private readonly registry: ChatAgentRegistry,
         @Inject(CHAT_CLOCK)
@@ -46,10 +50,15 @@ export class RunChatTurnUseCase {
         const thread = await this.threads.findById(input.threadId);
         if (thread === null || thread.userId !== input.userId) throw new NotFoundException("Thread not found");
 
-        const history = await this.messages.listByThread(input.threadId);
+        const [history, memories] = await Promise.all([
+            this.messages.listByThread(input.threadId),
+            this.userMemories.listByUser(input.userId),
+        ]);
         const hasSummary = thread.summary !== null && thread.summary.trim().length > 0;
         const backend = normalizeAiAgentBackend(input.agentBackend, AI_AGENT_BACKEND.claudeSdk);
         const agent = this.registry[backend];
+        // 사실이 없으면 facts를 넘기지 않아 프롬프트는 그대로다.
+        const facts = memories.map((memory) => ({ key: memory.key, content: memory.content }));
 
         const result = await agent.converse(
             {
@@ -58,6 +67,7 @@ export class RunChatTurnUseCase {
                 language: input.language ?? CHAT_LANGUAGE.auto,
                 messages: selectReplayMessages(history, hasSummary).map(toChatTurnMessage),
                 summary: thread.summary,
+                ...(facts.length > 0 ? { facts } : {}),
                 deadlineMs: CHAT_SPEC.limits.deadlineMs,
                 ...(input.model !== undefined ? { model: input.model } : {}),
                 ...(input.abortSignal !== undefined ? { abortSignal: input.abortSignal } : {}),

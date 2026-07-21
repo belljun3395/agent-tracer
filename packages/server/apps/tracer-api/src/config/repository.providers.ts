@@ -13,6 +13,8 @@ import {
     ChatPendingToolRepository,
     ChatThreadEntity,
     ChatThreadRepository,
+    ChatUserMemoryEntity,
+    ChatUserMemoryRepository,
     DaemonHealthEntity,
     DaemonHealthRepository,
     EventEntity,
@@ -71,4 +73,5 @@ export const repositoryProviders: Provider[] = [
     { provide: ChatThreadRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatThreadRepository(ds.getRepository(ChatThreadEntity)) },
     { provide: ChatMessageRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatMessageRepository(ds.getRepository(ChatMessageEntity)) },
     { provide: ChatPendingToolRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatPendingToolRepository(ds.getRepository(ChatPendingToolEntity)) },
+    { provide: ChatUserMemoryRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatUserMemoryRepository(ds.getRepository(ChatUserMemoryEntity)) },
 ];

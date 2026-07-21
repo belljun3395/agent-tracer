@@ -1,8 +1,9 @@
-import type { ChatMessageEntity, ChatPendingToolEntity, ChatThreadEntity } from "@monitor/tracer-domain";
+import type { ChatMessageEntity, ChatPendingToolEntity, ChatThreadEntity, ChatUserMemoryEntity } from "@monitor/tracer-domain";
 
 export const CHAT_THREAD_REPOSITORY = Symbol("ChatThreadRepository");
 export const CHAT_MESSAGE_REPOSITORY = Symbol("ChatMessageRepository");
 export const CHAT_PENDING_TOOL_REPOSITORY = Symbol("ChatPendingToolRepository");
+export const CHAT_USER_MEMORY_REPOSITORY = Symbol("ChatUserMemoryRepository");
 
 /** 대화 스레드 애그리게이트의 저장과 조회를 제공하는 포트다. */
 export interface ChatThreadRepositoryPort {
@@ -23,4 +24,10 @@ export interface ChatPendingToolRepositoryPort {
     create(pendingTool: ChatPendingToolEntity): Promise<void>;
     findById(id: string): Promise<ChatPendingToolEntity | null>;
     resolve(pendingTool: ChatPendingToolEntity): Promise<void>;
+}
+
+/** 사용자 장기기억(스레드를 가로지르는 사실)의 upsert와 사용자별 조회를 제공하는 포트다. */
+export interface ChatUserMemoryRepositoryPort {
+    upsert(memory: ChatUserMemoryEntity): Promise<void>;
+    listByUser(userId: string): Promise<ChatUserMemoryEntity[]>;
 }

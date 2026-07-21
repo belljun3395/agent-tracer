@@ -91,6 +91,7 @@ export class ChatController {
             onToolCall: (call) => writeEvent(res, "tool_call", call),
             onToolResult: (result) => writeEvent(res, "tool_result", result),
             onConfirmRequest: (request) => writeEvent(res, "tool_confirm_request", request),
+            onMemoryUpdated: (update) => writeEvent(res, "memory_updated", update),
         };
 
         try {

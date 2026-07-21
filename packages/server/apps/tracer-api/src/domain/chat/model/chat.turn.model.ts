@@ -33,12 +33,26 @@ export interface ChatConfirmRequest {
     readonly args: Record<string, unknown>;
 }
 
+/** 사용자에 대해 모델이 오래 기억하는 사실 한 건이며, key가 재작성 대상을 찾는 안정된 슬러그다. */
+export interface ChatUserFact {
+    readonly key: string;
+    readonly content: string;
+}
+
+/** remember_fact가 즉시 적재한 기억을 사용자에게 투명하게 알리는 갱신 통지다. */
+export interface ChatMemoryUpdate {
+    readonly key: string;
+    readonly content: string;
+}
+
 /** 턴이 끝나기 전에 부분 산출을 흘려보내는 싱크이며, mutation 도구는 실행 대신 onConfirmRequest로 승인 요청을 흘린다. */
 export interface ChatTurnSink {
     onAssistantDelta(text: string): void;
     onToolCall(call: ChatTurnToolCall): void;
     onToolResult(result: ChatTurnToolResult): void;
     onConfirmRequest?(request: ChatConfirmRequest): void;
+    /** remember_fact가 확인 게이트 없이 즉시 적재한 기억을 투명성 통지로 흘려보낸다. */
+    onMemoryUpdated?(update: ChatMemoryUpdate): void;
 }
 
 /** 한 대화 턴의 실행 입력이다. */
@@ -48,6 +62,8 @@ export interface ChatTurnInput {
     readonly language: string;
     /** 이 턴 직전까지 스레드에 쌓인 메시지이며, 마지막이 방금 받은 사용자 메시지다. */
     readonly messages: readonly ChatTurnMessage[];
+    /** 모든 스레드에 걸쳐 이 사용자에 대해 기억해 둔 사실이며, 프롬프트 맨 앞에 주입된다. */
+    readonly facts?: readonly ChatUserFact[];
     readonly summary?: string | null;
     readonly model?: string;
     readonly apiKey?: string;

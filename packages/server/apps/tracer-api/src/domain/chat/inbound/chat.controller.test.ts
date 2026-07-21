@@ -5,6 +5,7 @@ import { ChatPendingToolEntity } from "@monitor/tracer-domain";
 import { InMemoryChatThreadRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.thread.repository.js";
 import { InMemoryChatMessageRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.message.repository.js";
 import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.pending.tool.repository.js";
+import { InMemoryChatUserMemoryRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.user.memory.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import { FakeChatAgent, fakeChatRegistry } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.agent.js";
 import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.summarizer.js";
@@ -34,6 +35,7 @@ function build() {
         new RunChatTurnUseCase(
             threads,
             messages,
+            new InMemoryChatUserMemoryRepository(),
             registry,
             clock,
             new SummarizeThreadProjection(threads, new FakeChatSummarizer(), clock),
