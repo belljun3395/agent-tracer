@@ -49,6 +49,7 @@ export * from "./agent/chat.contract.js";
 export * from "./memo/memo.const.js";
 export * from "./memo/memo.dto.js";
 export * from "./api/memo.query.const.js";
+export * from "./api/chat.query.const.js";
 export * from "./tag/tag.const.js";
 export * from "./tag/tag.dto.js";
 export * from "./api/tag.query.const.js";

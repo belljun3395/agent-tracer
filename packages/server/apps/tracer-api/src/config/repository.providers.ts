@@ -7,6 +7,10 @@ import {
     AppSettingEntity,
     AppSettingRepository,
     AiJobEntity,
+    ChatMessageEntity,
+    ChatMessageRepository,
+    ChatThreadEntity,
+    ChatThreadRepository,
     DaemonHealthEntity,
     DaemonHealthRepository,
     EventEntity,
@@ -62,4 +66,6 @@ export const repositoryProviders: Provider[] = [
     { provide: MemoRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new MemoRepository(ds.getRepository(MemoEntity)) },
     { provide: TagRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new TagRepository(ds.getRepository(TagEntity)) },
     { provide: TaskTagRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new TaskTagRepository(ds.getRepository(TaskTagEntity)) },
+    { provide: ChatThreadRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatThreadRepository(ds.getRepository(ChatThreadEntity)) },
+    { provide: ChatMessageRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatMessageRepository(ds.getRepository(ChatMessageEntity)) },
 ];
