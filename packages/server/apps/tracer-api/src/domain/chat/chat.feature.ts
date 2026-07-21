@@ -1,7 +1,8 @@
 import { AI_AGENT_BACKEND } from "@monitor/kernel";
 import { loadApplicationConfig, SystemClock } from "@monitor/platform";
-import { ClaudeQueryRunner } from "@monitor/llm-runtime";
+import { AgentGraphClient, ClaudeQueryRunner, DurableCompletionInbox } from "@monitor/llm-runtime";
 import {
+    AgentCompletionInboxRepository,
     AiJobRepository,
     AppSettingRepository,
     ChatMessageRepository,
@@ -31,7 +32,7 @@ import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.
 import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/get.messages.usecase.js";
 import { ChatController } from "~tracer-api/domain/chat/inbound/chat.controller.js";
 import { ChatSdkAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.sdk.agent.adapter.js";
-import { ChatPythonAgentPlaceholder } from "~tracer-api/domain/chat/adapter/chat.python.agent.placeholder.js";
+import { ChatGraphAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.graph.agent.adapter.js";
 import { ChatOpenSearchAdapter } from "~tracer-api/domain/chat/adapter/chat.search.adapter.js";
 import { ChatSummarizerAdapter } from "~tracer-api/domain/chat/adapter/chat.summarizer.adapter.js";
 import type { ChatToolDeps } from "~tracer-api/domain/chat/adapter/chat.tools.js";
@@ -67,17 +68,20 @@ const REGISTRY_DEPS = [
     CHAT_PENDING_TOOL_REPOSITORY,
     ChatUserMemoryRepository,
     CHAT_CLOCK,
+    AgentCompletionInboxRepository,
 ];
 
 function buildRegistry(...args: unknown[]): ChatAgentRegistry {
     const [
         tasks, taskUserStates, sessions, events, memos, rules, verdicts, tags, taskTags,
         recipes, recipeApplications, cleanupSuggestions, jobs, settings, search, pendingTools, userMemories, clock,
+        completionInbox,
     ] = args as [
         TaskRepository, TaskUserStateRepository, SessionRepository, EventRepository, MemoRepository,
         RuleRepository, VerdictRepository, TagRepository, TaskTagRepository, RecipeRepository,
         RecipeApplicationRepository, TaskCleanupSuggestionRepository, AiJobRepository, AppSettingRepository,
         ChatEventSearchPort, ChatPendingToolRepositoryPort, ChatUserMemoryRepositoryPort, ClockPort,
+        AgentCompletionInboxRepository,
     ];
     const deps: ChatToolDeps = {
         tasks, taskUserStates, sessions, events, memos, rules, verdicts, tags, taskTags,
@@ -85,8 +89,24 @@ function buildRegistry(...args: unknown[]): ChatAgentRegistry {
     };
     return {
         [AI_AGENT_BACKEND.claudeSdk]: new ChatSdkAgentAdapter(buildRunner(), deps, { pendingTools, clock }, { memories: userMemories, clock }),
-        [AI_AGENT_BACKEND.python]: new ChatPythonAgentPlaceholder(),
+        [AI_AGENT_BACKEND.python]: new ChatGraphAgentAdapter(
+            buildGraphClient(completionInbox),
+            { pendingTools, clock },
+            { memories: userMemories, clock },
+            resolveReadApiBaseUrl(),
+        ),
     };
+}
+
+// graph 백엔드는 실행을 요청한 HTTP 연결이 아니라 완료 창구로 결과를 되받으므로, DB 완료 창구를 폴링하는 클라이언트로 부른다.
+function buildGraphClient(completionInbox: AgentCompletionInboxRepository): AgentGraphClient {
+    const { agentGraph } = loadApplicationConfig();
+    return new AgentGraphClient(agentGraph.url, new DurableCompletionInbox(agentGraph.callbackUrl, completionInbox));
+}
+
+// Python 에이전트가 읽기 도구로 되읽을 tracer-api 읽기 API의 기점이며, 없으면 자기 루프백을 쓴다.
+function resolveReadApiBaseUrl(): string {
+    return process.env["AGENT_READ_API_URL"] ?? `http://127.0.0.1:${loadApplicationConfig().tracerApi.port}`;
 }
 
 // local 프로파일은 API 키 없이 로그인된 claude CLI(구독) 자격증명으로 SDK를 실행한다.
