@@ -365,4 +365,80 @@ describe("RecipeSdkAgentAdapter", () => {
             "repair",
         ]);
     });
+
+    it("조율자가 추가 파견을 요청하면 전문가를 한 번 더 띄우고 두 라운드의 보고를 모두 보며 다시 종합한다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan({ probe: "timeline", weight: 2, question: "what happened" }) },
+            { data: { probe: "timeline", verdict: "thin so far", excerpts: [] } },
+            { data: { recipes: [], redispatch: [{ probe: "rules", weight: 3, question: "which rules" }] } },
+            { data: { probe: "rules", verdict: "found the rule", excerpts: [] } },
+            { data: { recipes: [] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests.map((request) => request.label)).toEqual([
+            "recipe-scan:survey",
+            "recipe-scan:probe:timeline",
+            "recipe-scan:investigate",
+            "recipe-scan:probe:rules",
+            "recipe-scan:investigate",
+        ]);
+        // 재파견한 두 번째 종합은 최초 전문가와 추가 전문가의 보고를 모두 읽는다.
+        const secondSynthesis = runner.requests[4]!;
+        expect(secondSynthesis.prompt).toContain("thin so far");
+        expect(secondSynthesis.prompt).toContain("found the rule");
+        expect(output.recipes).toEqual([]);
+    });
+
+    it("재파견은 한 라운드로 막혀 조율자가 또 요청해도 싣지 않고 가진 근거로 끝낸다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan({ probe: "timeline", weight: 2, question: "q" }) },
+            { data: { probe: "timeline", verdict: "v", excerpts: [] } },
+            { data: { recipes: [], redispatch: [{ probe: "rules", weight: 3, question: "q2" }] } },
+            { data: { probe: "rules", verdict: "v2", excerpts: [] } },
+            { data: { recipes: [], redispatch: [{ probe: "repetition", weight: 1, question: "q3" }] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests).toHaveLength(5);
+        expect(runner.requests.map((request) => request.label)).not.toContain("recipe-scan:probe:repetition");
+        expect(output.recipes).toEqual([]);
+    });
+
+    it("초안과 추가 파견이 함께 오면 초안을 택해 재파견하지 않는다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan() },
+            { data: { recipes: [recipe("event-9")], redispatch: [{ probe: "rules", weight: 2, question: "q" }] } },
+            { data: { recipes: [] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        // recipes가 있으므로 재파견은 무시되고 근거 검증·수리 경로로 간다.
+        expect(runner.requests.map((request) => request.label)).toEqual([
+            "recipe-scan:survey",
+            "recipe-scan:investigate",
+            "recipe-scan:repair",
+        ]);
+        expect(output.recipes).toEqual([]);
+    });
+
+    it("남은 예산이 없으면 조율자가 추가 파견을 요청해도 따르지 않고 끝낸다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan({ probe: "timeline", weight: 2, question: "q" }) },
+            { data: { probe: "timeline", verdict: "v", excerpts: [] } },
+            {
+                data: { recipes: [], redispatch: [{ probe: "rules", weight: 3, question: "q2" }] },
+                override: { costUsd: 2 },
+            },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests).toHaveLength(3);
+        expect(runner.requests.map((request) => request.label)).not.toContain("recipe-scan:probe:rules");
+        expect(output.recipes).toEqual([]);
+    });
 });

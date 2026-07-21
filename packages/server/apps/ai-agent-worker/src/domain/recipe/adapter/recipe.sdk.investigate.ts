@@ -1,15 +1,15 @@
-import type { RecipeCandidatePayload } from "@monitor/kernel";
 import { zodToClaudeOutputSchema, type StructuredQueryResult } from "@monitor/llm-runtime";
 import { type AgentBudgetLease } from "~ai-agent-worker/support/llm/agent.budget.js";
 import { buildRecipeSystemPrompt } from "~ai-agent-worker/domain/recipe/model/recipe.prompt.js";
 import { RECIPE_COORDINATOR_TOOLS } from "~ai-agent-worker/domain/recipe/model/recipe.dispatch.policy.js";
+import { recipeSynthesisSchema, type RecipeSynthesis } from "~ai-agent-worker/domain/recipe/model/recipe.dispatch.schema.js";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";
 import { RECIPE_SCAN_TOOLS } from "~ai-agent-worker/domain/recipe/model/recipe.tool.schema.js";
 import type { ProvenanceLedger } from "~ai-agent-worker/domain/recipe/model/recipe.provenance.model.js";
 import { buildRecipeToolHandlers, type RecipeToolDeps } from "./recipe.tools.js";
 import { runRecipeQuery, type RecipeQueryContext } from "./recipe.sdk.query.js";
 
-export type RecipeSynthesisRun = StructuredQueryResult<{ readonly recipes: RecipeCandidatePayload[] }>;
+export type RecipeSynthesisRun = StructuredQueryResult<RecipeSynthesis>;
 
 /** 종합(조율자 단독 조사 포함)과 수리가 공유하는, 전체 도구와 합쳐진 장부로 도는 호출이다. */
 export function runRecipeSynthesis(
@@ -27,8 +27,8 @@ export function runRecipeSynthesis(
         toolNames: RECIPE_COORDINATOR_TOOLS,
         toolSpecs: RECIPE_SCAN_TOOLS.filter((spec) => (RECIPE_COORDINATOR_TOOLS as readonly string[]).includes(spec.name)),
         handlers: buildRecipeToolHandlers(ctx.input.userId, deps, ledger),
-        outputSchema: RECIPE_SCAN_SPEC.outputSchema,
-        claudeOutputSchema: zodToClaudeOutputSchema(RECIPE_SCAN_SPEC.outputSchema),
+        outputSchema: recipeSynthesisSchema,
+        claudeOutputSchema: zodToClaudeOutputSchema(recipeSynthesisSchema),
         lease,
     });
 }

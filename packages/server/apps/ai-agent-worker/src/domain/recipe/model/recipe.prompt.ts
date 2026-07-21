@@ -1,6 +1,6 @@
 import { KIND, RECIPE_CANDIDATE_LIMIT } from "@monitor/kernel";
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
-import type { DispatchPlan, ProbeReport } from "./recipe.dispatch.schema.js";
+import { MAX_REDISPATCH_PROBES, MAX_REDISPATCH_ROUNDS, type DispatchPlan, type ProbeReport } from "./recipe.dispatch.schema.js";
 
 export const RECIPE_SCAN_MAX_TURNS = 15;
 
@@ -26,6 +26,8 @@ How to work:
   - A contributing task counts as supported only when you actually read its events (get_task_events or search_events). A task merely listed by get_task_summary or find_similar_tasks is not enough.
   - A turnId marks one user request and everything the agent did to serve it. Split the task by turnId when its turns pursue unrelated goals, and write one recipe per goal. Merge adjacent turns only when they carry one intent forward.
   - Return zero recipes if the evidence is too thin, otherwise one candidate per distinct reusable workflow, up to ${RECIPE_CANDIDATE_LIMIT}.
+
+When the specialist reports leave a specific, answerable gap that blocks a candidate, you may ask for one more round of investigation instead of finalizing. Return a redispatch request — a list of up to ${MAX_REDISPATCH_PROBES} {probe, weight, question} entries, where probe is one of timeline, rules, or repetition — and leave recipes empty; the run dispatches those specialists and returns their reports to you. You get at most ${MAX_REDISPATCH_ROUNDS} such round; after it, finalize from what you have. Redispatch only for a gap a specialist can actually close, not to re-read evidence you already hold. Return either recipes or a redispatch request, never both.
 
 A recipe is a pattern, not a transcript. Remove incidental details, but preserve load-bearing friction: corrections, non-obvious pitfalls, and evidence eventIds.
 

@@ -299,4 +299,77 @@ describe("CleanupSdkAgentAdapter", () => {
         expect(output.steps.map((step) => step.seq)).toEqual([0, 1, 2, 3]);
         expect(output.steps.map((step) => step.nodeName)).toEqual(["triage", "inspect:task-1", "investigate", "repair"]);
     });
+
+    it("조율자가 재조사를 요청하면 후보를 한 번 더 열어보고 두 라운드의 보고를 모두 보며 다시 결정한다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan({ taskId: "task-1", weight: 2 }) },
+            { data: { taskId: "task-1", archivable: false, reason: "still unclear", citedEventIds: [] } },
+            { data: { suggestions: [], redispatch: [{ taskId: "task-2", weight: 2 }] } },
+            { data: { taskId: "task-2", archivable: true, reason: "empty shell", citedEventIds: [] } },
+            { data: { suggestions: [] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests.map((request) => request.label)).toEqual([
+            "task-cleanup:triage",
+            "task-cleanup:inspect:task-1",
+            "task-cleanup:investigate",
+            "task-cleanup:inspect:task-2",
+            "task-cleanup:investigate",
+        ]);
+        // 재조사한 두 번째 결정은 최초 후보와 추가 후보의 보고를 모두 읽는다.
+        const secondDecision = runner.requests[4]!;
+        expect(secondDecision.prompt).toContain("still unclear");
+        expect(secondDecision.prompt).toContain("empty shell");
+        expect(output.suggestions).toEqual([]);
+    });
+
+    it("재조사는 한 라운드로 막혀 조율자가 또 요청해도 싣지 않고 가진 근거로 끝낸다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan({ taskId: "task-1", weight: 2 }) },
+            { data: { taskId: "task-1", archivable: false, reason: "r", citedEventIds: [] } },
+            { data: { suggestions: [], redispatch: [{ taskId: "task-2", weight: 2 }] } },
+            { data: { taskId: "task-2", archivable: false, reason: "r2", citedEventIds: [] } },
+            { data: { suggestions: [], redispatch: [{ taskId: "task-3", weight: 1 }] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests).toHaveLength(5);
+        expect(runner.requests.map((request) => request.label)).not.toContain("task-cleanup:inspect:task-3");
+        expect(output.suggestions).toEqual([]);
+    });
+
+    it("결정과 재조사가 함께 오면 결정을 택해 재조사하지 않는다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan() },
+            { data: { suggestions: [suggestion("task-1")], redispatch: [{ taskId: "task-2", weight: 2 }] } },
+            { data: { suggestions: [] } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        // suggestions가 있으므로 재조사는 무시되고 근거 검증·수리 경로로 간다.
+        expect(runner.requests.map((request) => request.label)).toEqual([
+            "task-cleanup:triage",
+            "task-cleanup:investigate",
+            "task-cleanup:repair",
+        ]);
+        expect(output.suggestions).toEqual([]);
+    });
+
+    it("남은 예산이 없으면 조율자가 재조사를 요청해도 따르지 않고 끝낸다", async () => {
+        const runner = new ScriptedRunner([
+            { data: plan({ taskId: "task-1", weight: 2 }) },
+            { data: { taskId: "task-1", archivable: false, reason: "r", citedEventIds: [] } },
+            { data: { suggestions: [], redispatch: [{ taskId: "task-2", weight: 2 }] }, override: { costUsd: 1 } },
+        ]);
+
+        const output = await adapterFor(runner).generate(INPUT);
+
+        expect(runner.requests).toHaveLength(3);
+        expect(runner.requests.map((request) => request.label)).not.toContain("task-cleanup:inspect:task-2");
+        expect(output.suggestions).toEqual([]);
+    });
 });

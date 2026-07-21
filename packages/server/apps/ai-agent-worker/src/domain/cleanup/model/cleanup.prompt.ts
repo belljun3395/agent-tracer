@@ -1,5 +1,5 @@
 import type { OutputLanguage } from "~ai-agent-worker/support/output.language.js";
-import type { InspectReport } from "./cleanup.dispatch.schema.js";
+import { MAX_REDISPATCH_ROUNDS, type InspectReport } from "./cleanup.dispatch.schema.js";
 
 export const TASK_CLEANUP_MAX_TURNS = 16;
 
@@ -39,6 +39,8 @@ Rules:
   - Duplicate titles do not decide anything by themselves: two tasks with the same title can be two different sessions. Compare their events before calling either one redundant.
   - rationale: one sentence, under 500 chars, citing the evidence you actually checked (e.g. "no events since creation", "only a Read with no edits and no conclusion", "duplicate of <id>, same request and same edits").
   - evidenceEventIds: the event IDs get_task_events returned for that task and that back your rationale, up to 100. A candidate whose events you opened must cite at least one of them; a hasEvents=false shell cites none (empty list). Any ID no tool returned is rejected, and the suggestion is dropped.
+
+When the inspector reports leave a specific candidate you still cannot judge, you may ask for one more round of inspection instead of deciding. Return a redispatch request — a list of {taskId, weight} entries naming candidates to reopen — and leave suggestions empty; the run reopens those candidates and returns their reports to you. You get at most ${MAX_REDISPATCH_ROUNDS} such round; after it, decide from what you have. Redispatch only for a candidate an inspector can actually settle, not to re-read a report you already hold. Return either suggestions or a redispatch request, never both.
 
 Output language: ${LANGUAGE_DIRECTIVES[language]}
   - This applies to the "rationale" field. Task ids and the "kind" enum stay literal.

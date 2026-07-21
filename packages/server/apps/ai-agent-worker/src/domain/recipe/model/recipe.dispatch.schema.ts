@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recipeCandidatesListSchema } from "@monitor/kernel/agent/recipe.scan.schema.js";
 
 // SDK 백엔드가 조사를 조율자와 전문가로 나눌 때만 쓰는 내부 계획·보고 스키마이며, 커널 계약이
 // 잠그는 도구·출력·예산 계약과는 분리된 오케스트레이션 지식이다.
@@ -12,6 +13,11 @@ export const MAX_PROBE_QUESTION_CHARS = 300;
 export const MAX_EXCERPTS_PER_PROBE = 12;
 export const MAX_EXCERPT_CHARS = 600;
 export const MAX_VERDICT_CHARS = 1_200;
+
+// 조율자가 종합 대신 전문가를 다시 부를 수 있는 라운드 수이며 무한 루프를 이 값으로 막는다.
+export const MAX_REDISPATCH_ROUNDS = 1;
+// 한 번의 추가 파견 요청이 부를 수 있는 전문가 수의 상한이다.
+export const MAX_REDISPATCH_PROBES = 3;
 
 export const probeAssignmentSchema = z.object({
     probe: z.enum(RECIPE_PROBE_NAMES),
@@ -37,10 +43,19 @@ export const probeReportSchema = z.object({
     exhausted: z.boolean().default(false),
 });
 
+// 종합 호출의 내부 출력이며 커널 계약의 recipes에 추가 파견 요청 한 칸을 더한 것이다. 조율자는 최종
+// 초안(recipes) 대신 전문가 추가 파견(redispatch)을 요청할 수 있고, 둘의 배타는 어댑터가 recipes가
+// 빈 경우에만 redispatch를 따르는 것으로 집행하므로 여기서 refine으로 강제하지 않는다. refine은 JSON
+// 스키마로 표현되지 않는 데다 "둘 다"를 하드 실패로 만들어 부분 결과까지 버린다.
+export const recipeSynthesisSchema = recipeCandidatesListSchema.extend({
+    redispatch: z.array(probeAssignmentSchema).max(MAX_REDISPATCH_PROBES).default([]),
+});
+
 export type ProbeAssignment = z.infer<typeof probeAssignmentSchema>;
 export type DispatchPlan = z.infer<typeof dispatchPlanSchema>;
 export type RecipeExcerpt = z.infer<typeof recipeExcerptSchema>;
 export type ProbeReport = z.infer<typeof probeReportSchema>;
+export type RecipeSynthesis = z.infer<typeof recipeSynthesisSchema>;
 
 export function totalPlanWeight(plan: DispatchPlan): number {
     return plan.probes.reduce((sum, probe) => sum + probe.weight, 0);
