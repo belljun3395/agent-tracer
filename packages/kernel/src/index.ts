@@ -45,6 +45,7 @@ export * from "./observability/otlp/traces.js";
 export * from "./observability/otlp/logs.js";
 export * from "./daemon/daemon.health.const.js";
 export * from "./agent/agent.const.js";
+export * from "./agent/chat.contract.js";
 export * from "./memo/memo.const.js";
 export * from "./memo/memo.dto.js";
 export * from "./api/memo.query.const.js";

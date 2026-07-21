@@ -1,0 +1,325 @@
+{
+  "maxTurns": 14,
+  "limits": {
+    "maxOutputTokens": 4000,
+    "maxBudgetUsd": 0.4
+  },
+  "tools": {
+    "search_tasks": {
+      "required": [],
+      "optional": ["status", "origin", "archived", "root", "parentTaskId", "cursor", "limit"],
+      "mutation": false,
+      "status": { "values": ["running", "waiting", "completed", "errored"] },
+      "origin": { "values": ["user", "server-sdk"] },
+      "archived": { "values": ["true", "false"] },
+      "root": { "values": ["true", "false"] },
+      "limit": { "default": 30, "min": 1, "max": 100 }
+    },
+    "get_task": {
+      "required": ["taskId"],
+      "optional": [],
+      "mutation": false
+    },
+    "get_timeline": {
+      "required": ["taskId"],
+      "optional": ["cursor", "limit"],
+      "mutation": false,
+      "limit": { "default": 100, "min": 1, "max": 500 }
+    },
+    "search_events": {
+      "required": [],
+      "optional": ["q", "taskId", "kind", "lane", "from", "to", "limit"],
+      "mutation": false,
+      "limit": { "default": 20, "min": 1, "max": 100 }
+    },
+    "list_memos": {
+      "required": [],
+      "optional": ["taskId", "eventId"],
+      "mutation": false
+    },
+    "list_rules": {
+      "required": [],
+      "optional": ["taskId", "all"],
+      "mutation": false,
+      "all": { "values": ["true"] }
+    },
+    "get_rule_evidence": {
+      "required": ["ruleId"],
+      "optional": ["taskId"],
+      "mutation": false
+    },
+    "list_tags": {
+      "required": [],
+      "optional": [],
+      "mutation": false
+    },
+    "list_recipes": {
+      "required": [],
+      "optional": ["status"],
+      "mutation": false,
+      "status": { "values": ["candidate", "active", "dismissed", "superseded", "retired"] }
+    },
+    "list_cleanup_suggestions": {
+      "required": [],
+      "optional": ["status"],
+      "mutation": false,
+      "status": { "values": ["pending", "accepted", "dismissed"] }
+    },
+    "get_job": {
+      "required": ["jobId"],
+      "optional": [],
+      "mutation": false
+    },
+    "list_settings": {
+      "required": [],
+      "optional": [],
+      "mutation": false
+    }
+  },
+  "responses": {
+    "search_tasks": {
+      "page": ["items", "nextCursor"],
+      "item": [
+        "id",
+        "userId",
+        "title",
+        "slug",
+        "status",
+        "taskKind",
+        "origin",
+        "workspacePath",
+        "parentTaskId",
+        "archived",
+        "createdAt",
+        "updatedAt",
+        "lastEventAt"
+      ]
+    },
+    "get_task": {
+      "object": ["task", "sessions", "resumeTarget"],
+      "task": [
+        "id",
+        "userId",
+        "title",
+        "slug",
+        "status",
+        "taskKind",
+        "origin",
+        "workspacePath",
+        "parentTaskId",
+        "archived",
+        "createdAt",
+        "updatedAt",
+        "lastEventAt"
+      ],
+      "session": [
+        "id",
+        "taskId",
+        "runtimeSource",
+        "runtimeSessionId",
+        "status",
+        "summary",
+        "startedAt",
+        "endedAt"
+      ],
+      "resumeTarget": ["taskId", "runtimeSource", "runtimeSessionId", "workspacePath"]
+    },
+    "get_timeline": {
+      "page": ["items", "nextCursor"],
+      "item": [
+        "id",
+        "seq",
+        "taskId",
+        "sessionId",
+        "turnId",
+        "kind",
+        "lane",
+        "title",
+        "displayTitle",
+        "body",
+        "toolName",
+        "filePaths",
+        "metadata",
+        "occurredAt",
+        "subtype",
+        "evidenceLevel"
+      ]
+    },
+    "search_events": {
+      "page": ["items"],
+      "item": [
+        "id",
+        "taskId",
+        "sessionId",
+        "turnId",
+        "kind",
+        "lane",
+        "title",
+        "body",
+        "toolName",
+        "filePaths",
+        "seq",
+        "occurredAt"
+      ],
+      "memoItem": ["hitType", "id", "taskId", "eventId", "author", "body", "updatedAt"]
+    },
+    "list_memos": {
+      "page": ["items"],
+      "item": [
+        "id",
+        "userId",
+        "taskId",
+        "eventId",
+        "body",
+        "author",
+        "lastEditedBy",
+        "rev",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "list_rules": {
+      "page": ["items"],
+      "item": [
+        "reviewState",
+        "id",
+        "userId",
+        "name",
+        "expectation",
+        "taskId",
+        "source",
+        "severity",
+        "rationale",
+        "signature",
+        "userEdited",
+        "lastEditedBy",
+        "rev",
+        "sourceJobId",
+        "anchorEventId",
+        "citedTurnIds",
+        "citedEventIds",
+        "createdAt",
+        "matchCount",
+        "verdictStatus",
+        "nudgeCount",
+        "escalated"
+      ]
+    },
+    "get_rule_evidence": {
+      "object": ["taskId", "ruleId", "anchorEventId", "status", "triggers", "expects"],
+      "event": [
+        "eventId",
+        "kind",
+        "title",
+        "body",
+        "command",
+        "filePath",
+        "toolName",
+        "decidedAt",
+        "createdAt",
+        "matchKind",
+        "matchedBy",
+        "unfulfilled"
+      ]
+    },
+    "list_tags": {
+      "page": ["items"],
+      "item": [
+        "id",
+        "userId",
+        "name",
+        "color",
+        "description",
+        "createdAt",
+        "updatedAt",
+        "taskCount"
+      ]
+    },
+    "list_recipes": {
+      "page": ["items", "taskTitles"],
+      "item": [
+        "id",
+        "userId",
+        "status",
+        "title",
+        "intent",
+        "description",
+        "summaryMd",
+        "request",
+        "corrections",
+        "pitfalls",
+        "governingRules",
+        "steps",
+        "touchedFiles",
+        "contributingSlices",
+        "rationale",
+        "language",
+        "rev",
+        "parentRecipeId",
+        "sourceJobId",
+        "userEdited",
+        "lastEditedBy",
+        "error",
+        "createdAt",
+        "updatedAt",
+        "resolvedAt",
+        "stats"
+      ]
+    },
+    "list_cleanup_suggestions": {
+      "page": ["items"],
+      "item": [
+        "id",
+        "userId",
+        "jobId",
+        "taskId",
+        "kind",
+        "currentValue",
+        "proposedValue",
+        "rationale",
+        "status",
+        "error",
+        "createdAt",
+        "resolvedAt"
+      ]
+    },
+    "get_job": {
+      "object": ["job"],
+      "job": [
+        "id",
+        "userId",
+        "kind",
+        "executor",
+        "status",
+        "attempts",
+        "taskId",
+        "input",
+        "result",
+        "usage",
+        "error",
+        "createdAt",
+        "updatedAt",
+        "startedAt",
+        "completedAt"
+      ]
+    },
+    "list_settings": {
+      "page": ["items"],
+      "item": ["key", "maskedValue", "hasValue", "updatedAt"]
+    }
+  },
+  "descriptions": {
+    "search_tasks": "List the user's tasks newest-first, filtered by status (running/waiting/completed/errored), origin (user/server-sdk), archived, or root-only, and scoped to a parentTaskId for subtasks. Page with cursor: pass the response's nextCursor back as cursor until it is null. limit is up to 100 per page, default 30. Use this to find which task the user means before drilling in.",
+    "get_task": "Get one task by taskId: its header (title, status, origin, workspace, parent, timestamps), its runtime sessions, and a resumeTarget when the task can be resumed. Call this after search_tasks to load the details of a single task the user asked about.",
+    "get_timeline": "Get a page of a task's timeline (chronological user messages, assistant messages, tool runs and derived activity) newest-first. Pass taskId; page older with cursor until nextCursor is null. limit is up to 500 per page, default 100. Use this to read what actually happened in a task.",
+    "search_events": "Full-text search across indexed events (and matching memos), ranked by relevance and recency. Combine q with optional taskId, kind, lane, and a from/to time range. limit is up to 100, default 20. Results are a mix: event hits and memo hits (marked hitType). Use this to find corrections, instructions, or specific moments across many tasks.",
+    "list_memos": "List memos the user wrote. With no arguments it returns every memo; pass taskId to scope to one task, and additionally eventId to get the memos threaded on a single event. Use this to recall notes the user attached to their work.",
+    "list_rules": "List the verification rules that govern the user's work. Pass taskId to see the global and task-scoped rules that apply to that task, or all=\"true\" to list every rule the user has. Each rule carries its expectation, review state, and latest verdict status. Use this to explain what rules apply or why one is unmet.",
+    "get_rule_evidence": "Get the ledger evidence behind one rule's verdict by ruleId (optionally scoped to a taskId): the anchor event, the current status, and the trigger and expectation events that decided it, each with the text and how it matched. Use this after list_rules to show why a rule is satisfied or unmet.",
+    "list_tags": "List the user's tags with their color, description, and how many tasks each is applied to. Use this to answer questions about how the user organizes their tasks.",
+    "list_recipes": "List the user's recipes (reusable workflows distilled from past tasks), optionally filtered by status (candidate/active/dismissed/superseded/retired). Each entry carries the full recipe (intent, steps, pitfalls, touched files) plus application stats. Use this to surface or explain a saved workflow.",
+    "list_cleanup_suggestions": "List task-cleanup suggestions produced for the user, optionally filtered by status (pending/accepted/dismissed). Each names the task it targets, the proposed change, and the rationale. Use this to report what cleanup the system has proposed.",
+    "get_job": "Get one AI job by jobId: its kind, executor, status, attempt count, the task it ran against, and its input/result/usage. Use this to report on the outcome of an agent job the user is asking about.",
+    "list_settings": "List the user's application settings by key, with each value masked (only whether a value is set is shown). Use this to tell the user which settings are configured without revealing secret values."
+  }
+}
