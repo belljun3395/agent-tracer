@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import type { ChatThreadId } from "~web/shared/identity.js";
+import { useNavigate, useParams } from "react-router-dom";
+import { ChatThreadId } from "~web/shared/identity.js";
+import { chatThreadDisplayTitle } from "~web/entities/chat/model/chat.js";
 import { useChatMessagesQuery, useChatThreadsQuery } from "~web/entities/chat/api/queries.js";
 import { useChatTurn } from "~web/features/chat-send/useChatTurn.js";
 import {
@@ -7,27 +8,31 @@ import {
   selectedAgentBackend,
   type AgentBackendChoice,
 } from "~web/features/agent-backend-select/AgentBackendSelect.js";
+import { useState } from "react";
 import { useGuidance } from "~web/shared/store/index.js";
 import { EmptyView, GuidanceText } from "~web/shared/ui/index.js";
 import { ChatComposer } from "~web/widgets/chat/ChatComposer.js";
 import { ChatMessageStream } from "~web/widgets/chat/ChatMessageStream.js";
 import { ChatThreadRail } from "~web/widgets/chat/ChatThreadRail.js";
 
-/** `/chat`. 대화 스레드를 나열하고, 한 스레드의 대화를 SSE로 흘려보는 화면이다. */
+/** `/chat`은 빈 상태이고, `/chat/:threadId`는 URL이 가리키는 스레드의 대화를 SSE로 흘려보는 화면이다. */
 export function ChatPage() {
   const guidance = useGuidance();
-  const threadsQuery = useChatThreadsQuery();
-  const [selectedThreadId, setSelectedThreadId] = useState<ChatThreadId | null>(null);
+  const navigate = useNavigate();
+  const { threadId: routeThreadId } = useParams<{ threadId?: string }>();
+  const selectedThreadId = routeThreadId ? ChatThreadId(routeThreadId) : null;
   const [backendChoice, setBackendChoice] = useState<AgentBackendChoice>("");
 
-  useEffect(() => {
-    if (selectedThreadId !== null) return;
-    const first = threadsQuery.data?.threads[0];
-    if (first) setSelectedThreadId(first.id);
-  }, [threadsQuery.data, selectedThreadId]);
-
+  const threadsQuery = useChatThreadsQuery();
   const messagesQuery = useChatMessagesQuery(selectedThreadId);
   const turn = useChatTurn(selectedThreadId);
+
+  const openThread = (threadId: ChatThreadId) => {
+    void navigate(`/chat/${threadId}`);
+  };
+  const handleDeleted = (threadId: ChatThreadId) => {
+    if (threadId === selectedThreadId) void navigate("/chat");
+  };
 
   const selectedThread =
     threadsQuery.data?.threads.find((thread) => thread.id === selectedThreadId) ?? null;
@@ -61,8 +66,9 @@ export function ChatPage() {
         <ChatThreadRail
           threads={threadsQuery.data?.threads ?? []}
           selectedThreadId={selectedThreadId}
-          onSelect={setSelectedThreadId}
-          onCreated={setSelectedThreadId}
+          onSelect={openThread}
+          onCreated={openThread}
+          onDeleted={handleDeleted}
         />
 
         <div className="flex-1 min-h-0 flex flex-col">
@@ -70,7 +76,7 @@ export function ChatPage() {
             <>
               <div className="px-4 py-2.5 border-b border-hair flex items-center gap-2.5 shrink-0">
                 <span className="text-[13px] font-medium text-ink flex-1 min-w-0 truncate">
-                  {selectedThread.title}
+                  {chatThreadDisplayTitle(selectedThread)}
                 </span>
                 <AgentBackendSelect value={backendChoice} onChange={setBackendChoice} />
               </div>
@@ -82,10 +88,9 @@ export function ChatPage() {
               />
 
               <ChatComposer
-                disabled={turn.isStreaming}
-                onSend={(content) =>
-                  turn.sendMessage(content, selectedAgentBackend(backendChoice))
-                }
+                isStreaming={turn.isStreaming}
+                onSend={(content) => turn.sendMessage(content, selectedAgentBackend(backendChoice))}
+                onStop={turn.stop}
               />
             </>
           ) : (

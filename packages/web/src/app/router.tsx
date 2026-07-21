@@ -27,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "tags", element: <TagsPage /> },
       { path: "recipes", element: <RecipesPage /> },
       { path: "chat", element: <ChatPage /> },
+      { path: "chat/:threadId", element: <ChatPage /> },
       { path: "jobs", element: <JobsPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <NotFound /> },

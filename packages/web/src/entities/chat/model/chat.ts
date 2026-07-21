@@ -44,3 +44,12 @@ export interface ChatMessagesListResponse {
 export interface ChatThreadCreateInput {
   readonly title: string;
 }
+
+/** 백엔드가 첫 턴 전까지 스레드에 붙여 두는 기본 제목이다. */
+export const DEFAULT_CHAT_THREAD_TITLE = "New conversation";
+
+/** 제목이 아직 비어 있으면 기본 라벨로 되돌려, 화면에 보일 제목을 고른다. */
+export function chatThreadDisplayTitle(thread: Pick<ChatThreadRecord, "title">): string {
+  const trimmed = thread.title.trim();
+  return trimmed.length === 0 ? DEFAULT_CHAT_THREAD_TITLE : trimmed;
+}
