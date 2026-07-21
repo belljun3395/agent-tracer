@@ -1,8 +1,9 @@
-"""task-cleanup 그래프의 위상을 간선 스냅샷으로 고정한다."""
+"""task-cleanup 그래프의 위상과 팬아웃 배선(Send 대상·비용 배분)을 고정한다."""
 
 from __future__ import annotations
 
-from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH
+from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH, _dispatch
+from agent_graph.agents.task_cleanup.models import InspectDispatch, TriagePlan
 from tests.support.topology import edge_lines
 
 
@@ -22,3 +23,27 @@ def test_그래프의_간선_집합을_고정한다() -> None:
         "finalize → __end__",
         "empty → __end__",
     }
+
+
+def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:
+    plan = TriagePlan(
+        inspect=[
+            {"taskId": "task-1", "rounds": 3},  # type: ignore[list-item]
+            {"taskId": "task-2", "rounds": 1},  # type: ignore[list-item]
+        ]
+    )
+
+    sends = _dispatch({"plan": plan})  # type: ignore[typeddict-item]
+
+    # Send는 페이로드를 직렬화하지 않고 계약 객체 그대로 노드에 넘긴다.
+    assert all(isinstance(send.arg, InspectDispatch) for send in sends)
+    budgets = {send.arg.assignment.taskId: send.arg.cost_budget for send in sends}
+    # 4라운드 중 3:1로 나눈 몫에 전체 상한 $0.5를 곱해 0.375:0.125달러가 배분된다.
+    assert budgets == {"task-1": 0.375, "task-2": 0.125}
+
+
+def test_열어볼_후보가_없으면_즉시_빈_결과로_끝낸다() -> None:
+    # 조율자가 도구를 갖지 않으므로 열어볼 후보가 없으면 혼자 조사할 길이 없어 바로 끝난다.
+    sends = _dispatch({"plan": TriagePlan(inspect=[])})  # type: ignore[typeddict-item]
+
+    assert [send.node for send in sends] == ["empty"]

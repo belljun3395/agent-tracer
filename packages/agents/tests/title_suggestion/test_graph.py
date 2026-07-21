@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
 
 from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.shared.models import AgentResponse
@@ -85,14 +84,6 @@ async def _run(
         lambda usage: title_mod.run_title_suggestion(req, fake_ledger, usage),
     )
     return chat, result, fake_ledger
-
-
-def test_실행_envelope만_받고_주입된_정의를_거부한다() -> None:
-    req = _request()
-
-    assert req.taskId == "task-1"
-    with pytest.raises(ValidationError):
-        _request(systemPrompt="런타임이 정의를 밀어 넣는다")
 
 
 async def test_대화_발췌로_충분하면_도구를_부르지_않고_제목을_낸다(

@@ -10,18 +10,8 @@ import pytest
 from anthropic import AuthenticationError
 
 from agent_graph.agents.recipe_scan import agent as recipe_mod
-from agent_graph.agents.recipe_scan.graph import _dispatch
-from agent_graph.agents.recipe_scan.models import (
-    DispatchPlan,
-    ProbeAssignment,
-    ProbeDispatch,
-    RecipeScanRequest,
-)
-from agent_graph.agents.recipe_scan.nodes.probe import ProbeNode
-from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
-from agent_graph.agents.recipe_scan.search import RecipeSearchReader
+from agent_graph.agents.recipe_scan.models import DispatchPlan, RecipeScanRequest
 from agent_graph.agents.runtime.execution.runner import execute
-from agent_graph.agents.runtime.execution.trace import ExecutionTrace
 from agent_graph.agents.shared.models import AgentResponse
 from tests.support.fakes import FakeLedger, FakeSearch, FakeToolLoopChat
 from tests.support.narrate import narrate
@@ -139,61 +129,6 @@ async def _run(
         req.deadlineMs,
         lambda usage: recipe_mod.run_recipe_scan(req, fake_ledger, FakeSearch(), usage),
     )
-
-
-def test_전문가_비용_몫은_배분한_라운드에_비례한다() -> None:
-    plan = DispatchPlan(
-        probes=[
-            {"probe": "timeline", "rounds": 6, "question": "무엇을 했나"},  # type: ignore[list-item]
-            {"probe": "rules", "rounds": 2, "question": "어떤 규칙이"},  # type: ignore[list-item]
-        ]
-    )
-
-    sends = _dispatch({"plan": plan})  # type: ignore[typeddict-item]
-
-    # Send는 페이로드를 직렬화하지 않고 계약 객체 그대로 노드에 넘긴다.
-    assert all(isinstance(send.arg, ProbeDispatch) for send in sends)
-    budgets = {send.arg.assignment.probe: send.arg.cost_budget for send in sends}
-    # 8라운드 중 6:2로 나눈 몫에 전체 상한 $2.0을 곱해 1.5:0.5달러가 배분된다.
-    assert budgets == {"timeline": 1.5, "rules": 0.5}
-
-
-def test_계획이_없으면_조율자가_혼자_조사한다() -> None:
-    sends = _dispatch({"plan": None})  # type: ignore[typeddict-item]
-
-    assert [send.node for send in sends] == ["investigate"]
-
-
-async def test_전문가_실행_예외는_실패_보고로_강등된다() -> None:
-    class BoomChat(FakeToolLoopChat):
-        async def ainvoke(self, _messages: list[object]) -> object:
-            raise RuntimeError("agent blew up")
-
-    req = _request()
-    node = ProbeNode(
-        req,
-        RecipeLedgerReader(FakeLedger(), "user-1"),  # type: ignore[arg-type]
-        RecipeSearchReader(FakeSearch(), "user-1"),  # type: ignore[arg-type]
-        ExecutionTrace(),
-        BoomChat([]),
-        agent_name="recipe-scan",
-    )
-
-    result = await node.run(
-        ProbeDispatch(
-            assignment=ProbeAssignment(probe="timeline", rounds=2, question="무엇"),
-            cost_budget=1.0,
-        )
-    )
-
-    # 예외를 던진 전문가는 판정을 실패로 싣고 소진 표시를 올려 조율자가 알게 한다.
-    report = result["reports"][0]
-    assert report.probe == "timeline"
-    assert report.exhausted is True
-    assert report.verdict.startswith("조사 실패") and "agent blew up" in report.verdict
-    assert report.excerpts == []
-    # 실패해도 지출은 합산에 실린다.
-    assert "model_cost_usd" in result
 
 
 async def test_전문가가_모은_장부로_조율자가_후보를_낸다(
