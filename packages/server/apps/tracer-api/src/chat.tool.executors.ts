@@ -1,6 +1,15 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CHAT_TOOL, MEMO_AUTHOR, USER_TITLE_RANK, type RuleSeverity, type TaskStatus } from "@monitor/kernel";
+import {
+    CHAT_TOOL,
+    MEMO_AUTHOR,
+    USER_TITLE_RANK,
+    normalizeAiAgentBackend,
+    type JobKind,
+    type RuleSeverity,
+    type TaskStatus,
+} from "@monitor/kernel";
 import { ruleExpectationSchema } from "@monitor/kernel/rule/proposal/rule.proposal.schema.js";
+import { jobInputSchemaFor } from "@monitor/kernel/job/job.input.schema.js";
 import type { TaskRepository } from "@monitor/tracer-domain";
 import type { ChatToolExecutorRegistry } from "~tracer-api/domain/chat/port/chat.tool.executors.port.js";
 import type { RenameTaskUseCase } from "~tracer-api/domain/task/application/command/rename.task.usecase.js";
@@ -27,6 +36,7 @@ import type { AcceptCleanupSuggestionUseCase } from "~tracer-api/domain/cleanup/
 import type { DismissCleanupSuggestionUseCase } from "~tracer-api/domain/cleanup/application/command/dismiss.cleanup.suggestion.usecase.js";
 import type { PutSettingUseCase } from "~tracer-api/domain/settings/application/command/put.setting.usecase.js";
 import type { DeleteSettingUseCase } from "~tracer-api/domain/settings/application/command/delete.setting.usecase.js";
+import type { EnqueueJobUseCase } from "~tracer-api/domain/job/application/command/enqueue.job.usecase.js";
 
 /** 확인 게이트가 승인 시 실제 명령을 실행하려고 조립 근원에서 주입받는 명령 유스케이스와 소유권 확인용 태스크 읽기 모델이다. */
 export interface ChatToolExecutorDeps {
@@ -55,6 +65,7 @@ export interface ChatToolExecutorDeps {
     readonly dismissCleanup: DismissCleanupSuggestionUseCase;
     readonly putSetting: PutSettingUseCase;
     readonly deleteSetting: DeleteSettingUseCase;
+    readonly enqueueJob: EnqueueJobUseCase;
 }
 
 /** 도구 이름을 명령 유스케이스 호출에 잇는 실행자 레지스트리이며, 각 실행자가 인자를 유스케이스 입력으로 옮기고 소유권을 그 유스케이스가 강제한다. */
@@ -116,7 +127,7 @@ export function buildChatToolExecutors(deps: ChatToolExecutorDeps): ChatToolExec
         [CHAT_TOOL.createRule]: async (userId, args) => {
             const taskId = req(args, "taskId");
             const name = req(args, "name");
-            const expectation = ruleExpectationSchema.parse(parseJson(req(args, "expectation")));
+            const expectation = ruleExpectationSchema.parse(parseJson(req(args, "expectation"), "expectation"));
             const severity = opt(args, "severity") as RuleSeverity | undefined;
             const rationale = opt(args, "rationale");
             await deps.createRule.execute({
@@ -140,7 +151,7 @@ export function buildChatToolExecutors(deps: ChatToolExecutorDeps): ChatToolExec
                 userId,
                 id,
                 ...(name !== undefined ? { name } : {}),
-                ...(rawExpectation !== undefined ? { expectation: ruleExpectationSchema.parse(parseJson(rawExpectation)) } : {}),
+                ...(rawExpectation !== undefined ? { expectation: ruleExpectationSchema.parse(parseJson(rawExpectation, "expectation")) } : {}),
                 ...(severity !== undefined ? { severity } : {}),
                 ...(rationale !== undefined ? { rationale } : {}),
             });
@@ -233,7 +244,29 @@ export function buildChatToolExecutors(deps: ChatToolExecutorDeps): ChatToolExec
             await deps.deleteSetting.execute(userId, key);
             return `Cleared setting ${key}.`;
         },
+        [CHAT_TOOL.enqueueJob]: async (userId, args) => {
+            const kind = req(args, "kind") as JobKind;
+            const input = parseJobInput(kind, req(args, "input"));
+            const agentBackend = opt(args, "agentBackend");
+            const { job } = await deps.enqueueJob.execute(
+                userId,
+                kind,
+                input,
+                agentBackend !== undefined ? { agentBackend: normalizeAiAgentBackend(agentBackend) } : {},
+            );
+            return `Enqueued ${kind} job ${job.id} (status: ${job.status}).`;
+        },
     };
+}
+
+function parseJobInput(kind: JobKind, raw: string): Record<string, unknown> {
+    const parsed = jobInputSchemaFor(kind).safeParse(parseJson(raw, "input"));
+    if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        const detail = issue !== undefined ? `${issue.path.join(".") || "input"}: ${issue.message}` : "validation failed";
+        throw new BadRequestException(`input is invalid for kind ${kind} (${detail})`);
+    }
+    return parsed.data;
 }
 
 function req(args: Record<string, unknown>, key: string): string {
@@ -247,18 +280,18 @@ function opt(args: Record<string, unknown>, key: string): string | undefined {
     return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function parseJson(raw: string): unknown {
+function parseJson(raw: string, label: string): unknown {
     try {
         return JSON.parse(raw);
     } catch {
-        throw new BadRequestException("expectation must be a JSON object");
+        throw new BadRequestException(`${label} must be a JSON object`);
     }
 }
 
 function parseIdList(raw: string): string[] {
     const trimmed = raw.trim();
     if (trimmed.startsWith("[")) {
-        const parsed = parseJson(trimmed);
+        const parsed = parseJson(trimmed, "tagIds");
         if (!Array.isArray(parsed)) throw new BadRequestException("tagIds must be a JSON array");
         return parsed.map((id) => String(id)).filter((id) => id.length > 0);
     }

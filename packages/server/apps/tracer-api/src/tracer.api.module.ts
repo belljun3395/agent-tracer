@@ -30,6 +30,7 @@ import { AcceptCleanupSuggestionUseCase } from "~tracer-api/domain/cleanup/appli
 import { DismissCleanupSuggestionUseCase } from "~tracer-api/domain/cleanup/application/command/dismiss.cleanup.suggestion.usecase.js";
 import { PutSettingUseCase } from "~tracer-api/domain/settings/application/command/put.setting.usecase.js";
 import { DeleteSettingUseCase } from "~tracer-api/domain/settings/application/command/delete.setting.usecase.js";
+import { EnqueueJobUseCase } from "~tracer-api/domain/job/application/command/enqueue.job.usecase.js";
 import { cleanupFeature } from "~tracer-api/domain/cleanup/cleanup.feature.js";
 import { healthFeature } from "~tracer-api/domain/health/health.feature.js";
 import { jobFeature } from "~tracer-api/domain/job/job.feature.js";
@@ -89,6 +90,7 @@ const CHAT_EXECUTOR_DEPS = [
     AcceptRecipeUseCase, DismissRecipeUseCase, RetireRecipeUseCase,
     AcceptCleanupSuggestionUseCase, DismissCleanupSuggestionUseCase,
     PutSettingUseCase, DeleteSettingUseCase,
+    EnqueueJobUseCase,
 ];
 
 function buildChatExecutorsFromArgs(...args: unknown[]): ReturnType<typeof buildChatToolExecutors> {
@@ -99,6 +101,7 @@ function buildChatExecutorsFromArgs(...args: unknown[]): ReturnType<typeof build
         createTag, updateTag, deleteTag, setTaskTags,
         acceptRecipe, dismissRecipe, retireRecipe,
         acceptCleanup, dismissCleanup, putSetting, deleteSetting,
+        enqueueJob,
     ] = args;
     return buildChatToolExecutors({
         tasks, renameTask, setTaskStatus, archiveTask, unarchiveTask, hideTask,
@@ -107,6 +110,7 @@ function buildChatExecutorsFromArgs(...args: unknown[]): ReturnType<typeof build
         createTag, updateTag, deleteTag, setTaskTags,
         acceptRecipe, dismissRecipe, retireRecipe,
         acceptCleanup, dismissCleanup, putSetting, deleteSetting,
+        enqueueJob,
     } as ChatToolExecutorDeps);
 }
 
