@@ -20,6 +20,7 @@ export {
   ActivityIcon,
   ArchiveIcon,
   BookIcon,
+  ChatIcon,
   CheckIcon,
   ChecklistIcon,
   ChevronDownIcon,

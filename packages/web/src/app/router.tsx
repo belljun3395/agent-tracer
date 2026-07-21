@@ -9,6 +9,7 @@ import { TagsPage } from "~web/pages/tags/TagsPage.js";
 import { RecipesPage } from "~web/pages/recipes/RecipesPage.js";
 import { JobsPage } from "~web/pages/jobs/JobsPage.js";
 import { SettingsPage } from "~web/pages/settings/SettingsPage.js";
+import { ChatPage } from "~web/pages/chat/ChatPage.js";
 
 /**
  * 라우트: `/`는 `/tasks`로, `/tasks`는 사이드바만, `/tasks/:taskId`는 운영자 뷰,
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "memos", element: <MemosPage /> },
       { path: "tags", element: <TagsPage /> },
       { path: "recipes", element: <RecipesPage /> },
+      { path: "chat", element: <ChatPage /> },
       { path: "jobs", element: <JobsPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <NotFound /> },

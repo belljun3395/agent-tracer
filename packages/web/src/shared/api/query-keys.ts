@@ -1,5 +1,5 @@
 import type { JobKind, JobStatus } from "@monitor/kernel";
-import type { TaskId } from "~web/shared/identity.js";
+import type { ChatThreadId, TaskId } from "~web/shared/identity.js";
 
 /** 여러 entity가 공유하는 TanStack Query 키 레지스트리다. */
 export const monitorQueryKeys = {
@@ -74,4 +74,9 @@ export const monitorQueryKeys = {
   job: (jobId: string) => ["monitor", "jobs", "detail", jobId] as const,
   jobSteps: (jobId: string) => ["monitor", "jobs", "steps", jobId] as const,
   daemonHealth: () => ["monitor", "daemon-health"] as const,
+  chatThreads: () => ["monitor", "chat", "threads"] as const,
+  chatThreadsPrefix: () => ["monitor", "chat", "threads"] as const,
+  chatThread: (threadId: ChatThreadId) => ["monitor", "chat", "threads", threadId] as const,
+  chatMessages: (threadId: ChatThreadId) =>
+    ["monitor", "chat", "threads", threadId, "messages"] as const,
 } as const;

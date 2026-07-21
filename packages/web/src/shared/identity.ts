@@ -8,6 +8,7 @@ export type RuntimeSessionId = string & { readonly __brand: "RuntimeSessionId" }
 export type RuntimeSource = string & { readonly __brand: "RuntimeSource" };
 export type WorkspacePath = string & { readonly __brand: "WorkspacePath" };
 export type TaskSlug = string & { readonly __brand: "TaskSlug" };
+export type ChatThreadId = string & { readonly __brand: "ChatThreadId" };
 
 function brand<T extends string>(value: string): string & { readonly __brand: T } {
   return value.trim() as string & { readonly __brand: T };
@@ -23,3 +24,4 @@ export const RuntimeSessionId = (value: string): RuntimeSessionId => brand<"Runt
 export const RuntimeSource = (value: string): RuntimeSource => brand<"RuntimeSource">(value);
 export const WorkspacePath = (value: string): WorkspacePath => brand<"WorkspacePath">(value);
 export const TaskSlug = (value: string): TaskSlug => brand<"TaskSlug">(value);
+export const ChatThreadId = (value: string): ChatThreadId => brand<"ChatThreadId">(value);

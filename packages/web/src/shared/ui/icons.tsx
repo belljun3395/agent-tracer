@@ -31,6 +31,7 @@ export {
   BookIcon,
   GearIcon,
   ChecklistIcon,
+  ChatIcon,
   ExternalLinkIcon,
   NoteIcon,
   TagIcon,

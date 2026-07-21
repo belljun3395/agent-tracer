@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ActivityIcon, BookIcon, ChecklistIcon, GearIcon, NoteIcon, TagIcon, Tooltip } from "~web/shared/ui/index.js";
+import { ActivityIcon, BookIcon, ChatIcon, ChecklistIcon, GearIcon, NoteIcon, TagIcon, Tooltip } from "~web/shared/ui/index.js";
 import { useRecipesQuery } from "~web/entities/recipe/api/queries.js";
 import { useRulesQuery } from "~web/entities/rule/api/queries.js";
 import { useMemosQuery } from "~web/entities/memo/api/queries.js";
@@ -15,11 +15,37 @@ export function TopActions() {
       <RulesButton />
       <TagsButton />
       <MemosButton />
+      <ChatButton />
       <JobsButton />
       <SettingsButton />
       <span aria-hidden className="w-px h-[18px] bg-hair" />
       <ThemeToggle />
     </div>
+  );
+}
+
+function ChatButton() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const active = location.pathname === "/chat";
+  return (
+    <Tooltip content="Chat with the agent" side="bottom">
+      <button
+        type="button"
+        onClick={() => void navigate("/chat")}
+        aria-label="Chat with the agent"
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "h-7 px-2.5 inline-flex items-center gap-1.5 rounded-sm hover:bg-s1 transition-colors",
+          active ? "text-ink bg-s1" : "text-ink-muted bg-transparent",
+        )}
+      >
+        <ChatIcon />
+        <span className="text-xs font-medium tracking-[-0.05px]">
+          Chat
+        </span>
+      </button>
+    </Tooltip>
   );
 }
 
