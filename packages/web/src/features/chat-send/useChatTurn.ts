@@ -37,6 +37,8 @@ const EMPTY_STATE: ChatTurnState = {
 
 export interface UseChatTurnResult extends ChatTurnState {
   readonly sendMessage: (content: string, agentBackend?: ChatBackend) => void;
+  /** 진행 중인 턴을 사용자가 취소하며, 백엔드는 취소된 부분 응답을 버린다. */
+  readonly stop: () => void;
   /** 확인 카드가 승인/거절로 해소된 뒤 화면에서 지운다. */
   readonly dismissConfirm: (confirmationId: string) => void;
 }
@@ -46,11 +48,18 @@ export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
   const queryClient = useQueryClient();
   const [state, setState] = useState<ChatTurnState>(EMPTY_STATE);
   const abortRef = useRef<AbortController | null>(null);
+  // 렌더나 StrictMode 이펙트 재실행이 아니라 사용자가 스레드를 진짜로 바꿨을 때만 턴을 끊도록, 지금 턴이 속한 스레드를 기준값으로 들고 있는다.
+  const activeThreadRef = useRef<ChatThreadId | null>(threadId);
+  // done 뒤 히스토리 재조회를 기다리는 동안 새 전송이 끼어들어도 오래된 턴이 새 드래프트를 지우지 못하게, 전송마다 증가시키는 일련번호다.
+  const turnSeqRef = useRef(0);
 
-  // 스레드를 바꾸면 이전 스레드의 진행 중 턴을 끊고 상태를 비운다.
+  // 같은 스레드의 재렌더나 StrictMode 마운트 이펙트 재실행은 무시하고, 사용자가 스레드를 진짜로 바꿨을 때만 이전 턴을 끊고 상태를 비운다.
   useEffect(() => {
+    if (activeThreadRef.current === threadId) return;
+    activeThreadRef.current = threadId;
     abortRef.current?.abort();
     abortRef.current = null;
+    turnSeqRef.current += 1;
     setState(EMPTY_STATE);
   }, [threadId]);
 
@@ -59,9 +68,12 @@ export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
       const trimmed = content.trim();
       if (!threadId || trimmed.length === 0) return;
 
+      // 진행 중인 턴이 있으면 끊고 곧바로 새 턴을 시작하며(stop-and-send), 백엔드가 끊긴 부분 응답을 버리므로 빈 메시지는 저장되지 않는다.
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      activeThreadRef.current = threadId;
+      const turnSeq = (turnSeqRef.current += 1);
 
       setState((prev) => ({
         ...prev,
@@ -97,8 +109,14 @@ export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
           onMemoryUpdated: (update) =>
             setState((prev) => ({ ...prev, memoryUpdates: [...prev.memoryUpdates, update] })),
           onDone: () => {
-            setState((prev) => ({ ...prev, isStreaming: false, assistantDraft: "", toolActivity: [] }));
-            void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.chatMessages(threadId) });
+            // 빈 말풍선이 번쩍이지 않도록, 스트리밍한 텍스트를 그대로 둔 채 히스토리를 다시 불러오고 저장된 메시지가 자리를 잡은 뒤에야 드래프트를 지운다.
+            setState((prev) => ({ ...prev, isStreaming: false }));
+            void queryClient
+              .invalidateQueries({ queryKey: monitorQueryKeys.chatMessages(threadId) })
+              .then(() => {
+                if (turnSeqRef.current !== turnSeq) return;
+                setState((prev) => ({ ...prev, assistantDraft: "", toolActivity: [] }));
+              });
           },
           onError: (message) => setState((prev) => ({ ...prev, isStreaming: false, error: message })),
         },
@@ -108,6 +126,13 @@ export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
     [threadId, queryClient],
   );
 
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    turnSeqRef.current += 1;
+    setState((prev) => ({ ...prev, isStreaming: false, assistantDraft: "", toolActivity: [] }));
+  }, []);
+
   const dismissConfirm = useCallback((confirmationId: string) => {
     setState((prev) => ({
       ...prev,
@@ -115,5 +140,5 @@ export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
     }));
   }, []);
 
-  return { ...state, sendMessage, dismissConfirm };
+  return { ...state, sendMessage, stop, dismissConfirm };
 }
