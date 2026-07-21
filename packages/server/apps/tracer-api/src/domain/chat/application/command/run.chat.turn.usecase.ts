@@ -56,7 +56,7 @@ export class RunChatTurnUseCase {
         private readonly summaryProjection: SummarizeThreadProjection,
     ) {}
 
-    async execute(input: RunChatTurnInput, sink: ChatTurnSink): Promise<{ readonly message: ChatMessageDto }> {
+    async execute(input: RunChatTurnInput, sink: ChatTurnSink): Promise<{ readonly message: ChatMessageDto | null }> {
         const thread = await this.threads.findById(input.threadId);
         if (thread === null || thread.userId !== input.userId) throw new NotFoundException("Thread not found");
 
@@ -86,6 +86,19 @@ export class RunChatTurnUseCase {
             },
             sink,
         );
+
+        // 취소·오류·도구 호출만 낸 턴은 텍스트가 비어, 이런 턴을 없었던 것처럼 다뤄 빈 내용의 어시스턴트 행을 남기지 않는다.
+        if (result.text.trim().length === 0) {
+            logInfo({
+                msg: "chat.turn.discarded",
+                threadId: input.threadId,
+                userId: input.userId,
+                backend: result.backend,
+                toolCalls: result.toolCalls.length,
+                errorSummary: result.errorSummary,
+            });
+            return { message: null };
+        }
 
         const now = this.clock.now();
         const assistant = ChatMessageEntity.create({

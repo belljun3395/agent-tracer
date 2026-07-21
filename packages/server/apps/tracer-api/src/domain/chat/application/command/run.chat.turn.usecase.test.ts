@@ -78,9 +78,9 @@ describe("RunChatTurnUseCase", () => {
 
         const { message } = await useCase.execute({ userId: "u1", threadId: "th1" }, sink);
 
-        expect(message.role).toBe("assistant");
-        expect(message.content).toBe("답");
-        expect(message.toolCalls?.[0]?.name).toBe("get_task");
+        expect(message?.role).toBe("assistant");
+        expect(message?.content).toBe("답");
+        expect(message?.toolCalls?.[0]?.name).toBe("get_task");
         expect(deltas).toEqual(["답"]);
         expect(agent.lastInput?.messages).toHaveLength(1);
         expect((await threads.findById("th1"))?.backend).toBe("claude-sdk");
@@ -211,5 +211,32 @@ describe("RunChatTurnUseCase", () => {
         await expect(
             useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink),
         ).rejects.toBeInstanceOf(ChatMissingApiKeyError);
+    });
+
+    it("취소 등으로 텍스트가 비어 있으면 어시스턴트 행을 남기지 않는다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const agent = new FakeChatAgent("");
+        const useCase = buildUseCase(threads, messages, agent);
+
+        const { message } = await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(message).toBeNull();
+        expect(await messages.listByThread("th1")).toHaveLength(1); // 씨딩한 사용자 메시지만 남는다.
+        expect((await threads.findById("th1"))?.backend).toBeNull();
+    });
+
+    it("텍스트가 있으면 어시스턴트 행을 남긴다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        seed(threads, messages);
+        const agent = new FakeChatAgent("답");
+        const useCase = buildUseCase(threads, messages, agent);
+
+        const { message } = await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(message?.content).toBe("답");
+        expect(await messages.listByThread("th1")).toHaveLength(2);
     });
 });
