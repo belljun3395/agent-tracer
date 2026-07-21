@@ -1,6 +1,6 @@
 import type { AiAgentBackend } from "@monitor/kernel";
 import type { AgentQueryUsage } from "@monitor/llm-runtime";
-import type { ChatMessageRole, ChatToolCall } from "@monitor/tracer-domain";
+import type { ChatMessageEntity, ChatMessageRole, ChatToolCall } from "@monitor/tracer-domain";
 
 /** 대화 턴에 재생되는 이전 메시지 한 건이며, 저장 엔티티가 아닌 재생용 평문이다. */
 export interface ChatTurnMessage {
@@ -65,4 +65,14 @@ export interface ChatTurnResult {
     readonly numTurns: number | null;
     readonly usage: AgentQueryUsage | null;
     readonly errorSummary: string | null;
+}
+
+/** 저장 엔티티를 재생용 평문으로 벗겨 내는 유일한 변환이며, 재생을 쓰는 모든 유스케이스가 공유한다. */
+export function toChatTurnMessage(message: ChatMessageEntity): ChatTurnMessage {
+    return {
+        role: message.role,
+        content: message.content,
+        ...(message.toolCalls !== null ? { toolCalls: message.toolCalls } : {}),
+        ...(message.toolCallId !== null ? { toolCallId: message.toolCallId } : {}),
+    };
 }

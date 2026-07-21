@@ -2,7 +2,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AI_AGENT_BACKEND, normalizeAiAgentBackend } from "@monitor/kernel";
 import { generateUlid } from "@monitor/platform";
 import { logInfo } from "@monitor/llm-runtime";
-import { CHAT_MESSAGE_ROLE, ChatMessageEntity, type ChatMessageEntity as Message } from "@monitor/tracer-domain";
+import { CHAT_MESSAGE_ROLE, ChatMessageEntity } from "@monitor/tracer-domain";
 import { CHAT_CLOCK, type ClockPort } from "~tracer-api/domain/chat/port/clock.port.js";
 import {
     CHAT_MESSAGE_REPOSITORY,
@@ -11,10 +11,12 @@ import {
     type ChatThreadRepositoryPort,
 } from "~tracer-api/domain/chat/port/chat.repository.port.js";
 import { CHAT_AGENT_REGISTRY, type ChatAgentRegistry } from "~tracer-api/domain/chat/port/chat.agent.port.js";
-import type { ChatTurnMessage, ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
+import { toChatTurnMessage, type ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import { CHAT_SPEC } from "~tracer-api/domain/chat/model/chat.spec.js";
 import { CHAT_LANGUAGE } from "~tracer-api/domain/chat/model/chat.prompt.js";
+import { selectReplayMessages } from "~tracer-api/domain/chat/model/chat.summary.spec.js";
 import { mapMessage, type ChatMessageDto } from "~tracer-api/domain/chat/model/chat.model.js";
+import { SummarizeThreadProjection } from "~tracer-api/domain/chat/application/command/summarize.thread.projection.js";
 
 export interface RunChatTurnInput {
     readonly userId: string;
@@ -37,6 +39,7 @@ export class RunChatTurnUseCase {
         private readonly registry: ChatAgentRegistry,
         @Inject(CHAT_CLOCK)
         private readonly clock: ClockPort,
+        private readonly summaryProjection: SummarizeThreadProjection,
     ) {}
 
     async execute(input: RunChatTurnInput, sink: ChatTurnSink): Promise<{ readonly message: ChatMessageDto }> {
@@ -44,6 +47,7 @@ export class RunChatTurnUseCase {
         if (thread === null || thread.userId !== input.userId) throw new NotFoundException("Thread not found");
 
         const history = await this.messages.listByThread(input.threadId);
+        const hasSummary = thread.summary !== null && thread.summary.trim().length > 0;
         const backend = normalizeAiAgentBackend(input.agentBackend, AI_AGENT_BACKEND.claudeSdk);
         const agent = this.registry[backend];
 
@@ -52,7 +56,7 @@ export class RunChatTurnUseCase {
                 threadId: input.threadId,
                 userId: input.userId,
                 language: input.language ?? CHAT_LANGUAGE.auto,
-                messages: history.map(toTurnMessage),
+                messages: selectReplayMessages(history, hasSummary).map(toChatTurnMessage),
                 summary: thread.summary,
                 deadlineMs: CHAT_SPEC.limits.deadlineMs,
                 ...(input.model !== undefined ? { model: input.model } : {}),
@@ -86,15 +90,9 @@ export class RunChatTurnUseCase {
             errorSummary: result.errorSummary,
         });
 
+        // 이번 턴의 어시스턴트 메시지까지 포함해야 방금 넘긴 문턱도 이 턴에서 접힌다.
+        await this.summaryProjection.project(thread, [...history, assistant]);
+
         return { message: mapMessage(assistant) };
     }
-}
-
-function toTurnMessage(message: Message): ChatTurnMessage {
-    return {
-        role: message.role,
-        content: message.content,
-        ...(message.toolCalls !== null ? { toolCalls: message.toolCalls } : {}),
-        ...(message.toolCallId !== null ? { toolCallId: message.toolCallId } : {}),
-    };
 }

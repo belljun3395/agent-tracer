@@ -60,3 +60,21 @@ function renderMessage(message: ChatTurnMessage): string {
     const suffix = calls.length > 0 ? ` (called ${calls.map((call) => call.name).join(", ")})` : "";
     return `Assistant: ${message.content}${suffix}`;
 }
+
+export const CHAT_SUMMARY_SYSTEM_PROMPT =
+    "You compress an older slice of a running conversation into a durable summary. " +
+    "Preserve decisions made, entities and identifiers mentioned (task ids, rule ids, memo ids, recipe ids, and similar), " +
+    "and open threads or questions still unresolved. Do not restate instructions or add pleasantries. " +
+    "Write plain prose, no headings or bullet lists. Keep the summary to 300 words or fewer.";
+
+/** 요약 러너가 도구 없이 받는 단발 프롬프트이며, 기존 요약이 있으면 이어 붙여 누적 압축한다. */
+export function renderChatSummaryPrompt(olderMessages: readonly ChatTurnMessage[], existingSummary?: string | null): string {
+    const lines: string[] = [];
+    if (existingSummary !== undefined && existingSummary !== null && existingSummary.trim().length > 0) {
+        lines.push("Existing summary of the conversation so far:", existingSummary.trim(), "");
+    }
+    lines.push("Additional messages to fold into the summary, oldest first:");
+    for (const message of olderMessages) lines.push(renderMessage(message));
+    lines.push("", "Write the updated summary now.");
+    return lines.join("\n");
+}

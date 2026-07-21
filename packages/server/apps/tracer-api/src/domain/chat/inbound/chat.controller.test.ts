@@ -7,9 +7,11 @@ import { InMemoryChatMessageRepository } from "~tracer-api/domain/chat/port/__fa
 import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.pending.tool.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import { FakeChatAgent, fakeChatRegistry } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.agent.js";
+import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.summarizer.js";
 import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command/create.thread.usecase.js";
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
 import { RunChatTurnUseCase } from "~tracer-api/domain/chat/application/command/run.chat.turn.usecase.js";
+import { SummarizeThreadProjection } from "~tracer-api/domain/chat/application/command/summarize.thread.projection.js";
 import { ConfirmToolUseCase } from "~tracer-api/domain/chat/application/command/confirm.tool.usecase.js";
 import { ListThreadsUseCase } from "~tracer-api/domain/chat/application/query/list.threads.usecase.js";
 import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.thread.usecase.js";
@@ -29,7 +31,13 @@ function build() {
         new GetMessagesUseCase(threads, messages),
         new CreateThreadUseCase(threads, clock),
         new AppendUserMessageUseCase(threads, messages, clock),
-        new RunChatTurnUseCase(threads, messages, registry, clock),
+        new RunChatTurnUseCase(
+            threads,
+            messages,
+            registry,
+            clock,
+            new SummarizeThreadProjection(threads, new FakeChatSummarizer(), clock),
+        ),
         new ConfirmToolUseCase(threads, messages, pendingTools, executors, clock),
     );
     return { controller, messages, pendingTools };
