@@ -64,7 +64,9 @@ function collectingSink(): { sink: ChatTurnSink; deltas: string[] } {
     return {
         deltas,
         sink: {
-            onAssistantDelta: (text) => deltas.push(text),
+            onAssistantDelta: (text) => {
+                deltas.push(text);
+            },
             onToolCall: () => {},
             onToolResult: () => {},
         },

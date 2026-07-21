@@ -15,6 +15,7 @@ export * from "./model/deadline.js";
 export * from "./graph/durable.completion.inbox.js";
 export * from "./graph/graph.client.js";
 export * from "./graph/graph.protocol.js";
+export * from "./graph/graph.stream.client.js";
 export * from "./model/job.step.js";
 export * from "./runner/llm.runner.js";
 export * from "./observability/log.js";

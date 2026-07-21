@@ -16,7 +16,9 @@ function collectingSink(): { sink: ChatTurnSink; updates: ChatMemoryUpdate[] } {
             onAssistantDelta: () => {},
             onToolCall: () => {},
             onToolResult: () => {},
-            onMemoryUpdated: (update) => updates.push(update),
+            onMemoryUpdated: (update) => {
+                updates.push(update);
+            },
         },
     };
 }

@@ -15,7 +15,9 @@ function collectingSink(): { sink: ChatTurnSink; confirms: ChatConfirmRequest[] 
             onAssistantDelta: () => {},
             onToolCall: () => {},
             onToolResult: () => {},
-            onConfirmRequest: (request) => confirms.push(request),
+            onConfirmRequest: (request) => {
+                confirms.push(request);
+            },
         },
     };
 }

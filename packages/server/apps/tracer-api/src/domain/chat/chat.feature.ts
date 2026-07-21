@@ -2,7 +2,6 @@ import { AI_AGENT_BACKEND, normalizeAiAgentBackend, type AiAgentBackend } from "
 import { loadApplicationConfig, SystemClock } from "@monitor/platform";
 import { ClaudeQueryRunner } from "@monitor/llm-runtime";
 import {
-    AgentCompletionInboxRepository,
     AiJobRepository,
     AppSettingRepository,
     ChatMessageRepository,
@@ -36,7 +35,7 @@ import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/ge
 import { ChatController } from "~tracer-api/domain/chat/inbound/chat.controller.js";
 import { ChatSdkAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.sdk.agent.adapter.js";
 import { ChatGraphAgentAdapter } from "~tracer-api/domain/chat/adapter/chat.graph.agent.adapter.js";
-import { buildChatGraphClient } from "~tracer-api/domain/chat/adapter/chat.graph.client.factory.js";
+import { buildChatGraphStreamClient } from "~tracer-api/domain/chat/adapter/chat.graph.client.factory.js";
 import { ChatOpenSearchAdapter } from "~tracer-api/domain/chat/adapter/chat.search.adapter.js";
 import { ChatSummarizerAdapter } from "~tracer-api/domain/chat/adapter/chat.summarizer.adapter.js";
 import type { ChatToolDeps } from "~tracer-api/domain/chat/adapter/chat.tools.js";
@@ -74,20 +73,17 @@ const REGISTRY_DEPS = [
     CHAT_PENDING_TOOL_REPOSITORY,
     ChatUserMemoryRepository,
     CHAT_CLOCK,
-    AgentCompletionInboxRepository,
 ];
 
 function buildRegistry(...args: unknown[]): ChatAgentRegistry {
     const [
         tasks, taskUserStates, sessions, events, memos, rules, verdicts, tags, taskTags,
         recipes, recipeApplications, cleanupSuggestions, jobs, settings, search, pendingTools, userMemories, clock,
-        completionInbox,
     ] = args as [
         TaskRepository, TaskUserStateRepository, SessionRepository, EventRepository, MemoRepository,
         RuleRepository, VerdictRepository, TagRepository, TaskTagRepository, RecipeRepository,
         RecipeApplicationRepository, TaskCleanupSuggestionRepository, AiJobRepository, AppSettingRepository,
         ChatEventSearchPort, ChatPendingToolRepositoryPort, ChatUserMemoryRepositoryPort, ClockPort,
-        AgentCompletionInboxRepository,
     ];
     const deps: ChatToolDeps = {
         tasks, taskUserStates, sessions, events, memos, rules, verdicts, tags, taskTags,
@@ -96,7 +92,7 @@ function buildRegistry(...args: unknown[]): ChatAgentRegistry {
     return {
         [AI_AGENT_BACKEND.claudeSdk]: new ChatSdkAgentAdapter(buildRunner(), deps, { pendingTools, clock }, { memories: userMemories, clock }),
         [AI_AGENT_BACKEND.python]: new ChatGraphAgentAdapter(
-            buildChatGraphClient(completionInbox),
+            buildChatGraphStreamClient(),
             { pendingTools, clock },
             resolveReadApiBaseUrl(),
         ),

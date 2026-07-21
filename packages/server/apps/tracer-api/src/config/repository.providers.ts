@@ -1,8 +1,6 @@
 import type { Provider } from "@nestjs/common";
 import type { DataSource } from "typeorm";
 import {
-    AgentCompletionInboxEntity,
-    AgentCompletionInboxRepository,
     AiJobRepository,
     AiJobStepEntity,
     AiJobStepRepository,
@@ -76,5 +74,4 @@ export const repositoryProviders: Provider[] = [
     { provide: ChatMessageRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatMessageRepository(ds.getRepository(ChatMessageEntity)) },
     { provide: ChatPendingToolRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatPendingToolRepository(ds.getRepository(ChatPendingToolEntity)) },
     { provide: ChatUserMemoryRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatUserMemoryRepository(ds.getRepository(ChatUserMemoryEntity)) },
-    { provide: AgentCompletionInboxRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new AgentCompletionInboxRepository(ds.getRepository(AgentCompletionInboxEntity)) },
 ];

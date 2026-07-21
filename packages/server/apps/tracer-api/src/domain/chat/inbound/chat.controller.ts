@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Param, Pa
 import type { Response } from "express";
 import { CHAT_THREADS_PATH, MONITOR_USER_HEADER } from "@monitor/kernel";
 import { errorMessage } from "@monitor/llm-runtime";
+import { CHAT_SPEC } from "~tracer-api/domain/chat/model/chat.spec.js";
+import { SseWriter } from "./chat.sse.writer.js";
 import { pathParamPipe } from "~tracer-api/support/path-param.pipe.js";
 import { resolveUserId } from "~tracer-api/support/request-user.js";
 import { SchemaValidationPipe } from "~tracer-api/support/schema.validation.pipe.js";
@@ -108,16 +110,27 @@ export class ChatController {
         res.flushHeaders();
 
         const abort = new AbortController();
-        res.on("close", () => abort.abort());
+        const writer = new SseWriter(res);
+        const guard = new TurnTimeout(() => this.expire(abort, writer, res));
+        // 소켓이 닫히면 상류 실행을 끊고, 역압력으로 drain을 기다리던 쓰기도 함께 깨운다.
+        res.on("close", () => {
+            abort.abort();
+            writer.close();
+            guard.clear();
+        });
 
         const sink: ChatTurnSink = {
-            onAssistantDelta: (text) => writeEvent(res, "assistant_delta", { text }),
-            onToolCall: (call) => writeEvent(res, "tool_call", call),
-            onToolResult: (result) => writeEvent(res, "tool_result", result),
-            onConfirmRequest: (request) => writeEvent(res, "tool_confirm_request", request),
-            onMemoryUpdated: (update) => writeEvent(res, "memory_updated", update),
+            onAssistantDelta: (text) => {
+                guard.bump();
+                return writer.write("assistant_delta", { text });
+            },
+            onToolCall: (call) => writer.write("tool_call", call),
+            onToolResult: (result) => writer.write("tool_result", result),
+            onConfirmRequest: (request) => writer.write("tool_confirm_request", request),
+            onMemoryUpdated: (update) => writer.write("memory_updated", update),
         };
 
+        guard.bump();
         try {
             const { message } = await this.runChatTurn.execute(
                 {
@@ -130,12 +143,21 @@ export class ChatController {
                 },
                 sink,
             );
-            writeEvent(res, "done", { message });
+            await writer.write("done", { message });
         } catch (error) {
-            writeEvent(res, "error", { message: errorMessage(error) });
+            await writer.write("error", { message: errorMessage(error) });
         } finally {
+            guard.clear();
             res.end();
         }
+    }
+
+    // 상류가 유휴·전체 상한을 넘기면 실행을 끊고 오류 프레임을 낸 뒤 스트림을 닫는다.
+    private expire(abort: AbortController, writer: SseWriter, res: Response): void {
+        abort.abort();
+        void writer.write("error", { message: "chat turn timed out" });
+        res.end();
+        writer.close();
     }
 
     @Post(":threadId/confirmations/:confirmationId")
@@ -155,7 +177,37 @@ export class ChatController {
     }
 }
 
-// SSE 프레임은 이벤트 이름과 한 줄 JSON 데이터를 빈 줄로 끊어 보낸다.
-function writeEvent(res: Response, event: string, data: unknown): void {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+// delta 사이 유휴 상한이며, 이 안에 어떤 산출도 없으면 상류가 멈춘 것으로 본다.
+const CHAT_SSE_IDLE_TIMEOUT_MS = 60_000;
+// 한 턴 전체의 상한이며, 상류가 데드라인을 넘겨도 스트림이 무한정 열려 있지 않게 한다.
+const CHAT_SSE_TURN_TIMEOUT_MS = CHAT_SPEC.limits.deadlineMs + 10_000;
+
+/** 유휴 타이머와 전체 상한 타이머를 함께 쥐고, 어느 쪽이 터지든 한 번만 만료를 부른다. */
+class TurnTimeout {
+    private idle: ReturnType<typeof setTimeout> | null = null;
+    private readonly total: ReturnType<typeof setTimeout>;
+    private fired = false;
+
+    constructor(private readonly onExpire: () => void) {
+        this.total = setTimeout(() => this.fire(), CHAT_SSE_TURN_TIMEOUT_MS);
+    }
+
+    /** 산출이 흐를 때마다 유휴 타이머를 처음부터 다시 잰다. */
+    bump(): void {
+        if (this.fired) return;
+        if (this.idle !== null) clearTimeout(this.idle);
+        this.idle = setTimeout(() => this.fire(), CHAT_SSE_IDLE_TIMEOUT_MS);
+    }
+
+    clear(): void {
+        this.fired = true;
+        if (this.idle !== null) clearTimeout(this.idle);
+        clearTimeout(this.total);
+    }
+
+    private fire(): void {
+        if (this.fired) return;
+        this.clear();
+        this.onExpire();
+    }
 }

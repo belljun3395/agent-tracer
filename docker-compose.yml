@@ -196,11 +196,7 @@ services:
 
   tracer-api:
     build: { context: ., dockerfile: Dockerfile, target: tracer-api }
-    environment:
-      <<: *app-env
-      # ai-agent-worker의 완료 콜백(8810)과 겹치지 않도록 대화 그래프 백엔드 전용 포트를 쓴다.
-      CHAT_AGENT_CALLBACK_PORT: "8811"
-      CHAT_AGENT_CALLBACK_URL: http://tracer-api:8811
+    environment: *app-env
     depends_on:
       tracer-db: { condition: service_healthy }
       redpanda: { condition: service_healthy }

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { AI_AGENT_BACKEND, CHAT_TOOL } from "@monitor/kernel";
 import type { ChatTurnResultPayload } from "@monitor/kernel/agent/chat.result.schema.js";
-import type { AgentRunnerPort, OutputSchema, StructuredAgentResult } from "@monitor/llm-runtime";
+import type {
+    AgentDeltaListener,
+    AgentStreamRunResult,
+    OutputSchema,
+    StreamingAgentRunnerPort,
+} from "@monitor/llm-runtime";
 import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.pending.tool.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import type {
@@ -14,32 +19,43 @@ import { ChatGraphAgentAdapter } from "./chat.graph.agent.adapter.js";
 
 const NOW = new Date("2026-02-02T00:00:00.000Z");
 
-class FakeRunner implements AgentRunnerPort {
+/** python 스트리밍 경로를 대신해 delta 토큰들을 순서대로 흘린 뒤 최종 result를 낸다. */
+class FakeStreamClient implements StreamingAgentRunnerPort {
     input: Record<string, unknown> | null = null;
-    constructor(private readonly data: ChatTurnResultPayload) {}
+    opts: { deadlineMs: number; abortSignal?: AbortSignal } | null = null;
+
+    constructor(
+        private readonly data: ChatTurnResultPayload,
+        private readonly deltas: readonly string[] = [],
+    ) {}
 
     requiresLocalApiKey(): boolean {
         return true;
     }
 
-    async runStructured<T>(
+    async streamStructured<T>(
         _agentId: string,
         input: Record<string, unknown>,
         _schema: OutputSchema<T>,
-        _opts: { deadlineMs: number; abortSignal?: AbortSignal },
-    ): Promise<StructuredAgentResult<T>> {
+        opts: { deadlineMs: number; abortSignal?: AbortSignal },
+        onDelta: AgentDeltaListener,
+    ): Promise<AgentStreamRunResult<T>> {
         this.input = input;
-        const result: StructuredAgentResult<ChatTurnResultPayload> = {
+        this.opts = opts;
+        for (const text of this.deltas) {
+            if (opts.abortSignal?.aborted === true) throw new Error("aborted");
+            await onDelta(text);
+        }
+        const result: AgentStreamRunResult<ChatTurnResultPayload> = {
             data: this.data,
             modelUsed: "claude-graph",
-            durationMs: 12,
-            costUsd: 0.02,
-            numTurns: 3,
             usage: null,
-            steps: [],
+            numTurns: 3,
+            costUsd: 0.02,
             providerRequestId: null,
+            durationMs: 12,
         };
-        return result as unknown as StructuredAgentResult<T>;
+        return result as unknown as AgentStreamRunResult<T>;
     }
 }
 
@@ -57,11 +73,17 @@ function collectingSink(): {
         confirms,
         memories,
         sink: {
-            onAssistantDelta: (text) => deltas.push(text),
+            onAssistantDelta: (text) => {
+                deltas.push(text);
+            },
             onToolCall: () => {},
             onToolResult: () => {},
-            onConfirmRequest: (request) => confirms.push(request),
-            onMemoryUpdated: (update) => memories.push(update),
+            onConfirmRequest: (request) => {
+                confirms.push(request);
+            },
+            onMemoryUpdated: (update) => {
+                memories.push(update);
+            },
         },
     };
 }
@@ -78,20 +100,23 @@ function turnInput(overrides: Partial<ChatTurnInput> = {}): ChatTurnInput {
     };
 }
 
-function buildAdapter(data: ChatTurnResultPayload): {
+function buildAdapter(
+    data: ChatTurnResultPayload,
+    deltas: readonly string[] = [],
+): {
     adapter: ChatGraphAgentAdapter;
-    runner: FakeRunner;
+    client: FakeStreamClient;
     pendingTools: InMemoryChatPendingToolRepository;
 } {
-    const runner = new FakeRunner(data);
+    const client = new FakeStreamClient(data, deltas);
     const pendingTools = new InMemoryChatPendingToolRepository();
     const clock = new FixedClock(NOW);
-    const adapter = new ChatGraphAgentAdapter(runner, { pendingTools, clock }, "http://tracer-api:3000");
-    return { adapter, runner, pendingTools };
+    const adapter = new ChatGraphAgentAdapter(client, { pendingTools, clock }, "http://tracer-api:3000");
+    return { adapter, client, pendingTools };
 }
 
 describe("ChatGraphAgentAdapter", () => {
-    it("requiresLocalApiKey는 그래프 클라이언트에 위임한다", () => {
+    it("requiresLocalApiKey는 스트리밍 클라이언트에 위임한다", () => {
         const { adapter } = buildAdapter({ assistantText: "", proposedWrites: [], memoryWrites: [] });
         expect(adapter.requiresLocalApiKey()).toBe(true);
     });
@@ -102,26 +127,48 @@ describe("ChatGraphAgentAdapter", () => {
         await expect(adapter.converse(noKey, collectingSink().sink)).rejects.toThrow();
     });
 
-    it("실행 봉투에 모델·키·도구 설명·멱등 키를 실어 그래프를 부른다", async () => {
-        const { adapter, runner } = buildAdapter({ assistantText: "안녕", proposedWrites: [], memoryWrites: [] });
+    it("실행 봉투에 모델·키·도구 설명을 실어 스트림을 연다", async () => {
+        const { adapter, client } = buildAdapter({ assistantText: "안녕", proposedWrites: [], memoryWrites: [] });
         await adapter.converse(turnInput(), collectingSink().sink);
-        const input = runner.input!;
+        const input = client.input!;
         expect(input["apiKey"]).toBe("sk-test");
         expect(input["threadId"]).toBe("th1");
         expect(input["readApiBaseUrl"]).toBe("http://tracer-api:3000");
-        expect(typeof input["idempotencyKey"]).toBe("string");
         expect((input["toolDescriptions"] as Record<string, string>)["search_tasks"]).toBeTypeOf("string");
     });
 
-    it("어시스턴트 텍스트를 한 번에 흘리고 결과를 python 백엔드로 낸다", async () => {
-        const { adapter } = buildAdapter({ assistantText: "정리했습니다", proposedWrites: [], memoryWrites: [] });
+    it("delta 토큰을 순서대로 싱크로 흘리고 최종 결과를 python 백엔드로 낸다", async () => {
+        const { adapter } = buildAdapter(
+            { assistantText: "정리했습니다", proposedWrites: [], memoryWrites: [] },
+            ["정리", "했", "습니다"],
+        );
         const { sink, deltas } = collectingSink();
         const result = await adapter.converse(turnInput(), sink);
-        expect(deltas).toEqual(["정리했습니다"]);
+        expect(deltas).toEqual(["정리", "했", "습니다"]);
         expect(result.backend).toBe(AI_AGENT_BACKEND.python);
         expect(result.text).toBe("정리했습니다");
         expect(result.modelUsed).toBe("claude-graph");
         expect(result.costUsd).toBe(0.02);
+    });
+
+    it("deadline을 스트림 타임아웃으로 전달하고 abortSignal을 전파한다", async () => {
+        const { adapter, client } = buildAdapter({ assistantText: "x", proposedWrites: [], memoryWrites: [] });
+        const controller = new AbortController();
+        await adapter.converse(turnInput({ abortSignal: controller.signal }), collectingSink().sink);
+        expect(client.opts?.deadlineMs).toBe(120_000);
+        expect(client.opts?.abortSignal).toBe(controller.signal);
+    });
+
+    it("abort되면 스트림이 끊겨 실행이 던진다", async () => {
+        const { adapter } = buildAdapter(
+            { assistantText: "정리", proposedWrites: [], memoryWrites: [] },
+            ["정", "리"],
+        );
+        const controller = new AbortController();
+        controller.abort();
+        await expect(
+            adapter.converse(turnInput({ abortSignal: controller.signal }), collectingSink().sink),
+        ).rejects.toThrow();
     });
 
     it("제안한 쓰기를 실행 없이 대기 행과 승인 요청으로 잇는다", async () => {

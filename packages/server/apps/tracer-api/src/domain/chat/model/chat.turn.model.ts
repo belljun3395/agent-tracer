@@ -47,12 +47,13 @@ export interface ChatMemoryUpdate {
 
 /** 턴이 끝나기 전에 부분 산출을 흘려보내는 싱크이며, mutation 도구는 실행 대신 onConfirmRequest로 승인 요청을 흘린다. */
 export interface ChatTurnSink {
-    onAssistantDelta(text: string): void;
-    onToolCall(call: ChatTurnToolCall): void;
-    onToolResult(result: ChatTurnToolResult): void;
-    onConfirmRequest?(request: ChatConfirmRequest): void;
+    /** Promise를 돌려주면 호출자가 그 완료를 기다려 브라우저 쪽 역압력을 상류로 전한다. */
+    onAssistantDelta(text: string): void | Promise<void>;
+    onToolCall(call: ChatTurnToolCall): void | Promise<void>;
+    onToolResult(result: ChatTurnToolResult): void | Promise<void>;
+    onConfirmRequest?(request: ChatConfirmRequest): void | Promise<void>;
     /** remember_fact가 확인 게이트 없이 즉시 적재한 기억을 투명성 통지로 흘려보낸다. */
-    onMemoryUpdated?(update: ChatMemoryUpdate): void;
+    onMemoryUpdated?(update: ChatMemoryUpdate): void | Promise<void>;
 }
 
 /** 한 대화 턴의 실행 입력이다. */

@@ -1,7 +1,7 @@
 import { AGENT, AI_AGENT_BACKEND, CHAT_TOOL } from "@monitor/kernel";
 import type { ChatTurnResultPayload } from "@monitor/kernel/agent/chat.result.schema.js";
 import { generateUlid } from "@monitor/platform";
-import type { AgentRunnerPort } from "@monitor/llm-runtime";
+import type { StreamingAgentRunnerPort } from "@monitor/llm-runtime";
 import { CHAT_SPEC } from "~tracer-api/domain/chat/model/chat.spec.js";
 import { CHAT_TOOL_CONTRACT } from "~tracer-api/domain/chat/model/chat.tool.schema.js";
 import type {
@@ -13,10 +13,10 @@ import type {
 import type { ChatAgentPort } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import { buildChatWriteToolHandlers, type ChatWriteToolDeps } from "./chat.write.tools.js";
 
-/** Python LangGraph 방언으로 chat 명세를 실행하고, 최종 구조화 결과를 대화 싱크로 이어 준다. */
+/** Python LangGraph 방언으로 chat 명세를 라이브 스트리밍하고, delta와 최종 결과를 대화 싱크로 이어 준다. */
 export class ChatGraphAgentAdapter implements ChatAgentPort {
     constructor(
-        private readonly client: AgentRunnerPort,
+        private readonly client: StreamingAgentRunnerPort,
         private readonly writeDeps: ChatWriteToolDeps,
         private readonly readApiBaseUrl: string,
     ) {}
@@ -29,7 +29,7 @@ export class ChatGraphAgentAdapter implements ChatAgentPort {
         // graph 백엔드는 실행 봉투에 담긴 키로 Anthropic을 직접 부르므로 키가 없으면 실행할 수 없다.
         if (input.apiKey === undefined) throw new Error("chat graph backend requires apiKey");
         const model = input.model?.trim() || CHAT_SPEC.limits.defaultModel;
-        const result = await this.client.runStructured(
+        const result = await this.client.streamStructured(
             AGENT.chat.id,
             {
                 model,
@@ -44,18 +44,16 @@ export class ChatGraphAgentAdapter implements ChatAgentPort {
                 // 모델에게 보일 도구 설명은 두 백엔드가 같은 문장을 쓰도록 계약 픽스처에서 실어 보낸다.
                 toolDescriptions: CHAT_TOOL_CONTRACT.descriptions,
                 deadlineMs: input.deadlineMs,
-                // chat은 jobId가 없어 취소·완료 창구의 실행 id로 쓸 멱등 키를 이 턴마다 찍는다.
-                idempotencyKey: generateUlid(this.writeDeps.clock.now().getTime()),
             },
             CHAT_SPEC.outputSchema,
             {
                 deadlineMs: input.deadlineMs,
                 ...(input.abortSignal !== undefined ? { abortSignal: input.abortSignal } : {}),
             },
+            // delta 토큰마다 대화 싱크로 흘리고, 싱크가 돌려주는 역압력을 그대로 기다린다.
+            (text) => sink.onAssistantDelta(text),
         );
 
-        // graph 경로는 토큰 스트림이 없어 최종 텍스트를 한 번에 흘려보낸다.
-        sink.onAssistantDelta(result.data.assistantText);
         const toolCalls = await this.applyEffects(result.data, input, sink);
 
         return {
@@ -89,7 +87,7 @@ export class ChatGraphAgentAdapter implements ChatAgentPort {
         }
         // Python store가 이미 정본에 써넣었으므로 어댑터는 다시 쓰지 않고 투명성 통지만 흘린다.
         for (const memory of data.memoryWrites) {
-            sink.onMemoryUpdated?.({ key: memory.key, content: memory.content });
+            void sink.onMemoryUpdated?.({ key: memory.key, content: memory.content });
             toolCalls.push({ id: this.ulid(), name: CHAT_TOOL.rememberFact, args: { ...memory } });
         }
         return toolCalls;

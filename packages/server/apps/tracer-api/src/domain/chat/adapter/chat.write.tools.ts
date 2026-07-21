@@ -43,7 +43,8 @@ async function proposeMutation(
     await deps.pendingTools.create(pending);
 
     const summary = summarizeMutation(toolName, args);
-    ctx.sink.onConfirmRequest?.({ id, toolName, summary, args });
+    // 승인 요청 통지는 역압력을 걷지 않는 부수 신호라 완료를 기다리지 않고 흘려보낸다.
+    void ctx.sink.onConfirmRequest?.({ id, toolName, summary, args });
 
     return JSON.stringify({
         confirmationId: id,

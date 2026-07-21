@@ -24,8 +24,8 @@ export class FakeChatAgent implements ChatAgentPort {
 
     converse(input: ChatTurnInput, sink: ChatTurnSink): Promise<ChatTurnResult> {
         this.lastInput = input;
-        for (const call of this.toolCalls) sink.onToolCall(call);
-        sink.onAssistantDelta(this.text);
+        for (const call of this.toolCalls) void sink.onToolCall(call);
+        void sink.onAssistantDelta(this.text);
         return Promise.resolve({
             text: this.text,
             backend: this.backend,

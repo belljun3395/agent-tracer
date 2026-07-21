@@ -45,13 +45,18 @@ export class ChatSdkAgentAdapter implements ChatAgentPort {
         const model = input.model?.trim() || CHAT_SPEC.limits.defaultModel;
         const toolCalls: ChatTurnToolCall[] = [];
 
+        // SDK 스트림은 동기 콜백이라 역압력을 상류로 전할 수 없어, 대화 싱크 통지를 기다리지 않고 흘려보낸다.
         const runnerStream: AgentStreamSink = {
-            onAssistantDelta: (text) => sink.onAssistantDelta(text),
+            onAssistantDelta: (text) => {
+                void sink.onAssistantDelta(text);
+            },
             onToolCall: (call) => {
                 toolCalls.push(call);
-                sink.onToolCall(call);
+                void sink.onToolCall(call);
             },
-            onToolResult: (result) => sink.onToolResult(result),
+            onToolResult: (result) => {
+                void sink.onToolResult(result);
+            },
         };
 
         const result = await this.runner.run({

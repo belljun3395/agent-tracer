@@ -9,10 +9,8 @@ import {
     loadApplicationConfig,
     SchemaOutOfDateError,
 } from "@monitor/platform";
-import { AgentCompletionInboxEntity, AgentCompletionInboxRepository, TRACER_ENTITIES } from "@monitor/tracer-domain";
+import { TRACER_ENTITIES } from "@monitor/tracer-domain";
 import { TRACER_MIGRATIONS } from "@monitor/tracer-domain/migrations/registry.js";
-import { AgentCompletionServer, DurableCompletionInbox } from "@monitor/llm-runtime";
-import { resolveChatCallbackConfig } from "~tracer-api/config/chat.callback.config.js";
 import { errorMessage, logError, logInfo } from "~tracer-api/config/log.js";
 import { NotificationBroadcaster } from "~tracer-api/config/notification.broadcaster.js";
 import { NotificationConsumer } from "~tracer-api/config/notification.consumer.js";
@@ -38,15 +36,6 @@ async function bootstrap(): Promise<void> {
     const broadcaster = new NotificationBroadcaster();
     const gateway = new WsGateway(broadcaster);
     const consumer = new NotificationConsumer(kafka, broadcaster);
-
-    const completionInbox = new AgentCompletionInboxRepository(dataSource.getRepository(AgentCompletionInboxEntity));
-    const chatCallback = resolveChatCallbackConfig();
-    const callbacks = new AgentCompletionServer(
-        chatCallback.port,
-        new DurableCompletionInbox(chatCallback.url, completionInbox),
-    );
-    await callbacks.start();
-    logInfo({ msg: "tracer-api.callbackServer.started", port: chatCallback.port });
 
     const app = await NestFactory.create<NestExpressApplication>(
         TracerApiModule.forRoot(dataSource, kafka, broadcaster),
@@ -86,7 +75,6 @@ async function bootstrap(): Promise<void> {
         try {
             await consumer.stop();
             await gateway.close();
-            await callbacks.close();
             await app.close();
             await dataSource.destroy();
             process.exit(0);

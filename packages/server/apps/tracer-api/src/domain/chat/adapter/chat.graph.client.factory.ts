@@ -1,11 +1,8 @@
 import { loadApplicationConfig } from "@monitor/platform";
-import { AgentGraphClient, DurableCompletionInbox } from "@monitor/llm-runtime";
-import type { AgentCompletionInboxRepository } from "@monitor/tracer-domain";
-import { resolveChatCallbackConfig } from "~tracer-api/config/chat.callback.config.js";
+import { AgentGraphStreamClient } from "@monitor/llm-runtime";
 
-// graph 백엔드는 실행을 요청한 HTTP 연결이 아니라 tracer-api 전용 완료 창구로 결과를 되받으므로, DB 완료 창구를 폴링하는 클라이언트로 부른다.
-export function buildChatGraphClient(completionInbox: AgentCompletionInboxRepository): AgentGraphClient {
+// 대화는 짧고 인터랙티브하므로 완료 창구 대신 실행을 요청한 HTTP 연결로 토큰을 라이브 스트리밍한다.
+export function buildChatGraphStreamClient(): AgentGraphStreamClient {
     const { agentGraph } = loadApplicationConfig();
-    const { url: callbackUrl } = resolveChatCallbackConfig();
-    return new AgentGraphClient(agentGraph.url, new DurableCompletionInbox(callbackUrl, completionInbox));
+    return new AgentGraphStreamClient(agentGraph.url);
 }

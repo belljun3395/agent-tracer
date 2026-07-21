@@ -55,7 +55,7 @@ export function buildChatMemoryToolHandlers(ctx: ChatMemoryToolContext, deps: Ch
                     now,
                 });
                 await deps.memories.upsert(memory);
-                ctx.sink.onMemoryUpdated?.({ key, content });
+                void ctx.sink.onMemoryUpdated?.({ key, content });
                 logInfo({ msg: "chat.memory.remembered", userId: ctx.userId, key });
                 return JSON.stringify({ key, content, status: "remembered" });
             });
