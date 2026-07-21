@@ -75,6 +75,16 @@
       "optional": [],
       "mutation": false
     },
+    "recall_facts": {
+      "required": [],
+      "optional": [],
+      "mutation": false
+    },
+    "remember_fact": {
+      "required": ["key", "content"],
+      "optional": [],
+      "mutation": false
+    },
     "update_task": {
       "required": ["taskId"],
       "optional": ["title", "status"],
@@ -362,6 +372,13 @@
       "page": ["items"],
       "item": ["key", "maskedValue", "hasValue", "updatedAt"]
     },
+    "recall_facts": {
+      "page": ["facts"],
+      "fact": ["key", "content", "updatedAt"]
+    },
+    "remember_fact": {
+      "memory": ["key", "content", "status"]
+    },
     "update_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
     "archive_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
     "unarchive_task": { "proposal": ["confirmationId", "toolName", "status", "summary"] },
@@ -400,6 +417,8 @@
     "list_cleanup_suggestions": "List task-cleanup suggestions produced for the user, optionally filtered by status (pending/accepted/dismissed). Each names the task it targets, the proposed change, and the rationale. Use this to report what cleanup the system has proposed.",
     "get_job": "Get one AI job by jobId: its kind, executor, status, attempt count, the task it ran against, and its input/result/usage. Use this to report on the outcome of an agent job the user is asking about.",
     "list_settings": "List the user's application settings by key, with each value masked (only whether a value is set is shown). Use this to tell the user which settings are configured without revealing secret values.",
+    "recall_facts": "List the durable facts you have remembered about this user, each a short key and its content. Takes no arguments and runs immediately. These same facts are already injected at the top of your context each turn; call this only to re-read them explicitly, for example before deciding whether to remember_fact a new one.",
+    "remember_fact": "Remember a durable fact about this user that should persist across ALL of their chat threads — a stated preference or a stable detail about how they work, not a one-off detail of the current task. Pass a short slug key (for example \"preferred_language\") and the content; remembering the same key again overwrites it. This runs immediately and is NOT a proposal: it is saved at once and the user sees it happen, so you may say plainly that you have remembered it.",
     "update_task": "PROPOSAL (requires user confirmation, does not run immediately): change a task's title and/or status by taskId. status is one of running/waiting/completed/errored. Pass at least one of title or status. The change is queued and only applied after the user approves; tell the user you are awaiting their confirmation.",
     "archive_task": "PROPOSAL (requires user confirmation): archive a task by taskId so it drops out of the default listing. Queued until the user approves — never claim it is archived yet.",
     "unarchive_task": "PROPOSAL (requires user confirmation): restore an archived task by taskId. Queued until the user approves.",

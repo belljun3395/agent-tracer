@@ -14,6 +14,8 @@ export const CHAT_TOOL = {
     listCleanupSuggestions: "list_cleanup_suggestions",
     getJob: "get_job",
     listSettings: "list_settings",
+    recallFacts: "recall_facts",
+    rememberFact: "remember_fact",
     updateTask: "update_task",
     archiveTask: "archive_task",
     unarchiveTask: "unarchive_task",
