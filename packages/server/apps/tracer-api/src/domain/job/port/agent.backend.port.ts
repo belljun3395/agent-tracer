@@ -7,5 +7,5 @@ export type DefaultAgentBackendPort = AiAgentBackend;
 
 export const LOCAL_CLI_AUTH = Symbol("LocalCliAuth");
 
-/** claude-sdk 잡이 API 키 대신 로그인된 claude CLI 자격증명으로 도는지다. */
+/** claude-sdk 잡을 API 키 대신 로그인된 claude CLI 자격증명으로 돌리는지 여부다. */
 export type LocalCliAuthPort = boolean;
