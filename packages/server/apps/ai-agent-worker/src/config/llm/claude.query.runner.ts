@@ -68,10 +68,18 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
         let runningCostUsd = 0;
         let peakCallCostUsd = 0;
         let landing = false;
+        // continue:false는 루프를 멈춰 결론 턴을 잃으므로 permissionDecision:deny로 그 도구만 막아 모델이 남은 것으로 구조화 출력을 내게 한다.
         const denyToolsWhenLanding = (): Promise<HookJSONOutput> =>
             Promise.resolve(
                 landing
-                    ? { continue: false, stopReason: "internal cost budget landing" }
+                    ? {
+                        hookSpecificOutput: {
+                            hookEventName: "PreToolUse",
+                            permissionDecision: "deny",
+                            permissionDecisionReason:
+                                "Cost budget reached. Stop calling tools and produce your final structured output now from what you already have.",
+                        },
+                    }
                     : { continue: true },
             );
 
