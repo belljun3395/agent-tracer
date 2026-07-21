@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from anthropic import APIConnectionError, APIError, APIStatusError
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
+from langchain.agents.middleware.tool_call_limit import ToolCallLimitExceededError
 
 from ..shared.models import AgentErrorDTO
 
@@ -43,6 +44,9 @@ def classify_exception(err: BaseException) -> AgentErrorDTO:
     # 도구 예산을 다 쓴 실행은 같은 예산으로 재시도해도 같은 자리에서 끝나므로 비재시도로 넘긴다.
     if isinstance(err, ModelCallLimitExceededError):
         return AgentErrorDTO(subtype="max_turns_exceeded", summary=str(err))
+    # 도구 호출 상한을 다 쓴 실행도 같은 한도로 재시도하면 같은 자리에서 끝나므로 비재시도로 넘긴다.
+    if isinstance(err, ToolCallLimitExceededError):
+        return AgentErrorDTO(subtype="max_tool_calls_exceeded", summary=str(err))
     # Anthropic SDK에서 APIConnectionError는 APIError의 서브클래스다.
     if isinstance(err, APIConnectionError):
         return AgentErrorDTO(subtype="connection_error", summary=str(err))

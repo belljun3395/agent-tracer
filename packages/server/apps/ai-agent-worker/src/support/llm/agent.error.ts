@@ -4,6 +4,8 @@ import type { AgentQueryUsage } from "./agent.usage.js";
 // 여러 실행기가 같은 문자열을 참조하도록 공급자 원시 값을 이 어휘로 정규화한다.
 export const AGENT_ERROR_SUBTYPE = {
     maxTurnsExceeded: "max_turns_exceeded",
+    // 파이썬 백엔드의 max_tool_calls_exceeded와 같은 문자열을 써 두 백엔드가 같은 서브타입으로 보고한다.
+    maxToolCallsExceeded: "max_tool_calls_exceeded",
     budgetExceeded: "budget_exceeded",
     outputSchemaInvalid: "output_schema_invalid",
     executionError: "agent_execution_error",
@@ -65,6 +67,7 @@ const NON_RETRYABLE_SUBTYPES: ReadonlySet<string> = new Set([
     "refusal",
     AGENT_ERROR_SUBTYPE.invalidRequest,
     AGENT_ERROR_SUBTYPE.maxTurnsExceeded,
+    AGENT_ERROR_SUBTYPE.maxToolCallsExceeded,
     AGENT_ERROR_SUBTYPE.budgetExceeded,
     AGENT_ERROR_SUBTYPE.outputSchemaInvalid,
 ]);

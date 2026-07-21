@@ -47,7 +47,12 @@ const CONTRACT = JSON.parse(
 ) as {
     readonly descriptions: Record<string, string>;
     readonly maxTurns: number;
-    readonly limits: { readonly candidateLimit: number; readonly maxOutputTokens: number; readonly maxBudgetUsd: number };
+    readonly limits: {
+        readonly candidateLimit: number;
+        readonly maxToolCalls: number;
+        readonly maxOutputTokens: number;
+        readonly maxBudgetUsd: number;
+    };
     readonly steps: { readonly consecutiveFromOne: boolean };
     readonly orchestration: {
         readonly workerMaxTurns: number;
@@ -133,6 +138,7 @@ describe("recipe-scan 도구 계약", () => {
 
     it("후보 상한과 토큰과 비용 예산이 골든 계약과 같다", () => {
         expect(RECIPE_CANDIDATE_LIMIT).toBe(CONTRACT.limits.candidateLimit);
+        expect(RECIPE_SCAN_SPEC.limits.maxToolCalls).toBe(CONTRACT.limits.maxToolCalls);
         expect(RECIPE_SCAN_SPEC.limits.maxOutputTokens).toBe(CONTRACT.limits.maxOutputTokens);
         expect(RECIPE_SCAN_SPEC.limits.maxBudgetUsd).toBe(CONTRACT.limits.maxBudgetUsd);
     });

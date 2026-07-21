@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import AgentMiddleware, ModelCallLimitMiddleware
+from langchain.agents.middleware import AgentMiddleware, ModelCallLimitMiddleware, ToolCallLimitMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
@@ -14,11 +14,13 @@ from langgraph.graph.state import CompiledStateGraph
 
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import TitleSuggestionDraft
-from .policy import MAX_TOOL_ROUNDS
+from .policy import MAX_TOOL_ROUNDS, TITLE_MAX_TOOL_CALLS
 
 
 def build_title_agent(
-    chat: BaseChatModel, system_prompt: str, tools: list[BaseTool]
+    chat: BaseChatModel,
+    system_prompt: str,
+    tools: list[BaseTool],
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """표준 도구 실행과 구조화 출력을 갖춘 title agent를 컴파일한다."""
     system = SystemMessage(
@@ -27,6 +29,7 @@ def build_title_agent(
     middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=MAX_TOOL_ROUNDS + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
+        ToolCallLimitMiddleware(run_limit=TITLE_MAX_TOOL_CALLS, exit_behavior="error"),
     ]
     # noinspection PyTypeChecker
     return create_agent(

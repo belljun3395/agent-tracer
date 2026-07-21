@@ -4,6 +4,7 @@
   "limits": {
     "maxSuggestions": 50,
     "maxEvidenceEventIds": 100,
+    "maxToolCalls": 48,
     "maxOutputTokens": 16000,
     "maxBudgetUsd": 0.5
   },

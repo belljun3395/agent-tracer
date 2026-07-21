@@ -25,6 +25,8 @@ MIN_SYNTHESIS_ROUNDS = 3
 
 MAX_RECIPE_MODEL_COST_USD = 2.0
 RECIPE_MAX_OUTPUT_TOKENS = 16_000
+# 커널의 골든 계약이 값을 소유하며 조율자·전문가 인스턴스마다 이 한도를 상한으로 쓴다.
+RECIPE_MAX_TOOL_CALLS = 60
 
 ValidationRoute = Callable[[RecipeScanState], Literal["repair", "finalize", "empty"]]
 

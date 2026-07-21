@@ -3,6 +3,7 @@
   "limits": {
     "recentTurnLimit": 20,
     "maxContextTurns": 21,
+    "maxToolCalls": 8,
     "maxOutputTokens": 4000,
     "maxBudgetUsd": 0.2
   },

@@ -25,6 +25,7 @@ export interface AgentQueryRequest<ProviderOptions = undefined> {
     readonly jobId?: string;
     readonly model: string;
     readonly maxTurns: number;
+    readonly maxToolCalls: number;
     readonly maxOutputTokens?: number;
     readonly deadlineMs: number;
     readonly env: Readonly<Record<string, string | undefined>>;

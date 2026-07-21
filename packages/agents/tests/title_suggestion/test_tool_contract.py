@@ -16,6 +16,7 @@ from agent_graph.agents.title_suggestion.policy import (
     MAX_TITLE_MODEL_COST_USD,
     MAX_TOOL_ROUNDS,
     TITLE_MAX_OUTPUT_TOKENS,
+    TITLE_MAX_TOOL_CALLS,
 )
 from agent_graph.agents.title_suggestion.reader import TitleLedgerReader
 from agent_graph.agents.title_suggestion.tools import (
@@ -68,6 +69,7 @@ def test_턴_예산이_골든_계약과_같다() -> None:
 def test_토큰과_비용_예산이_골든_계약과_같다() -> None:
     limits = _contract()["limits"]
 
+    assert limits["maxToolCalls"] == TITLE_MAX_TOOL_CALLS
     assert limits["maxOutputTokens"] == TITLE_MAX_OUTPUT_TOKENS
     assert limits["maxBudgetUsd"] == MAX_TITLE_MODEL_COST_USD
 

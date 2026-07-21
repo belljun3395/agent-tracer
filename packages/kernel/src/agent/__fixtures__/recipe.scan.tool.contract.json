@@ -2,6 +2,7 @@
   "maxTurns": 15,
   "limits": {
     "candidateLimit": 4,
+    "maxToolCalls": 60,
     "maxOutputTokens": 16000,
     "maxBudgetUsd": 2
   },

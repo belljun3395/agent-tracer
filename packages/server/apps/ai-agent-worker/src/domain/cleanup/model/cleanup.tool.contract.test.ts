@@ -35,6 +35,7 @@ const CONTRACT = JSON.parse(
     readonly limits: {
         readonly maxSuggestions: number;
         readonly maxEvidenceEventIds: number;
+        readonly maxToolCalls: number;
         readonly maxOutputTokens: number;
         readonly maxBudgetUsd: number;
     };
@@ -147,6 +148,7 @@ describe("task-cleanup 도구 계약", () => {
     it("제안 상한과 근거 상한과 토큰과 비용 예산이 골든 계약과 같다", () => {
         expect(TASK_CLEANUP_MAX_SUGGESTIONS).toBe(CONTRACT.limits.maxSuggestions);
         expect(TASK_CLEANUP_MAX_EVIDENCE_EVENT_IDS).toBe(CONTRACT.limits.maxEvidenceEventIds);
+        expect(TASK_CLEANUP_SPEC.limits.maxToolCalls).toBe(CONTRACT.limits.maxToolCalls);
         expect(TASK_CLEANUP_SPEC.limits.maxOutputTokens).toBe(CONTRACT.limits.maxOutputTokens);
         expect(TASK_CLEANUP_SPEC.limits.maxBudgetUsd).toBe(CONTRACT.limits.maxBudgetUsd);
     });

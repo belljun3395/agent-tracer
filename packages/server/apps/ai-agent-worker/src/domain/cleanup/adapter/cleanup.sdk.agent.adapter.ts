@@ -136,6 +136,7 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
                 jobId: input.jobId,
                 model,
                 maxTurns: limits.maxTurns,
+                maxToolCalls: limits.maxToolCalls,
                 maxOutputTokens: limits.maxOutputTokens,
                 deadlineMs: limits.deadlineMs,
                 // Agent SDK 하위 프로세스의 활동도 수집되므로 사용자 태스크와 구분되도록 출처를 표시한다.
