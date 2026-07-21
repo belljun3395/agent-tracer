@@ -68,6 +68,17 @@ export * from "./search/search.outbox.repository.js";
 export * from "./memo/memo.entity.js";
 export * from "./memo/memo.repository.js";
 
+// chat
+export * from "./chat/chat.const.js";
+export * from "./chat/chat.thread.entity.js";
+export * from "./chat/chat.thread.repository.js";
+export * from "./chat/chat.message.entity.js";
+export * from "./chat/chat.message.repository.js";
+export * from "./chat/chat.pending.tool.entity.js";
+export * from "./chat/chat.pending.tool.repository.js";
+export * from "./chat/chat.user.memory.entity.js";
+export * from "./chat/chat.user.memory.repository.js";
+
 // tag
 export * from "./tag/tag.entity.js";
 export * from "./tag/tag.repository.js";

@@ -26,6 +26,10 @@ export const OWNED_TABLES = [
     "memos",
     "tags",
     "task_tags",
+    "chat_threads",
+    "chat_messages",
+    "chat_pending_tools",
+    "chat_user_memories",
 ] as const;
 
 export type RebuildableTable = (typeof REBUILDABLE_TABLES)[number];

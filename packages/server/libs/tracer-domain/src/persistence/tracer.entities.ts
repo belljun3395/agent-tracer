@@ -1,4 +1,8 @@
 import { TaskCleanupSuggestionEntity } from "../cleanup/task.cleanup.suggestion.entity.js";
+import { ChatMessageEntity } from "../chat/chat.message.entity.js";
+import { ChatPendingToolEntity } from "../chat/chat.pending.tool.entity.js";
+import { ChatThreadEntity } from "../chat/chat.thread.entity.js";
+import { ChatUserMemoryEntity } from "../chat/chat.user.memory.entity.js";
 import { AgentEventView } from "../timeline/event/agent.event.view.js";
 import { AgentRuleView } from "../rule/agent.rule.view.js";
 import { AgentTaskView } from "../task/agent.task.view.js";
@@ -44,6 +48,10 @@ export const TRACER_ENTITIES = [
     MemoEntity,
     TagEntity,
     TaskTagEntity,
+    ChatThreadEntity,
+    ChatMessageEntity,
+    ChatPendingToolEntity,
+    ChatUserMemoryEntity,
     AgentTaskView,
     AgentEventView,
     AgentRuleView,
