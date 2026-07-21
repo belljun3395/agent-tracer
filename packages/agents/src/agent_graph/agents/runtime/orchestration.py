@@ -13,13 +13,13 @@ class RoundAssignment(Protocol):
 
 
 def allocate_cost_shares[Assignment: RoundAssignment](
-    assignments: Sequence[Assignment],
+    assignments: Sequence[Assignment], *, ceiling: float = 1.0
 ) -> list[tuple[Assignment, float]]:
-    """각 워커의 라운드를 전체 라운드로 나누어 비용 몫과 함께 돌려준다."""
+    """각 워커의 라운드 몫에 예산 상한을 곱해 그 워커가 태울 수 있는 비용과 함께 돌려준다."""
     total_rounds = sum(assignment.rounds for assignment in assignments)
     if total_rounds <= 0:
         raise ValueError("worker assignments must allocate at least one round")
-    return [(assignment, assignment.rounds / total_rounds) for assignment in assignments]
+    return [(assignment, ceiling * assignment.rounds / total_rounds) for assignment in assignments]
 
 
 def clamp_rounds[Assignment: RoundAssignment](assignments: Sequence[Assignment], available: int) -> list[int]:

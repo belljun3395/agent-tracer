@@ -98,6 +98,9 @@ describe("CleanupSdkAgentAdapter", () => {
         });
         expect(request?.providerOptions?.agents?.["cleanup-candidate-reviewer"]?.model).toBe(request?.model);
         expect(request?.systemPrompt).toContain("delegate its review");
+        // 리드는 후보를 훑을 뿐 이벤트는 열지 못하므로 get_task_events는 리드의 도구에 없다.
+        expect(request?.allowedTools.some((tool) => tool.includes("list_candidate_tasks"))).toBe(true);
+        expect(request?.allowedTools.some((tool) => tool.includes("get_task_events"))).toBe(false);
     });
 
     it("수리한 출력도 근거가 서지 않으면 그 제안을 버린다", async () => {

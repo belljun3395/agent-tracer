@@ -22,6 +22,7 @@ from .list_candidates import (
     candidate_page,
 )
 from .registry import (
+    COORDINATOR_TOOL_NAMES,
     INSPECT_TOOL_NAMES,
     TRIAGE_TOOL_NAMES,
     build_cleanup_registry,
@@ -29,6 +30,7 @@ from .registry import (
 )
 
 __all__ = [
+    "COORDINATOR_TOOL_NAMES",
     "DEFAULT_CANDIDATE_LIMIT",
     "DEFAULT_EVENT_LIMIT",
     "DEFAULT_EVENT_ORDER",

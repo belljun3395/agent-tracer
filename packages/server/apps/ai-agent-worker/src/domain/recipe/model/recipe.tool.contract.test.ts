@@ -4,7 +4,11 @@ import { z } from "zod";
 import { RECIPE_CANDIDATE_LIMIT, TIMELINE_EVENT_KINDS } from "@monitor/kernel";
 import { RECIPE_SCAN_MAX_TURNS } from "./recipe.prompt.js";
 import { RECIPE_SCAN_SPEC } from "./recipe.spec.js";
-import { RECIPE_WORKER_MAX_TURNS, RECIPE_WORKER_TOOLS } from "../adapter/recipe.sdk.agent.adapter.js";
+import {
+    RECIPE_COORDINATOR_TOOLS,
+    RECIPE_WORKER_MAX_TURNS,
+    RECIPE_WORKER_TOOLS,
+} from "../adapter/recipe.sdk.agent.adapter.js";
 import {
     DEFAULT_EVENT_LIMIT,
     DEFAULT_SEARCH_LIMIT,
@@ -47,6 +51,7 @@ const CONTRACT = JSON.parse(
     readonly steps: { readonly consecutiveFromOne: boolean };
     readonly orchestration: {
         readonly workerMaxTurns: number;
+        readonly coordinatorTools: readonly string[];
         readonly roles: Readonly<Record<string, readonly string[]>>;
         readonly workerReport: { readonly required: readonly string[]; readonly excerptRequired: readonly string[] };
     };
@@ -139,6 +144,11 @@ describe("recipe-scan 도구 계약", () => {
     it("SDK 워커 역할과 도구와 턴 몫이 골든 계약과 같다", () => {
         expect(RECIPE_WORKER_MAX_TURNS).toBe(CONTRACT.orchestration.workerMaxTurns);
         expect(RECIPE_WORKER_TOOLS).toEqual(CONTRACT.orchestration.roles);
+    });
+
+    it("조율자 리드가 쥔 도구가 골든 계약과 같다", () => {
+        // 조율자는 근거를 직접 캐지 않고 인용만 확인하므로 리드에 남는 조사 도구는 check_citations 하나다.
+        expect([...RECIPE_COORDINATOR_TOOLS]).toEqual(CONTRACT.orchestration.coordinatorTools);
     });
 
     it("도구마다 필수와 선택 인자가 골든 계약과 같다", () => {

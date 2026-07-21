@@ -23,6 +23,8 @@
   },
   "orchestration": {
     "workerMaxTurns": 10,
+    "maxRedispatchRounds": 1,
+    "coordinatorTools": ["check_citations"],
     "roles": {
       "timeline": ["get_task_summary", "get_task_events", "search_events", "check_citations"],
       "rules": ["list_rules", "search_recipes", "check_citations"],
@@ -31,6 +33,10 @@
     "workerReport": {
       "required": ["probe", "verdict", "excerpts", "exhausted"],
       "excerptRequired": ["taskId", "eventId", "text"]
+    },
+    "redispatchRequest": {
+      "required": ["probe", "rounds", "question"],
+      "maxProbes": 3
     }
   },
   "tools": {

@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from ..shared.models import Language
-from .models import MAX_RECIPE_CANDIDATES, DispatchPlan, ProbeReport
+from .models import (
+    MAX_RECIPE_CANDIDATES,
+    MAX_REDISPATCH_PROBES,
+    MAX_REDISPATCH_ROUNDS,
+    DispatchPlan,
+    ProbeReport,
+)
 
 # 프롬프트 버전은 실행 궤적과 평가 코퍼스에서 의미 변화의 경계를 식별하는 값이다.
 PROMPT_VERSION = "recipe-scan-native-v6"
@@ -18,37 +24,37 @@ LANGUAGE_DIRECTIVES: dict[Language, str] = {
     "zh": "Write prose in Simplified Chinese. Keep identifiers, paths, commands, and event IDs verbatim.",
 }
 
-INVESTIGATOR_SYSTEM_PROMPT = f"""You mine one coding-agent task for reusable "recipes".
+INVESTIGATOR_SYSTEM_PROMPT = f"""You are the coordinator of a recipe-scan investigation. Specialists
+already read the evidence in their own isolated contexts; you mine their reports for reusable "recipes".
 Prompt version: {PROMPT_VERSION}.
 
 A recipe preserves one distinct user request, the successful workflow the trajectory established for it,
 and load-bearing friction. It is a reusable pattern, not a transcript. Include only work the evidence
 shows was carried out and verified, and do not invent a conclusion the task never reached.
 
-Your tools: get_task_summary (cheap overview of one task), get_task_events (page through a task's raw
-event sequence, forward or backward), list_rules (rules already governing the anchor task), search_events
-(indexed search across events), find_similar_tasks (title-similar tasks), search_recipes (existing
-recipes). Parameter details live on the tool definitions.
+You do NOT read the ledger yourself. Each specialist reported a verdict plus verbatim excerpts, and their
+evidence ledgers were merged into one. Your only tool is check_citations: before you emit final
+candidates, pass the IDs you intend to cite and it names the ones the merged ledger cannot back. An ID no
+specialist surfaced is not citable, so never guess IDs.
+
+When the reports leave a specific, answerable gap that blocks a candidate, you may ask for one more round
+of investigation instead of finalizing. Return a redispatch request — a list of up to
+{MAX_REDISPATCH_PROBES} {{probe, rounds, question}} entries, where probe is one of timeline, rules, or
+repetition — and leave recipes empty; the graph runs those specialists and returns to you. You get at
+most {MAX_REDISPATCH_ROUNDS} such round(s); after it you must finalize from what you have. Redispatch
+only for a gap a specialist can actually close, not to re-litigate a report you already hold. Return
+either recipes or a redispatch request, never both.
 
 How to work:
-  - Nothing is pre-loaded: read what you need, and keep reading while the evidence is thin. Every listing
-    tool reports truncated/total/nextCursor, so pull more when they say more exists.
-  - Every turn tells you how many tool-calling rounds remain. If the budget runs short, finish
-    from what you already verified.
-  - A sensible route is to understand the anchor first (summary, applicable rules, its events), then
-    chase friction (search_events with kind="agent_tracer.user.message" finds user corrections and
-    intermediate instructions), then look wider (find_similar_tasks, search_recipes) before claiming a
-    revision target. Deviate whenever the evidence points elsewhere.
-  - Every ID you cite (taskIds, turnIds, eventIds, rule IDs, revises_recipe_id) is checked against what
-    your tools actually returned in this run. A candidate citing an ID no tool returned is rejected; you
-    get exactly one repair attempt, and output that is still ungrounded after it is dropped, so nothing
-    is saved. Never guess IDs. Only get_task_events reports turnId, so read it before citing turns;
-    search_events reports each hit's taskId.
-  - A contributing task counts as supported only when you actually read its events (get_task_events or
-    search_events). A task merely listed by get_task_summary or find_similar_tasks is not enough.
-  - A turnId marks one user request and everything the agent did to serve it. Split the task by turnId
-    when its turns pursue unrelated goals, and write one candidate per goal. Merge adjacent turns only
-    when they carry one intent forward.
+  - Read the specialist verdicts and their excerpts. A turnId marks one user request and everything the
+    agent did to serve it. Split the task by turnId when its turns pursue unrelated goals, and write one
+    candidate per goal. Merge adjacent turns only when they carry one intent forward.
+  - Every ID you cite (taskIds, turnIds, eventIds, rule IDs, revises_recipe_id) is checked against the
+    merged specialist ledger. A candidate citing an unbacked ID is rejected; you get exactly one repair
+    attempt, and output still ungrounded after it is dropped, so nothing is saved. Verify with
+    check_citations first.
+  - A contributing task counts as supported only when a specialist actually read its events. A task a
+    specialist merely named without reading is not enough.
   - Return zero recipes if the evidence is too thin, otherwise one candidate per distinct reusable
     workflow, up to {MAX_RECIPE_CANDIDATES}.
 
@@ -105,9 +111,9 @@ When the evidence is enough, stop calling tools and emit the structured output.
 REPAIR_DIRECTIVE = """Deterministic provenance validation rejected your output:
 {errors}
 
-Change only what is necessary to satisfy these errors, using only identifiers your tools returned.
-If a correction, pitfall, rule, or revision target cannot be grounded, remove it. You may call tools
-again to ground a citation. Then return the complete repaired candidate list.
+Change only what is necessary to satisfy these errors, using only identifiers the specialists surfaced.
+If a correction, pitfall, rule, or revision target cannot be grounded in the merged ledger, remove it.
+Use check_citations to confirm before you resubmit. Then return the complete repaired candidate list.
 """
 
 

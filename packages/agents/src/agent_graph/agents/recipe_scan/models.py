@@ -38,6 +38,12 @@ ProbeName = Literal["timeline", "rules", "repetition"]
 # 한 전문가에게 몰아줄 수 있는 최대 라운드이며 조율자의 배분을 이 안으로 가둔다.
 MAX_PROBE_ROUNDS = 10
 
+# 조율자가 종합 대신 전문가를 다시 부를 수 있는 라운드 수이며 무한 루프를 이 값으로 막는다.
+MAX_REDISPATCH_ROUNDS = 1
+
+# 한 번의 추가 파견 요청이 부를 수 있는 전문가 수의 상한이다.
+MAX_REDISPATCH_PROBES = 3
+
 
 class ProbeAssignment(BaseModel):
     """조율자가 한 전문가에게 맡긴 질문과 배분한 조사 라운드다."""
@@ -62,12 +68,12 @@ class DispatchPlan(BaseModel):
 
 
 class ProbeDispatch(BaseModel):
-    """조율자가 전문가 분기 하나에 실어 보내는 조사 지시와 비용 몫이다."""
+    """조율자가 전문가 분기 하나에 실어 보내는 조사 지시와 배분한 비용 예산이다."""
 
     model_config = ConfigDict(extra="forbid")
 
     assignment: ProbeAssignment
-    cost_share: float = Field(gt=0.0, le=1.0)
+    cost_budget: float = Field(gt=0.0)
 
 
 # 발췌 상한이 곧 맥락 격리의 강도이며 넉넉히 열면 전문가의 맥락이 조율자에게 그대로 옮겨온다.
@@ -190,6 +196,14 @@ class RecipeCandidate(BaseModel):
 
 class RecipeDraft(BaseModel):
     recipes: list[RecipeCandidate] = Field(default_factory=list, max_length=MAX_RECIPE_CANDIDATES)
+    # 조율자는 최종 초안 대신 전문가 추가 파견을 요청할 수 있으며 둘은 함께 오지 않는다.
+    redispatch: list[ProbeAssignment] = Field(default_factory=list, max_length=MAX_REDISPATCH_PROBES)
+
+    @model_validator(mode="after")
+    def _draft_or_redispatch(self) -> RecipeDraft:
+        if self.recipes and self.redispatch:
+            raise ValueError("return either recipes or a redispatch request, not both")
+        return self
 
 
 class ProvenanceCatalog(BaseModel):
@@ -236,6 +250,9 @@ class InvestigateUpdate(TypedDict):
     messages: list[BaseMessage]
     provenance: ProvenanceCatalog
     model_cost_usd: float
+    redispatch: DispatchPlan | None
+    redispatch_ceiling: float
+    redispatch_count: int
 
 
 class ValidateCandidateUpdate(TypedDict):
@@ -262,6 +279,11 @@ class ResultUpdate(TypedDict):
 
 class RecipeScanState(TypedDict):
     plan: DispatchPlan | None
+    # 조율자가 종합 대신 요청한 추가 파견 계획이며 없으면 검증으로 넘어간다.
+    redispatch: DispatchPlan | None
+    # 추가 파견에 넘길 수 있는 남은 비용 상한과, 상한을 지키기 위해 센 파견 횟수다.
+    redispatch_ceiling: float
+    redispatch_count: int
     # 전문가가 병렬로 보고를 올리므로 동시 갱신을 누적으로 합치는 리듀서가 필요하다.
     reports: Annotated[list[ProbeReport], operator.add]
     task_id: str

@@ -6,7 +6,7 @@ import operator
 from typing import Annotated, Literal, TypedDict
 
 from langchain_core.messages import BaseMessage
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..shared.models import AgentExecutionRequest, Language, TrimmedStr
 
@@ -95,6 +95,9 @@ MAX_INSPECT_EXCERPTS = 6
 MAX_INSPECT_REASON_CHARS = 400
 CLEANUP_REVIEWER_ROLE = "cleanup-candidate-reviewer"
 
+# 조율자가 결정 대신 후보를 다시 열어보게 할 수 있는 라운드 수이며 무한 루프를 이 값으로 막는다.
+MAX_REDISPATCH_ROUNDS = 1
+
 
 class InspectAssignment(BaseModel):
     """조율자가 열어보기로 고른 후보 하나와 배분한 라운드다."""
@@ -120,12 +123,12 @@ class TriagePlan(BaseModel):
 
 
 class InspectDispatch(BaseModel):
-    """조율자가 후보 조사 분기 하나에 실어 보내는 조사 지시와 비용 몫이다."""
+    """조율자가 후보 조사 분기 하나에 실어 보내는 조사 지시와 배분한 비용 예산이다."""
 
     model_config = ConfigDict(extra="forbid")
 
     assignment: InspectAssignment
-    cost_share: float = Field(gt=0.0, le=1.0)
+    cost_budget: float = Field(gt=0.0)
 
 
 class InspectReport(BaseModel):
@@ -171,6 +174,14 @@ class CleanupDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     suggestions: list[CleanupDraftSuggestion] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)
+    # 조율자는 결정 대신 후보를 한 번 더 열어보게 요청할 수 있으며 둘은 함께 오지 않는다.
+    redispatch: list[InspectAssignment] = Field(default_factory=list, max_length=MAX_SUGGESTIONS)
+
+    @model_validator(mode="after")
+    def _draft_or_redispatch(self) -> CleanupDraft:
+        if self.suggestions and self.redispatch:
+            raise ValueError("return either suggestions or a redispatch request, not both")
+        return self
 
 
 class TriageUpdate(TypedDict):
@@ -198,6 +209,10 @@ class InvestigateUpdate(TypedDict):
     exposed_candidates: dict[str, CleanupCandidate]
     event_ids_by_task: dict[str, set[str]]
     model_cost_usd: float
+    # None이면 검증으로 넘어가고, 계획이 담기면 그 후보들을 한 번 더 열어본다.
+    redispatch: TriagePlan | None
+    redispatch_ceiling: float
+    redispatch_count: int
 
 
 class ValidateDecisionsUpdate(TypedDict):
@@ -231,6 +246,11 @@ class TaskCleanupState(TypedDict):
     # 근거는 프롬프트에 다시 붙이지 않고 대화 이력에 남아 캐시된다.
     messages: list[BaseMessage]
     plan: TriagePlan | None
+    # 조율자가 결정 대신 요청한 추가 조사 계획이며 없으면 검증으로 넘어간다.
+    redispatch: TriagePlan | None
+    # 추가 조사에 넘길 수 있는 남은 비용 상한과, 상한을 지키기 위해 센 파견 횟수다.
+    redispatch_ceiling: float
+    redispatch_count: int
     # 후보마다 병렬로 열어보므로 노출·인용·지출이 모두 누적으로 합쳐져야 한다.
     reports: Annotated[list[InspectReport], operator.add]
     exposed_candidates: Annotated[dict[str, CleanupCandidate], merged_candidates]

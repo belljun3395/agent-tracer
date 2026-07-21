@@ -141,7 +141,7 @@ class InspectNode(GraphNode):
     async def run(self, payload: InspectDispatch) -> InspectUpdate:
         req = self._req
         assignment = payload.assignment
-        share = TASK_CLEANUP_MAX_MODEL_COST_USD * payload.cost_share
+        share = payload.cost_budget
         # 장부를 조사마다 새로 두어 다른 후보의 이벤트를 인용하지 못하게 한다.
         event_ids: dict[str, set[str]] = {}
         name = f"{self._agent_name}:{CLEANUP_REVIEWER_ROLE}"

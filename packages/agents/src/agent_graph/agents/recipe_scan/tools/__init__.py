@@ -40,6 +40,7 @@ from .list_rules import (
     ListRulesTool,
 )
 from .registry import (
+    COORDINATOR_TOOLS,
     PROBE_TOOLS,
     RECIPE_TOOL_CLASSES,
     build_recipe_registry,
@@ -67,6 +68,7 @@ from .search_recipes import (
 __all__ = [
     "CHECK_CITATIONS",
     "CHECK_CITATIONS_DESCRIPTION",
+    "COORDINATOR_TOOLS",
     "DEFAULT_EVENT_LIMIT",
     "DEFAULT_RECIPE_LIMIT",
     "DEFAULT_SEARCH_LIMIT",

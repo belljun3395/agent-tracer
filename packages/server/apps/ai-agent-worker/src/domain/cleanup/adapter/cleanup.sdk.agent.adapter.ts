@@ -26,6 +26,10 @@ export const CLEANUP_REVIEWER_ROLE = "cleanup-candidate-reviewer";
 export const CLEANUP_REVIEWER_MAX_TURNS = 4;
 export const CLEANUP_REVIEWER_TOOLS = [TASK_CLEANUP_TOOL.getTaskEvents] as const;
 
+// SDK는 선별과 조율을 한 리드에 합치므로 리드는 후보를 훑는 list_candidate_tasks만 쥐고
+// 이벤트 열람(get_task_events)은 검토 전문가에게만 남겨 조율자가 근거를 직접 캐지 못하게 한다.
+export const CLEANUP_COORDINATOR_TOOLS = [TASK_CLEANUP_TOOL.listCandidateTasks] as const;
+
 const CLEANUP_SUBAGENTS = new ClaudeSubagentCatalog<
     typeof CLEANUP_REVIEWER_ROLE,
     (typeof TASK_CLEANUP_TOOL_NAMES)[number]
@@ -128,7 +132,7 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
                     TASK_CLEANUP_TOOL_NAMES,
                     MCP_SERVER,
                 ),
-                allowedTools: [...mcpToolNames(MCP_SERVER, TASK_CLEANUP_TOOL_NAMES), AGENT_TOOL],
+                allowedTools: [...mcpToolNames(MCP_SERVER, CLEANUP_COORDINATOR_TOOLS), AGENT_TOOL],
                 jobId: input.jobId,
                 model,
                 maxTurns: limits.maxTurns,

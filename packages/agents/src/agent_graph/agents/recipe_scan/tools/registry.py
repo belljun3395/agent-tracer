@@ -35,6 +35,9 @@ PROBE_TOOLS: dict[ProbeName, tuple[str, ...]] = {
     "repetition": (SEARCH_EVENTS, FIND_SIMILAR_TASKS, CHECK_CITATIONS),
 }
 
+# 조율자는 근거를 직접 캐지 않고 전문가가 합친 장부의 인용만 확인한다.
+COORDINATOR_TOOLS: tuple[str, ...] = (CHECK_CITATIONS,)
+
 _ARGS_BY_TOOL: dict[str, type[BaseModel]] = {cls.name: cls.args_model for cls in RECIPE_TOOL_CLASSES}
 
 

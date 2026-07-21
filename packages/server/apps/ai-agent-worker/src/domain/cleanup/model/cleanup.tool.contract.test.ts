@@ -7,6 +7,7 @@ import { toCleanupEventPage, type CleanupSlimEvent } from "./cleanup.event.model
 import { TASK_CLEANUP_MAX_TURNS } from "./cleanup.prompt.js";
 import { TASK_CLEANUP_SPEC } from "./cleanup.spec.js";
 import {
+    CLEANUP_COORDINATOR_TOOLS,
     CLEANUP_REVIEWER_MAX_TURNS,
     CLEANUP_REVIEWER_ROLE,
     CLEANUP_REVIEWER_TOOLS,
@@ -39,6 +40,7 @@ const CONTRACT = JSON.parse(
     };
     readonly orchestration: {
         readonly workerMaxTurns: number;
+        readonly coordinatorTools: readonly string[];
         readonly roles: Readonly<Record<string, readonly string[]>>;
         readonly workerReport: { readonly required: readonly string[] };
     };
@@ -79,6 +81,13 @@ describe("task-cleanup 도구 계약", () => {
     it("SDK 검토 전문가의 이름과 도구와 턴 몫이 골든 계약과 같다", () => {
         expect(CLEANUP_REVIEWER_MAX_TURNS).toBe(CONTRACT.orchestration.workerMaxTurns);
         expect({ [CLEANUP_REVIEWER_ROLE]: CLEANUP_REVIEWER_TOOLS }).toEqual(CONTRACT.orchestration.roles);
+    });
+
+    it("조율자 리드는 이벤트 열람을 검토 전문가에게만 남긴다", () => {
+        // 골든 계약의 빈 coordinatorTools는 선별과 조율이 분리된 파이썬 그래프의 조율 노드를 가리키고, 선별과 조율을 한 리드에 합치는 SDK는 리드에 선별 도구만 남기고 검토 전문가의 이벤트 열람 도구는 결코 주지 않는다.
+        expect([...CLEANUP_COORDINATOR_TOOLS]).not.toContain(TASK_CLEANUP_TOOL.getTaskEvents);
+        expect([...CLEANUP_COORDINATOR_TOOLS]).toEqual([TASK_CLEANUP_TOOL.listCandidateTasks]);
+        expect(CONTRACT.orchestration.coordinatorTools).toEqual([]);
     });
 
     it("list_candidate_tasks의 필수와 선택 인자가 골든 계약과 같다", () => {

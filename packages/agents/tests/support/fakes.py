@@ -49,11 +49,20 @@ class _FakePlanner:
 class FakeToolLoopChat:
     """턴마다 도구 호출이나 구조화 출력을 순서대로 재생하는 도구 루프 대역이다."""
 
-    def __init__(self, turns: list[Any], plan: Any = None, report: Any = None) -> None:
+    def __init__(
+        self,
+        turns: list[Any],
+        plan: Any = None,
+        report: Any = None,
+        worker_turns: dict[str, list[Any]] | None = None,
+    ) -> None:
         # turns의 각 항목은 도구 호출 목록(list)이거나 최종 구조화 출력(dict)이다.
         self.turns = list(turns)
         self.plan = plan
         self.report = report
+        # worker_turns는 지시문 부분 문자열을 열쇠로, 전문가·선별이 보고 전에 밟을 턴 대본을 잇는다.
+        self.worker_turns = worker_turns or {}
+        self._worker_cursor: dict[str, int] = {}
         self.probe_calls: list[list[str]] = []
         self.bound_tools: list[dict[str, Any]] = []
         self.output_config: dict[str, Any] | None = None
@@ -77,6 +86,22 @@ class FakeToolLoopChat:
         self.output_config = kwargs.get("output_config")
         return self
 
+    def _auto_report(self, name: str) -> Any:
+        override = (self.report or {}).get(name) if isinstance(self.report, dict) else self.report
+        return override if override is not None else _AUTO_REPORTS[name]
+
+    def _next_worker_turn(self, messages: list[Any]) -> Any | None:
+        text = " ".join(str(getattr(message, "content", message)) for message in messages)
+        for key, turns in self.worker_turns.items():
+            if key not in text:
+                continue
+            cursor = self._worker_cursor.get(key, 0)
+            if cursor >= len(turns):
+                continue
+            self._worker_cursor[key] = cursor + 1
+            return turns[cursor]
+        return None
+
     async def ainvoke(self, messages: list[Any]) -> AIMessage:
         self.requests.append(list(messages))
         auto_names = {"ProbeReport", "InspectReport", "TriagePlan"}
@@ -84,13 +109,25 @@ class FakeToolLoopChat:
             (tool for tool in self.bound_tools if getattr(tool, "name", "") in auto_names), None
         )
         if probe_tool is not None:
+            name = probe_tool.name
+            scripted = self._next_worker_turn(messages)
+            if isinstance(scripted, list):
+                # 전문가·선별이 보고 전에 자기 도구를 부르는 턴이라 도구 호출로 되돌린다.
+                calls = [
+                    {
+                        "name": call["name"],
+                        "args": call.get("args", {}),
+                        "id": f"call-worker-{index}",
+                        "type": "tool_call",
+                    }
+                    for index, call in enumerate(scripted)
+                ]
+                return mk_ai(tool_calls=calls)
             # 전문가 보고는 조율자 턴을 소비하지 않으므로 무엇을 쥐고 돌았는지만 기록한다.
             self.probe_calls.append(
                 [getattr(tool, "name", "") for tool in self.bound_tools if tool is not probe_tool]
             )
-            name = probe_tool.name
-            override = (self.report or {}).get(name) if isinstance(self.report, dict) else self.report
-            report = override if override is not None else _AUTO_REPORTS[name]
+            report = scripted if scripted is not None else self._auto_report(name)
             return mk_ai(tool_calls=[{"name": name, "args": report, "id": "call-probe", "type": "tool_call"}])
         if not self.turns:
             raise AssertionError("no fake turn remains")

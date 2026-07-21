@@ -21,7 +21,6 @@ from ..models import (
     ProvenanceCatalog,
     RecipeScanRequest,
 )
-from ..policy import MAX_RECIPE_MODEL_COST_USD
 from ..prompts import PROBE_SYSTEM_PROMPT, build_probe_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
@@ -60,7 +59,7 @@ class ProbeNode(GraphNode):
     async def run(self, payload: ProbeDispatch) -> ProbeUpdate:
         req = self._req
         assignment = payload.assignment
-        share = MAX_RECIPE_MODEL_COST_USD * payload.cost_share
+        share = payload.cost_budget
         # 장부를 전문가마다 새로 두어 다른 전문가가 읽은 것을 인용하지 못하게 한다.
         catalog = ProvenanceCatalog()
         probe_name = f"{self._agent_name}:{assignment.probe}"

@@ -11,8 +11,11 @@ from pydantic import ValidationError
 from agent_graph.agents.recipe_scan.models import (
     MAX_PROBE_ROUNDS,
     MAX_RECIPE_CANDIDATES,
+    MAX_REDISPATCH_PROBES,
+    MAX_REDISPATCH_ROUNDS,
     MAX_TOOL_ROUNDS,
     Excerpt,
+    ProbeAssignment,
     ProbeReport,
     ProvenanceCatalog,
     RecipeCandidate,
@@ -24,6 +27,7 @@ from agent_graph.agents.recipe_scan.policy import MAX_RECIPE_MODEL_COST_USD, REC
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools import (
+    COORDINATOR_TOOLS,
     PROBE_TOOLS,
     RECIPE_TOOL_CLASSES,
     SearchEventsArgs,
@@ -112,6 +116,16 @@ def test_전문가_역할과_도구와_보고가_골든_계약과_같다() -> No
     assert roles == orchestration["roles"]
     assert list(ProbeReport.model_fields) == orchestration["workerReport"]["required"]
     assert list(Excerpt.model_fields) == orchestration["workerReport"]["excerptRequired"]
+
+
+def test_조율자_도구와_재파견_상한이_골든_계약과_같다() -> None:
+    orchestration = _contract()["orchestration"]
+    redispatch = orchestration["redispatchRequest"]
+
+    assert orchestration["coordinatorTools"] == list(COORDINATOR_TOOLS)
+    assert orchestration["maxRedispatchRounds"] == MAX_REDISPATCH_ROUNDS
+    assert redispatch["required"] == list(ProbeAssignment.model_fields)
+    assert redispatch["maxProbes"] == MAX_REDISPATCH_PROBES
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:

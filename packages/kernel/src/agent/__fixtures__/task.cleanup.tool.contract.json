@@ -9,11 +9,18 @@
   },
   "orchestration": {
     "workerMaxTurns": 4,
+    "maxRedispatchRounds": 1,
+    "coordinatorTools": [],
+    "emptyAssignmentEndsEmpty": true,
     "roles": {
       "cleanup-candidate-reviewer": ["get_task_events"]
     },
     "workerReport": {
       "required": ["taskId", "archivable", "reason", "citedEventIds"]
+    },
+    "redispatchRequest": {
+      "required": ["taskId", "rounds"],
+      "maxTasks": 50
     }
   },
   "tools": {

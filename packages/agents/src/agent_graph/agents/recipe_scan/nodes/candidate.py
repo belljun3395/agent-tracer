@@ -15,7 +15,9 @@ from ...runtime.node import GraphNode
 from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
+    MAX_REDISPATCH_ROUNDS,
     MAX_TOOL_ROUNDS,
+    DispatchPlan,
     InvestigateUpdate,
     ProvenanceCatalog,
     RecipeDraft,
@@ -24,11 +26,30 @@ from ..models import (
     RepairUpdate,
     ValidateCandidateUpdate,
 )
-from ..policy import MAX_RECIPE_MODEL_COST_USD, synthesis_rounds, validate_recipe_candidates
+from ..policy import (
+    MAX_RECIPE_MODEL_COST_USD,
+    clamp_plan,
+    distributable_rounds,
+    synthesis_rounds,
+    validate_recipe_candidates,
+)
 from ..prompts import INVESTIGATOR_SYSTEM_PROMPT, REPAIR_DIRECTIVE, build_user_prompt
 from ..reader import RecipeLedgerReader
 from ..search import RecipeSearchReader
-from ..tools import build_recipe_registry
+from ..tools import COORDINATOR_TOOLS, build_recipe_registry
+
+
+def _plan_redispatch(
+    draft: RecipeDraft, redispatch_count: int, spent: float
+) -> tuple[DispatchPlan, float] | None:
+    """전문가를 한 번 더 부를지 정하고 남은 예산과 함께 계획을 돌려주거나 없으면 None을 낸다."""
+    if not draft.redispatch or redispatch_count >= MAX_REDISPATCH_ROUNDS:
+        return None
+    remaining = MAX_RECIPE_MODEL_COST_USD - spent
+    if remaining <= 0.0:
+        return None
+    plan, _cut = clamp_plan(DispatchPlan(probes=draft.redispatch), distributable_rounds())
+    return plan, remaining
 
 
 class _CandidateAgent(GraphNode, ABC):
@@ -57,7 +78,10 @@ class _CandidateAgent(GraphNode, ABC):
         )
         rounds = synthesis_rounds(state["plan"])
         catalog = state["provenance"]
-        registry = build_recipe_registry(self._reader, self._search, catalog, agent_name=self._agent_name)
+        # 조율자는 전문가가 합친 장부의 인용만 확인하고 근거를 직접 캐지 않는다.
+        registry = build_recipe_registry(
+            self._reader, self._search, catalog, COORDINATOR_TOOLS, agent_name=self._agent_name
+        )
         agent = build_recipe_agent(
             self._chat,
             INVESTIGATOR_SYSTEM_PROMPT,
@@ -81,7 +105,7 @@ class _CandidateAgent(GraphNode, ABC):
 
 
 class InvestigateNode(_CandidateAgent):
-    """전문가 보고와 계획을 모아 레시피 후보를 조사한다."""
+    """전문가 보고를 모아 레시피 후보를 쓰거나 근거가 얇으면 전문가를 한 번 더 부른다."""
 
     name = "investigate"
 
@@ -101,12 +125,26 @@ class InvestigateNode(_CandidateAgent):
             ],
             state,
         )
-        return {
+        update: InvestigateUpdate = {
             "candidates": draft.recipes,
             "messages": messages,
             "provenance": catalog,
             "model_cost_usd": context.budget.spent,
+            "redispatch": None,
+            "redispatch_ceiling": 0.0,
+            "redispatch_count": state["redispatch_count"],
         }
+        redispatch = _plan_redispatch(draft, state["redispatch_count"], context.budget.spent)
+        if redispatch is not None:
+            plan, ceiling = redispatch
+            update["redispatch"] = plan
+            update["redispatch_ceiling"] = ceiling
+            update["redispatch_count"] = state["redispatch_count"] + 1
+            chosen = ", ".join(f"{probe.probe}:{probe.rounds}" for probe in plan.probes)
+            self._usage.record_graph_event(
+                "route.selected", f"{self.name} -> redispatch {chosen}", node_name=self.name
+            )
+        return update
 
 
 class RepairNode(_CandidateAgent):

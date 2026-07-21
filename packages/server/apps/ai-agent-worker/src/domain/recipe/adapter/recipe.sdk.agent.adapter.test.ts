@@ -100,6 +100,10 @@ describe("RecipeSdkAgentAdapter", () => {
 
         const request = runner.requests[0];
         expect(request?.allowedTools).toContain("Agent");
+        // 리드는 근거를 직접 캐지 않으므로 조사 도구는 없고 인용 확인만 남는다.
+        expect(request?.allowedTools.some((tool) => tool.includes("check_citations"))).toBe(true);
+        expect(request?.allowedTools.some((tool) => tool.includes("get_task_events"))).toBe(false);
+        expect(request?.allowedTools.some((tool) => tool.includes("get_task_summary"))).toBe(false);
         expect(request?.providerOptions?.builtInTools).toEqual(["Agent"]);
         expect(Object.keys(request?.providerOptions?.agents ?? {})).toEqual([
             "timeline",

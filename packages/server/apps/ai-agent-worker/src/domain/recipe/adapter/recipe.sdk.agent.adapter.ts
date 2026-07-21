@@ -24,6 +24,9 @@ const MCP_SERVER = `monitor-${RECIPE_SCAN_SPEC.name}`;
 const AGENT_TOOL = "Agent";
 export const RECIPE_WORKER_MAX_TURNS = 10;
 
+// 조율자는 근거를 직접 캐지 않고 전문가가 합친 장부의 인용만 확인하므로 도구가 check_citations 하나다.
+export const RECIPE_COORDINATOR_TOOLS = [RECIPE_SCAN_TOOL.checkCitations] as const;
+
 export const RECIPE_WORKER_TOOLS = {
     timeline: [
         RECIPE_SCAN_TOOL.getTaskSummary,
@@ -135,7 +138,7 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
                     RECIPE_SCAN_TOOL_NAMES,
                     MCP_SERVER,
                 ),
-                allowedTools: [...mcpToolNames(MCP_SERVER, RECIPE_SCAN_TOOL_NAMES), AGENT_TOOL],
+                allowedTools: [...mcpToolNames(MCP_SERVER, RECIPE_COORDINATOR_TOOLS), AGENT_TOOL],
                 jobId: input.jobId,
                 model,
                 maxTurns: limits.maxTurns,

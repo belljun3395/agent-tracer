@@ -11,6 +11,7 @@ from agent_graph.agents.task_cleanup.models import (
     CLEANUP_REVIEWER_ROLE,
     MAX_EVIDENCE_EVENT_IDS,
     MAX_INSPECT_ROUNDS,
+    MAX_REDISPATCH_ROUNDS,
     MAX_SUGGESTIONS,
     CandidatePage,
     CleanupBatch,
@@ -18,6 +19,7 @@ from agent_graph.agents.task_cleanup.models import (
     CleanupEvent,
     CleanupSuggestionKind,
     EventPage,
+    InspectAssignment,
     InspectReport,
 )
 from agent_graph.agents.task_cleanup.policy import (
@@ -27,6 +29,7 @@ from agent_graph.agents.task_cleanup.policy import (
 )
 from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from agent_graph.agents.task_cleanup.tools import (
+    COORDINATOR_TOOL_NAMES,
     DEFAULT_CANDIDATE_LIMIT,
     DEFAULT_EVENT_LIMIT,
     DEFAULT_EVENT_ORDER,
@@ -85,6 +88,17 @@ def test_정리_후보_검토_전문가의_역할과_보고가_골든_계약과_
     assert orchestration["workerMaxTurns"] == MAX_INSPECT_ROUNDS
     assert orchestration["roles"] == {CLEANUP_REVIEWER_ROLE: [GET_TASK_EVENTS]}
     assert list(InspectReport.model_fields) == orchestration["workerReport"]["required"]
+
+
+def test_조율자_도구와_재파견_상한이_골든_계약과_같다() -> None:
+    orchestration = _contract()["orchestration"]
+    redispatch = orchestration["redispatchRequest"]
+
+    assert orchestration["coordinatorTools"] == list(COORDINATOR_TOOL_NAMES)
+    assert orchestration["maxRedispatchRounds"] == MAX_REDISPATCH_ROUNDS
+    assert orchestration["emptyAssignmentEndsEmpty"] is True
+    assert redispatch["required"] == list(InspectAssignment.model_fields)
+    assert redispatch["maxTasks"] == MAX_SUGGESTIONS
 
 
 def test_표준_tool이_runtime을_숨기고_골든_인자만_노출한다() -> None:
