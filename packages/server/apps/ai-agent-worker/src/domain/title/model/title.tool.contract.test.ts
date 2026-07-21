@@ -28,7 +28,6 @@ const CONTRACT = JSON.parse(
     readonly limits: {
         readonly recentTurnLimit: number;
         readonly maxContextTurns: number;
-        readonly maxToolCalls: number;
         readonly maxOutputTokens: number;
         readonly maxBudgetUsd: number;
     };
@@ -70,7 +69,6 @@ describe("title-suggestion 도구 계약", () => {
     });
 
     it("토큰과 비용 예산이 골든 계약과 같다", () => {
-        expect(TITLE_SUGGESTION_SPEC.limits.maxToolCalls).toBe(CONTRACT.limits.maxToolCalls);
         expect(TITLE_SUGGESTION_SPEC.limits.maxOutputTokens).toBe(CONTRACT.limits.maxOutputTokens);
         expect(TITLE_SUGGESTION_SPEC.limits.maxBudgetUsd).toBe(CONTRACT.limits.maxBudgetUsd);
     });

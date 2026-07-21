@@ -23,7 +23,6 @@ export const TASK_CLEANUP_SPEC = {
         defaultModel: CLAUDE_MODEL.haiku,
         fallbackModel: CLAUDE_MODEL.haiku,
         maxTurns: TASK_CLEANUP_MAX_TURNS,
-        maxToolCalls: 48,
         deadlineMs: 300_000,
         maxOutputTokens: 16_000,
         maxBudgetUsd: 0.5,

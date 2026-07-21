@@ -19,8 +19,6 @@ TASK_CLEANUP_MAX_OUTPUT_TOKENS = 16_000
 TASK_CLEANUP_MAX_MODEL_COST_USD = 0.5
 # 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
 MAX_TOOL_ROUNDS = 16
-# 커널의 골든 계약이 값을 소유하며 조율자·검토자 인스턴스마다 이 한도를 상한으로 쓴다.
-TASK_CLEANUP_MAX_TOOL_CALLS = 48
 
 # 후보 목록을 훑는 데 쓰는 라운드와, 조사를 마친 뒤 제안을 쓰는 데 남기는 라운드다.
 TRIAGE_ROUNDS = 3

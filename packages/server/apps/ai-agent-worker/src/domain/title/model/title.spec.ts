@@ -24,7 +24,6 @@ export const TITLE_SUGGESTION_SPEC = {
         defaultModel: CLAUDE_MODEL.haiku,
         fallbackModel: CLAUDE_MODEL.haiku,
         maxTurns: TITLE_SUGGESTION_MAX_TURNS,
-        maxToolCalls: 8,
         deadlineMs: 180_000,
         maxOutputTokens: 4_000,
         maxBudgetUsd: 0.2,

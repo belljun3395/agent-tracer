@@ -3,7 +3,6 @@ from __future__ import annotations
 import httpx
 from anthropic import APIConnectionError, AuthenticationError
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
-from langchain.agents.middleware.tool_call_limit import ToolCallLimitExceededError
 
 from agent_graph.agents.runtime.errors import (
     BudgetExceeded,
@@ -30,14 +29,6 @@ class TestClassifyException:
 
         assert classified.subtype == "max_turns_exceeded"
         assert "18" in classified.summary
-
-    def test_도구_호출_상한_소진은_max_tool_calls_exceeded로_비재시도(self) -> None:
-        err = ToolCallLimitExceededError(thread_count=0, run_count=61, thread_limit=None, run_limit=60)
-
-        classified = classify_exception(err)
-
-        assert classified.subtype == "max_tool_calls_exceeded"
-        assert "60" in classified.summary
 
     def test_인증오류는_API가_준_type을_그대로_쓴다(self) -> None:
         request = httpx.Request("POST", "https://api.anthropic.com")

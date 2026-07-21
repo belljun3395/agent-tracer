@@ -26,7 +26,6 @@ from agent_graph.agents.recipe_scan.models import (
 from agent_graph.agents.recipe_scan.policy import (
     MAX_RECIPE_MODEL_COST_USD,
     RECIPE_MAX_OUTPUT_TOKENS,
-    RECIPE_MAX_TOOL_CALLS,
 )
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
@@ -104,7 +103,6 @@ def test_후보_상한과_토큰과_비용_예산이_골든_계약과_같다() -
     limits = _contract()["limits"]
 
     assert limits["candidateLimit"] == MAX_RECIPE_CANDIDATES
-    assert limits["maxToolCalls"] == RECIPE_MAX_TOOL_CALLS
     assert limits["maxOutputTokens"] == RECIPE_MAX_OUTPUT_TOKENS
     assert limits["maxBudgetUsd"] == MAX_RECIPE_MODEL_COST_USD
 

@@ -15,8 +15,6 @@ TITLE_MAX_OUTPUT_TOKENS = 4_000
 MAX_TITLE_MODEL_COST_USD = 0.2
 # 모델이 스스로 도구를 고르므로 라운드 수가 곧 조사 예산이다.
 MAX_TOOL_ROUNDS = 4
-# 커널의 골든 계약이 값을 소유하며 investigator 인스턴스마다 이 한도를 상한으로 쓴다.
-TITLE_MAX_TOOL_CALLS = 8
 
 # 한 라운드가 langchain agent의 네 슈퍼스텝을 돌므로 재귀 한도는 예산이 아니라 폭주만 끊는 그물이다.
 AGENT_RECURSION_LIMIT = 10 * MAX_TOOL_ROUNDS

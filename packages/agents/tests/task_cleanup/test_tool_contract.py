@@ -26,7 +26,6 @@ from agent_graph.agents.task_cleanup.policy import (
     MAX_TOOL_ROUNDS,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
     TASK_CLEANUP_MAX_OUTPUT_TOKENS,
-    TASK_CLEANUP_MAX_TOOL_CALLS,
 )
 from agent_graph.agents.task_cleanup.reader import CleanupLedgerReader
 from agent_graph.agents.task_cleanup.tools import (
@@ -181,7 +180,6 @@ def test_제안_상한과_근거_상한과_토큰과_비용_예산이_골든_계
 
     assert limits["maxSuggestions"] == MAX_SUGGESTIONS
     assert limits["maxEvidenceEventIds"] == MAX_EVIDENCE_EVENT_IDS
-    assert limits["maxToolCalls"] == TASK_CLEANUP_MAX_TOOL_CALLS
     assert limits["maxOutputTokens"] == TASK_CLEANUP_MAX_OUTPUT_TOKENS
     assert limits["maxBudgetUsd"] == TASK_CLEANUP_MAX_MODEL_COST_USD
 

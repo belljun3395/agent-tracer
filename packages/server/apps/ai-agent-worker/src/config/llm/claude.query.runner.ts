@@ -7,7 +7,6 @@ import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.j
 import { buildAgentEnv } from "./claude.env.js";
 import { resolveClaudeExecutablePath } from "./claude.executable.js";
 import { createAgentDeadline, DeadlineExceededError } from "./deadline.js";
-import { createToolCallLimitHook, ToolCallLimitExceededError } from "./tool.call.limit.js";
 import { withGenAiClientTelemetry } from "./telemetry.js";
 import { logAgentQuery } from "./query.log.js";
 import { TrajectoryRecorder } from "./trajectory.js";
@@ -63,9 +62,6 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
             }
         }
 
-        // SDK query()는 실행 전체 도구 호출 총합에 대한 네이티브 상한이 없어 PreToolUse에서 직접 센다.
-        const countToolCall = createToolCallLimitHook(request.maxToolCalls, deadline.controller);
-
         const options = request.providerOptions;
         const systemPrompt = options?.useClaudeCodePreset === true
             ? {
@@ -105,7 +101,6 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                 ...(request.maxBudgetUsd !== undefined ? { maxBudgetUsd: request.maxBudgetUsd } : {}),
                 ...(options?.fallbackModel !== undefined ? { fallbackModel: options.fallbackModel } : {}),
                 ...(options?.agents !== undefined ? { agents: { ...options.agents } } : {}),
-                hooks: { PreToolUse: [{ hooks: [countToolCall] }] },
             },
         });
 
@@ -179,9 +174,6 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
             const reason: unknown = deadline.controller.signal.reason;
             if (deadline.controller.signal.aborted && reason instanceof DeadlineExceededError) {
                 errorSubtype = AGENT_ERROR_SUBTYPE.deadlineExceeded;
-                errorSummary = reason.message;
-            } else if (deadline.controller.signal.aborted && reason instanceof ToolCallLimitExceededError) {
-                errorSubtype = AGENT_ERROR_SUBTYPE.maxToolCallsExceeded;
                 errorSummary = reason.message;
             } else if (deadline.controller.signal.aborted) {
                 errorSubtype = AGENT_ERROR_SUBTYPE.cancelled;

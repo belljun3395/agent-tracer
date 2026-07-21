@@ -24,7 +24,6 @@ export const RECIPE_SCAN_SPEC = {
         defaultModel: CLAUDE_MODEL.sonnet,
         fallbackModel: CLAUDE_MODEL.haiku,
         maxTurns: RECIPE_SCAN_MAX_TURNS,
-        maxToolCalls: 60,
         deadlineMs: 720_000,
         maxOutputTokens: 16_000,
         maxBudgetUsd: 2,

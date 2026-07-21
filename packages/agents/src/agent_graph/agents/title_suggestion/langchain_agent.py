@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import AgentMiddleware, ModelCallLimitMiddleware, ToolCallLimitMiddleware
+from langchain.agents.middleware import AgentMiddleware, ModelCallLimitMiddleware
 from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
@@ -15,7 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import TitleSuggestionDraft
-from .policy import MAX_TOOL_ROUNDS, TITLE_MAX_TOOL_CALLS
+from .policy import MAX_TOOL_ROUNDS
 
 
 def build_title_agent(
@@ -32,7 +32,6 @@ def build_title_agent(
     middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=MAX_TOOL_ROUNDS + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
-        ToolCallLimitMiddleware(run_limit=TITLE_MAX_TOOL_CALLS, exit_behavior="error"),
     ]
     if fallback_chat is not None:
         middleware.append(FallbackModelMiddleware(fallback_chat))

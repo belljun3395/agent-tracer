@@ -8,7 +8,6 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import (
     AgentMiddleware,
     ModelCallLimitMiddleware,
-    ToolCallLimitMiddleware,
     ToolRetryMiddleware,
 )
 from langchain.agents.structured_output import ToolStrategy
@@ -21,7 +20,6 @@ from pydantic import BaseModel
 from ..runtime.llm.fallback import FallbackModelMiddleware
 from ..runtime.llm.standard_agent import StandardAgentContext, StandardAgentMiddleware
 from .models import MAX_TOOL_ROUNDS, RecipeDraft
-from .policy import RECIPE_MAX_TOOL_CALLS
 
 
 def _tool_retry(transient_errors: tuple[type[Exception], ...]) -> ToolRetryMiddleware:
@@ -52,7 +50,6 @@ def build_recipe_agent(
     middleware: list[AgentMiddleware[Any, Any, Any]] = [
         ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
-        ToolCallLimitMiddleware(run_limit=RECIPE_MAX_TOOL_CALLS, exit_behavior="error"),
         _tool_retry(transient_errors),
     ]
     if fallback_chat is not None:
