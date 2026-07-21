@@ -47,6 +47,7 @@
 | `0032-coordinator-and-specialists` | 조사를 나눌 때. 전문가를 더하거나 뺄 때. 예산 배분과 근거 장부 병합을 만질 때 |
 | `0033-recipes-are-chosen-by-the-model` | 레시피가 에이전트에게 닿는 방식을 만질 때. 레시피의 성과를 재거나 도태시킬 때 |
 | `0034-operational-logs-are-queried-by-name` | 로그를 더할 때. 이벤트 이름과 수준과 상관 식별자를 정할 때 |
+| `0035-local-profile-runs-agents-on-subscription-auth` | 로컬에서 API 키 없이 에이전트를 돌릴 때. 프로파일이 인증과 기본 백엔드를 가를 때 |
 
 ## 놓치기 쉬운 규칙
 
@@ -72,6 +73,7 @@
 | 인프라 종료 | `npm run infra:down` |
 | 전체 dev 서버 (인프라 선행 필수, agents 포함) | `npm run dev` |
 | 배포되는 이미지 그대로 전체 기동 (진입점 `127.0.0.1:3847`) | `npm run stack:up` / `stack:down` / `stack:logs` |
+| 위 스택을 AI 잡만 Claude SDK+구독 토큰으로 (`CLAUDE_CODE_OAUTH_TOKEN` 필요) | `npm run stack:up:local` |
 | 관측 스택(Grafana·Prometheus·Loki·Tempo) 동반 기동 | `npm run monitoring:up` / `monitoring:down` |
 | 배포 이미지 일곱 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
 | `packages/agents`(Python)만 기동 | `npm run dev:agents` |
