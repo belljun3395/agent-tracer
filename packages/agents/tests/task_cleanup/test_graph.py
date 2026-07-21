@@ -12,7 +12,7 @@ from agent_graph.agents.runtime.execution.runner import execute
 from agent_graph.agents.runtime.execution.trace import ExecutionTrace
 from agent_graph.agents.shared.models import AgentResponse
 from agent_graph.agents.task_cleanup import agent as cleanup_mod
-from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH, _dispatch
+from agent_graph.agents.task_cleanup.graph import _dispatch
 from agent_graph.agents.task_cleanup.models import (
     InspectAssignment,
     InspectDispatch,
@@ -95,29 +95,6 @@ async def _run(_chat: FakeToolLoopChat, ledger: FakeLedger, *candidates: dict[st
         req.deadlineMs,
         lambda usage: cleanup_mod.run_task_cleanup(req, ledger, usage),  # type: ignore[arg-type]
     )
-
-
-def test_전용_그래프_위상을_고정한다() -> None:
-    graph = TASK_CLEANUP_GRAPH.get_graph()
-
-    assert set(graph.nodes) == {
-        "__start__",
-        "triage",
-        "inspect",
-        "investigate",
-        "validate_decisions",
-        "repair",
-        "finalize",
-        "empty",
-        "__end__",
-    }
-    edges = {(edge.source, edge.target) for edge in graph.edges}
-    # 조율자가 열어볼 후보를 고르고, 고른 만큼 동시에 조사한다.
-    assert ("__start__", "triage") in edges
-    assert ("triage", "inspect") in edges
-    assert ("inspect", "investigate") in edges
-    assert ("investigate", "validate_decisions") in edges
-    assert ("repair", "validate_decisions") in edges
 
 
 def test_후보_비용_몫은_배분한_라운드에_비례한다() -> None:

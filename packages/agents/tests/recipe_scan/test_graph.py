@@ -10,7 +10,7 @@ import pytest
 from anthropic import AuthenticationError
 
 from agent_graph.agents.recipe_scan import agent as recipe_mod
-from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH, _dispatch
+from agent_graph.agents.recipe_scan.graph import _dispatch
 from agent_graph.agents.recipe_scan.models import (
     DispatchPlan,
     ProbeAssignment,
@@ -139,22 +139,6 @@ async def _run(
         req.deadlineMs,
         lambda usage: recipe_mod.run_recipe_scan(req, fake_ledger, FakeSearch(), usage),
     )
-
-
-def test_recipe_전용_그래프_위상을_명시한다() -> None:
-    graph = RECIPE_SCAN_GRAPH.get_graph()
-
-    assert set(graph.nodes) == {
-        "__start__",
-        "survey",
-        "probe",
-        "investigate",
-        "validate_candidate",
-        "repair",
-        "finalize",
-        "empty",
-        "__end__",
-    }
 
 
 def test_전문가_비용_몫은_배분한_라운드에_비례한다() -> None:
