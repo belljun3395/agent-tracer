@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { APP_SETTING_KEYS, DEFAULT_USER_ID, normalizeAiAgentBackend } from "@monitor/kernel";
 import { generateUlid } from "@monitor/platform";
-import { logInfo } from "@monitor/llm-runtime";
+import { errorMessage, logError, logInfo } from "@monitor/llm-runtime";
 import { CHAT_MESSAGE_ROLE, ChatMessageEntity } from "@monitor/tracer-domain";
 import { CHAT_CLOCK, type ClockPort } from "~tracer-api/domain/chat/port/clock.port.js";
 import {
@@ -129,7 +129,10 @@ export class RunChatTurnUseCase {
 
         // 이번 턴의 어시스턴트 메시지까지 포함해야 방금 넘긴 문턱도 이 턴에서 접히고, 첫 성공한 턴의 제목도 여기서 지어진다.
         const foldedMessages = [...history, assistant];
-        await this.summaryProjection.project(thread, foldedMessages);
+        // 요약은 이번 답 전달과 무관한 후속 투영이고 다음 턴 프롬프트가 최신 요약을 필수로 요구하지 않아, 응답이 요약에 막히지 않게 분리한다.
+        void this.summaryProjection
+            .project(thread, foldedMessages)
+            .catch((error) => logError({ msg: "chat.summary.detached.failed", threadId: input.threadId, error: errorMessage(error) }));
         await this.titleProjection.project(thread, foldedMessages);
 
         return { message: mapMessage(assistant) };

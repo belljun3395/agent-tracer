@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import { AI_AGENT_BACKEND, type AiAgentBackend } from "@monitor/kernel";
 import { CHAT_MESSAGE_ROLE, ChatMessageEntity, ChatThreadEntity, ChatUserMemoryEntity } from "@monitor/tracer-domain";
@@ -13,6 +13,7 @@ import {
 } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.setting.reader.js";
 import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.chat.summarizer.js";
 import type { ChatAgentPort } from "~tracer-api/domain/chat/port/chat.agent.port.js";
+import type { ChatSummarizerPort } from "~tracer-api/domain/chat/port/chat.summarizer.port.js";
 import type { ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import { CHAT_SUMMARY_SPEC } from "~tracer-api/domain/chat/model/chat.summary.spec.js";
 import { CHAT_DEFAULT_THREAD_TITLE } from "~tracer-api/domain/chat/model/chat.title.spec.js";
@@ -260,6 +261,89 @@ describe("RunChatTurnUseCase", () => {
         await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
 
         expect((await threads.findById("th1"))?.title).toBe("지은 제목");
+    });
+
+    it("문턱을 넘긴 스레드의 롤링 요약을 배경에서 갱신한다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        threads.seed(ChatThreadEntity.create({ id: "th1", userId: "u1", title: "t", now: new Date("2026-01-01T00:00:00.000Z") }));
+        for (let i = 0; i <= CHAT_SUMMARY_SPEC.triggerMessageCount; i += 1) {
+            messages.seed(
+                ChatMessageEntity.create({
+                    id: `m${i}`,
+                    threadId: "th1",
+                    role: CHAT_MESSAGE_ROLE.user,
+                    content: `메시지 ${i}`,
+                    now: new Date(NOW.getTime() - (CHAT_SUMMARY_SPEC.triggerMessageCount - i) * 1000),
+                }),
+            );
+        }
+        const summarizer = new FakeChatSummarizer("접은 요약");
+        const useCase = new RunChatTurnUseCase(
+            threads,
+            messages,
+            new InMemoryChatUserMemoryRepository(),
+            fakeChatRegistry(new FakeChatAgent("답")),
+            AI_AGENT_BACKEND.claudeSdk,
+            new FakeChatSettingReader(),
+            new FixedClock(NOW),
+            new SummarizeThreadProjection(threads, summarizer, new FixedClock(NOW)),
+            new GenerateThreadTitleProjection(threads, new FakeChatSummarizer(), new FixedClock(NOW)),
+        );
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        await vi.waitFor(async () => {
+            expect((await threads.findById("th1"))?.summary).toBe("접은 요약");
+        });
+    });
+
+    it("응답 반환이 배경 요약 완료를 기다리지 않는다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        threads.seed(ChatThreadEntity.create({ id: "th1", userId: "u1", title: "t", now: new Date("2026-01-01T00:00:00.000Z") }));
+        for (let i = 0; i <= CHAT_SUMMARY_SPEC.triggerMessageCount; i += 1) {
+            messages.seed(
+                ChatMessageEntity.create({
+                    id: `m${i}`,
+                    threadId: "th1",
+                    role: CHAT_MESSAGE_ROLE.user,
+                    content: `메시지 ${i}`,
+                    now: new Date(NOW.getTime() - (CHAT_SUMMARY_SPEC.triggerMessageCount - i) * 1000),
+                }),
+            );
+        }
+        let releaseSummary: () => void = () => {};
+        const gate = new Promise<void>((resolve) => {
+            releaseSummary = resolve;
+        });
+        const slowSummarizer: ChatSummarizerPort = {
+            summarize: async () => {
+                await gate;
+                return "느린 요약";
+            },
+        };
+        const useCase = new RunChatTurnUseCase(
+            threads,
+            messages,
+            new InMemoryChatUserMemoryRepository(),
+            fakeChatRegistry(new FakeChatAgent("답")),
+            AI_AGENT_BACKEND.claudeSdk,
+            new FakeChatSettingReader(),
+            new FixedClock(NOW),
+            new SummarizeThreadProjection(threads, slowSummarizer, new FixedClock(NOW)),
+            new GenerateThreadTitleProjection(threads, new FakeChatSummarizer(), new FixedClock(NOW)),
+        );
+
+        // 요약이 아직 관문에 묶여 있어도 execute는 반환한다.
+        const { message } = await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+        expect(message?.content).toBe("답");
+        expect((await threads.findById("th1"))?.summary).toBeNull();
+
+        releaseSummary();
+        await vi.waitFor(async () => {
+            expect((await threads.findById("th1"))?.summary).toBe("느린 요약");
+        });
     });
 
     it("텍스트가 비어 턴이 버려지면 제목도 자동 생성하지 않는다", async () => {
