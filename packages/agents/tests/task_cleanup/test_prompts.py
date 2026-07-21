@@ -1,0 +1,61 @@
+"""task-cleanup의 역할별 프롬프트 조합을 콘솔에 펴 보이고 핵심 구성을 단언한다."""
+
+from __future__ import annotations
+
+from agent_graph.agents.task_cleanup.models import InspectReport
+from agent_graph.agents.task_cleanup.prompts import (
+    INSPECT_SYSTEM_PROMPT,
+    INVESTIGATOR_SYSTEM_PROMPT,
+    REPAIR_DIRECTIVE,
+    TRIAGE_SYSTEM_PROMPT,
+    build_inspect_prompt,
+    build_triage_prompt,
+    build_user_prompt,
+)
+
+
+def _show(role: str, system: str, user: str) -> None:
+    print(f"\n───────── task-cleanup :: {role} ─────────")
+    print("[system]")
+    print(system)
+    print("[user]")
+    print(user)
+
+
+def test_선별자는_후보_수와_라운드만_받는다() -> None:
+    user = build_triage_prompt(7, 6)
+
+    _show("triage (선별자)", TRIAGE_SYSTEM_PROMPT, user)
+    assert user == (
+        "Candidates in this batch: 7\n"
+        "Inspection rounds available: 6\n"
+        "Call list_candidate_tasks to see them before deciding."
+    )
+
+
+def test_조사자는_맡은_후보와_라운드만_받는다() -> None:
+    user = build_inspect_prompt("task-9", 2)
+
+    _show("inspect (조사자)", INSPECT_SYSTEM_PROMPT, user)
+    assert user == "Task to judge: task-9\nRounds available: 2"
+
+
+def test_조율자는_스캔_시점과_상한과_조사_보고를_받는다() -> None:
+    reports = [InspectReport(taskId="task-1", archivable=True, reason="빈 작업", citedEventIds=["event-1"])]
+
+    user = build_user_prompt("2026-07-14T00:00:00Z", 3, "ko", reports)
+
+    _show("investigate (조율자)", INVESTIGATOR_SYSTEM_PROMPT, user)
+    assert "Scan time: 2026-07-14T00:00:00Z" in user
+    assert "Propose at most 3 tasks to archive." in user
+    assert "What the cleanup candidate reviewers reported:" in user
+    assert "- task-1: archivable" in user
+    assert "(events: event-1)" in user
+
+
+def test_수리_지시문은_검증_오류를_그대로_싣는다() -> None:
+    directive = REPAIR_DIRECTIVE.format(errors="- task-7은 이번 배치의 후보가 아니다")
+
+    print("\n───────── task-cleanup :: repair (수리 지시문) ─────────")
+    print(directive)
+    assert "- task-7은 이번 배치의 후보가 아니다" in directive
