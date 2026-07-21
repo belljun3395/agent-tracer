@@ -27,4 +27,7 @@ export const EN_CHAT = {
   memoryUpdated: createGuidanceMessage(
     "The agent remembered this for future conversations.",
   ),
+  deleteConfirm: createGuidanceMessage(
+    "This deletes the conversation and all of its messages for good. This can't be undone.",
+  ),
 } as const;

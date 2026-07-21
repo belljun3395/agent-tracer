@@ -6,7 +6,7 @@ import type {
   ChatThreadRecord,
   ChatThreadsListResponse,
 } from "~web/entities/chat/model/chat.js";
-import { getJson, postJson } from "~web/shared/api/client/json-methods.js";
+import { deleteRequest, getJson, postJson } from "~web/shared/api/client/json-methods.js";
 import {
   toChatMessageRecord,
   toChatThreadRecord,
@@ -46,6 +46,14 @@ export async function createChatThread(
 ): Promise<CreateChatThreadResponse> {
   const res = await postJson<{ readonly thread: ChatThreadWireDto }>(CHAT_THREADS_PATH, body);
   return { thread: toChatThreadRecord(res.thread) };
+}
+
+export interface DeleteChatThreadResponse {
+  readonly deleted: true;
+}
+
+export function deleteChatThread(threadId: ChatThreadId): Promise<DeleteChatThreadResponse> {
+  return deleteRequest<DeleteChatThreadResponse>(`${CHAT_THREADS_PATH}/${threadId}`);
 }
 
 export type ChatConfirmDecision = "approve" | "reject";

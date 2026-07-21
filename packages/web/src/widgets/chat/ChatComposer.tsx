@@ -2,17 +2,18 @@ import { useState } from "react";
 import { Button, Input } from "~web/shared/ui/index.js";
 
 interface ChatComposerProps {
-  readonly disabled: boolean;
+  readonly isStreaming: boolean;
   readonly onSend: (content: string) => void;
+  readonly onStop: () => void;
 }
 
-/** 하단에 고정된 입력창과 전송 버튼이다. */
-export function ChatComposer({ disabled, onSend }: ChatComposerProps) {
+/** 스트리밍 중에도 열려 있는 하단 입력창으로, 보내면 진행 중인 턴을 끊고 새 턴을 시작하고(stop-and-send) Stop으로는 보내지 않고 현재 턴만 취소한다. */
+export function ChatComposer({ isStreaming, onSend, onStop }: ChatComposerProps) {
   const [draft, setDraft] = useState("");
 
   const submit = () => {
     const trimmed = draft.trim();
-    if (trimmed.length === 0 || disabled) return;
+    if (trimmed.length === 0) return;
     onSend(trimmed);
     setDraft("");
   };
@@ -30,10 +31,14 @@ export function ChatComposer({ disabled, onSend }: ChatComposerProps) {
         placeholder="Message the agent…"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
-        disabled={disabled}
         aria-label="Message"
       />
-      <Button type="submit" variant="primary" disabled={disabled || draft.trim().length === 0}>
+      {isStreaming && (
+        <Button type="button" variant="ghost" onClick={onStop} aria-label="Stop">
+          Stop
+        </Button>
+      )}
+      <Button type="submit" variant="primary" disabled={draft.trim().length === 0}>
         Send
       </Button>
     </form>

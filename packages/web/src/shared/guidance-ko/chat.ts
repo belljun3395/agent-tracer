@@ -25,4 +25,7 @@ export const KO_CHAT = {
   memoryUpdated: createGuidanceMessage(
     "에이전트가 앞으로의 대화를 위해 이 내용을 기억했습니다.",
   ),
+  deleteConfirm: createGuidanceMessage(
+    "이 대화와 모든 메시지를 완전히 지웁니다. 되돌릴 수 없습니다.",
+  ),
 } as const;
