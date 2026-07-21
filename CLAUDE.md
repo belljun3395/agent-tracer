@@ -48,6 +48,7 @@
 | `0033-recipes-are-chosen-by-the-model` | 레시피가 에이전트에게 닿는 방식을 만질 때. 레시피의 성과를 재거나 도태시킬 때 |
 | `0034-operational-logs-are-queried-by-name` | 로그를 더할 때. 이벤트 이름과 수준과 상관 식별자를 정할 때 |
 | `0035-local-profile-runs-agents-on-subscription-auth` | 로컬에서 API 키 없이 에이전트를 돌릴 때. 프로파일이 인증과 기본 백엔드를 가를 때 |
+| `0036-dollar-is-the-only-budget-currency` | 에이전트 실행의 예산이나 배분을 만질 때. 도구 호출 개수를 세고 싶을 때 |
 
 ## 놓치기 쉬운 규칙
 
