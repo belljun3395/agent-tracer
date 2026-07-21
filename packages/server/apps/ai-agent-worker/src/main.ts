@@ -30,13 +30,10 @@ import {
 import { TRACER_MIGRATIONS } from "@monitor/tracer-domain/migrations/registry.js";
 import { TRACER_ENTITIES } from "@monitor/tracer-domain/persistence/tracer.entities.js";
 import { resolveDefaultAgentBackend } from "~ai-agent-worker/config/agent.backend.js";
-import {
-    ClaudeQueryRunner,
-    AgentGraphClient,
-    AgentCompletionServer,
-    DurableCompletionInbox,
-    AGENT_BACKEND,
-} from "@monitor/llm-runtime";
+import { AGENT_BACKEND, ClaudeQueryRunner } from "@monitor/llm-runtime";
+import { AgentCompletionServer } from "~ai-agent-worker/config/graph/agent.completion.server.js";
+import { DurableCompletionInbox } from "~ai-agent-worker/config/graph/durable.completion.inbox.js";
+import { AgentGraphClient } from "~ai-agent-worker/config/graph/graph.client.js";
 import { errorMessage, logError, logInfo } from "~ai-agent-worker/support/log.js";
 import { createNotificationPublisher } from "~ai-agent-worker/config/notification.js";
 import { createTemporalWorkers } from "~ai-agent-worker/config/temporal.worker.js";

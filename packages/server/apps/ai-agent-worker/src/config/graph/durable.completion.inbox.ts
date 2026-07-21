@@ -5,7 +5,7 @@ import {
     type CompletionInboxStatus,
 } from "@monitor/tracer-domain";
 import type { AgentCompletionInboxRepository } from "@monitor/tracer-domain";
-import { logWarn } from "../observability/log.js";
+import { logWarn } from "@monitor/llm-runtime";
 
 export { COMPLETION_INBOX_STATUS } from "@monitor/tracer-domain";
 

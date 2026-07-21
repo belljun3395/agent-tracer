@@ -64,4 +64,12 @@ describe("cleanup 도구 핸들러", () => {
         expect(result.errors).toEqual([]);
         expect(result.valid).toHaveLength(1);
     });
+
+    it("후보 배치에 없는 태스크의 이벤트는 읽지 않는다", async () => {
+        const handlers = buildCleanupToolHandlers(USER, DEPS, { candidates: [EVENTFUL], batchTruncated: false });
+
+        const response = await handlers[TASK_CLEANUP_TOOL.getTaskEvents]!({ taskId: "ghost" });
+
+        expect(response).toBe("Task ghost not found.");
+    });
 });

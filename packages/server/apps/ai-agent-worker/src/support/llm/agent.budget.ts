@@ -26,9 +26,10 @@ export class ExecutionBudget {
         this.remainingTurns = totals.maxTurns;
     }
 
-    /** 아직 배분하지 않은 잔여 예산이 남았는지 알리며, 상한이 없으면 항상 참이다. 재파견을 감당할 수 있는지 가늠하는 데 쓴다. */
-    hasRemainingBudget(): boolean {
-        return this.remainingBudgetUsd === undefined || this.remainingBudgetUsd > 0;
+    /** 요청한 턴과 비용 잔량을 모두 감당할 수 있는지 알린다. */
+    hasRemainingCapacity(requiredTurns = 1): boolean {
+        return this.remainingTurns >= requiredTurns
+            && (this.remainingBudgetUsd === undefined || this.remainingBudgetUsd > 0);
     }
 
     /** 잔량의 share(0 초과 1 이하) 몫을 떼어 주며 잔량이 0이면 0인 채로 드러낸다. */

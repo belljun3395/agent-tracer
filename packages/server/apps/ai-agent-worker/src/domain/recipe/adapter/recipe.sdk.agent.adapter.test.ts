@@ -388,6 +388,7 @@ describe("RecipeSdkAgentAdapter", () => {
         const secondSynthesis = runner.requests[4]!;
         expect(secondSynthesis.prompt).toContain("thin so far");
         expect(secondSynthesis.prompt).toContain("found the rule");
+        expect(secondSynthesis.maxTurns).toBe(6);
         expect(output.recipes).toEqual([]);
     });
 

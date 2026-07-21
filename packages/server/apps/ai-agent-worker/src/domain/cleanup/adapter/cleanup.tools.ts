@@ -42,6 +42,7 @@ export function buildCleanupToolHandlers(
     batch: CleanupToolBatch,
     ledger: CleanupProvenanceLedger = new CleanupProvenanceLedger(),
 ): ToolHandlers {
+    const candidateIds = new Set(batch.candidates.map((candidate) => candidate.id));
     return {
         [TASK_CLEANUP_TOOL.listCandidateTasks]: async (raw) => {
             const { limit, cursor } = parseListCandidateTasksArgs(raw);
@@ -58,6 +59,7 @@ export function buildCleanupToolHandlers(
 
         [TASK_CLEANUP_TOOL.getTaskEvents]: async (raw) => {
             const { taskId, limit, cursor, order } = parseGetTaskEventsArgs(raw);
+            if (!candidateIds.has(taskId)) return `Task ${taskId} not found.`;
             return withToolTelemetry(
                 {
                     toolName: TASK_CLEANUP_TOOL.getTaskEvents,

@@ -29,9 +29,6 @@ export const inspectReportSchema = z.object({
     citedEventIds: z.array(z.string().trim().min(1)).max(MAX_INSPECT_EXCERPTS).default([]),
 });
 
-// 결정 호출의 내부 출력이며 커널 계약의 suggestions에 추가 파견 요청 한 칸을 더한 것이다. 조율자는 최종
-// 결정(suggestions) 대신 후보 재조사(redispatch)를 요청할 수 있고, 둘의 배타는 어댑터가 suggestions가
-// 빈 경우에만 redispatch를 따르는 것으로 집행하므로 여기서 refine으로 강제하지 않는다.
 export const cleanupDecisionSchema = cleanupSuggestionsListSchema.extend({
     redispatch: z.array(inspectAssignmentSchema).max(TASK_CLEANUP_MAX_SUGGESTIONS).default([]),
 });

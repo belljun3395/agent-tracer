@@ -103,12 +103,23 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
         // 조율자가 근거의 구멍을 지목하면 남은 예산 안에서 전문가를 한 번 더 부르고 다시 종합한다.
         for (
             let round = 0;
-            round < MAX_REDISPATCH_ROUNDS && wantsRedispatch(synthesis.data) && budget.hasRemainingBudget();
+            round < MAX_REDISPATCH_ROUNDS
+            && wantsRedispatch(synthesis.data)
+            && budget.hasRemainingCapacity(MIN_SYNTHESIS_TURNS + 1);
             round += 1
         ) {
+            const redispatchFloorLease = budget.reserve(MIN_SYNTHESIS_TURNS, 0);
             const redispatchPlan: DispatchPlan = { probes: synthesis.data.redispatch };
             reports.push(...(await this.dispatch(ctx, budget, redispatchPlan, coordinatorLedger, segments)));
-            synthesis = await this.synthesize(ctx, budget, synthesisFloorLease, plan, reports, coordinatorLedger, segments);
+            synthesis = await this.synthesize(
+                ctx,
+                budget,
+                redispatchFloorLease,
+                plan,
+                reports,
+                coordinatorLedger,
+                segments,
+            );
         }
 
         const errors = validateRecipeCandidates(synthesis.data.recipes, input.taskId, coordinatorLedger.snapshot());
@@ -203,7 +214,6 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
         coordinatorLedger: ProvenanceLedger,
         segments: RunSegment[],
     ): Promise<RecipeSynthesisRun> {
-        // 종합에 먼저 떼어 둔 바닥에 아직 안 쓴 잔량 전부를 얹어 준다. 재파견 라운드마다 잔량은 정산으로 줄어 있다.
         const lease = combineLeases([floorLease, budget.lease(1)]);
         const prompt = buildRecipeUserPrompt(
             ctx.input.taskId,
@@ -219,7 +229,6 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
     }
 }
 
-/** 조율자가 종합 대신 추가 파견을 요청했는지 판정한다. 초안이 비고 파견 목록이 있을 때만 따르며, 둘 다 오면 초안을 택해 왕복을 아낀다. */
 function wantsRedispatch(synthesis: RecipeSynthesis): boolean {
     return synthesis.recipes.length === 0 && synthesis.redispatch.length > 0;
 }

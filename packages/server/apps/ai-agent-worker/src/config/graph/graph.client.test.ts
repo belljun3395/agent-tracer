@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { AgentExecutionFailure } from "../model/agent.error.js";
+import { AgentExecutionFailure } from "@monitor/llm-runtime";
 import {
     COMPLETION_INBOX_STATUS,
     type CompletionGrant,

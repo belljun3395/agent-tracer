@@ -1,5 +1,5 @@
 import type { AiJobStepPayload } from "@monitor/kernel";
-import type { AgentQueryUsage } from "../model/agent.usage.js";
+import type { AgentQueryUsage } from "@monitor/llm-runtime";
 
 /** LangGraph 실행 백엔드가 돌려주는 HTTP 응답 계약이다. */
 export interface AgentGraphResponse {
