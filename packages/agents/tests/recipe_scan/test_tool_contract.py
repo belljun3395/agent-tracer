@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from agent_graph.agents.recipe_scan.models import (
     MAX_MODEL_TURNS,
-    MAX_PROBE_ROUNDS,
+    MAX_PROBE_TURNS,
     MAX_RECIPE_CANDIDATES,
     MAX_REDISPATCH_PROBES,
     MAX_REDISPATCH_ROUNDS,
@@ -115,7 +115,7 @@ def test_전문가_역할과_도구와_보고가_골든_계약과_같다() -> No
     orchestration = _contract()["orchestration"]
     roles = {name: list(names) for name, names in PROBE_TOOLS.items()}
 
-    assert orchestration["workerMaxTurns"] == MAX_PROBE_ROUNDS
+    assert orchestration["workerMaxTurns"] == MAX_PROBE_TURNS
     assert roles == orchestration["roles"]
     assert list(ProbeReport.model_fields) == orchestration["workerReport"]["required"]
     assert list(Excerpt.model_fields) == orchestration["workerReport"]["excerptRequired"]

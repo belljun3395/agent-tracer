@@ -331,7 +331,7 @@ def test_전문가는_후보가_아니라_보고를_내도록_조립된다() -> 
         "system",
         probe_registry.langchain_tools(),
         probe_registry.transient_errors(),
-        max_rounds=3,
+        max_turns=3,
         output=ProbeReport,
     )
     coordinator_registry = build_recipe_registry(
@@ -342,7 +342,7 @@ def test_전문가는_후보가_아니라_보고를_내도록_조립된다() -> 
         "system",
         coordinator_registry.langchain_tools(),
         coordinator_registry.transient_errors(),
-        max_rounds=15,
+        max_turns=15,
         output=RecipeDraft,
     )
 

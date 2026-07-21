@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 from agent_graph.agents.task_cleanup.models import (
     CLEANUP_REVIEWER_ROLE,
     MAX_EVIDENCE_EVENT_IDS,
-    MAX_INSPECT_ROUNDS,
+    MAX_INSPECT_TURNS,
     MAX_REDISPATCH_ROUNDS,
     MAX_SUGGESTIONS,
     CandidatePage,
@@ -85,7 +85,7 @@ def test_모델에게_여는_도구_이름이_골든_계약과_같다() -> None:
 def test_정리_후보_검토_전문가의_역할과_보고가_골든_계약과_같다() -> None:
     orchestration = _contract()["orchestration"]
 
-    assert orchestration["workerMaxTurns"] == MAX_INSPECT_ROUNDS
+    assert orchestration["workerMaxTurns"] == MAX_INSPECT_TURNS
     assert orchestration["roles"] == {CLEANUP_REVIEWER_ROLE: [GET_TASK_EVENTS]}
     assert list(InspectReport.model_fields) == orchestration["workerReport"]["required"]
 

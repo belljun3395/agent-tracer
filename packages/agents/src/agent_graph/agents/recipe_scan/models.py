@@ -36,7 +36,7 @@ class RecipeScanRequest(AgentExecutionRequest):
 ProbeName = Literal["timeline", "rules", "repetition"]
 
 # 전문가 인스턴스의 턴 백스톱과, 조율자가 전문가 하나에 줄 수 있는 최대 weight다.
-MAX_PROBE_ROUNDS = 10
+MAX_PROBE_TURNS = 10
 MAX_PROBE_WEIGHT = 10
 # 조율자가 종합 대신 전문가를 다시 부를 수 있는 라운드 수이며 무한 루프를 이 값으로 막는다.
 MAX_REDISPATCH_ROUNDS = 1

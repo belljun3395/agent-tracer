@@ -39,7 +39,7 @@ def build_recipe_agent(
     tools: list[BaseTool],
     transient_errors: tuple[type[Exception], ...],
     *,
-    max_rounds: int = MAX_MODEL_TURNS,
+    max_turns: int = MAX_MODEL_TURNS,
     output: type[BaseModel] = RecipeDraft,
     fallback_chat: BaseChatModel | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
@@ -48,7 +48,7 @@ def build_recipe_agent(
         content=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}]
     )
     middleware: list[AgentMiddleware[Any, Any, Any]] = [
-        ModelCallLimitMiddleware(run_limit=max_rounds + 2, exit_behavior="error"),
+        ModelCallLimitMiddleware(run_limit=max_turns + 2, exit_behavior="error"),
         StandardAgentMiddleware(),
         _tool_retry(transient_errors),
     ]

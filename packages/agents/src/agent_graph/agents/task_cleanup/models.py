@@ -90,7 +90,7 @@ class EventPage(BaseModel):
 
 
 # 검토 전문가 인스턴스의 턴 백스톱이며 SDK 대응 상수와 계약으로 값을 맞춘다.
-MAX_INSPECT_ROUNDS = 4
+MAX_INSPECT_TURNS = 4
 # 조율자가 후보 하나에 줄 수 있는 최대 weight이며 배분 비율의 상한일 뿐 턴 수가 아니다.
 MAX_INSPECT_WEIGHT = 4
 MAX_INSPECT_EXCERPTS = 6
