@@ -17,6 +17,27 @@ export type ToolHandler = (args: Record<string, unknown>) => Promise<string>;
 
 export type ToolHandlers = Readonly<Record<string, ToolHandler>>;
 
+/** 스트리밍 실행에서 모델이 제안한 도구 호출 한 건이며, args는 모델이 낸 원본 인자다. */
+export interface AgentStreamToolCall {
+    readonly id: string;
+    readonly name: string;
+    readonly args: Record<string, unknown>;
+}
+
+/** 스트리밍 실행에서 도구가 낸 결과이며, toolCallId로 어느 호출의 결과인지 잇는다. */
+export interface AgentStreamToolResult {
+    readonly toolCallId: string;
+    readonly toolName: string;
+    readonly content: string;
+}
+
+/** 실행이 끝나기 전에 부분 산출을 흘려보내는 싱크이며, 호출자가 넘길 때만 러너가 부분 메시지를 켠다. */
+export interface AgentStreamSink {
+    onAssistantDelta(text: string): void;
+    onToolCall(call: AgentStreamToolCall): void;
+    onToolResult(result: AgentStreamToolResult): void;
+}
+
 export interface AgentQueryRequest<ProviderOptions = undefined> {
     readonly label: string;
     readonly prompt: string;
@@ -34,6 +55,8 @@ export interface AgentQueryRequest<ProviderOptions = undefined> {
     readonly providerOptions?: ProviderOptions;
     readonly effort?: AgentEffortLevel;
     readonly maxBudgetUsd?: number;
+    /** 있으면 러너가 부분 메시지를 켜고 실행 중 부분 산출을 이 싱크로 흘려보내며, 없으면 단발 실행과 바이트 단위로 같다. */
+    readonly stream?: AgentStreamSink;
 }
 
 export interface AgentQueryResult {

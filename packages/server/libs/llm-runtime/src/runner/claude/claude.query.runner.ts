@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { HookJSONOutput, ModelUsage, SDKResultError } from "@anthropic-ai/claude-agent-sdk";
+import type { HookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
 import { GEN_AI_PROVIDER, type AiJobStepToolCall } from "@monitor/kernel";
 import { logWarn } from "~llm-runtime/observability/log.js";
 import { AGENT_ERROR_SUBTYPE } from "~llm-runtime/model/agent.error.js";
@@ -12,14 +12,15 @@ import { withGenAiClientTelemetry } from "~llm-runtime/observability/telemetry.j
 import { logAgentQuery } from "~llm-runtime/observability/query.log.js";
 import { TrajectoryRecorder } from "~llm-runtime/observability/trajectory.js";
 import type { AgentQueryRequest, AgentQueryResult, IQueryRunner } from "../llm.runner.js";
+import { partialAssistantDeltaText } from "./claude.stream.delta.js";
+import {
+    dominantModel,
+    normalizeClaudeResultSubtype,
+    toToolArgs,
+    toolResultText,
+    toUsage,
+} from "./claude.query.mappers.js";
 import type { ClaudeQueryOptions } from "./claude.query.options.js";
-
-interface SdkUsage {
-    readonly input_tokens: number;
-    readonly output_tokens: number;
-    readonly cache_read_input_tokens: number;
-    readonly cache_creation_input_tokens: number;
-}
 
 /** Claude Agent SDK로 도구 사용 질의를 실행한다. */
 export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
@@ -115,7 +116,7 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                 permissionMode: "bypassPermissions",
                 allowDangerouslySkipPermissions: true,
                 strictMcpConfig: true,
-                includePartialMessages: false,
+                includePartialMessages: request.stream !== undefined,
                 persistSession: false,
                 settingSources: ["user"],
                 ...(request.effort !== undefined ? { effort: request.effort } : {}),
@@ -126,16 +127,27 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
             },
         });
 
+        const sink = request.stream;
         try {
             for await (const msg of stream) {
+                // 부분 메시지가 켜졌을 때만 나오며, 어시스턴트 텍스트 조각을 도착하는 대로 흘려보낸다.
+                if (msg.type === "stream_event") {
+                    if (sink !== undefined) {
+                        const delta = partialAssistantDeltaText(msg.event);
+                        if (delta.length > 0) sink.onAssistantDelta(delta);
+                    }
+                    continue;
+                }
                 if (msg.type === "assistant") {
                     let text = "";
                     const toolCalls: AiJobStepToolCall[] = [];
                     for (const block of msg.message.content) {
                         if (block.type === "text") text += block.text;
                         if (block.type === "tool_use") {
-                            toolCalls.push({ id: block.id, name: block.name, args: toToolArgs(block.input) });
+                            const args = toToolArgs(block.input);
+                            toolCalls.push({ id: block.id, name: block.name, args });
                             toolNameById.set(block.id, block.name);
+                            sink?.onToolCall({ id: block.id, name: block.name, args });
                         }
                     }
                     collected += text;
@@ -166,11 +178,14 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                     if (typeof content === "string") continue;
                     for (const block of content) {
                         if (block.type !== "tool_result") continue;
+                        const toolName = toolNameById.get(block.tool_use_id) ?? "";
+                        const resultText = toolResultText(block.content);
                         trajectory.tool({
                             toolCallId: block.tool_use_id,
-                            toolName: toolNameById.get(block.tool_use_id) ?? "",
-                            content: toolResultText(block.content),
+                            toolName,
+                            content: resultText,
                         });
+                        sink?.onToolResult({ toolCallId: block.tool_use_id, toolName, content: resultText });
                     }
                     continue;
                 }
@@ -235,59 +250,4 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
         logAgentQuery(request.label, GEN_AI_PROVIDER.anthropic, request.model, result, request.jobId);
         return result;
     }
-}
-
-function toToolArgs(input: unknown): Record<string, unknown> {
-    return typeof input === "object" && input !== null && !Array.isArray(input)
-        ? (input as Record<string, unknown>)
-        : {};
-}
-
-function toolResultText(content: unknown): string {
-    if (typeof content === "string") return content;
-    if (!Array.isArray(content)) return "";
-    let text = "";
-    for (const block of content) {
-        if (typeof block === "object" && block !== null && (block as { type?: string }).type === "text") {
-            text += (block as { text?: string }).text ?? "";
-        }
-    }
-    return text;
-}
-
-function dominantModel(modelUsage: Record<string, ModelUsage> | undefined): string | null {
-    let best: string | null = null;
-    let bestTokens = -1;
-    for (const [model, usage] of Object.entries(modelUsage ?? {})) {
-        const tokens = usage.inputTokens + usage.outputTokens;
-        if (tokens > bestTokens) {
-            best = model;
-            bestTokens = tokens;
-        }
-    }
-    return best;
-}
-
-function normalizeClaudeResultSubtype(subtype: SDKResultError["subtype"]): string {
-    switch (subtype) {
-        case "error_max_turns":
-            return AGENT_ERROR_SUBTYPE.maxTurnsExceeded;
-        case "error_max_budget_usd":
-            return AGENT_ERROR_SUBTYPE.budgetExceeded;
-        case "error_max_structured_output_retries":
-            return AGENT_ERROR_SUBTYPE.outputSchemaInvalid;
-        case "error_during_execution":
-            return AGENT_ERROR_SUBTYPE.executionError;
-        default:
-            return AGENT_ERROR_SUBTYPE.executionError;
-    }
-}
-
-function toUsage(usage: SdkUsage): AgentQueryUsage {
-    return {
-        inputTokens: usage.input_tokens,
-        outputTokens: usage.output_tokens,
-        cacheReadTokens: usage.cache_read_input_tokens,
-        cacheCreationTokens: usage.cache_creation_input_tokens,
-    };
 }
