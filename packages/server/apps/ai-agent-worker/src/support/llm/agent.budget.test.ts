@@ -8,6 +8,21 @@ describe("ExecutionBudget", () => {
         expect(budget.lease(1)).toEqual({ maxBudgetUsd: 2, maxTurns: 15 });
     });
 
+    it("잔여 예산이 있으면 hasRemainingBudget가 참이고 다 쓰면 거짓이다", () => {
+        const budget = new ExecutionBudget({ maxBudgetUsd: 2, maxTurns: 15 });
+        expect(budget.hasRemainingBudget()).toBe(true);
+
+        budget.settle(budget.lease(1), { costUsd: 2, numTurns: 15 });
+        expect(budget.hasRemainingBudget()).toBe(false);
+    });
+
+    it("비용 상한이 없으면 hasRemainingBudget는 항상 참이다", () => {
+        const budget = new ExecutionBudget({ maxBudgetUsd: undefined, maxTurns: 5 });
+
+        budget.settle(budget.lease(1), { costUsd: null, numTurns: 5 });
+        expect(budget.hasRemainingBudget()).toBe(true);
+    });
+
     it("실제 지출을 반영해 잔량을 줄이고 다음 lease는 잔량만 받는다", () => {
         const budget = new ExecutionBudget({ maxBudgetUsd: 2, maxTurns: 15 });
 

@@ -12,7 +12,12 @@ import { combineLeases, ExecutionBudget, type AgentBudgetLease } from "~ai-agent
 import { mergeAgentCallAccounting, type AgentCallAccounting } from "~ai-agent-worker/support/llm/agent.accounting.js";
 import { buildRecipeRepairPrompt, buildRecipeUserPrompt } from "~ai-agent-worker/domain/recipe/model/recipe.prompt.js";
 import { RECIPE_SCAN_SPEC } from "~ai-agent-worker/domain/recipe/model/recipe.spec.js";
-import { type DispatchPlan, type ProbeReport } from "~ai-agent-worker/domain/recipe/model/recipe.dispatch.schema.js";
+import {
+    MAX_REDISPATCH_ROUNDS,
+    type DispatchPlan,
+    type ProbeReport,
+    type RecipeSynthesis,
+} from "~ai-agent-worker/domain/recipe/model/recipe.dispatch.schema.js";
 import {
     MIN_SYNTHESIS_TURNS,
     REPAIR_RESERVED_BUDGET_SHARE,
@@ -90,26 +95,21 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
         const plan = await this.survey(ctx, surveyLease, segments);
 
         const coordinatorLedger = new ProvenanceLedger();
-        const reports = plan.probes.length === 0 ? [] : await this.dispatch(ctx, budget, plan, coordinatorLedger, segments);
+        const reports: ProbeReport[] =
+            plan.probes.length === 0 ? [] : await this.dispatch(ctx, budget, plan, coordinatorLedger, segments);
 
-        const synthesisLease = combineLeases([synthesisFloorLease, budget.lease(1)]);
-        const investigatePrompt = buildRecipeUserPrompt(
-            input.taskId,
-            input.userPrompt,
-            input.language,
-            plan.probes.length === 0 ? null : plan,
-            reports,
-        );
-        const synthesis = await runRecipeSynthesis(
-            ctx,
-            this.deps,
-            coordinatorLedger,
-            investigatePrompt,
-            synthesisLease,
-            "investigate",
-        );
-        budget.settle(synthesisLease, { costUsd: synthesis.costUsd, numTurns: synthesis.numTurns });
-        segments.push(toSegment(synthesis, "investigate"));
+        let synthesis = await this.synthesize(ctx, budget, synthesisFloorLease, plan, reports, coordinatorLedger, segments);
+
+        // 조율자가 근거의 구멍을 지목하면 남은 예산 안에서 전문가를 한 번 더 부르고 다시 종합한다.
+        for (
+            let round = 0;
+            round < MAX_REDISPATCH_ROUNDS && wantsRedispatch(synthesis.data) && budget.hasRemainingBudget();
+            round += 1
+        ) {
+            const redispatchPlan: DispatchPlan = { probes: synthesis.data.redispatch };
+            reports.push(...(await this.dispatch(ctx, budget, redispatchPlan, coordinatorLedger, segments)));
+            synthesis = await this.synthesize(ctx, budget, synthesisFloorLease, plan, reports, coordinatorLedger, segments);
+        }
 
         const errors = validateRecipeCandidates(synthesis.data.recipes, input.taskId, coordinatorLedger.snapshot());
         if (errors.length === 0) return toOutput(segments, synthesis.data.recipes, synthesis.modelUsed, coordinatorLedger);
@@ -117,6 +117,13 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
         // 예약된 몫마저 바닥나 수리를 시도할 수 없으면 오류가 아닌 빈 결과로 착지한다.
         if (repairLease.maxTurns <= 0) return toOutput(segments, [], synthesis.modelUsed, coordinatorLedger);
 
+        const investigatePrompt = buildRecipeUserPrompt(
+            input.taskId,
+            input.userPrompt,
+            input.language,
+            plan.probes.length === 0 ? null : plan,
+            reports,
+        );
         let repaired: RecipeSynthesisRun;
         try {
             repaired = await runRecipeSynthesis(
@@ -185,6 +192,36 @@ export class RecipeSdkAgentAdapter implements RecipeAgentPort {
         });
         return reports;
     }
+
+    /** 계획과 지금까지 모인 보고로 종합 호출을 돌리고, 실제 지출을 정산해 궤적에 남긴다. */
+    private async synthesize(
+        ctx: RecipeQueryContext,
+        budget: ExecutionBudget,
+        floorLease: AgentBudgetLease,
+        plan: DispatchPlan,
+        reports: readonly ProbeReport[],
+        coordinatorLedger: ProvenanceLedger,
+        segments: RunSegment[],
+    ): Promise<RecipeSynthesisRun> {
+        // 종합에 먼저 떼어 둔 바닥에 아직 안 쓴 잔량 전부를 얹어 준다. 재파견 라운드마다 잔량은 정산으로 줄어 있다.
+        const lease = combineLeases([floorLease, budget.lease(1)]);
+        const prompt = buildRecipeUserPrompt(
+            ctx.input.taskId,
+            ctx.input.userPrompt,
+            ctx.input.language,
+            plan.probes.length === 0 ? null : plan,
+            reports,
+        );
+        const run = await runRecipeSynthesis(ctx, this.deps, coordinatorLedger, prompt, lease, "investigate");
+        budget.settle(lease, { costUsd: run.costUsd, numTurns: run.numTurns });
+        segments.push(toSegment(run, "investigate"));
+        return run;
+    }
+}
+
+/** 조율자가 종합 대신 추가 파견을 요청했는지 판정한다. 초안이 비고 파견 목록이 있을 때만 따르며, 둘 다 오면 초안을 택해 왕복을 아낀다. */
+function wantsRedispatch(synthesis: RecipeSynthesis): boolean {
+    return synthesis.recipes.length === 0 && synthesis.redispatch.length > 0;
 }
 
 function toSegment(run: AnyStructuredQueryResult, nodeName: string): RunSegment {

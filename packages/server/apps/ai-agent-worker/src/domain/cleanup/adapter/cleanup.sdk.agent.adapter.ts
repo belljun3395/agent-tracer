@@ -12,7 +12,12 @@ import { combineLeases, ExecutionBudget, type AgentBudgetLease } from "~ai-agent
 import { mergeAgentCallAccounting, type AgentCallAccounting } from "~ai-agent-worker/support/llm/agent.accounting.js";
 import { buildCleanupRepairPrompt, buildCleanupUserPrompt } from "~ai-agent-worker/domain/cleanup/model/cleanup.prompt.js";
 import { TASK_CLEANUP_SPEC } from "~ai-agent-worker/domain/cleanup/model/cleanup.spec.js";
-import { type InspectReport, type TriagePlan } from "~ai-agent-worker/domain/cleanup/model/cleanup.dispatch.schema.js";
+import {
+    MAX_REDISPATCH_ROUNDS,
+    type CleanupDecision,
+    type InspectReport,
+    type TriagePlan,
+} from "~ai-agent-worker/domain/cleanup/model/cleanup.dispatch.schema.js";
 import {
     MIN_DECISION_TURNS,
     REPAIR_RESERVED_BUDGET_SHARE,
@@ -93,23 +98,21 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
 
         const coordinatorLedger = new CleanupProvenanceLedger();
         coordinatorLedger.mergeFrom(triageLedger);
-        const reports =
+        const reports: InspectReport[] =
             plan.inspect.length === 0 ? [] : await this.dispatch(ctx, batch, budget, plan, coordinatorLedger, segments);
 
-        const decisionLease = combineLeases([decisionFloorLease, budget.lease(1)]);
-        const decisionPrompt = buildCleanupUserPrompt(input.maxSuggestions, input.scannedAt, reports);
-        const decision = await runCleanupDecision(
-            ctx,
-            this.deps,
-            batch,
-            coordinatorLedger,
-            input.language,
-            decisionPrompt,
-            decisionLease,
-            "investigate",
-        );
-        budget.settle(decisionLease, { costUsd: decision.costUsd, numTurns: decision.numTurns });
-        segments.push(toSegment(decision, "investigate"));
+        let decision = await this.decide(ctx, batch, budget, decisionFloorLease, reports, coordinatorLedger, input, segments);
+
+        // 조율자가 아직 판정 못 한 후보를 지목하면 남은 예산 안에서 후보를 한 번 더 열어보고 다시 결정한다.
+        for (
+            let round = 0;
+            round < MAX_REDISPATCH_ROUNDS && wantsRedispatch(decision.data) && budget.hasRemainingBudget();
+            round += 1
+        ) {
+            const redispatchPlan: TriagePlan = { inspect: decision.data.redispatch };
+            reports.push(...(await this.dispatch(ctx, batch, budget, redispatchPlan, coordinatorLedger, segments)));
+            decision = await this.decide(ctx, batch, budget, decisionFloorLease, reports, coordinatorLedger, input, segments);
+        }
 
         const checked = validateCleanupSuggestions(decision.data.suggestions, coordinatorLedger.snapshot(), input.maxSuggestions);
         if (checked.errors.length === 0) return toOutput(segments, checked.valid, decision.modelUsed);
@@ -117,6 +120,7 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
         // 예약된 몫마저 바닥나 수리를 시도할 수 없으면 오류가 아닌 빈 결과로 착지한다.
         if (repairLease.maxTurns <= 0) return toOutput(segments, [], decision.modelUsed);
 
+        const decisionPrompt = buildCleanupUserPrompt(input.maxSuggestions, input.scannedAt, reports);
         let repaired: CleanupDecisionRun;
         try {
             repaired = await runCleanupDecision(
@@ -185,6 +189,40 @@ export class CleanupSdkAgentAdapter implements CleanupAgentPort {
         });
         return reports;
     }
+
+    /** 지금까지 모인 조사 보고로 결정 호출을 돌리고, 실제 지출을 정산해 궤적에 남긴다. */
+    private async decide(
+        ctx: CleanupQueryContext,
+        batch: CleanupToolBatch,
+        budget: ExecutionBudget,
+        floorLease: AgentBudgetLease,
+        reports: readonly InspectReport[],
+        coordinatorLedger: CleanupProvenanceLedger,
+        input: GenerateCleanupSuggestionsInput,
+        segments: RunSegment[],
+    ): Promise<CleanupDecisionRun> {
+        // 결정에 먼저 떼어 둔 바닥에 아직 안 쓴 잔량 전부를 얹어 준다. 재파견 라운드마다 잔량은 정산으로 줄어 있다.
+        const lease = combineLeases([floorLease, budget.lease(1)]);
+        const prompt = buildCleanupUserPrompt(input.maxSuggestions, input.scannedAt, reports);
+        const run = await runCleanupDecision(
+            ctx,
+            this.deps,
+            batch,
+            coordinatorLedger,
+            input.language,
+            prompt,
+            lease,
+            "investigate",
+        );
+        budget.settle(lease, { costUsd: run.costUsd, numTurns: run.numTurns });
+        segments.push(toSegment(run, "investigate"));
+        return run;
+    }
+}
+
+/** 조율자가 결정 대신 재조사를 요청했는지 판정한다. 결정이 비고 재조사 목록이 있을 때만 따르며, 둘 다 오면 결정을 택해 왕복을 아낀다. */
+function wantsRedispatch(decision: CleanupDecision): boolean {
+    return decision.suggestions.length === 0 && decision.redispatch.length > 0;
 }
 
 function toSegment(run: AnyStructuredQueryResult, nodeName: string): RunSegment {
