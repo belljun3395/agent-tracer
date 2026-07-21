@@ -25,6 +25,7 @@ from ..models import (
 )
 from ..policy import (
     AGENT_RECURSION_LIMIT,
+    MAX_MODEL_TURNS,
     MAX_TITLE_MODEL_COST_USD,
     validate_title_candidate,
 )
@@ -66,6 +67,7 @@ class _CandidateAgent(GraphNode, ABC):
             agent_name=self._agent_name,
             trace=self._usage,
             budget=budget,
+            max_model_turns=MAX_MODEL_TURNS,
         )
         result = await invoke_structured_agent(
             agent,

@@ -21,6 +21,8 @@ from ..execution.trace import ExecutionTrace
 from .budget import ToolLoopBudget
 from .trajectory import is_truncated
 
+BUDGET_NOTICE = "You have used {used} of {total} tool-calling turns; converge as you approach the limit."
+
 FINALIZE_DIRECTIVE = (
     "The investigation budget is exhausted. Produce the final structured output now "
     "using only the evidence you already verified."
@@ -34,6 +36,8 @@ class StandardAgentContext:
     agent_name: str
     trace: ExecutionTrace
     budget: ToolLoopBudget
+    # 모델이 자기 페이싱을 가늠하는 표시용 턴 총량이며 이 값 자체는 종료를 결정하지 않는다.
+    max_model_turns: int
 
 
 # noinspection PyTypeChecker
@@ -98,7 +102,10 @@ def _with_budget(request: ModelRequest[StandardAgentContext]) -> ModelRequest[St
     context = request.runtime.context
     messages = cache_tool_messages(request.messages)
     if not context.budget.landing:
-        return request.override(messages=messages)
+        spent = dict(request.state).get("run_model_call_count", 0)
+        used = spent if isinstance(spent, int) else 0
+        notice = BUDGET_NOTICE.format(used=used, total=context.max_model_turns)
+        return request.override(messages=[*messages, HumanMessage(content=notice)])
     context.budget.land()
     # 구조화 출력 도구는 이 목록 밖에서 붙으므로 조사 도구만 거둬 모델이 결론을 내게 한다.
     return request.override(

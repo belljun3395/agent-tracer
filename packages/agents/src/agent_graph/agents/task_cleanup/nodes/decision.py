@@ -25,6 +25,7 @@ from ..models import (
 )
 from ..policy import (
     AGENT_RECURSION_LIMIT,
+    MAX_MODEL_TURNS,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
     validate_suggestions,
 )
@@ -92,6 +93,7 @@ class _DecisionAgent(GraphNode, ABC):
             agent_name=self._agent_name,
             trace=self._usage,
             budget=budget,
+            max_model_turns=MAX_MODEL_TURNS,
         )
         result = await invoke_structured_agent(
             cleanup_agent,

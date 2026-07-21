@@ -15,6 +15,7 @@ from ...runtime.node import GraphNode
 from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
+    MAX_MODEL_TURNS,
     MAX_REDISPATCH_ROUNDS,
     DispatchPlan,
     InvestigateUpdate,
@@ -86,7 +87,9 @@ class _CandidateAgent(GraphNode, ABC):
             output=RecipeDraft,
             fallback_chat=self._fallback_chat,
         )
-        context = StandardAgentContext(agent_name=self._agent_name, trace=self._usage, budget=budget)
+        context = StandardAgentContext(
+            agent_name=self._agent_name, trace=self._usage, budget=budget, max_model_turns=MAX_MODEL_TURNS
+        )
         result = await invoke_structured_agent(
             agent,
             messages=messages,

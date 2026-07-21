@@ -14,6 +14,7 @@ from ...runtime.node import GraphNode
 from ..langchain_agent import build_recipe_agent
 from ..models import (
     AGENT_RECURSION_LIMIT,
+    MAX_MODEL_TURNS,
     MAX_VERDICT_CHARS,
     ProbeDispatch,
     ProbeReport,
@@ -95,6 +96,7 @@ class ProbeNode(GraphNode):
                     agent_name=probe_name,
                     trace=self._usage,
                     budget=budget,
+                    max_model_turns=MAX_MODEL_TURNS,
                 ),
                 response_type=ProbeReport,
                 recursion_limit=AGENT_RECURSION_LIMIT,

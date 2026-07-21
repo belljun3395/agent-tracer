@@ -164,6 +164,17 @@ async def test_예산을_다_써도_모은_근거로_결론을_낸다(monkeypatc
     assert res.data["suggestions"] == _DRAFT["suggestions"]
 
 
+async def test_턴_사용량을_매_턴_알려준다(monkeypatch: pytest.MonkeyPatch) -> None:
+    chat = GreedyChat()
+    monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)
+
+    await _run(chat, FakeLedger())
+
+    # 실제 종료 게이트는 달러지만 모델의 self-pacing 신호는 턴 단위로 매 턴 갱신된다.
+    assert "used 0 of" in chat.notices[0] and "tool-calling turns" in chat.notices[0]
+    assert "used 1 of" in chat.notices[1]
+
+
 async def test_비용_상한에_닿기_전에_결론을_받아낸다(monkeypatch: pytest.MonkeyPatch) -> None:
     chat = GreedyChat(usage=_EXPENSIVE_USAGE)
     monkeypatch.setattr(cleanup_mod, "make_chat", lambda *_a, **_k: chat)

@@ -145,8 +145,8 @@ Three specialists can be dispatched, each reading in its own isolated context:
 
 Assign only the specialists this anchor actually needs, give each a concrete question, and assign each a
 weight from 1 to {MAX_PROBE_WEIGHT} reflecting how much effort its question deserves; higher weight gets
-a larger share of the investigation budget. A specialist you do not need is a specialist you should not
-dispatch.
+a larger share of the investigation budget. Weights are relative to each other, not a count you can run
+out of or ask more of than exists. A specialist you do not need is a specialist you should not dispatch.
 """
 
 

@@ -87,9 +87,10 @@ You see the qualified candidates and nothing else. A candidate is proposed for a
 reviewer reports on it, so assign every candidate you believe may be archivable — a reviewer confirms or
 rejects each one. For each candidate, assign a weight from 1 to {MAX_INSPECT_WEIGHT} reflecting how much
 scrutiny it deserves: give a long-running one a higher weight and a no-events shell just 1, since its
-reviewer only has to confirm the shell is empty. Weight sets each reviewer's share of the review budget,
-not a fixed count of anything. Do not assign candidates that clearly hold real work; assigning nothing
-ends the scan with no suggestions. Candidates you leave unassigned are picked up by a future scan.
+reviewer only has to confirm the shell is empty. Weight sets each reviewer's share of the review budget;
+weights are relative to each other, not a count you can run out of or ask more of than exists. Do not
+assign candidates that clearly hold real work; assigning nothing ends the scan with no suggestions.
+Candidates you leave unassigned are picked up by a future scan.
 """
 
 INSPECT_SYSTEM_PROMPT = f"""You judge one cleanup candidate by reading what actually happened in it.

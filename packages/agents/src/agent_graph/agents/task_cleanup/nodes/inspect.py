@@ -26,6 +26,7 @@ from ..models import (
 )
 from ..policy import (
     AGENT_RECURSION_LIMIT,
+    MAX_MODEL_TURNS,
     TASK_CLEANUP_MAX_MODEL_COST_USD,
 )
 from ..prompts import (
@@ -96,6 +97,7 @@ class TriageNode(GraphNode):
                 agent_name=triage_name,
                 trace=self._usage,
                 budget=budget,
+                max_model_turns=MAX_MODEL_TURNS,
             ),
             response_type=TriagePlan,
             recursion_limit=AGENT_RECURSION_LIMIT,
@@ -171,6 +173,7 @@ class InspectNode(GraphNode):
                     agent_name=name,
                     trace=self._usage,
                     budget=budget,
+                    max_model_turns=MAX_MODEL_TURNS,
                 ),
                 response_type=InspectReport,
                 recursion_limit=AGENT_RECURSION_LIMIT,
