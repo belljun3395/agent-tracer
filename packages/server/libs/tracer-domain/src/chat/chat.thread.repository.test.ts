@@ -60,4 +60,18 @@ describe("ChatThreadRepository", () => {
         const found = await repo.findById("t1");
         expect(found?.title).toBe("바뀐 제목");
     });
+
+    it("deleteById는 그 스레드만 지운다", async () => {
+        const store = createInMemoryRepository<ChatThreadEntity>();
+        store.seed(
+            thread("t1", "u1", new Date("2026-07-21T00:00:00.000Z")),
+            thread("t2", "u1", new Date("2026-07-21T01:00:00.000Z")),
+        );
+        const repo = new ChatThreadRepository(asRepository(store));
+
+        await repo.deleteById("t1");
+
+        expect(await repo.findById("t1")).toBeNull();
+        expect(await repo.findById("t2")).not.toBeNull();
+    });
 });

@@ -43,4 +43,18 @@ describe("ChatPendingToolRepository", () => {
         const found = await repo.findById("pt1");
         expect(found?.status).toBe(CHAT_PENDING_TOOL_STATUS.rejected);
     });
+
+    it("deleteByThread는 그 스레드의 대기 도구만 지운다", async () => {
+        const store = createInMemoryRepository<ChatPendingToolEntity>();
+        store.seed(
+            pendingTool("pt1", "t1", new Date("2026-07-21T00:00:00.000Z")),
+            pendingTool("pt2", "t2", new Date("2026-07-21T00:00:00.000Z")),
+        );
+        const repo = new ChatPendingToolRepository(asRepository(store));
+
+        await repo.deleteByThread("t1");
+
+        expect(await repo.findById("pt1")).toBeNull();
+        expect(await repo.findById("pt2")).not.toBeNull();
+    });
 });

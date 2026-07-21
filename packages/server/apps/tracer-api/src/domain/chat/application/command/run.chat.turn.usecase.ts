@@ -25,6 +25,7 @@ import { selectReplayMessages } from "~tracer-api/domain/chat/model/chat.summary
 import { mapMessage, type ChatMessageDto } from "~tracer-api/domain/chat/model/chat.model.js";
 import { ChatMissingApiKeyError } from "~tracer-api/domain/chat/model/chat.errors.js";
 import { SummarizeThreadProjection } from "~tracer-api/domain/chat/application/command/summarize.thread.projection.js";
+import { GenerateThreadTitleProjection } from "~tracer-api/domain/chat/application/command/generate.thread.title.projection.js";
 
 export interface RunChatTurnInput {
     readonly userId: string;
@@ -54,6 +55,7 @@ export class RunChatTurnUseCase {
         @Inject(CHAT_CLOCK)
         private readonly clock: ClockPort,
         private readonly summaryProjection: SummarizeThreadProjection,
+        private readonly titleProjection: GenerateThreadTitleProjection,
     ) {}
 
     async execute(input: RunChatTurnInput, sink: ChatTurnSink): Promise<{ readonly message: ChatMessageDto | null }> {
@@ -125,8 +127,10 @@ export class RunChatTurnUseCase {
             errorSummary: result.errorSummary,
         });
 
-        // 이번 턴의 어시스턴트 메시지까지 포함해야 방금 넘긴 문턱도 이 턴에서 접힌다.
-        await this.summaryProjection.project(thread, [...history, assistant]);
+        // 이번 턴의 어시스턴트 메시지까지 포함해야 방금 넘긴 문턱도 이 턴에서 접히고, 첫 성공한 턴의 제목도 여기서 지어진다.
+        const foldedMessages = [...history, assistant];
+        await this.summaryProjection.project(thread, foldedMessages);
+        await this.titleProjection.project(thread, foldedMessages);
 
         return { message: mapMessage(assistant) };
     }

@@ -32,4 +32,18 @@ describe("ChatMessageRepository", () => {
 
         expect((await repo.listByThread("t1")).map((m) => m.id)).toEqual(["m1"]);
     });
+
+    it("deleteByThread는 그 스레드의 메시지만 지운다", async () => {
+        const store = createInMemoryRepository<ChatMessageEntity>();
+        store.seed(
+            message("m1", "t1", new Date("2026-07-21T00:00:00.000Z")),
+            message("m2", "t2", new Date("2026-07-21T00:00:00.000Z")),
+        );
+        const repo = new ChatMessageRepository(asRepository(store));
+
+        await repo.deleteByThread("t1");
+
+        expect(await repo.listByThread("t1")).toHaveLength(0);
+        expect(await repo.listByThread("t2")).toHaveLength(1);
+    });
 });

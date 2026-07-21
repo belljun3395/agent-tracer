@@ -15,8 +15,10 @@ import { FakeChatSummarizer } from "~tracer-api/domain/chat/port/__fakes__/fake.
 import type { ChatAgentPort } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import type { ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import { CHAT_SUMMARY_SPEC } from "~tracer-api/domain/chat/model/chat.summary.spec.js";
+import { CHAT_DEFAULT_THREAD_TITLE } from "~tracer-api/domain/chat/model/chat.title.spec.js";
 import { ChatMissingApiKeyError } from "~tracer-api/domain/chat/model/chat.errors.js";
 import { SummarizeThreadProjection } from "./summarize.thread.projection.js";
+import { GenerateThreadTitleProjection } from "./generate.thread.title.projection.js";
 import { RunChatTurnUseCase } from "./run.chat.turn.usecase.js";
 
 const NOW = new Date("2026-01-02T00:00:00.000Z");
@@ -41,6 +43,7 @@ function buildUseCase(
         readonly defaultBackend?: AiAgentBackend;
         readonly settingReader?: FakeChatSettingReader;
         readonly python?: ChatAgentPort;
+        readonly titleProjection?: GenerateThreadTitleProjection;
     } = {},
 ): RunChatTurnUseCase {
     return new RunChatTurnUseCase(
@@ -52,6 +55,7 @@ function buildUseCase(
         options.settingReader ?? new FakeChatSettingReader(),
         new FixedClock(NOW),
         buildProjection(threads),
+        options.titleProjection ?? new GenerateThreadTitleProjection(threads, new FakeChatSummarizer(), new FixedClock(NOW)),
     );
 }
 
@@ -238,5 +242,39 @@ describe("RunChatTurnUseCase", () => {
 
         expect(message?.content).toBe("답");
         expect(await messages.listByThread("th1")).toHaveLength(2);
+    });
+
+    it("기본 제목인 스레드에서 성공한 턴 뒤 제목을 자동 생성한다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        threads.seed(ChatThreadEntity.create({ id: "th1", userId: "u1", title: CHAT_DEFAULT_THREAD_TITLE, now: new Date("2026-01-01T00:00:00.000Z") }));
+        messages.seed(
+            ChatMessageEntity.create({ id: "m1", threadId: "th1", role: CHAT_MESSAGE_ROLE.user, content: "질문", now: new Date("2026-01-01T00:01:00.000Z") }),
+        );
+        const titleProjection = new GenerateThreadTitleProjection(threads, new FakeChatSummarizer("지은 제목"), new FixedClock(NOW));
+        const agent = new FakeChatAgent("답");
+        const useCase = buildUseCase(threads, messages, agent, undefined, { titleProjection });
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect((await threads.findById("th1"))?.title).toBe("지은 제목");
+    });
+
+    it("텍스트가 비어 턴이 버려지면 제목도 자동 생성하지 않는다", async () => {
+        const threads = new InMemoryChatThreadRepository();
+        const messages = new InMemoryChatMessageRepository();
+        threads.seed(ChatThreadEntity.create({ id: "th1", userId: "u1", title: CHAT_DEFAULT_THREAD_TITLE, now: new Date("2026-01-01T00:00:00.000Z") }));
+        messages.seed(
+            ChatMessageEntity.create({ id: "m1", threadId: "th1", role: CHAT_MESSAGE_ROLE.user, content: "질문", now: new Date("2026-01-01T00:01:00.000Z") }),
+        );
+        const titleSummarizer = new FakeChatSummarizer("지은 제목");
+        const titleProjection = new GenerateThreadTitleProjection(threads, titleSummarizer, new FixedClock(NOW));
+        const agent = new FakeChatAgent("");
+        const useCase = buildUseCase(threads, messages, agent, undefined, { titleProjection });
+
+        await useCase.execute({ userId: "u1", threadId: "th1" }, collectingSink().sink);
+
+        expect(titleSummarizer.calls).toBe(0);
+        expect((await threads.findById("th1"))?.title).toBe(CHAT_DEFAULT_THREAD_TITLE);
     });
 });

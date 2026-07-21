@@ -25,4 +25,8 @@ export class ChatThreadRepository {
     async update(thread: ChatThreadEntity): Promise<void> {
         await upsertByKeys(this.repo, thread, ["id"]);
     }
+
+    async deleteById(id: string): Promise<void> {
+        await this.repo.delete({ id });
+    }
 }

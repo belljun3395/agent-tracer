@@ -22,4 +22,11 @@ export class InMemoryChatPendingToolRepository implements ChatPendingToolReposit
         this.rows.set(pendingTool.id, pendingTool);
         return Promise.resolve();
     }
+
+    deleteByThread(threadId: string): Promise<void> {
+        for (const [id, pendingTool] of this.rows) {
+            if (pendingTool.threadId === threadId) this.rows.delete(id);
+        }
+        return Promise.resolve();
+    }
 }

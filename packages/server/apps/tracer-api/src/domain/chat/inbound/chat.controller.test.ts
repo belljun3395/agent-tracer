@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NotFoundException } from "@nestjs/common";
 import type { Response } from "express";
 import { AI_AGENT_BACKEND, CHAT_TOOL } from "@monitor/kernel";
 import { ChatPendingToolEntity } from "@monitor/tracer-domain";
@@ -14,7 +15,10 @@ import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
 import { RunChatTurnUseCase } from "~tracer-api/domain/chat/application/command/run.chat.turn.usecase.js";
 import { SummarizeThreadProjection } from "~tracer-api/domain/chat/application/command/summarize.thread.projection.js";
+import { GenerateThreadTitleProjection } from "~tracer-api/domain/chat/application/command/generate.thread.title.projection.js";
 import { ConfirmToolUseCase } from "~tracer-api/domain/chat/application/command/confirm.tool.usecase.js";
+import { DeleteThreadUseCase } from "~tracer-api/domain/chat/application/command/delete.thread.usecase.js";
+import { RenameThreadUseCase } from "~tracer-api/domain/chat/application/command/rename.thread.usecase.js";
 import { ListThreadsUseCase } from "~tracer-api/domain/chat/application/query/list.threads.usecase.js";
 import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.thread.usecase.js";
 import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/get.messages.usecase.js";
@@ -42,8 +46,11 @@ function build() {
             new FakeChatSettingReader(),
             clock,
             new SummarizeThreadProjection(threads, new FakeChatSummarizer(), clock),
+            new GenerateThreadTitleProjection(threads, new FakeChatSummarizer(), clock),
         ),
         new ConfirmToolUseCase(threads, messages, pendingTools, executors, clock),
+        new DeleteThreadUseCase(threads, messages, pendingTools),
+        new RenameThreadUseCase(threads, clock),
     );
     return { controller, messages, pendingTools };
 }
@@ -104,5 +111,27 @@ describe("ChatController", () => {
 
         expect(result.status).toBe("approved");
         expect((await messages.listByThread(thread.id)).some((m) => m.role === "tool")).toBe(true);
+    });
+
+    it("스레드 제목을 바꾼다", async () => {
+        const { controller } = build();
+        const { thread } = await controller.create("u1", { title: "대화" });
+
+        const result = await controller.rename("u1", thread.id, { title: "바뀐 제목" });
+
+        expect(result.thread.title).toBe("바뀐 제목");
+    });
+
+    it("스레드를 지우면 메시지도 함께 지워진다", async () => {
+        const { controller, messages } = build();
+        const { thread } = await controller.create("u1", { title: "대화" });
+        const { res } = fakeResponse();
+        await controller.send("u1", thread.id, { content: "질문" }, res);
+
+        const result = await controller.remove("u1", thread.id);
+
+        expect(result.deleted).toBe(true);
+        await expect(controller.detail("u1", thread.id)).rejects.toBeInstanceOf(NotFoundException);
+        expect(await messages.listByThread(thread.id)).toHaveLength(0);
     });
 });

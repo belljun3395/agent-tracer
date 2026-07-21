@@ -25,4 +25,9 @@ export class ChatPendingToolRepository {
     async resolve(pendingTool: ChatPendingToolEntity): Promise<void> {
         await upsertByKeys(this.repo, pendingTool, ["id"]);
     }
+
+    // 스레드 삭제가 캐스케이드로 부르는 메서드다.
+    async deleteByThread(threadId: string): Promise<void> {
+        await this.repo.delete({ threadId });
+    }
 }

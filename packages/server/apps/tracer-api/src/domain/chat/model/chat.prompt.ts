@@ -87,3 +87,13 @@ export function renderChatSummaryPrompt(olderMessages: readonly ChatTurnMessage[
     lines.push("", "Write the updated summary now.");
     return lines.join("\n");
 }
+
+export const CHAT_TITLE_SYSTEM_PROMPT = "Write a short 2-6 word title for this conversation in the user's language; no quotes.";
+
+/** 제목 러너도 요약처럼 도구 없는 단발 호출이라 지금까지의 대화를 그대로 재생한다. */
+export function renderChatTitlePrompt(messages: readonly ChatTurnMessage[]): string {
+    const lines: string[] = ["Conversation:"];
+    for (const message of messages) lines.push(renderMessage(message));
+    lines.push("", "Title:");
+    return lines.join("\n");
+}

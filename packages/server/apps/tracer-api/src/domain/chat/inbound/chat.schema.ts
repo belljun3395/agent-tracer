@@ -7,6 +7,12 @@ export const createThreadSchema = z.object({
 
 export type CreateThreadPayload = z.infer<typeof createThreadSchema>;
 
+export const renameThreadSchema = z.object({
+    title: z.string().trim().min(1).max(200),
+});
+
+export type RenameThreadPayload = z.infer<typeof renameThreadSchema>;
+
 export const postMessageSchema = z.object({
     content: z.string().trim().min(1).max(10_000),
     model: z.string().trim().min(1).optional(),

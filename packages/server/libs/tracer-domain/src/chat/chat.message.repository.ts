@@ -13,4 +13,9 @@ export class ChatMessageRepository {
     async listByThread(threadId: string): Promise<ChatMessageEntity[]> {
         return this.repo.find({ where: { threadId }, order: { createdAt: "ASC" } });
     }
+
+    // 스레드 삭제가 캐스케이드로 부르는 메서드다.
+    async deleteByThread(threadId: string): Promise<void> {
+        await this.repo.delete({ threadId });
+    }
 }

@@ -21,4 +21,11 @@ export class InMemoryChatMessageRepository implements ChatMessageRepositoryPort 
                 .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
         );
     }
+
+    deleteByThread(threadId: string): Promise<void> {
+        const remaining = this.rows.filter((message) => message.threadId !== threadId);
+        this.rows.length = 0;
+        this.rows.push(...remaining);
+        return Promise.resolve();
+    }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post, Res } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, HttpCode, HttpStatus, Param, Patch, Post, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { CHAT_THREADS_PATH, MONITOR_USER_HEADER } from "@monitor/kernel";
 import { errorMessage } from "@monitor/llm-runtime";
@@ -10,6 +10,8 @@ import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
 import { RunChatTurnUseCase } from "~tracer-api/domain/chat/application/command/run.chat.turn.usecase.js";
 import { ConfirmToolUseCase } from "~tracer-api/domain/chat/application/command/confirm.tool.usecase.js";
+import { DeleteThreadUseCase } from "~tracer-api/domain/chat/application/command/delete.thread.usecase.js";
+import { RenameThreadUseCase } from "~tracer-api/domain/chat/application/command/rename.thread.usecase.js";
 import { ListThreadsUseCase } from "~tracer-api/domain/chat/application/query/list.threads.usecase.js";
 import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.thread.usecase.js";
 import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/get.messages.usecase.js";
@@ -18,9 +20,11 @@ import {
     confirmToolSchema,
     createThreadSchema,
     postMessageSchema,
+    renameThreadSchema,
     type ConfirmToolPayload,
     type CreateThreadPayload,
     type PostMessagePayload,
+    type RenameThreadPayload,
 } from "./chat.schema.js";
 
 /** 대화 스레드 조회·생성과, 한 턴을 SSE로 흘려보내는 HTTP 계약을 제공한다. */
@@ -34,6 +38,8 @@ export class ChatController {
         private readonly appendUserMessage: AppendUserMessageUseCase,
         private readonly runChatTurn: RunChatTurnUseCase,
         private readonly confirmTool: ConfirmToolUseCase,
+        private readonly deleteThread: DeleteThreadUseCase,
+        private readonly renameThread: RenameThreadUseCase,
     ) {}
 
     @Get()
@@ -64,6 +70,24 @@ export class ChatController {
         @Param("threadId", pathParamPipe) threadId: string,
     ) {
         return this.getMessages.execute(resolveUserId(user), threadId);
+    }
+
+    @Patch(":threadId")
+    async rename(
+        @Headers(MONITOR_USER_HEADER) user: string | undefined,
+        @Param("threadId", pathParamPipe) threadId: string,
+        @Body(new SchemaValidationPipe(renameThreadSchema)) body: RenameThreadPayload,
+    ) {
+        return this.renameThread.execute({ userId: resolveUserId(user), threadId, title: body.title });
+    }
+
+    @Delete(":threadId")
+    @HttpCode(HttpStatus.OK)
+    async remove(
+        @Headers(MONITOR_USER_HEADER) user: string | undefined,
+        @Param("threadId", pathParamPipe) threadId: string,
+    ) {
+        return this.deleteThread.execute(resolveUserId(user), threadId);
     }
 
     @Post(":threadId/messages")

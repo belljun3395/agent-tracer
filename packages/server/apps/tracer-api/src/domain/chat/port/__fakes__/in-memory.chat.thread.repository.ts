@@ -29,4 +29,9 @@ export class InMemoryChatThreadRepository implements ChatThreadRepositoryPort {
         this.rows.set(thread.id, thread);
         return Promise.resolve();
     }
+
+    deleteById(id: string): Promise<void> {
+        this.rows.delete(id);
+        return Promise.resolve();
+    }
 }

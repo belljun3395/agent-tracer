@@ -26,7 +26,10 @@ import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
 import { RunChatTurnUseCase } from "~tracer-api/domain/chat/application/command/run.chat.turn.usecase.js";
 import { SummarizeThreadProjection } from "~tracer-api/domain/chat/application/command/summarize.thread.projection.js";
+import { GenerateThreadTitleProjection } from "~tracer-api/domain/chat/application/command/generate.thread.title.projection.js";
 import { ConfirmToolUseCase } from "~tracer-api/domain/chat/application/command/confirm.tool.usecase.js";
+import { DeleteThreadUseCase } from "~tracer-api/domain/chat/application/command/delete.thread.usecase.js";
+import { RenameThreadUseCase } from "~tracer-api/domain/chat/application/command/rename.thread.usecase.js";
 import { ListThreadsUseCase } from "~tracer-api/domain/chat/application/query/list.threads.usecase.js";
 import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.thread.usecase.js";
 import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/get.messages.usecase.js";
@@ -139,7 +142,10 @@ export const chatFeature = {
         AppendUserMessageUseCase,
         RunChatTurnUseCase,
         SummarizeThreadProjection,
+        GenerateThreadTitleProjection,
         ConfirmToolUseCase,
+        DeleteThreadUseCase,
+        RenameThreadUseCase,
         { provide: CHAT_CLOCK, useClass: SystemClock },
         { provide: CHAT_EVENT_SEARCH, useClass: ChatOpenSearchAdapter },
         { provide: CHAT_THREAD_REPOSITORY, useExisting: ChatThreadRepository },
