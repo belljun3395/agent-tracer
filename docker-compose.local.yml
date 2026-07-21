@@ -5,9 +5,10 @@
 #   export CLAUDE_CODE_OAUTH_TOKEN=<토큰>
 #   npm run stack:up:local
 services:
-  # 잡의 기본 백엔드를 찍는 쪽이 tracer-api라 여기도 claude-sdk로 맞춘다.
+  # 잡을 접수·스탬프하는 쪽이 tracer-api라 프로파일과 백엔드를 워커와 같게 맞춰야 키 검사가 열린다.
   tracer-api:
     environment:
+      MONITOR_PROFILE: local
       AGENT_BACKEND: claude-sdk
   ai-agent-worker:
     environment:
