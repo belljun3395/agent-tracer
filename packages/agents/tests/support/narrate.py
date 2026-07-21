@@ -4,19 +4,37 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH
 from agent_graph.agents.shared.models import AgentResponse
+from agent_graph.agents.task_cleanup.graph import TASK_CLEANUP_GRAPH
+from agent_graph.agents.title_suggestion.graph import TITLE_SUGGESTION_GRAPH
 
 from .fakes import FakeToolLoopChat
 
 _CONTENT_LIMIT = 500
 
+_GRAPH_BY_LABEL = {
+    "recipe-scan": RECIPE_SCAN_GRAPH,
+    "task-cleanup": TASK_CLEANUP_GRAPH,
+    "title-suggestion": TITLE_SUGGESTION_GRAPH,
+}
+
 
 def narrate(label: str, chat: FakeToolLoopChat, res: AgentResponse) -> None:
-    """시나리오 이름 아래 프롬프트 조합·노드 전환·결과를 순서대로 찍는다."""
+    """시나리오 이름 아래 그래프 위상·프롬프트 조합·노드와 응답의 타임라인·결과를 순서대로 찍는다."""
     print(f"\n===== {label} =====")
+    _print_topology(label)
     _print_prompts(chat)
-    _print_graph_events(res)
+    _print_timeline(res)
     _print_result(res)
+
+
+def _print_topology(label: str) -> None:
+    for prefix, graph in _GRAPH_BY_LABEL.items():
+        if label.startswith(prefix):
+            print("-- topology --")
+            print(graph.get_graph().draw_ascii())
+            return
 
 
 def _print_prompts(chat: FakeToolLoopChat) -> None:
@@ -45,15 +63,23 @@ def _print_message(message: Any) -> None:
         print(f"      tool_call {call.get('name')}({call.get('args')})")
 
 
-def _print_graph_events(res: AgentResponse) -> None:
-    print("-- graph --")
-    events = [step for step in res.steps if step.role == "graph"]
-    if not events:
-        print("  (그래프 이벤트가 없다)")
+def _print_timeline(res: AgentResponse) -> None:
+    print("-- timeline --")
+    steps = [step for step in res.steps if step.role in {"graph", "assistant", "tool"}]
+    if not steps:
+        print("  (기록된 스텝이 없다)")
         return
-    for step in events:
-        duration = f" {step.durationMs}ms" if step.durationMs is not None else ""
-        print(f"  [{step.seq}] {step.nodeName} {step.eventKind}{duration}: {step.content}")
+    for step in steps:
+        if step.role == "graph":
+            duration = f" {step.durationMs}ms" if step.durationMs is not None else ""
+            print(f"  [{step.seq}] {step.nodeName} {step.eventKind}{duration}: {step.content}")
+        elif step.role == "assistant":
+            for call in step.toolCalls:
+                print(f"  [{step.seq}]   ai → {call.name}({_short(str(call.args), 300)})")
+            if step.content and not step.toolCalls:
+                print(f"  [{step.seq}]   ai: {_short(step.content, 300)}")
+        else:
+            print(f"  [{step.seq}]   tool {step.toolName}: {_short(step.content, 200)}")
 
 
 def _print_result(res: AgentResponse) -> None:
