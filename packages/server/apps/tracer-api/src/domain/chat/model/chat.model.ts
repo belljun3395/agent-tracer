@@ -1,4 +1,11 @@
-import type { ChatBackend, ChatMessageEntity, ChatMessageRole, ChatThreadEntity, ChatToolCall } from "@monitor/tracer-domain";
+import type {
+    ChatBackend,
+    ChatMessageEntity,
+    ChatMessageRole,
+    ChatThreadEntity,
+    ChatToolCall,
+    ChatUserMemoryEntity,
+} from "@monitor/tracer-domain";
 
 /** 대화 스레드의 와이어 표현이며 시각은 ISO 문자열이다. */
 export interface ChatThreadDto {
@@ -43,5 +50,20 @@ export function mapMessage(message: ChatMessageEntity): ChatMessageDto {
         toolCalls: message.toolCalls,
         toolCallId: message.toolCallId,
         createdAt: message.createdAt.toISOString(),
+    };
+}
+
+/** 사용자 장기기억 한 줄의 와이어 표현이며 시각은 ISO 문자열이다. */
+export interface ChatUserMemoryDto {
+    readonly key: string;
+    readonly content: string;
+    readonly updatedAt: string;
+}
+
+export function mapMemory(memory: ChatUserMemoryEntity): ChatUserMemoryDto {
+    return {
+        key: memory.key,
+        content: memory.content,
+        updatedAt: memory.updatedAt.toISOString(),
     };
 }
