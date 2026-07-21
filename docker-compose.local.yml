@@ -5,11 +5,13 @@
 #   export CLAUDE_CODE_OAUTH_TOKEN=<토큰>
 #   npm run stack:up:local
 services:
-  # 잡을 접수·스탬프하는 쪽이 tracer-api라 프로파일과 백엔드를 워커와 같게 맞춰야 키 검사가 열린다.
+  # 잡을 접수·스탬프하고 대화 챗의 SDK 백엔드를 직접 실행하는 쪽이 tracer-api라, 프로파일·백엔드를
+  # 워커와 같게 맞추고 하위 claude CLI가 쓸 구독 토큰도 워커와 똑같이 넘겨야 키리스로 돈다.
   tracer-api:
     environment:
       MONITOR_PROFILE: local
       AGENT_BACKEND: claude-sdk
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:?claude setup-token 값을 CLAUDE_CODE_OAUTH_TOKEN env로 넘겨야 한다}
   ai-agent-worker:
     environment:
       MONITOR_PROFILE: local
