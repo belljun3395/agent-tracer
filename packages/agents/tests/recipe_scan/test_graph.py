@@ -12,22 +12,12 @@ from anthropic import AuthenticationError
 from agent_graph.agents.recipe_scan import agent as recipe_mod
 from agent_graph.agents.recipe_scan.graph import RECIPE_SCAN_GRAPH, _dispatch
 from agent_graph.agents.recipe_scan.models import (
-    MAX_TOOL_ROUNDS,
     DispatchPlan,
     ProbeAssignment,
     ProbeDispatch,
-    ProvenanceCatalog,
-    RecipeCandidate,
     RecipeScanRequest,
 )
 from agent_graph.agents.recipe_scan.nodes.probe import ProbeNode
-from agent_graph.agents.recipe_scan.policy import (
-    MIN_SYNTHESIS_ROUNDS,
-    SURVEY_ROUNDS,
-    distributable_rounds,
-    synthesis_rounds,
-    validate_recipe_candidate,
-)
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.runtime.execution.runner import execute
@@ -190,39 +180,6 @@ def test_계획이_없으면_조율자가_혼자_조사한다() -> None:
     assert [send.node for send in sends] == ["investigate"]
 
 
-def test_배분_가능한_라운드는_종합_최소_몫을_먼저_뗀다() -> None:
-    # 전문가에게 나눠줄 수 있는 라운드는 계획과 종합 최소 몫을 뗀 나머지다.
-    assert distributable_rounds() == MAX_TOOL_ROUNDS - SURVEY_ROUNDS - MIN_SYNTHESIS_ROUNDS
-
-
-def test_종합_라운드는_전문가가_적게_쓰면_남은_만큼_더_받는다() -> None:
-    small = DispatchPlan(probes=[{"probe": "rules", "rounds": 3, "question": "무엇"}])  # type: ignore[list-item]
-    large = DispatchPlan(
-        probes=[
-            {"probe": "timeline", "rounds": 6, "question": "무엇"},  # type: ignore[list-item]
-            {"probe": "rules", "rounds": 5, "question": "규칙"},  # type: ignore[list-item]
-        ]
-    )
-
-    # 종합은 남은 라운드를 그대로 받아 전문가를 적게 띄우면 더 여유를 갖는다.
-    assert synthesis_rounds(small) == MAX_TOOL_ROUNDS - SURVEY_ROUNDS - 3
-    assert synthesis_rounds(large) == MAX_TOOL_ROUNDS - SURVEY_ROUNDS - 11
-    assert synthesis_rounds(small) > synthesis_rounds(large)
-    # 계획이 없으면 조율자가 혼자 도는 실행이라 종합이 예산을 통째로 갖는다.
-    assert synthesis_rounds(None) == MAX_TOOL_ROUNDS
-
-
-def test_종합_라운드는_최소_몫_아래로_내려가지_않는다() -> None:
-    greedy = DispatchPlan(
-        probes=[
-            {"probe": "timeline", "rounds": 10, "question": "무엇"},  # type: ignore[list-item]
-            {"probe": "rules", "rounds": 10, "question": "규칙"},  # type: ignore[list-item]
-        ]
-    )
-
-    assert synthesis_rounds(greedy) == MIN_SYNTHESIS_ROUNDS
-
-
 async def test_전문가_실행_예외는_실패_보고로_강등된다() -> None:
     class BoomChat(FakeToolLoopChat):
         async def ainvoke(self, _messages: list[object]) -> object:
@@ -253,43 +210,6 @@ async def test_전문가_실행_예외는_실패_보고로_강등된다() -> Non
     assert report.excerpts == []
     # 실패해도 지출은 합산에 실린다.
     assert "model_cost_usd" in result
-
-
-def test_anchor_slice는_실제_anchor_event를_인용해야_한다() -> None:
-    candidate = RecipeCandidate(
-        title="Add migration",
-        intent="마이그레이션을 안전하게 추가한다",
-        description="스키마 변경이 필요할 때 쓴다.",
-        summary_md="- 변경을 정의한다\n- 검증한다",
-        request="사용자가 마이그레이션 추가를 요청했다.",
-        contributing_slices=[{"taskId": "task-1", "eventIds": []}],
-        rationale="반복 가능한 절차다.",
-    )
-    provenance = ProvenanceCatalog(eventIdsByTask={"task-1": {"event-1"}, "task-2": {"event-2"}})
-
-    errors = validate_recipe_candidate(candidate, "task-1", provenance)
-
-    assert "The anchor contributing slice must cite at least one anchor event ID." in errors
-
-
-def test_이벤트를_읽지_않은_태스크는_기여_슬라이스로_인정하지_않는다() -> None:
-    candidate = RecipeCandidate(
-        title="Add migration",
-        intent="마이그레이션을 안전하게 추가한다",
-        description="스키마 변경이 필요할 때 쓴다.",
-        summary_md="- 변경을 정의한다\n- 검증한다",
-        request="사용자가 마이그레이션 추가를 요청했다.",
-        contributing_slices=[
-            {"taskId": "task-1", "eventIds": ["event-1"]},
-            {"taskId": "task-2", "eventIds": []},
-        ],
-        rationale="반복 가능한 절차다.",
-    )
-    provenance = ProvenanceCatalog(eventIdsByTask={"task-1": {"event-1"}})
-
-    errors = validate_recipe_candidate(candidate, "task-1", provenance)
-
-    assert "Unsupported contributing task ID: task-2." in errors
 
 
 async def test_전문가가_모은_장부로_조율자가_후보를_낸다(

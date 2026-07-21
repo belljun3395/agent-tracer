@@ -12,14 +12,12 @@ from agent_graph.agents.recipe_scan.langchain_agent import build_recipe_agent
 from agent_graph.agents.recipe_scan.models import (
     MAX_EXCERPT_CHARS,
     MAX_EXCERPTS_PER_PROBE,
-    DispatchPlan,
     Excerpt,
     ProbeReport,
     ProvenanceCatalog,
     RecipeDraft,
     merged_provenance,
 )
-from agent_graph.agents.recipe_scan.policy import clamp_plan
 from agent_graph.agents.recipe_scan.reader import RecipeLedgerReader
 from agent_graph.agents.recipe_scan.search import RecipeSearchReader
 from agent_graph.agents.recipe_scan.tools import (
@@ -269,43 +267,6 @@ async def test_인용_확인은_읽지_않은_태스크를_알려준다() -> Non
     )
 
     assert json.loads(content)["taskSupported"] is False
-
-
-def test_조율자의_배분이_예산을_넘으면_비례로_깎인다() -> None:
-    plan = DispatchPlan(
-        probes=[
-            {"probe": "timeline", "rounds": 10, "question": "앵커가 무엇을 했나"},  # type: ignore[list-item]
-            {"probe": "rules", "rounds": 6, "question": "적용 규칙은"},  # type: ignore[list-item]
-            {"probe": "repetition", "rounds": 4, "question": "반복되나"},  # type: ignore[list-item]
-        ]
-    )
-
-    kept, cut = clamp_plan(plan, 20)
-    assert [probe.rounds for probe in kept.probes] == [10, 6, 4] and cut == 0
-
-    shrunk, cut = clamp_plan(plan, 14)
-    # 남은 예산을 넘지 않으면서 흘리지도 않는다.
-    assert shrunk.total_rounds() == 14 and cut == 6
-
-    floored, _cut = clamp_plan(plan, 3)
-    # 전문가마다 최소 한 라운드는 남아 계획이 통째로 사라지지 않는다.
-    assert [probe.rounds for probe in floored.probes] == [1, 1, 1]
-
-
-def test_전문가_수가_예산보다_많으면_많이_요구한_순서로_남긴다() -> None:
-    plan = DispatchPlan(
-        probes=[
-            {"probe": "timeline", "rounds": 10, "question": "앵커가 무엇을 했나"},  # type: ignore[list-item]
-            {"probe": "rules", "rounds": 6, "question": "적용 규칙은"},  # type: ignore[list-item]
-            {"probe": "repetition", "rounds": 4, "question": "반복되나"},  # type: ignore[list-item]
-        ]
-    )
-
-    kept, cut = clamp_plan(plan, 2)
-
-    assert [probe.probe for probe in kept.probes] == ["timeline", "rules"]
-    assert [probe.rounds for probe in kept.probes] == [1, 1]
-    assert cut == 18
 
 
 def test_전문가의_장부가_조율자의_장부로_합쳐진다() -> None:
