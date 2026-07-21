@@ -1,9 +1,10 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { ModelUsage, SDKResultError } from "@anthropic-ai/claude-agent-sdk";
+import type { HookJSONOutput, ModelUsage, SDKResultError } from "@anthropic-ai/claude-agent-sdk";
 import { GEN_AI_PROVIDER, type AiJobStepToolCall } from "@monitor/kernel";
 import { logWarn } from "~ai-agent-worker/support/log.js";
 import { AGENT_ERROR_SUBTYPE } from "~ai-agent-worker/support/llm/agent.error.js";
 import type { AgentQueryUsage } from "~ai-agent-worker/support/llm/agent.usage.js";
+import { estimateCostUsd } from "~ai-agent-worker/support/llm/pricing.js";
 import { buildAgentEnv } from "./claude.env.js";
 import { resolveClaudeExecutablePath } from "./claude.executable.js";
 import { createAgentDeadline, DeadlineExceededError } from "./deadline.js";
@@ -62,6 +63,18 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
             }
         }
 
+        // graph의 ToolLoopBudget.landing과 동형으로, 이미 태운 비용에 지금까지 가장 비쌌던 호출을
+        // 한 번 더 더해도 예산을 감당하는지로 "다음 호출을 못 감당한다"를 예측한다.
+        let runningCostUsd = 0;
+        let peakCallCostUsd = 0;
+        let landing = false;
+        const denyToolsWhenLanding = (): Promise<HookJSONOutput> =>
+            Promise.resolve(
+                landing
+                    ? { continue: false, stopReason: "internal cost budget landing" }
+                    : { continue: true },
+            );
+
         const options = request.providerOptions;
         const systemPrompt = options?.useClaudeCodePreset === true
             ? {
@@ -101,6 +114,7 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                 ...(request.maxBudgetUsd !== undefined ? { maxBudgetUsd: request.maxBudgetUsd } : {}),
                 ...(options?.fallbackModel !== undefined ? { fallbackModel: options.fallbackModel } : {}),
                 ...(options?.agents !== undefined ? { agents: { ...options.agents } } : {}),
+                hooks: { PreToolUse: [{ hooks: [denyToolsWhenLanding] }] },
             },
         });
 
@@ -117,15 +131,25 @@ export class ClaudeQueryRunner implements IQueryRunner<ClaudeQueryOptions> {
                         }
                     }
                     collected += text;
-                    trajectory.assistant({
-                        content: text,
-                        toolCalls,
+                    const callUsage: AgentQueryUsage = {
                         inputTokens: msg.message.usage.input_tokens,
                         outputTokens: msg.message.usage.output_tokens,
                         cacheReadTokens: msg.message.usage.cache_read_input_tokens ?? 0,
                         cacheCreationTokens: msg.message.usage.cache_creation_input_tokens ?? 0,
+                    };
+                    trajectory.assistant({
+                        content: text,
+                        toolCalls,
+                        ...callUsage,
                         ...(msg.message.stop_reason !== null ? { stopReason: msg.message.stop_reason } : {}),
                     });
+                    if (request.maxBudgetUsd !== undefined) {
+                        // 폴백이 걸리면 실제 응답 모델이 요청 모델과 달라질 수 있어 이 추정은 근사다.
+                        const callCost = estimateCostUsd(request.model, callUsage) ?? 0;
+                        runningCostUsd += callCost;
+                        peakCallCostUsd = Math.max(peakCallCostUsd, callCost);
+                        landing = runningCostUsd + peakCallCostUsd >= request.maxBudgetUsd;
+                    }
                     continue;
                 }
                 // 도구 결과에는 도구 이름이 없어 같은 실행의 호출 ID로 이어 붙인다.
