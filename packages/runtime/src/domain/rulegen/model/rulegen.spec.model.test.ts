@@ -1,116 +1,90 @@
 import {RULE_GENERATION_FOCUS} from "@monitor/kernel/job/job.const.js";
 import {describe, expect, it} from "vitest";
-import {SEVERITY_CLAUSE, SEVERITY_HEADING} from "~runtime/domain/rulegen/model/severity.clause.model.js";
-import {buildRuleGenerationSpec} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
+import {buildAnchorBlock, buildAnchorDirective} from "~runtime/domain/rulegen/model/anchor.model.js";
+import {DEFAULT_RULEGEN_DEADLINE_MS} from "~runtime/domain/rulegen/model/deadline.model.js";
+import {buildIntentBlock, buildIntentDirective} from "~runtime/domain/rulegen/model/intent.model.js";
+import {RULEGEN_MODE} from "~runtime/domain/rulegen/model/rulegen.mode.model.js";
+import {buildRuleOutputSchema} from "~runtime/domain/rulegen/model/output.schema.model.js";
 import {
-    RULEGEN_TOOL_SPECS,
-    RULEGEN_WORKSPACE_TOOLS,
-    rulegenAllowedTools,
-    rulegenToolFullName,
-} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
+    buildRulegenSystemPrompt,
+    buildRulegenUserPrompt,
+} from "~runtime/domain/rulegen/model/rulegen.prompt.model.js";
+import {
+    DEFAULT_RULEGEN_BUDGET_USD,
+    DEFAULT_RULEGEN_LANGUAGE,
+    DEFAULT_RULEGEN_MODEL,
+    RULEGEN_EFFORT,
+    RULEGEN_FALLBACK_MODEL,
+    RULEGEN_MAX_OUTPUT_TOKENS,
+    RULEGEN_MAX_TURNS,
+    buildRuleGenerationSpec,
+} from "~runtime/domain/rulegen/model/rulegen.spec.model.js";
+import {RULEGEN_TOOL_SPECS} from "~runtime/domain/rulegen/model/rulegen.tool.model.js";
 
 function specFor(overrides: Record<string, unknown> = {}) {
     return buildRuleGenerationSpec({jobId: "job-1", taskId: "task-1", workspacePath: "/tmp/ws", ...overrides});
 }
 
 describe("buildRuleGenerationSpec", () => {
-    it("수동 생성은 전체 태스크 경로와 3-5개 상한을 쓴다", () => {
-        const spec = specFor();
+    it("focus로 모드를 정하고 모드에 맞는 기본 상한을 고른다", () => {
+        const manual = specFor();
+        const recent = specFor({focus: RULE_GENERATION_FOCUS.recent});
 
-        expect(spec.systemPrompt).toContain("turn by turn");
-        expect(spec.systemPrompt).toContain("Output exactly 3-5 rules.");
-        expect(spec.systemPrompt).not.toContain("Do NOT read the whole task");
-        expect(spec.maxRules).toBe(5);
+        expect(manual.mode).toBe(RULEGEN_MODE.manual);
+        expect(manual.maxRules).toBe(5);
+        expect(recent.mode).toBe(RULEGEN_MODE.recent);
+        expect(recent.maxRules).toBe(2);
     });
 
-    it("수동 생성도 상한이 3보다 작으면 하한을 함께 낮춘다", () => {
-        expect(specFor({maxRules: 2}).systemPrompt).toContain("Output exactly 2 rules.");
-    });
+    it("상한과 모델을 명시하면 그 값을 쓴다", () => {
+        const spec = specFor({maxRules: 2, model: "claude-opus-4-6"});
 
-    it("자동 트리거는 최근 턴 경로와 1-2개 상한을 쓴다", () => {
-        const spec = specFor({focus: RULE_GENERATION_FOCUS.recent});
-
-        expect(spec.systemPrompt).toContain("Do NOT read the whole task");
-        expect(spec.systemPrompt).toContain("Output 1-2 rules");
-        expect(spec.systemPrompt).toContain("EMPTY rules array");
         expect(spec.maxRules).toBe(2);
+        expect(spec.model).toBe("claude-opus-4-6");
     });
 
-    it("심각도 절은 두 모드가 같고 문턱 문구만 다르다", () => {
-        const manual = specFor().systemPrompt;
-        const recent = specFor({focus: RULE_GENERATION_FOCUS.recent}).systemPrompt;
-
-        for (const clause of Object.values(SEVERITY_CLAUSE)) {
-            expect(manual).toContain(clause);
-            expect(recent).toContain(clause);
-        }
-        expect(manual).toContain(SEVERITY_HEADING.manual);
-        expect(recent).toContain(SEVERITY_HEADING.recent);
-        expect(manual).not.toContain(SEVERITY_HEADING.recent);
-        expect(recent).not.toContain(SEVERITY_HEADING.manual);
-    });
-
-    it("의도를 주면 사용자 프롬프트에 태그로 싣고 조향 지침을 붙인다", () => {
-        const spec = specFor({intent: "린트를 돌렸는지 확인"});
-
-        expect(spec.userPrompt).toContain("<operator-intent>\n린트를 돌렸는지 확인\n</operator-intent>");
-        expect(spec.systemPrompt).toContain("Operator intent:");
-        expect(spec.systemPrompt).toContain("UNTRUSTED DATA");
-    });
-
-    it("의도가 없으면 프롬프트에 의도 태그도 지침도 남기지 않는다", () => {
+    it("실행 상수 기본값을 채운다", () => {
         const spec = specFor();
 
-        expect(spec.userPrompt).not.toContain("operator-intent");
-        expect(spec.systemPrompt).not.toContain("Operator intent:");
+        expect(spec.model).toBe(DEFAULT_RULEGEN_MODEL);
+        expect(spec.fallbackModel).toBe(RULEGEN_FALLBACK_MODEL);
+        expect(spec.maxBudgetUsd).toBe(DEFAULT_RULEGEN_BUDGET_USD);
+        expect(spec.maxTurns).toBe(RULEGEN_MAX_TURNS);
+        expect(spec.maxOutputTokens).toBe(RULEGEN_MAX_OUTPUT_TOKENS);
+        expect(spec.effort).toBe(RULEGEN_EFFORT);
+        expect(spec.deadlineMs).toBe(DEFAULT_RULEGEN_DEADLINE_MS);
     });
 
-    it("앵커 입력을 주면 그 입력만 검증하라는 지침을 붙인다", () => {
-        const spec = specFor({anchorText: "테스트 돌리고 커밋해"});
+    it("시스템 프롬프트는 모드와 앵커·의도 지침을 얹은 프롬프트 조립을 그대로 싣는다", () => {
+        const spec = specFor({focus: RULE_GENERATION_FOCUS.recent, anchorText: "테스트 돌려", intent: "린트 확인"});
 
-        expect(spec.userPrompt).toContain("<anchor-input>\n테스트 돌리고 커밋해\n</anchor-input>");
-        expect(spec.systemPrompt).toContain("the ONE user request these rules verify");
+        expect(spec.systemPrompt).toBe(buildRulegenSystemPrompt({
+            mode: RULEGEN_MODE.recent,
+            maxRules: 2,
+            maxTurns: RULEGEN_MAX_TURNS,
+            language: DEFAULT_RULEGEN_LANGUAGE,
+            anchorDirective: buildAnchorDirective("테스트 돌려"),
+            intentDirective: buildIntentDirective("린트 확인"),
+            tools: RULEGEN_TOOL_SPECS,
+        }));
     });
 
-    it("한 요구가 여러 의무를 담을 수 있음을 알린다", () => {
-        const spec = specFor({anchorText: "테스트 돌리고 커밋해"});
+    it("사용자 프롬프트는 앵커와 의도 블록을 얹은 프롬프트 조립을 그대로 싣는다", () => {
+        const spec = specFor({anchorText: "테스트 돌려", intent: "린트 확인"});
 
-        expect(spec.systemPrompt).toContain("Propose one rule per distinct obligation");
+        expect(spec.userPrompt).toBe(buildRulegenUserPrompt({
+            taskId: "task-1",
+            workspacePath: "/tmp/ws",
+            maxRules: 5,
+            anchorBlock: buildAnchorBlock("테스트 돌려"),
+            intentBlock: buildIntentBlock("린트 확인"),
+        }));
     });
 
-    it("근거는 프롬프트에 박지 않고 실행 중에 부를 도구로 안내한다", () => {
+    it("근거 도구 명세와 출력 스키마를 실행기에 그대로 넘긴다", () => {
         const spec = specFor();
 
         expect(spec.tools).toEqual(RULEGEN_TOOL_SPECS);
-        for (const tool of RULEGEN_TOOL_SPECS) {
-            expect(spec.systemPrompt).toContain(rulegenToolFullName(tool.name));
-        }
-        expect(spec.systemPrompt).toContain("Tools available:");
-        expect(spec.userPrompt).not.toContain("task-turns");
-    });
-
-    it("규칙을 실제 코드에 붙들 수 있도록 워크스페이스 읽기 도구를 함께 연다", () => {
-        const spec = specFor();
-
-        expect(rulegenAllowedTools(spec.tools)).toEqual(
-            expect.arrayContaining([...RULEGEN_WORKSPACE_TOOLS]),
-        );
-        for (const tool of RULEGEN_WORKSPACE_TOOLS) {
-            expect(spec.systemPrompt).toContain(tool);
-        }
-    });
-
-    it("출력 스키마는 이름과 기대 조건과 인용 목록을 필수로 요구한다", () => {
-        const rules = specFor().outputSchema["properties"] as {rules: {items: Record<string, unknown>}};
-
-        expect(rules.rules.items["required"]).toEqual(["name", "expect", "citedTurnIds", "citedEventIds"]);
-    });
-
-    it("인용한 식별자가 도구 응답과 대조되고 수리는 한 번뿐임을 프롬프트가 말한다", () => {
-        const prompt = specFor().systemPrompt;
-
-        expect(prompt).toContain("A deterministic verifier checks every ID you cite");
-        expect(prompt).toContain("1 repair attempt");
-        expect(prompt).toContain("DROPPED");
+        expect(spec.outputSchema).toEqual(buildRuleOutputSchema());
     });
 });
