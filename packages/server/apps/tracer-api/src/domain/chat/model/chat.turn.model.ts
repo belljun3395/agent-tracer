@@ -24,13 +24,16 @@ export interface ChatTurnToolResult {
     readonly content: string;
 }
 
-/** 쓰기 확인 게이트가 들어오는 이후 단계가 채우는, 승인 요청 한 건의 표면이다. */
+/** 쓰기 도구가 실행 대신 세운 승인 요청 한 건이며, id는 이 요청을 해소할 확인 식별자다. */
 export interface ChatConfirmRequest {
+    readonly id: string;
     readonly toolName: string;
+    /** 사용자가 무엇을 승인하는지 한눈에 읽는 인자 요약이다. */
+    readonly summary: string;
     readonly args: Record<string, unknown>;
 }
 
-/** 턴이 끝나기 전에 부분 산출을 흘려보내는 싱크이며, onConfirmRequest는 이후 단계까지 배선되지 않는다. */
+/** 턴이 끝나기 전에 부분 산출을 흘려보내는 싱크이며, mutation 도구는 실행 대신 onConfirmRequest로 승인 요청을 흘린다. */
 export interface ChatTurnSink {
     onAssistantDelta(text: string): void;
     onToolCall(call: ChatTurnToolCall): void;

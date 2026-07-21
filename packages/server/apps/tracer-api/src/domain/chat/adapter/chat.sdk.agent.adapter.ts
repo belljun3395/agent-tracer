@@ -17,6 +17,7 @@ import type {
 } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import type { ChatAgentPort } from "~tracer-api/domain/chat/port/chat.agent.port.js";
 import { buildChatToolHandlers, type ChatToolDeps } from "./chat.tools.js";
+import { buildChatWriteToolHandlers, type ChatWriteToolDeps } from "./chat.write.tools.js";
 
 export const CHAT_MCP_SERVER = `monitor-${CHAT_SPEC.name}`;
 
@@ -25,6 +26,7 @@ export class ChatSdkAgentAdapter implements ChatAgentPort {
     constructor(
         private readonly runner: IQueryRunner<ClaudeQueryOptions>,
         private readonly deps: ChatToolDeps,
+        private readonly writeDeps: ChatWriteToolDeps,
     ) {}
 
     requiresLocalApiKey(): boolean {
@@ -32,7 +34,11 @@ export class ChatSdkAgentAdapter implements ChatAgentPort {
     }
 
     async converse(input: ChatTurnInput, sink: ChatTurnSink): Promise<ChatTurnResult> {
-        const handlers = buildChatToolHandlers(input.userId, this.deps);
+        // 읽기 도구는 즉시 실행하고, mutation 도구는 실행 대신 확인 대기 행을 세우는 핸들러로 같은 도구 표면에 얹는다.
+        const handlers = {
+            ...buildChatToolHandlers(input.userId, this.deps),
+            ...buildChatWriteToolHandlers({ userId: input.userId, threadId: input.threadId, sink }, this.writeDeps),
+        };
         const model = input.model?.trim() || CHAT_SPEC.limits.defaultModel;
         const toolCalls: ChatTurnToolCall[] = [];
 

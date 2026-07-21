@@ -9,6 +9,8 @@ import {
     AiJobEntity,
     ChatMessageEntity,
     ChatMessageRepository,
+    ChatPendingToolEntity,
+    ChatPendingToolRepository,
     ChatThreadEntity,
     ChatThreadRepository,
     DaemonHealthEntity,
@@ -68,4 +70,5 @@ export const repositoryProviders: Provider[] = [
     { provide: TaskTagRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new TaskTagRepository(ds.getRepository(TaskTagEntity)) },
     { provide: ChatThreadRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatThreadRepository(ds.getRepository(ChatThreadEntity)) },
     { provide: ChatMessageRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatMessageRepository(ds.getRepository(ChatMessageEntity)) },
+    { provide: ChatPendingToolRepository, inject: [TRACER_DATA_SOURCE], useFactory: (ds: DataSource) => new ChatPendingToolRepository(ds.getRepository(ChatPendingToolEntity)) },
 ];

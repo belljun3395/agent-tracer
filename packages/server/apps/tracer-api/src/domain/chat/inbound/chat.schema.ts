@@ -15,3 +15,9 @@ export const postMessageSchema = z.object({
 });
 
 export type PostMessagePayload = z.infer<typeof postMessageSchema>;
+
+export const confirmToolSchema = z.object({
+    decision: z.enum(["approve", "reject"]),
+});
+
+export type ConfirmToolPayload = z.infer<typeof confirmToolSchema>;

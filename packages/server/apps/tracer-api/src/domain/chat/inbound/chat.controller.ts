@@ -9,13 +9,16 @@ import { NoEnvelope } from "~tracer-api/support/no-envelope.decorator.js";
 import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command/create.thread.usecase.js";
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
 import { RunChatTurnUseCase } from "~tracer-api/domain/chat/application/command/run.chat.turn.usecase.js";
+import { ConfirmToolUseCase } from "~tracer-api/domain/chat/application/command/confirm.tool.usecase.js";
 import { ListThreadsUseCase } from "~tracer-api/domain/chat/application/query/list.threads.usecase.js";
 import { GetThreadUseCase } from "~tracer-api/domain/chat/application/query/get.thread.usecase.js";
 import { GetMessagesUseCase } from "~tracer-api/domain/chat/application/query/get.messages.usecase.js";
 import type { ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 import {
+    confirmToolSchema,
     createThreadSchema,
     postMessageSchema,
+    type ConfirmToolPayload,
     type CreateThreadPayload,
     type PostMessagePayload,
 } from "./chat.schema.js";
@@ -30,6 +33,7 @@ export class ChatController {
         private readonly createThread: CreateThreadUseCase,
         private readonly appendUserMessage: AppendUserMessageUseCase,
         private readonly runChatTurn: RunChatTurnUseCase,
+        private readonly confirmTool: ConfirmToolUseCase,
     ) {}
 
     @Get()
@@ -86,6 +90,7 @@ export class ChatController {
             onAssistantDelta: (text) => writeEvent(res, "assistant_delta", { text }),
             onToolCall: (call) => writeEvent(res, "tool_call", call),
             onToolResult: (result) => writeEvent(res, "tool_result", result),
+            onConfirmRequest: (request) => writeEvent(res, "tool_confirm_request", request),
         };
 
         try {
@@ -106,6 +111,22 @@ export class ChatController {
         } finally {
             res.end();
         }
+    }
+
+    @Post(":threadId/confirmations/:confirmationId")
+    @HttpCode(HttpStatus.OK)
+    async confirm(
+        @Headers(MONITOR_USER_HEADER) user: string | undefined,
+        @Param("threadId", pathParamPipe) threadId: string,
+        @Param("confirmationId", pathParamPipe) confirmationId: string,
+        @Body(new SchemaValidationPipe(confirmToolSchema)) body: ConfirmToolPayload,
+    ) {
+        return this.confirmTool.execute({
+            userId: resolveUserId(user),
+            threadId,
+            confirmationId,
+            decision: body.decision,
+        });
     }
 }
 
