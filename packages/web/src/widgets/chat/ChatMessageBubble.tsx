@@ -1,6 +1,7 @@
 import type { ChatMessageRecord } from "~web/entities/chat/model/chat.js";
 import { Pill } from "~web/shared/ui/index.js";
 import { cn } from "~web/shared/ui/lib/cn.js";
+import { ChatMarkdown } from "~web/widgets/chat/ChatMarkdown.js";
 
 interface ChatMessageBubbleProps {
   readonly message: ChatMessageRecord;
@@ -26,11 +27,13 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     >
       <div
         className={cn(
-          "rounded-md px-3 py-2 text-[13px] leading-[1.55] whitespace-pre-wrap",
-          isUser ? "bg-primary text-on-primary" : "bg-s1 border border-hair text-ink",
+          "rounded-md px-3 py-2",
+          isUser
+            ? "bg-primary text-on-primary text-[13px] leading-[1.55] whitespace-pre-wrap"
+            : "bg-s1 border border-hair text-ink",
         )}
       >
-        {message.content}
+        {isUser ? message.content : <ChatMarkdown content={message.content} />}
       </div>
       {message.toolCalls && message.toolCalls.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

@@ -5,6 +5,7 @@ import type { UseChatTurnResult } from "~web/features/chat-send/useChatTurn.js";
 import { useGuidance } from "~web/shared/store/index.js";
 import { GuidanceText, ScrollArea } from "~web/shared/ui/index.js";
 import { ChatConfirmCard } from "~web/widgets/chat/ChatConfirmCard.js";
+import { ChatMarkdown } from "~web/widgets/chat/ChatMarkdown.js";
 import { ChatMemoryUpdatePill } from "~web/widgets/chat/ChatMemoryUpdatePill.js";
 import { ChatMessageBubble } from "~web/widgets/chat/ChatMessageBubble.js";
 import { ChatToolCallChip } from "~web/widgets/chat/ChatToolCallChip.js";
@@ -55,8 +56,8 @@ export function ChatMessageStream({ threadId, messages, turn }: ChatMessageStrea
         )}
 
         {turn.assistantDraft.length > 0 && (
-          <div className="self-start max-w-[75%] rounded-md px-3 py-2 text-[13px] leading-[1.55] whitespace-pre-wrap bg-s1 border border-hair text-ink">
-            {turn.assistantDraft}
+          <div className="self-start max-w-[75%] rounded-md px-3 py-2 bg-s1 border border-hair text-ink">
+            <ChatMarkdown content={turn.assistantDraft} />
           </div>
         )}
 
