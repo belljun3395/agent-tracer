@@ -24,6 +24,16 @@ function wrapper({ children }: { readonly children: ReactNode }) {
   );
 }
 
+const DONE_SUMMARY = {
+  text: "",
+  backend: "claude-sdk" as const,
+  toolCalls: [],
+  modelUsed: "m",
+  costUsd: null,
+  numTurns: 1,
+  errorSummary: null,
+};
+
 beforeEach(() => {
   streamChatMessageMock.mockReset();
 });
@@ -193,7 +203,77 @@ describe("useChatTurn", () => {
     expect(result.current.pendingConfirms).toHaveLength(0);
   });
 
-  it("새 턴을 시작하면 밀려난 이전 턴의 늦은 델타가 새 드래프트에 섞이지 않는다", () => {
+  it("응답 중 전송은 현재 턴을 취소하지 않고 순서대로 대기열에 쌓는다", () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    streamChatMessageMock.mockImplementation(
+      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
+        signals.push(signal);
+        return Promise.resolve();
+      },
+    );
+
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
+
+    act(() => result.current.sendMessage("first"));
+    act(() => result.current.sendMessage("second"));
+    act(() => result.current.sendMessage("third"));
+
+    // 첫 메시지만 POST(=스트림 시작)되고, 진행 중인 턴은 끊기지 않는다.
+    expect(streamChatMessageMock).toHaveBeenCalledTimes(1);
+    expect(signals[0]?.aborted).toBe(false);
+    expect(result.current.isStreaming).toBe(true);
+    expect(result.current.queuedCount).toBe(2);
+  });
+
+  it("현재 턴이 끝나면 대기 메시지를 순서대로 새 턴으로 자동 처리한다", async () => {
+    const contents: string[] = [];
+    const handlersByCall: ChatStreamHandlers[] = [];
+    streamChatMessageMock.mockImplementation(
+      (_threadId: string, body: { content: string }, handlers: ChatStreamHandlers) => {
+        contents.push(body.content);
+        handlersByCall.push(handlers);
+        return Promise.resolve();
+      },
+    );
+
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
+
+    act(() => result.current.sendMessage("first"));
+    act(() => result.current.sendMessage("second"));
+    act(() => result.current.sendMessage("third"));
+    expect(contents).toEqual(["first"]);
+    expect(result.current.queuedCount).toBe(2);
+
+    // 첫 턴 종료 → 히스토리 재조회 뒤 second가 자동 시작한다.
+    await act(async () => {
+      handlersByCall[0]?.onDone?.(DONE_SUMMARY);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(contents).toEqual(["first", "second"]);
+    expect(result.current.queuedCount).toBe(1);
+
+    // 둘째 턴 종료 → third가 자동 시작한다.
+    await act(async () => {
+      handlersByCall[1]?.onDone?.(DONE_SUMMARY);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(contents).toEqual(["first", "second", "third"]);
+    expect(result.current.queuedCount).toBe(0);
+
+    // 셋째 턴 종료 → 대기열이 비었으니 새 턴을 시작하지 않는다.
+    await act(async () => {
+      handlersByCall[2]?.onDone?.(DONE_SUMMARY);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(contents).toHaveLength(3);
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.queuedCount).toBe(0);
+  });
+
+  it("대기 메시지가 자동 시작되어도 밀려난 이전 턴의 늦은 델타가 새 드래프트에 섞이지 않는다", async () => {
     const handlersByCall: ChatStreamHandlers[] = [];
     streamChatMessageMock.mockImplementation(
       (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
@@ -208,8 +288,18 @@ describe("useChatTurn", () => {
     act(() => handlersByCall[0]?.onAssistantDelta?.("A"));
     expect(result.current.assistantDraft).toBe("A");
 
-    // 두 번째 전송(턴 B)이 첫 턴을 밀어낸 뒤,
+    // 응답 중 둘째 전송은 대기열로 가고 첫 턴 드래프트는 그대로다.
     act(() => result.current.sendMessage("second"));
+    expect(result.current.assistantDraft).toBe("A");
+    expect(result.current.queuedCount).toBe(1);
+
+    // 첫 턴이 끝나면 둘째 메시지가 턴 B로 자동 시작한다.
+    await act(async () => {
+      handlersByCall[0]?.onDone?.(DONE_SUMMARY);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(handlersByCall).toHaveLength(2);
     expect(result.current.assistantDraft).toBe("");
 
     // 턴 A의 늦은 델타·도구 이벤트가 도착해도 턴 B의 상태를 오염시키지 않는다.
@@ -221,6 +311,45 @@ describe("useChatTurn", () => {
     // 턴 B의 델타는 정상 반영된다.
     act(() => handlersByCall[1]?.onAssistantDelta?.("B"));
     expect(result.current.assistantDraft).toBe("B");
+  });
+
+  it("stop은 진행 중인 턴을 끊고 대기열도 비운다", () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    streamChatMessageMock.mockImplementation(
+      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
+        signals.push(signal);
+        return Promise.resolve();
+      },
+    );
+
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
+    act(() => result.current.sendMessage("first"));
+    act(() => result.current.sendMessage("second"));
+    expect(result.current.queuedCount).toBe(1);
+
+    act(() => result.current.stop());
+    expect(signals[0]?.aborted).toBe(true);
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.queuedCount).toBe(0);
+  });
+
+  it("스레드 전환은 대기열을 비우고 이전 스레드의 대기 메시지를 시작하지 않는다", () => {
+    streamChatMessageMock.mockImplementation(() => Promise.resolve());
+
+    const { result, rerender } = renderHook(
+      ({ threadId }: { threadId: string }) => useChatTurn(ChatThreadId(threadId)),
+      { wrapper, initialProps: { threadId: "thread-1" } },
+    );
+
+    act(() => result.current.sendMessage("first"));
+    act(() => result.current.sendMessage("second"));
+    expect(result.current.queuedCount).toBe(1);
+
+    rerender({ threadId: "thread-2" });
+    expect(result.current.queuedCount).toBe(0);
+    expect(result.current.isStreaming).toBe(false);
+    // thread-1의 대기 메시지가 thread-2에서 새 턴으로 살아나지 않는다.
+    expect(streamChatMessageMock).toHaveBeenCalledTimes(1);
   });
 
   it("스레드를 전환하면 이전 스레드 턴의 늦은 이벤트가 무시된다", () => {

@@ -30,4 +30,7 @@ export const EN_CHAT = {
   deleteConfirm: createGuidanceMessage(
     "This deletes the conversation and all of its messages for good. This can't be undone.",
   ),
+  thinking: createGuidanceMessage("Thinking…"),
+  toolRunning: createGuidanceMessage("Running"),
+  queuedToSend: createGuidanceMessage("Queued"),
 } as const;

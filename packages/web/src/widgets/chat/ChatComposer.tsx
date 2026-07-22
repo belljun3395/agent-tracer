@@ -7,7 +7,7 @@ interface ChatComposerProps {
   readonly onStop: () => void;
 }
 
-/** 스트리밍 중에도 열려 있는 하단 입력창으로, 보내면 진행 중인 턴을 끊고 새 턴을 시작하고(stop-and-send) Stop으로는 보내지 않고 현재 턴만 취소한다. */
+/** 스트리밍 중에도 열려 있는 하단 입력창으로, 보내면 진행 중인 턴이 있을 때 취소 대신 대기열에 쌓고(queue) 유휴면 곧바로 새 턴을 시작하며, Stop은 보내지 않고 현재 턴을 취소하고 대기열도 비운다. */
 export function ChatComposer({ isStreaming, onSend, onStop }: ChatComposerProps) {
   const [draft, setDraft] = useState("");
 
