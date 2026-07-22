@@ -60,6 +60,10 @@ ENV SWC_NODE_PROJECT=packages/server/apps/tracer-api/tsconfig.json
 EXPOSE 3902
 CMD ["node", "--conditions=development", "--import", "file:///app/scripts/register-otel.mjs", "--import", "@swc-node/register/esm-register", "packages/server/apps/tracer-api/src/main.ts"]
 
+# ---- chat-agent-worker: chat Temporal workflow/activity 전용 프로세스 ----
+FROM tracer-api AS chat-agent-worker
+CMD ["node", "--conditions=development", "--import", "file:///app/scripts/register-otel.mjs", "--import", "@swc-node/register/esm-register", "packages/server/apps/tracer-api/src/chat.worker.main.ts"]
+
 # ---- projector: Kafka 컨슈머이며 swc-node 로더로 소스에서 직접 실행 ----
 FROM runtime-deps AS projector
 ENV SWC_NODE_PROJECT=packages/server/apps/projector/tsconfig.json

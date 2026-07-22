@@ -21,6 +21,13 @@ services:
     depends_on:
       otel-collector: { condition: service_started }
 
+  chat-agent-worker:
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: chat-agent-worker
+    depends_on:
+      otel-collector: { condition: service_started }
+
   projector:
     environment:
       <<: *otel-env

@@ -203,6 +203,17 @@ services:
       opensearch: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
 
+  chat-agent-worker:
+    build: { context: ., dockerfile: Dockerfile, target: chat-agent-worker }
+    environment: *app-env
+    depends_on:
+      tracer-db: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+      temporal: { condition: service_started }
+      agents: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
   projector:
     build: { context: ., dockerfile: Dockerfile, target: projector }
     environment: *app-env

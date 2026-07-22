@@ -45,6 +45,15 @@ describe("SseWriter", () => {
         expect(socket.frames.join("")).toContain('"text":"안녕"');
     });
 
+    it("재연결 커서로 사용할 이벤트 id를 프레임에 싣는다", async () => {
+        const socket = new FakeSocket();
+        const writer = new SseWriter(socket.asResponse());
+
+        await writer.write("snapshot", { draftSeq: 3 }, "3:updated");
+
+        expect(socket.frames[0]).toMatch(/^id: 3:updated\nevent: snapshot/);
+    });
+
     it("write가 false면 drain까지 다음 쓰기를 미뤄 역압력을 건다", async () => {
         const socket = new FakeSocket();
         const writer = new SseWriter(socket.asResponse());

@@ -10,6 +10,7 @@ import type { ChatAgentPort, ChatAgentRegistry } from "~tracer-api/domain/chat/p
 /** 대화 백엔드 포트의 대역이며, 정해진 텍스트와 도구 호출을 싱크로 흘리고 그대로 반환한다. */
 export class FakeChatAgent implements ChatAgentPort {
     lastInput: ChatTurnInput | null = null;
+    calls = 0;
 
     constructor(
         private readonly text = "answer",
@@ -23,6 +24,7 @@ export class FakeChatAgent implements ChatAgentPort {
     }
 
     converse(input: ChatTurnInput, sink: ChatTurnSink): Promise<ChatTurnResult> {
+        this.calls += 1;
         this.lastInput = input;
         for (const call of this.toolCalls) void sink.onToolCall(call);
         void sink.onAssistantDelta(this.text);

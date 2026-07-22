@@ -4,7 +4,9 @@ import { ChatMessageEntity, ChatPendingToolEntity, ChatThreadEntity, CHAT_MESSAG
 import { InMemoryChatThreadRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.thread.repository.js";
 import { InMemoryChatMessageRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.message.repository.js";
 import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.pending.tool.repository.js";
+import { InMemoryChatExecutionRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.execution.repository.js";
 import { DeleteThreadUseCase } from "./delete.thread.usecase.js";
+import { inMemoryChatTransaction } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.transaction.js";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
 
@@ -17,12 +19,23 @@ function seed(threads: InMemoryChatThreadRepository, messages: InMemoryChatMessa
 }
 
 describe("DeleteThreadUseCase", () => {
+    function build(threads: InMemoryChatThreadRepository, messages: InMemoryChatMessageRepository, pendingTools: InMemoryChatPendingToolRepository) {
+        const executions = new InMemoryChatExecutionRepository();
+        const dispatcher = { start: async () => undefined, cancel: async () => undefined };
+        return new DeleteThreadUseCase(
+            threads,
+            executions,
+            dispatcher,
+            inMemoryChatTransaction({ threads, messages, pendingTools, executions }),
+        );
+    }
+
     it("소유한 스레드를 메시지와 대기 도구까지 캐스케이드로 지운다", async () => {
         const threads = new InMemoryChatThreadRepository();
         const messages = new InMemoryChatMessageRepository();
         const pendingTools = new InMemoryChatPendingToolRepository();
         seed(threads, messages, pendingTools);
-        const useCase = new DeleteThreadUseCase(threads, messages, pendingTools);
+        const useCase = build(threads, messages, pendingTools);
 
         const result = await useCase.execute("u1", "th1");
 
@@ -37,7 +50,7 @@ describe("DeleteThreadUseCase", () => {
         const messages = new InMemoryChatMessageRepository();
         const pendingTools = new InMemoryChatPendingToolRepository();
         seed(threads, messages, pendingTools);
-        const useCase = new DeleteThreadUseCase(threads, messages, pendingTools);
+        const useCase = build(threads, messages, pendingTools);
 
         await expect(useCase.execute("u2", "th1")).rejects.toBeInstanceOf(NotFoundException);
         expect(await threads.findById("th1")).not.toBeNull();
@@ -47,7 +60,7 @@ describe("DeleteThreadUseCase", () => {
         const threads = new InMemoryChatThreadRepository();
         const messages = new InMemoryChatMessageRepository();
         const pendingTools = new InMemoryChatPendingToolRepository();
-        const useCase = new DeleteThreadUseCase(threads, messages, pendingTools);
+        const useCase = build(threads, messages, pendingTools);
 
         await expect(useCase.execute("u1", "missing")).rejects.toBeInstanceOf(NotFoundException);
     });

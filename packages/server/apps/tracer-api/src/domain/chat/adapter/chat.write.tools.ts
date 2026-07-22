@@ -29,6 +29,51 @@ export function buildChatWriteToolHandlers(ctx: ChatWriteToolContext, deps: Chat
     return handlers;
 }
 
+export interface DeferredChatWriteTools {
+    readonly handlers: ToolHandlers;
+    commit(): Promise<void>;
+}
+
+/** SDK 실행이 성공한 뒤에만 확인 대기 행을 적재하도록 mutation 제안을 턴 안에 보관한다. */
+export function buildDeferredChatWriteToolHandlers(
+    ctx: ChatWriteToolContext,
+    deps: ChatWriteToolDeps,
+): DeferredChatWriteTools {
+    const proposals: Array<{ readonly pending: ChatPendingToolEntity; readonly summary: string }> = [];
+    const handlers: Record<string, (raw: unknown) => Promise<string>> = {};
+    for (const toolName of CHAT_MUTATION_TOOLS) {
+        handlers[toolName] = (raw) => {
+            const args = parseChatToolArgs(toolName, raw);
+            const now = deps.clock.now();
+            const pending = ChatPendingToolEntity.create({
+                id: generateUlid(now.getTime()),
+                threadId: ctx.threadId,
+                messageId: null,
+                toolName,
+                args,
+                now,
+            });
+            const summary = summarizeMutation(toolName, args);
+            proposals.push({ pending, summary });
+            return Promise.resolve(pendingResult(pending.id, toolName, summary));
+        };
+    }
+    return {
+        handlers,
+        commit: async () => {
+            for (const { pending, summary } of proposals) {
+                await deps.pendingTools.create(pending);
+                void ctx.sink.onConfirmRequest?.({
+                    id: pending.id,
+                    toolName: pending.toolName,
+                    summary,
+                    args: pending.args,
+                });
+            }
+        },
+    };
+}
+
 async function proposeMutation(
     toolName: string,
     raw: unknown,
@@ -46,8 +91,12 @@ async function proposeMutation(
     // 승인 요청 통지는 역압력을 걷지 않는 부수 신호라 완료를 기다리지 않고 흘려보낸다.
     void ctx.sink.onConfirmRequest?.({ id, toolName, summary, args });
 
+    return pendingResult(id, toolName, summary);
+}
+
+function pendingResult(confirmationId: string, toolName: string, summary: string): string {
     return JSON.stringify({
-        confirmationId: id,
+        confirmationId,
         toolName,
         status: "pending",
         summary,

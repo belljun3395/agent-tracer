@@ -58,6 +58,7 @@ export interface ChatTurnSink {
 
 /** 한 대화 턴의 실행 입력이다. */
 export interface ChatTurnInput {
+    readonly idempotencyKey: string;
     readonly threadId: string;
     readonly userId: string;
     readonly language: string;

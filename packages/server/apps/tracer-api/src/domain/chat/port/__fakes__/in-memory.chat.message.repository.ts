@@ -14,6 +14,10 @@ export class InMemoryChatMessageRepository implements ChatMessageRepositoryPort 
         return Promise.resolve();
     }
 
+    findById(id: string): Promise<ChatMessageEntity | null> {
+        return Promise.resolve(this.rows.find((message) => message.id === id) ?? null);
+    }
+
     listByThread(threadId: string): Promise<ChatMessageEntity[]> {
         return Promise.resolve(
             this.rows

@@ -76,7 +76,7 @@
 | 배포되는 이미지 그대로 전체 기동 (진입점 `127.0.0.1:3847`) | `npm run stack:up` / `stack:down` / `stack:logs` |
 | 위 스택을 AI 잡만 Claude SDK+구독 토큰으로 (`CLAUDE_CODE_OAUTH_TOKEN` 필요) | `npm run stack:up:local` |
 | 관측 스택(Grafana·Prometheus·Loki·Tempo) 동반 기동 | `npm run monitoring:up` / `monitoring:down` |
-| 배포 이미지 일곱 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
+| 배포 이미지 여덟 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
 | `packages/agents`(Python)만 기동 | `npm run dev:agents` |
 | 검증 (작업 완료 전 필수) | `npm run lint && npm run test && npm run lint:deps` |
 | 의존 그래프 규칙 검사 | `npm run lint:deps` |

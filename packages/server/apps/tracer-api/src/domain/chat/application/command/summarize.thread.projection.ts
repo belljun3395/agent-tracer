@@ -11,7 +11,7 @@ import { CHAT_SUMMARY_SYSTEM_PROMPT, renderChatSummaryPrompt } from "~tracer-api
 import { selectMessagesToFold, shouldSummarize } from "~tracer-api/domain/chat/model/chat.summary.spec.js";
 import { toChatTurnMessage } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 
-/** 진입점이 아니라 RunChatTurnUseCase가 어시스턴트 턴을 적재한 뒤 밟는 단계로, 문턱을 넘은 스레드의 오래된 메시지를 요약에 접어 넣되 실패해도 턴을 막지 않는다. */
+/** 어시스턴트 턴 적재 뒤에 밟는 단계로, 문턱을 넘은 스레드의 오래된 메시지를 요약에 접어 넣되 실패해도 턴을 막지 않는다. */
 @Injectable()
 export class SummarizeThreadProjection {
     constructor(

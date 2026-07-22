@@ -1,36 +1,80 @@
-import type { ChatMessageEntity, ChatPendingToolEntity, ChatThreadEntity, ChatUserMemoryEntity } from "@monitor/tracer-domain";
+import type {
+  ChatExecutionEntity,
+  ChatMessageEntity,
+  ChatPendingToolEntity,
+  ChatThreadEntity,
+  ChatUserMemoryEntity,
+} from "@monitor/tracer-domain";
 
 export const CHAT_THREAD_REPOSITORY = Symbol("ChatThreadRepository");
 export const CHAT_MESSAGE_REPOSITORY = Symbol("ChatMessageRepository");
 export const CHAT_PENDING_TOOL_REPOSITORY = Symbol("ChatPendingToolRepository");
 export const CHAT_USER_MEMORY_REPOSITORY = Symbol("ChatUserMemoryRepository");
+export const CHAT_EXECUTION_REPOSITORY = Symbol("ChatExecutionRepository");
 
 /** 대화 스레드 애그리게이트의 저장과 조회를 제공하는 포트다. */
 export interface ChatThreadRepositoryPort {
-    create(thread: ChatThreadEntity): Promise<void>;
-    findById(id: string): Promise<ChatThreadEntity | null>;
-    listByUser(userId: string, limit?: number): Promise<ChatThreadEntity[]>;
-    update(thread: ChatThreadEntity): Promise<void>;
-    deleteById(id: string): Promise<void>;
+  create(thread: ChatThreadEntity): Promise<void>;
+  findById(id: string): Promise<ChatThreadEntity | null>;
+  listByUser(userId: string, limit?: number): Promise<ChatThreadEntity[]>;
+  update(thread: ChatThreadEntity): Promise<void>;
+  deleteById(id: string): Promise<void>;
 }
 
 /** 대화 메시지의 적재와 스레드별 재생을 제공하는 포트다. */
 export interface ChatMessageRepositoryPort {
-    append(message: ChatMessageEntity): Promise<void>;
-    listByThread(threadId: string): Promise<ChatMessageEntity[]>;
-    deleteByThread(threadId: string): Promise<void>;
+  append(message: ChatMessageEntity): Promise<void>;
+  findById(id: string): Promise<ChatMessageEntity | null>;
+  listByThread(threadId: string): Promise<ChatMessageEntity[]>;
+  deleteByThread(threadId: string): Promise<void>;
+}
+
+export interface ChatExecutionRepositoryPort {
+  findById(id: string): Promise<ChatExecutionEntity | null>;
+  findByIdempotency(
+    userId: string,
+    threadId: string,
+    clientRequestId: string,
+  ): Promise<ChatExecutionEntity | null>;
+  findLatestActiveByThread(
+    threadId: string,
+  ): Promise<ChatExecutionEntity | null>;
+  listActive(): Promise<ChatExecutionEntity[]>;
+  listQueuedByThread(threadId: string): Promise<ChatExecutionEntity[]>;
+  listByThread(
+    threadId: string,
+    limit?: number,
+  ): Promise<ChatExecutionEntity[]>;
+  claimQueued(id: string, now: Date): Promise<boolean>;
+  checkpointRunning(
+    id: string,
+    draftText: string,
+    draftSeq: number,
+    now: Date,
+  ): Promise<boolean>;
+  completeRunning(
+    id: string,
+    assistantMessageId: string,
+    now: Date,
+  ): Promise<boolean>;
+  failActive(id: string, error: string, now: Date): Promise<boolean>;
+  cancelActive(id: string, now: Date): Promise<boolean>;
+  insert(execution: ChatExecutionEntity): Promise<void>;
+  upsert(execution: ChatExecutionEntity): Promise<void>;
+  deleteByThread(threadId: string): Promise<void>;
 }
 
 /** 쓰기 도구가 확인을 기다리며 세워 두는 대기 도구 행의 저장과 조회를 제공하는 포트다. */
 export interface ChatPendingToolRepositoryPort {
-    create(pendingTool: ChatPendingToolEntity): Promise<void>;
-    findById(id: string): Promise<ChatPendingToolEntity | null>;
-    resolve(pendingTool: ChatPendingToolEntity): Promise<void>;
-    deleteByThread(threadId: string): Promise<void>;
+  create(pendingTool: ChatPendingToolEntity): Promise<void>;
+  findById(id: string): Promise<ChatPendingToolEntity | null>;
+  listByThread(threadId: string): Promise<ChatPendingToolEntity[]>;
+  resolve(pendingTool: ChatPendingToolEntity): Promise<void>;
+  deleteByThread(threadId: string): Promise<void>;
 }
 
 /** 사용자 장기기억(스레드를 가로지르는 사실)의 upsert와 사용자별 조회를 제공하는 포트다. */
 export interface ChatUserMemoryRepositoryPort {
-    upsert(memory: ChatUserMemoryEntity): Promise<void>;
-    listByUser(userId: string): Promise<ChatUserMemoryEntity[]>;
+  upsert(memory: ChatUserMemoryEntity): Promise<void>;
+  listByUser(userId: string): Promise<ChatUserMemoryEntity[]>;
 }

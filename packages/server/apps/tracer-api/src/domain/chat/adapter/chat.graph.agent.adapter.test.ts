@@ -90,6 +90,7 @@ function collectingSink(): {
 
 function turnInput(overrides: Partial<ChatTurnInput> = {}): ChatTurnInput {
     return {
+        idempotencyKey: "execution-1",
         threadId: "th1",
         userId: "u1",
         language: "auto",
@@ -135,6 +136,34 @@ describe("ChatGraphAgentAdapter", () => {
         expect(input["threadId"]).toBe("th1");
         expect(input["readApiBaseUrl"]).toBe("http://tracer-api:3000");
         expect((input["toolDescriptions"] as Record<string, string>)["search_tasks"]).toBeTypeOf("string");
+    });
+
+    it("저장된 도구 호출과 결과를 잃지 않고 graph 재생 봉투에 싣는다", async () => {
+        const { adapter, client } = buildAdapter({ assistantText: "이어감", proposedWrites: [], memoryWrites: [] });
+        await adapter.converse(
+            turnInput({
+                messages: [
+                    {
+                        role: "assistant",
+                        content: "변경을 제안했습니다",
+                        toolCalls: [{ id: "call-1", name: "archive_task", args: { taskId: "t1" } }],
+                    },
+                    { role: "tool", content: "승인되어 완료됨", toolCallId: "call-1" },
+                    { role: "user", content: "그 다음은?" },
+                ],
+            }),
+            collectingSink().sink,
+        );
+
+        expect(client.input?.["messages"]).toEqual([
+            {
+                role: "assistant",
+                content: "변경을 제안했습니다",
+                toolCalls: [{ id: "call-1", name: "archive_task", args: { taskId: "t1" } }],
+            },
+            { role: "tool", content: "승인되어 완료됨", toolCallId: "call-1" },
+            { role: "user", content: "그 다음은?" },
+        ]);
     });
 
     it("delta 토큰을 순서대로 싱크로 흘리고 최종 결과를 python 백엔드로 낸다", async () => {

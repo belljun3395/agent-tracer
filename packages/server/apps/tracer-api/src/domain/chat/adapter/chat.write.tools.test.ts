@@ -3,7 +3,7 @@ import { CHAT_MUTATION_TOOLS, CHAT_TOOL } from "@monitor/kernel";
 import { InMemoryChatPendingToolRepository } from "~tracer-api/domain/chat/port/__fakes__/in-memory.chat.pending.tool.repository.js";
 import { FixedClock } from "~tracer-api/domain/chat/port/__fakes__/fixed.clock.js";
 import type { ChatConfirmRequest, ChatTurnSink } from "~tracer-api/domain/chat/model/chat.turn.model.js";
-import { buildChatWriteToolHandlers } from "./chat.write.tools.js";
+import { buildChatWriteToolHandlers, buildDeferredChatWriteToolHandlers } from "./chat.write.tools.js";
 
 const NOW = new Date("2026-02-02T00:00:00.000Z");
 
@@ -57,5 +57,23 @@ describe("buildChatWriteToolHandlers", () => {
 
         await expect(handlers[CHAT_TOOL.updateMemo]!({ body: "x" })).rejects.toThrow();
         expect(confirms).toHaveLength(0);
+    });
+
+    it("지연 핸들러는 성공 커밋 전까지 mutation 제안을 적재하지 않는다", async () => {
+        const pendingTools = new InMemoryChatPendingToolRepository();
+        const { sink, confirms } = collectingSink();
+        const writes = buildDeferredChatWriteToolHandlers(
+            { userId: "u1", threadId: "th1", sink },
+            { pendingTools, clock: new FixedClock(NOW) },
+        );
+
+        const raw = await writes.handlers[CHAT_TOOL.archiveTask]!({ taskId: "t1" });
+        const result = JSON.parse(raw) as { confirmationId: string };
+        expect(await pendingTools.findById(result.confirmationId)).toBeNull();
+        expect(confirms).toHaveLength(0);
+
+        await writes.commit();
+        expect(await pendingTools.findById(result.confirmationId)).not.toBeNull();
+        expect(confirms[0]?.id).toBe(result.confirmationId);
     });
 });

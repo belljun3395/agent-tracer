@@ -11,7 +11,7 @@ import { CHAT_TITLE_SYSTEM_PROMPT, renderChatTitlePrompt } from "~tracer-api/dom
 import { CHAT_DEFAULT_THREAD_TITLE, CHAT_TITLE_MAX_LENGTH } from "~tracer-api/domain/chat/model/chat.title.spec.js";
 import { toChatTurnMessage } from "~tracer-api/domain/chat/model/chat.turn.model.js";
 
-/** 진입점이 아니라 RunChatTurnUseCase가 성공한(빈 텍스트가 아닌) 턴 뒤에 밟는 단계로, 기본 제목 그대로인 스레드에만 짧은 제목을 붙이되 실패해도 턴을 막지 않는다. */
+/** 성공한 대화 실행 뒤에 밟는 단계로, 기본 제목 그대로인 스레드에만 짧은 제목을 붙이되 실패해도 턴을 막지 않는다. */
 @Injectable()
 export class GenerateThreadTitleProjection {
     constructor(
