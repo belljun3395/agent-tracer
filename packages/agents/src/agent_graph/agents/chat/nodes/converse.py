@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
@@ -207,14 +207,26 @@ def _replay(history: list[ChatHistoryMessage]) -> list[BaseMessage]:
         if message.role == "user":
             messages.append(HumanMessage(content=message.content))
         elif message.role == "assistant":
-            messages.append(AIMessage(content=message.content))
+            messages.append(
+                AIMessage(
+                    content=message.content,
+                    tool_calls=[
+                        {"id": call.id, "name": call.name, "args": call.args, "type": "tool_call"}
+                        for call in message.toolCalls
+                    ],
+                )
+            )
+        elif message.role == "tool" and message.toolCallId is not None:
+            messages.append(ToolMessage(content=message.content, tool_call_id=message.toolCallId))
     return messages
 
 
 def _final_text(messages: list[Any]) -> str:
     for message in reversed(messages):
-        if isinstance(message, AIMessage):
-            return _text(message.content)
+        if isinstance(message, AIMessage) and not message.tool_calls:
+            text = _text(message.content)
+            if text:
+                return text
     return ""
 
 

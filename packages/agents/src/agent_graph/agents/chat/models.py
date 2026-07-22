@@ -12,6 +12,16 @@ from ..shared.models import AgentExecutionRequest, Language, TrimmedStr
 ChatMessageRole = Literal["user", "assistant", "tool"]
 
 
+class ChatHistoryToolCall(BaseModel):
+    """저장된 어시스턴트 도구 호출을 LangChain 메시지로 되살리는 최소 계약이다."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: TrimmedStr = Field(min_length=1)
+    name: TrimmedStr = Field(min_length=1)
+    args: dict[str, object] = Field(default_factory=dict)
+
+
 class ChatHistoryMessage(BaseModel):
     """워커가 실어 보내는 대화 이력 한 줄이며 그래프가 모델 메시지로 되살린다."""
 
@@ -19,6 +29,7 @@ class ChatHistoryMessage(BaseModel):
 
     role: ChatMessageRole
     content: str = ""
+    toolCalls: list[ChatHistoryToolCall] = Field(default_factory=list)
     toolCallId: str | None = None
 
 

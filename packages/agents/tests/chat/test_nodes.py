@@ -7,9 +7,11 @@ from typing import Any
 
 import httpx
 import pytest
+from langchain_core.messages import AIMessage, ToolMessage
 
 from agent_graph.agents.chat import agent as chat_mod
-from agent_graph.agents.chat.models import ChatStreamRequest
+from agent_graph.agents.chat.models import ChatHistoryMessage, ChatStreamRequest
+from agent_graph.agents.chat.nodes.converse import _final_text, _replay
 from tests.support.fakes import FakeToolLoopChat
 
 
@@ -74,3 +76,44 @@ async def test_스트리밍_결과가_제안_쓰기를_실행_없이_담아_낸�
     assert data["proposedWrites"] == [{"toolName": "archive_task", "args": {"taskId": "task-1"}}]
     assert data["memoryWrites"] == []
     assert data["assistantText"] != ""
+
+
+def test_저장된_도구_호출과_결과를_langchain_메시지로_되살린다() -> None:
+    history = [
+        ChatHistoryMessage.model_validate(
+            {
+                "role": "assistant",
+                "content": "아카이브를 제안했습니다",
+                "toolCalls": [
+                    {"id": "call-1", "name": "archive_task", "args": {"taskId": "task-1"}}
+                ],
+            }
+        ),
+        ChatHistoryMessage.model_validate(
+            {"role": "tool", "content": "승인되어 완료됨", "toolCallId": "call-1"}
+        ),
+    ]
+
+    replayed = _replay(history)
+
+    assert isinstance(replayed[0], AIMessage)
+    assert replayed[0].tool_calls == [
+        {"id": "call-1", "name": "archive_task", "args": {"taskId": "task-1"}, "type": "tool_call"}
+    ]
+    assert isinstance(replayed[1], ToolMessage)
+    assert replayed[1].tool_call_id == "call-1"
+
+
+def test_최종_답변은_도구_호출이_없는_마지막_어시스턴트_텍스트다() -> None:
+    messages = [
+        AIMessage(
+            content="확인해볼게요",
+            tool_calls=[
+                {"id": "call-1", "name": "search_tasks", "args": {}, "type": "tool_call"}
+            ],
+        ),
+        ToolMessage(content="검색 결과", tool_call_id="call-1"),
+        AIMessage(content="최종 답변"),
+    ]
+
+    assert _final_text(messages) == "최종 답변"
