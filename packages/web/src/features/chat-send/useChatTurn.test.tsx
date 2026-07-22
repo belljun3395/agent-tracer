@@ -1,389 +1,272 @@
-import { StrictMode, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatThreadId } from "~web/shared/identity.js";
-import type { ChatStreamHandlers } from "~web/entities/chat/api/stream-chat-message.js";
+import type {
+  ChatExecutionRecord,
+  ChatMessageRecord,
+} from "~web/entities/chat/model/chat.js";
+import { monitorQueryKeys } from "~web/shared/api/query-keys.js";
 import { useChatTurn } from "~web/features/chat-send/useChatTurn.js";
 
-const { streamChatMessageMock } = vi.hoisted(() => ({
-  streamChatMessageMock: vi.fn(),
+const { cancelChatExecutionMock, fetchChatExecutionsMock, startChatTurnMock } =
+  vi.hoisted(() => ({
+    cancelChatExecutionMock: vi.fn(),
+    fetchChatExecutionsMock: vi.fn(),
+    startChatTurnMock: vi.fn(),
+  }));
+const { watchChatExecutionMock } = vi.hoisted(() => ({
+  watchChatExecutionMock: vi.fn(),
 }));
 
-vi.mock("~web/entities/chat/api/stream-chat-message.js", () => ({
-  streamChatMessage: streamChatMessageMock,
+vi.mock("~web/entities/chat/api/api-chat.js", () => ({
+  cancelChatExecution: cancelChatExecutionMock,
+  fetchChatExecutions: fetchChatExecutionsMock,
+  startChatTurn: startChatTurnMock,
+}));
+vi.mock("~web/entities/chat/api/watch-chat-execution.js", () => ({
+  watchChatExecution: watchChatExecutionMock,
 }));
 
-// 마운트 이펙트가 두 번 도는 dev 조건에서 진행 중인 턴이 부수적으로 끊기지 않는지 보려고 StrictMode로 감싼다.
+let queryClient: QueryClient;
+
 function wrapper({ children }: { readonly children: ReactNode }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
-    <QueryClientProvider client={queryClient}>
-      <StrictMode>{children}</StrictMode>
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }
 
-const DONE_SUMMARY = {
-  text: "",
-  backend: "claude-sdk" as const,
-  toolCalls: [],
-  modelUsed: "m",
-  costUsd: null,
-  numTurns: 1,
-  errorSummary: null,
+function execution(
+  overrides: Partial<ChatExecutionRecord> = {},
+): ChatExecutionRecord {
+  return {
+    id: "execution-1",
+    threadId: ChatThreadId("thread-1"),
+    userMessageId: "message-1",
+    status: "running",
+    requestedBackend: "claude-sdk",
+    draftText: "partial answer",
+    draftSeq: 1,
+    assistantMessageId: null,
+    error: null,
+    createdAt: "2026-07-22T00:00:00.000Z",
+    updatedAt: "2026-07-22T00:00:01.000Z",
+    startedAt: "2026-07-22T00:00:01.000Z",
+    completedAt: null,
+    ...overrides,
+  };
+}
+
+const message: ChatMessageRecord = {
+  id: "message-1",
+  threadId: ChatThreadId("thread-1"),
+  role: "user",
+  content: "hello",
+  toolCalls: null,
+  toolCallId: null,
+  createdAt: "2026-07-22T00:00:00.000Z",
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 beforeEach(() => {
-  streamChatMessageMock.mockReset();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  cancelChatExecutionMock.mockReset();
+  fetchChatExecutionsMock
+    .mockReset()
+    .mockResolvedValue({ executions: [], confirmations: [] });
+  startChatTurnMock.mockReset();
+  watchChatExecutionMock.mockReset().mockReturnValue(new Promise(() => {}));
 });
 
 describe("useChatTurn", () => {
-  it("델타·도구 호출·확인 요청·기억 갱신을 누적하다가 done에서 스트리밍 상태를 비운다", async () => {
-    let capturedHandlers: ChatStreamHandlers | undefined;
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
-        capturedHandlers = handlers;
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-
-    act(() => result.current.sendMessage("hello"));
-    expect(result.current.isStreaming).toBe(true);
-
-    act(() => capturedHandlers?.onAssistantDelta?.("Hel"));
-    act(() => capturedHandlers?.onAssistantDelta?.("lo"));
-    expect(result.current.assistantDraft).toBe("Hello");
-
-    act(() =>
-      capturedHandlers?.onToolCall?.({ id: "call-1", name: "get_task", args: {} }),
-    );
-    expect(result.current.toolActivity).toHaveLength(1);
-    expect(result.current.toolActivity[0]?.result).toBeNull();
-
-    act(() =>
-      capturedHandlers?.onToolResult?.({ toolCallId: "call-1", toolName: "get_task", content: "ok" }),
-    );
-    expect(result.current.toolActivity[0]?.result?.content).toBe("ok");
-
-    act(() =>
-      capturedHandlers?.onConfirmRequest?.({
-        id: "confirm-1",
-        toolName: "update_task",
-        summary: "rename",
-        args: {},
-      }),
-    );
-    expect(result.current.pendingConfirms).toHaveLength(1);
-
-    act(() => capturedHandlers?.onMemoryUpdated?.({ key: "tz", content: "KST" }));
-    expect(result.current.memoryUpdates).toHaveLength(1);
-
-    act(() =>
-      capturedHandlers?.onDone?.({
-        text: "Hello",
-        backend: "claude-sdk",
-        toolCalls: [],
-        modelUsed: "m",
-        costUsd: null,
-        numTurns: 1,
-        errorSummary: null,
-      }),
-    );
-
-    // done 직후에는 스트리밍만 끝나고, 방금 흘린 텍스트는 그대로 남아 빈 말풍선이
-    // 번쩍이지 않는다.
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.assistantDraft).toBe("Hello");
-    expect(result.current.toolActivity).toHaveLength(1);
-
-    // 히스토리 재조회가 끝나야 드래프트를 지우고 저장된 메시지에 자리를 넘긴다.
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+  it("접수 응답 전에도 보낸 메시지를 즉시 보여 준다", () => {
+    startChatTurnMock.mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), {
+      wrapper,
     });
-    expect(result.current.assistantDraft).toBe("");
-    expect(result.current.toolActivity).toHaveLength(0);
-    // 확인 요청은 별도 승인/거절 엔드포인트로 해소될 때까지 남는다.
-    expect(result.current.pendingConfirms).toHaveLength(1);
+
+    act(() => result.current.sendMessage(" hello "));
+
+    expect(result.current.pendingMessages.map((row) => row.content)).toEqual(["hello"]);
+    expect(result.current.isStreaming).toBe(true);
   });
 
-  it("재렌더나 StrictMode 이펙트 재실행이 진행 중인 턴을 끊지 않는다", () => {
-    let capturedSignal: AbortSignal | undefined;
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
-        capturedSignal = signal;
-        return Promise.resolve();
+  it("접수된 사용자 메시지와 실행을 캐시에 중복 없이 합친다", async () => {
+    startChatTurnMock.mockResolvedValue({
+      message,
+      execution: execution({ status: "queued" }),
+    });
+    queryClient.setQueryData(
+      monitorQueryKeys.chatMessages(ChatThreadId("thread-1")),
+      {
+        messages: [],
       },
     );
-
-    const { result, rerender } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), {
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), {
       wrapper,
     });
 
     act(() => result.current.sendMessage("hello"));
-    expect(streamChatMessageMock).toHaveBeenCalledTimes(1);
-    expect(capturedSignal?.aborted).toBe(false);
 
-    // 같은 스레드로 여러 번 재렌더해도 새 스트림을 열지도, 진행 중인 것을 끊지도 않는다.
-    rerender();
-    rerender();
-    expect(streamChatMessageMock).toHaveBeenCalledTimes(1);
-    expect(capturedSignal?.aborted).toBe(false);
-    expect(result.current.isStreaming).toBe(true);
+    await waitFor(() => expect(result.current.pendingMessages).toHaveLength(0));
+    expect(
+      queryClient.getQueryData<{ messages: readonly ChatMessageRecord[] }>(
+        monitorQueryKeys.chatMessages(ChatThreadId("thread-1")),
+      )?.messages,
+    ).toEqual([message]);
   });
 
-  it("진짜 스레드 전환은 진행 중인 턴을 끊고 상태를 비운다", () => {
-    let capturedSignal: AbortSignal | undefined;
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
-        capturedSignal = signal;
-        return Promise.resolve();
+  it("새로 마운트해도 서버의 실행 상태와 부분 응답을 복구한다", async () => {
+    fetchChatExecutionsMock.mockResolvedValue({
+      executions: [execution()],
+      confirmations: [
+        {
+          id: "confirm-1",
+          toolName: "archive_task",
+          summary: "archive_task(taskId=task-1)",
+          args: { taskId: "task-1" },
+        },
+      ],
+    });
+
+    const { result, unmount } = renderHook(
+      () => useChatTurn(ChatThreadId("thread-1")),
+      {
+        wrapper,
       },
     );
 
-    const { result, rerender } = renderHook(
-      ({ threadId }: { threadId: string }) => useChatTurn(ChatThreadId(threadId)),
-      { wrapper, initialProps: { threadId: "thread-1" } },
-    );
-
-    act(() => result.current.sendMessage("hello"));
-    expect(capturedSignal?.aborted).toBe(false);
-
-    rerender({ threadId: "thread-2" });
-    expect(capturedSignal?.aborted).toBe(true);
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.assistantDraft).toBe("");
-  });
-
-  it("stop은 진행 중인 턴을 끊고 스트리밍 상태를 비운다", () => {
-    let capturedSignal: AbortSignal | undefined;
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
-        capturedSignal = signal;
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-    act(() => result.current.sendMessage("hello"));
-    expect(result.current.isStreaming).toBe(true);
-
-    act(() => result.current.stop());
-    expect(capturedSignal?.aborted).toBe(true);
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.assistantDraft).toBe("");
-  });
-
-  it("dismissConfirm은 해소된 확인 요청만 화면에서 지운다", async () => {
-    let capturedHandlers: ChatStreamHandlers | undefined;
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
-        capturedHandlers = handlers;
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-    act(() => result.current.sendMessage("hello"));
-    act(() =>
-      capturedHandlers?.onConfirmRequest?.({
-        id: "confirm-1",
-        toolName: "update_task",
-        summary: "rename",
-        args: {},
-      }),
+    await waitFor(() =>
+      expect(result.current.activeProcess).toBe("partial answer"),
     );
     expect(result.current.pendingConfirms).toHaveLength(1);
-
-    act(() => result.current.dismissConfirm("confirm-1"));
-
-    expect(result.current.pendingConfirms).toHaveLength(0);
-  });
-
-  it("응답 중 전송은 현재 턴을 취소하지 않고 순서대로 대기열에 쌓는다", () => {
-    const signals: (AbortSignal | undefined)[] = [];
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
-        signals.push(signal);
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-
-    act(() => result.current.sendMessage("first"));
-    act(() => result.current.sendMessage("second"));
-    act(() => result.current.sendMessage("third"));
-
-    // 첫 메시지만 POST(=스트림 시작)되고, 진행 중인 턴은 끊기지 않는다.
-    expect(streamChatMessageMock).toHaveBeenCalledTimes(1);
-    expect(signals[0]?.aborted).toBe(false);
     expect(result.current.isStreaming).toBe(true);
-    expect(result.current.queuedCount).toBe(2);
+    unmount();
+    expect(cancelChatExecutionMock).not.toHaveBeenCalled();
   });
 
-  it("현재 턴이 끝나면 대기 메시지를 순서대로 새 턴으로 자동 처리한다", async () => {
-    const contents: string[] = [];
-    const handlersByCall: ChatStreamHandlers[] = [];
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, body: { content: string }, handlers: ChatStreamHandlers) => {
-        contents.push(body.content);
-        handlersByCall.push(handlers);
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-
-    act(() => result.current.sendMessage("first"));
-    act(() => result.current.sendMessage("second"));
-    act(() => result.current.sendMessage("third"));
-    expect(contents).toEqual(["first"]);
-    expect(result.current.queuedCount).toBe(2);
-
-    // 첫 턴 종료 → 히스토리 재조회 뒤 second가 자동 시작한다.
-    await act(async () => {
-      handlersByCall[0]?.onDone?.(DONE_SUMMARY);
-      await Promise.resolve();
-      await Promise.resolve();
+  it("Stop을 눌렀을 때만 서버 실행 취소를 요청한다", async () => {
+    const running = execution();
+    fetchChatExecutionsMock.mockResolvedValue({
+      executions: [running],
+      confirmations: [],
     });
-    expect(contents).toEqual(["first", "second"]);
-    expect(result.current.queuedCount).toBe(1);
-
-    // 둘째 턴 종료 → third가 자동 시작한다.
-    await act(async () => {
-      handlersByCall[1]?.onDone?.(DONE_SUMMARY);
-      await Promise.resolve();
-      await Promise.resolve();
+    cancelChatExecutionMock.mockResolvedValue({
+      execution: execution({
+        status: "canceled",
+        completedAt: "2026-07-22T00:00:02.000Z",
+      }),
     });
-    expect(contents).toEqual(["first", "second", "third"]);
-    expect(result.current.queuedCount).toBe(0);
-
-    // 셋째 턴 종료 → 대기열이 비었으니 새 턴을 시작하지 않는다.
-    await act(async () => {
-      handlersByCall[2]?.onDone?.(DONE_SUMMARY);
-      await Promise.resolve();
-      await Promise.resolve();
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), {
+      wrapper,
     });
-    expect(contents).toHaveLength(3);
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.queuedCount).toBe(0);
-  });
-
-  it("대기 메시지가 자동 시작되어도 밀려난 이전 턴의 늦은 델타가 새 드래프트에 섞이지 않는다", async () => {
-    const handlersByCall: ChatStreamHandlers[] = [];
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
-        handlersByCall.push(handlers);
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-
-    act(() => result.current.sendMessage("first"));
-    act(() => handlersByCall[0]?.onAssistantDelta?.("A"));
-    expect(result.current.assistantDraft).toBe("A");
-
-    // 응답 중 둘째 전송은 대기열로 가고 첫 턴 드래프트는 그대로다.
-    act(() => result.current.sendMessage("second"));
-    expect(result.current.assistantDraft).toBe("A");
-    expect(result.current.queuedCount).toBe(1);
-
-    // 첫 턴이 끝나면 둘째 메시지가 턴 B로 자동 시작한다.
-    await act(async () => {
-      handlersByCall[0]?.onDone?.(DONE_SUMMARY);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(handlersByCall).toHaveLength(2);
-    expect(result.current.assistantDraft).toBe("");
-
-    // 턴 A의 늦은 델타·도구 이벤트가 도착해도 턴 B의 상태를 오염시키지 않는다.
-    act(() => handlersByCall[0]?.onAssistantDelta?.("stale"));
-    act(() => handlersByCall[0]?.onToolCall?.({ id: "call-a", name: "get_task", args: {} }));
-    expect(result.current.assistantDraft).toBe("");
-    expect(result.current.toolActivity).toHaveLength(0);
-
-    // 턴 B의 델타는 정상 반영된다.
-    act(() => handlersByCall[1]?.onAssistantDelta?.("B"));
-    expect(result.current.assistantDraft).toBe("B");
-  });
-
-  it("stop은 진행 중인 턴을 끊고 대기열도 비운다", () => {
-    const signals: (AbortSignal | undefined)[] = [];
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, _handlers: ChatStreamHandlers, signal?: AbortSignal) => {
-        signals.push(signal);
-        return Promise.resolve();
-      },
-    );
-
-    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
-    act(() => result.current.sendMessage("first"));
-    act(() => result.current.sendMessage("second"));
-    expect(result.current.queuedCount).toBe(1);
+    await waitFor(() => expect(result.current.isStreaming).toBe(true));
 
     act(() => result.current.stop());
-    expect(signals[0]?.aborted).toBe(true);
-    expect(result.current.isStreaming).toBe(false);
-    expect(result.current.queuedCount).toBe(0);
+
+    await waitFor(() =>
+      expect(cancelChatExecutionMock).toHaveBeenCalledWith(
+        ChatThreadId("thread-1"),
+        running.id,
+      ),
+    );
   });
 
-  it("스레드 전환은 대기열을 비우고 이전 스레드의 대기 메시지를 시작하지 않는다", () => {
-    streamChatMessageMock.mockImplementation(() => Promise.resolve());
+  it("실패한 실행의 오류를 재진입 뒤에도 보여 준다", async () => {
+    fetchChatExecutionsMock.mockResolvedValue({
+      executions: [
+        execution({ status: "failed", error: "provider unavailable" }),
+      ],
+      confirmations: [],
+    });
 
-    const { result, rerender } = renderHook(
-      ({ threadId }: { threadId: string }) => useChatTurn(ChatThreadId(threadId)),
-      { wrapper, initialProps: { threadId: "thread-1" } },
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.error).toBe("provider unavailable"),
     );
-
-    act(() => result.current.sendMessage("first"));
-    act(() => result.current.sendMessage("second"));
-    expect(result.current.queuedCount).toBe(1);
-
-    rerender({ threadId: "thread-2" });
-    expect(result.current.queuedCount).toBe(0);
     expect(result.current.isStreaming).toBe(false);
-    // thread-1의 대기 메시지가 thread-2에서 새 턴으로 살아나지 않는다.
-    expect(streamChatMessageMock).toHaveBeenCalledTimes(1);
   });
 
-  it("스레드를 전환하면 이전 스레드 턴의 늦은 이벤트가 무시된다", () => {
-    const handlersByCall: ChatStreamHandlers[] = [];
-    streamChatMessageMock.mockImplementation(
-      (_threadId: string, _body: unknown, handlers: ChatStreamHandlers) => {
-        handlersByCall.push(handlers);
-        return Promise.resolve();
-      },
-    );
-
-    const { result, rerender } = renderHook(
-      ({ threadId }: { threadId: string }) => useChatTurn(ChatThreadId(threadId)),
-      { wrapper, initialProps: { threadId: "thread-1" } },
-    );
+  it("접수 요청이 실패하면 본문을 보존하고 재시도할 수 있다", async () => {
+    startChatTurnMock.mockRejectedValue(new Error("network unavailable"));
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), {
+      wrapper,
+    });
 
     act(() => result.current.sendMessage("hello"));
-    rerender({ threadId: "thread-2" });
-    expect(result.current.assistantDraft).toBe("");
 
-    // thread-1 턴의 늦은 델타·도구 이벤트가 thread-2 화면에 새지 않는다.
-    act(() => handlersByCall[0]?.onAssistantDelta?.("leak"));
-    act(() => handlersByCall[0]?.onToolCall?.({ id: "call-1", name: "get_task", args: {} }));
-    act(() =>
-      handlersByCall[0]?.onMemoryUpdated?.({ key: "tz", content: "KST" }),
+    await waitFor(() =>
+      expect(result.current.error).toBe("network unavailable"),
     );
-    expect(result.current.assistantDraft).toBe("");
-    expect(result.current.toolActivity).toHaveLength(0);
-    expect(result.current.memoryUpdates).toHaveLength(0);
+    expect(result.current.pendingMessages).toEqual([
+      expect.objectContaining({ content: "hello", status: "failed" }),
+    ]);
+    expect(result.current.isStreaming).toBe(false);
+
+    startChatTurnMock.mockResolvedValue({
+      message,
+      execution: execution({ status: "queued" }),
+    });
+    act(() => result.current.retryMessage(result.current.pendingMessages[0]!.clientRequestId));
+    await waitFor(() => expect(result.current.pendingMessages).toHaveLength(0));
+    expect(startChatTurnMock).toHaveBeenCalledTimes(2);
   });
 
-  it("빈 내용이나 스레드가 없으면 스트림을 시작하지 않는다", () => {
-    const { result } = renderHook(() => useChatTurn(null), { wrapper });
+  it("실패한 접수 메시지를 사용자가 삭제할 수 있다", async () => {
+    startChatTurnMock.mockRejectedValue(new Error("network unavailable"));
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
     act(() => result.current.sendMessage("hello"));
-    expect(streamChatMessageMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.pendingMessages[0]?.status).toBe("failed"));
+    act(() => result.current.dismissMessage(result.current.pendingMessages[0]!.clientRequestId));
+    expect(result.current.pendingMessages).toHaveLength(0);
+  });
+
+  it("동시 접수 응답이 역순이어도 메시지 캐시는 전송 순서를 지킨다", async () => {
+    const first = deferred<{ message: ChatMessageRecord; execution: ChatExecutionRecord }>();
+    const second = deferred<{ message: ChatMessageRecord; execution: ChatExecutionRecord }>();
+    startChatTurnMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    queryClient.setQueryData(monitorQueryKeys.chatMessages(ChatThreadId("thread-1")), { messages: [] });
+    const { result } = renderHook(() => useChatTurn(ChatThreadId("thread-1")), { wrapper });
+    act(() => {
+      result.current.sendMessage("first");
+      result.current.sendMessage("second");
+    });
+    const secondMessage = { ...message, id: "message-2", content: "second" };
+    await act(async () => second.resolve({ message: secondMessage, execution: execution({ id: "execution-2", userMessageId: "message-2", status: "queued" }) }));
+    expect(result.current.pendingMessages.map((row) => row.content)).toEqual(["first", "second"]);
+    await act(async () => first.resolve({ message: { ...message, content: "first" }, execution: execution({ status: "queued" }) }));
+    await waitFor(() => expect(result.current.pendingMessages).toHaveLength(0));
+    expect(queryClient.getQueryData<{ messages: readonly ChatMessageRecord[] }>(monitorQueryKeys.chatMessages(ChatThreadId("thread-1")))?.messages.map((row) => row.content)).toEqual(["first", "second"]);
+  });
+
+  it("스레드를 바꾼 뒤 끝난 이전 접수는 현재 스레드 상태를 오염시키지 않는다", async () => {
+    const request = deferred<{ message: ChatMessageRecord; execution: ChatExecutionRecord }>();
+    startChatTurnMock.mockReturnValueOnce(request.promise);
+    const { result, rerender } = renderHook(
+      ({ threadId }) => useChatTurn(threadId),
+      { initialProps: { threadId: ChatThreadId("thread-1") }, wrapper },
+    );
+    act(() => result.current.sendMessage("old thread"));
+
+    rerender({ threadId: ChatThreadId("thread-2") });
+    await act(async () => request.reject(new Error("late failure")));
+
+    expect(result.current.pendingMessages).toHaveLength(0);
+    expect(result.current.error).toBeNull();
   });
 });

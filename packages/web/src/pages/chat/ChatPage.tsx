@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { ChatThreadId } from "~web/shared/identity.js";
-import { chatThreadDisplayTitle } from "~web/entities/chat/model/chat.js";
 import { useChatMessagesQuery, useChatThreadsQuery } from "~web/entities/chat/api/queries.js";
 import { useChatTurn } from "~web/features/chat-send/useChatTurn.js";
 import {
@@ -14,6 +13,7 @@ import { EmptyView, GuidanceText } from "~web/shared/ui/index.js";
 import { ChatComposer } from "~web/widgets/chat/ChatComposer.js";
 import { ChatMessageStream } from "~web/widgets/chat/ChatMessageStream.js";
 import { ChatThreadRail } from "~web/widgets/chat/ChatThreadRail.js";
+import { ChatThreadTitleEditor } from "~web/widgets/chat/ChatThreadTitleEditor.js";
 
 /** `/chat`은 빈 상태이고, `/chat/:threadId`는 URL이 가리키는 스레드의 대화를 SSE로 흘려보는 화면이다. */
 export function ChatPage() {
@@ -75,9 +75,7 @@ export function ChatPage() {
           {selectedThread ? (
             <>
               <div className="px-4 py-2.5 border-b border-hair flex items-center gap-2.5 shrink-0">
-                <span className="text-[13px] font-medium text-ink flex-1 min-w-0 truncate">
-                  {chatThreadDisplayTitle(selectedThread)}
-                </span>
+                <ChatThreadTitleEditor key={selectedThread.id} thread={selectedThread} />
                 <AgentBackendSelect value={backendChoice} onChange={setBackendChoice} />
               </div>
 

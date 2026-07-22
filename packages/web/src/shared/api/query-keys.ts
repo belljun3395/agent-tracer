@@ -79,4 +79,6 @@ export const monitorQueryKeys = {
   chatThread: (threadId: ChatThreadId) => ["monitor", "chat", "threads", threadId] as const,
   chatMessages: (threadId: ChatThreadId) =>
     ["monitor", "chat", "threads", threadId, "messages"] as const,
+  chatExecutions: (threadId: ChatThreadId) =>
+    ["monitor", "chat", "threads", threadId, "executions"] as const,
 } as const;

@@ -1,223 +1,297 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatThreadId } from "~web/shared/identity.js";
-import type { ChatBackend } from "~web/entities/chat/model/chat.js";
 import type {
-  ChatConfirmRequest,
-  ChatMemoryUpdate,
-  ChatTurnToolCall,
-  ChatTurnToolResult,
-} from "~web/entities/chat/model/chat-turn.js";
-import { streamChatMessage } from "~web/entities/chat/api/stream-chat-message.js";
+  ChatBackend,
+  ChatExecutionRecord,
+  ChatExecutionsListResponse,
+  ChatMessageRecord,
+  ChatMessagesListResponse,
+} from "~web/entities/chat/model/chat.js";
+import type { ChatConfirmRequest } from "~web/entities/chat/model/chat-turn.js";
+import { cancelChatExecution, startChatTurn } from "~web/entities/chat/api/api-chat.js";
 import { monitorQueryKeys } from "~web/shared/api/query-keys.js";
+import { useChatExecutionUpdates } from "~web/features/chat-send/useChatExecutionUpdates.js";
 
-/** 진행 중이거나 방금 끝난 턴의 도구 호출 한 건이며, result가 null이면 아직 응답을 못 받았다. */
-export interface LiveToolActivity {
-  readonly call: ChatTurnToolCall;
-  readonly result: ChatTurnToolResult | null;
-}
-
-/** 진행 중인 턴 뒤로 밀어 둔, 아직 서버에 append하지 않은 사용자 메시지 한 건이다. */
-interface QueuedMessage {
+interface PendingMessage {
+  readonly threadId: ChatThreadId;
+  readonly clientRequestId: string;
   readonly content: string;
   readonly agentBackend?: ChatBackend;
+  readonly status: "sending" | "accepted" | "failed";
+  readonly error?: string;
+  readonly acceptedMessage?: ChatMessageRecord;
 }
 
-interface ChatTurnState {
+export interface OptimisticChatMessage {
+  readonly clientRequestId: string;
+  readonly content: string;
+  readonly status: "sending" | "failed";
+  readonly error: string | null;
+}
+
+export interface UseChatTurnResult {
   readonly isStreaming: boolean;
-  readonly assistantDraft: string;
-  readonly toolActivity: readonly LiveToolActivity[];
+  readonly pendingMessages: readonly OptimisticChatMessage[];
+  readonly activeProcess: string;
+  readonly completedProcesses: readonly {
+    readonly assistantMessageId: string;
+    readonly transcript: string;
+  }[];
   readonly pendingConfirms: readonly ChatConfirmRequest[];
-  readonly memoryUpdates: readonly ChatMemoryUpdate[];
   readonly error: string | null;
   readonly queuedCount: number;
-}
-
-const EMPTY_STATE: ChatTurnState = {
-  isStreaming: false,
-  assistantDraft: "",
-  toolActivity: [],
-  pendingConfirms: [],
-  memoryUpdates: [],
-  error: null,
-  queuedCount: 0,
-};
-
-export interface UseChatTurnResult extends ChatTurnState {
   readonly sendMessage: (content: string, agentBackend?: ChatBackend) => void;
-  /** 진행 중인 턴을 사용자가 취소하고 대기열을 비우며, 백엔드는 취소된 부분 응답을 버린다. */
   readonly stop: () => void;
-  /** 확인 카드가 승인/거절로 해소된 뒤 화면에서 지운다. */
+  readonly retryMessage: (clientRequestId: string) => void;
+  readonly dismissMessage: (clientRequestId: string) => void;
   readonly dismissConfirm: (confirmationId: string) => void;
 }
 
-/** 스레드 하나에 사용자 메시지를 보내고, 턴이 끝날 때까지의 실시간 SSE 상태를 들고 있는다. */
+/** 접수된 실행을 서버에서 다시 읽어 화면 이탈과 새로고침 뒤에도 같은 턴을 이어 본다. */
 export function useChatTurn(threadId: ChatThreadId | null): UseChatTurnResult {
   const queryClient = useQueryClient();
-  const [state, setState] = useState<ChatTurnState>(EMPTY_STATE);
-  const abortRef = useRef<AbortController | null>(null);
-  // 렌더나 StrictMode 이펙트 재실행이 아니라 사용자가 스레드를 진짜로 바꿨을 때만 턴을 끊도록, 지금 턴이 속한 스레드를 기준값으로 들고 있는다.
-  const activeThreadRef = useRef<ChatThreadId | null>(threadId);
-  // done 뒤 히스토리 재조회를 기다리는 동안 새 전송이 끼어들어도 오래된 턴이 새 드래프트를 지우지 못하게, 전송마다 증가시키는 일련번호다.
-  const turnSeqRef = useRef(0);
-  // 응답 중에 온 전송을 취소 대신 순서대로 쌓아 두고, 앞 턴이 끝나면 하나씩 꺼내 새 턴으로 자동 시작한다.
-  const queueRef = useRef<readonly QueuedMessage[]>([]);
-  // sendMessage가 큐잉과 즉시 시작을 가르는 기준으로, 렌더 사이에 낡지 않게 상태 대신 이 값을 읽는다.
-  const isStreamingRef = useRef(false);
-  // 턴이 끝날 때 다음 대기 메시지를 시작하는 재귀 경로가 낡은 클로저를 잡지 않게, 최신 startTurn을 가리키는 참조다.
-  const startTurnRef = useRef<(message: QueuedMessage) => void>(() => {});
+  const executionsQuery = useChatExecutionUpdates(threadId);
+  const [pendingMessages, setPendingMessages] = useState<readonly PendingMessage[]>([]);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const seenTerminalRef = useRef(new Set<string>());
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
 
-  const startTurn = useCallback(
-    (message: QueuedMessage) => {
-      if (!threadId) return;
+  const executions = executionsQuery.data?.executions ?? [];
+  const running =
+    executions.find((execution) => execution.status === "running") ?? null;
+  const queued = executions
+    .filter((execution) => execution.status === "queued")
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const latest = executions[0] ?? null;
 
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      activeThreadRef.current = threadId;
-      isStreamingRef.current = true;
-      const turnSeq = (turnSeqRef.current += 1);
-
-      setState((prev) => ({
-        ...prev,
-        isStreaming: true,
-        assistantDraft: "",
-        toolActivity: [],
-        error: null,
-      }));
-
-      // 밀려난 턴의 늦은 SSE가 현재 턴이나 새 스레드의 상태를 오염시키지 못하게, 이 턴의 일련번호가 아직 유효할 때만 이벤트를 반영한다.
-      const isStale = () => turnSeqRef.current !== turnSeq;
-
-      // 방금 끝난 턴 뒤에 대기 중인 메시지가 있으면 순서대로 다음 턴을 시작한다.
-      const advanceQueue = () => {
-        isStreamingRef.current = false;
-        const [next, ...rest] = queueRef.current;
-        if (next === undefined) return;
-        queueRef.current = rest;
-        setState((prev) => ({ ...prev, queuedCount: rest.length }));
-        startTurnRef.current(next);
-      };
-
-      void streamChatMessage(
-        threadId,
-        {
-          content: message.content,
-          ...(message.agentBackend ? { agentBackend: message.agentBackend } : {}),
-        },
-        {
-          onAssistantDelta: (text) => {
-            if (isStale()) return;
-            setState((prev) => ({ ...prev, assistantDraft: prev.assistantDraft + text }));
-          },
-          onToolCall: (call) => {
-            if (isStale()) return;
-            setState((prev) => ({
-              ...prev,
-              toolActivity: [...prev.toolActivity, { call, result: null }],
-            }));
-          },
-          onToolResult: (result) => {
-            if (isStale()) return;
-            setState((prev) => ({
-              ...prev,
-              toolActivity: prev.toolActivity.map((activity) =>
-                activity.call.id === result.toolCallId ? { ...activity, result } : activity,
-              ),
-            }));
-          },
-          onConfirmRequest: (request) => {
-            if (isStale()) return;
-            setState((prev) => ({
-              ...prev,
-              pendingConfirms: [...prev.pendingConfirms, request],
-            }));
-          },
-          onMemoryUpdated: (update) => {
-            if (isStale()) return;
-            setState((prev) => ({ ...prev, memoryUpdates: [...prev.memoryUpdates, update] }));
-          },
-          onDone: () => {
-            if (isStale()) return;
-            // 빈 말풍선이 번쩍이지 않도록, 스트리밍한 텍스트를 그대로 둔 채 히스토리를 다시 불러오고 저장된 메시지가 자리를 잡은 뒤에야 드래프트를 지운다.
-            setState((prev) => ({ ...prev, isStreaming: false }));
-            void queryClient
-              .invalidateQueries({ queryKey: monitorQueryKeys.chatMessages(threadId) })
-              .then(() => {
-                if (isStale()) return;
-                setState((prev) => ({ ...prev, assistantDraft: "", toolActivity: [] }));
-                advanceQueue();
-              });
-          },
-          onError: (message) => {
-            if (isStale()) return;
-            setState((prev) => ({ ...prev, isStreaming: false, error: message }));
-            advanceQueue();
-          },
-        },
-        controller.signal,
-      );
-    },
-    [threadId, queryClient],
-  );
-
-  // done/error 뒤 다음 대기 메시지를 시작하는 재귀 경로가 항상 최신 startTurn을 부르게 참조를 맞춘다.
   useEffect(() => {
-    startTurnRef.current = startTurn;
-  }, [startTurn]);
-
-  // 같은 스레드의 재렌더나 StrictMode 마운트 이펙트 재실행은 무시하고, 사용자가 스레드를 진짜로 바꿨을 때만 이전 턴을 끊고 대기열과 상태를 비운다.
-  useEffect(() => {
-    if (activeThreadRef.current === threadId) return;
-    activeThreadRef.current = threadId;
-    abortRef.current?.abort();
-    abortRef.current = null;
-    turnSeqRef.current += 1;
-    isStreamingRef.current = false;
-    queueRef.current = [];
-    setState(EMPTY_STATE);
+    setPendingMessages([]);
+    setRequestError(null);
+    seenTerminalRef.current = new Set();
   }, [threadId]);
+
+  useEffect(() => {
+    if (!threadId) return;
+    const accepted: ChatMessageRecord[] = [];
+    for (const pending of pendingMessages) {
+      if (pending.threadId !== threadId) continue;
+      if (pending.status === "sending") break;
+      if (pending.status === "accepted" && pending.acceptedMessage !== undefined) {
+        accepted.push(pending.acceptedMessage);
+      }
+    }
+    if (accepted.length === 0) return;
+    const acceptedIds = new Set(accepted.map((message) => message.id));
+    queryClient.setQueryData<ChatMessagesListResponse>(
+      monitorQueryKeys.chatMessages(threadId),
+      (current) => ({
+        messages: [
+          ...(current?.messages.filter((message) => !acceptedIds.has(message.id)) ?? []),
+          ...accepted,
+        ],
+      }),
+    );
+    setPendingMessages((current) => current.filter((row) =>
+      row.threadId !== threadId || row.status !== "accepted"));
+  }, [pendingMessages, queryClient, threadId]);
+
+  useEffect(() => {
+    if (!threadId) return;
+    const newlyTerminal = executions.filter(
+      (execution) =>
+        isTerminal(execution) && !seenTerminalRef.current.has(execution.id),
+    );
+    if (newlyTerminal.length === 0) return;
+    for (const execution of newlyTerminal)
+      seenTerminalRef.current.add(execution.id);
+    void Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.chatMessages(threadId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.chatThreadsPrefix(),
+      }),
+    ]);
+  }, [executions, queryClient, threadId]);
+
+  const submitPending = useCallback(
+    (pending: PendingMessage) => {
+      if (!threadId) return;
+      void startChatTurn(threadId, {
+        clientRequestId: pending.clientRequestId,
+        content: pending.content,
+        ...(pending.agentBackend ? { agentBackend: pending.agentBackend } : {}),
+      })
+        .then(async ({ message, execution }) => {
+          queryClient.setQueryData<ChatExecutionsListResponse>(
+            monitorQueryKeys.chatExecutions(threadId),
+            (current) => ({
+              confirmations: current?.confirmations ?? [],
+              executions: [
+                execution,
+                ...(current?.executions.filter(
+                  (row) => row.id !== execution.id,
+                ) ?? []),
+              ],
+            }),
+          );
+          if (threadIdRef.current !== threadId) {
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: monitorQueryKeys.chatMessages(threadId) }),
+              queryClient.invalidateQueries({ queryKey: monitorQueryKeys.chatExecutions(threadId) }),
+            ]);
+            return;
+          }
+          setPendingMessages((current) =>
+            current.map((row) => {
+              if (row.clientRequestId !== pending.clientRequestId) return row;
+              const { error: _error, ...withoutError } = row;
+              return { ...withoutError, status: "accepted", acceptedMessage: message };
+            }),
+          );
+          await queryClient.invalidateQueries({
+            queryKey: monitorQueryKeys.chatExecutions(threadId),
+          });
+        })
+        .catch((error: unknown) => {
+          if (threadIdRef.current !== threadId) return;
+          setPendingMessages((current) =>
+            current.map((row) => row.clientRequestId === pending.clientRequestId
+              ? { ...row, status: "failed", error: toErrorMessage(error) }
+              : row),
+          );
+          setRequestError(toErrorMessage(error));
+        });
+    },
+    [queryClient, threadId],
+  );
 
   const sendMessage = useCallback(
     (content: string, agentBackend?: ChatBackend) => {
       const trimmed = content.trim();
       if (!threadId || trimmed.length === 0) return;
-
-      const message: QueuedMessage = { content: trimmed, ...(agentBackend ? { agentBackend } : {}) };
-
-      // 진행 중인 턴이 있으면 취소하지 않고 대기열 끝에 쌓아 두며, POST는 이 메시지의 턴이 실제로 시작될 때만 일어난다.
-      if (isStreamingRef.current) {
-        queueRef.current = [...queueRef.current, message];
-        setState((prev) => ({ ...prev, queuedCount: queueRef.current.length }));
-        return;
-      }
-
-      startTurn(message);
+      const pending: PendingMessage = {
+        threadId,
+        clientRequestId: globalThis.crypto.randomUUID(), content: trimmed, status: "sending",
+        ...(agentBackend ? { agentBackend } : {}),
+      };
+      setPendingMessages((current) => [...current, pending]);
+      setRequestError(null);
+      submitPending(pending);
     },
-    [threadId, startTurn],
+    [submitPending, threadId],
   );
 
+  const retryMessage = useCallback((clientRequestId: string) => {
+    const pending = pendingMessages.find((row) => row.clientRequestId === clientRequestId);
+    if (pending?.status !== "failed") return;
+    const { error: _error, acceptedMessage: _acceptedMessage, ...retryable } = pending;
+    const retrying: PendingMessage = { ...retryable, status: "sending" };
+    setPendingMessages((current) => current.map((row) => row.clientRequestId === clientRequestId ? retrying : row));
+    setRequestError(null);
+    submitPending(retrying);
+  }, [pendingMessages, submitPending]);
+
+  const dismissMessage = useCallback((clientRequestId: string) => {
+    setPendingMessages((current) => current.filter((row) => row.clientRequestId !== clientRequestId || row.status !== "failed"));
+    setRequestError(null);
+  }, []);
+
   const stop = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    turnSeqRef.current += 1;
-    isStreamingRef.current = false;
-    queueRef.current = [];
-    setState((prev) => ({
-      ...prev,
-      isStreaming: false,
-      assistantDraft: "",
-      toolActivity: [],
-      queuedCount: 0,
-    }));
-  }, []);
+    if (!threadId) return;
+    const target = running ?? queued[0];
+    if (target === undefined) return;
+    void cancelChatExecution(threadId, target.id)
+      .then(({ execution }) => {
+        queryClient.setQueryData<ChatExecutionsListResponse>(
+          monitorQueryKeys.chatExecutions(threadId),
+          (current) => ({
+            confirmations: current?.confirmations ?? [],
+            executions: current?.executions.map((row) =>
+              row.id === execution.id ? execution : row,
+            ) ?? [execution],
+          }),
+        );
+      })
+      .catch((error: unknown) => setRequestError(toErrorMessage(error)));
+  }, [queryClient, queued, running, threadId]);
 
-  const dismissConfirm = useCallback((confirmationId: string) => {
-    setState((prev) => ({
-      ...prev,
-      pendingConfirms: prev.pendingConfirms.filter((request) => request.id !== confirmationId),
-    }));
-  }, []);
+  const dismissConfirm = useCallback(
+    (confirmationId: string) => {
+      queryClient.setQueryData<ChatExecutionsListResponse>(
+        threadId ? monitorQueryKeys.chatExecutions(threadId) : [],
+        (current) =>
+          current
+            ? {
+                ...current,
+                confirmations: current.confirmations.filter(
+                  (request) => request.id !== confirmationId,
+                ),
+              }
+            : current,
+      );
+    },
+    [queryClient, threadId],
+  );
 
-  return { ...state, sendMessage, stop, dismissConfirm };
+  return useMemo(
+    () => ({
+      isStreaming:
+        running !== null || queued.length > 0 || pendingMessages.some((row) => row.status !== "failed"),
+      pendingMessages: pendingMessages.filter((message) => message.threadId === threadId).map((message) => ({
+        clientRequestId: message.clientRequestId,
+        content: message.content,
+        status: message.status === "failed" ? "failed" as const : "sending" as const,
+        error: message.error ?? null,
+      })),
+      activeProcess: running?.draftText ?? "",
+      completedProcesses: executions.flatMap((execution) =>
+        execution.status === "completed" && execution.assistantMessageId !== null
+          ? [{ assistantMessageId: execution.assistantMessageId, transcript: execution.draftText }]
+          : [],
+      ),
+      pendingConfirms: executionsQuery.data?.confirmations ?? [],
+      error:
+        requestError ??
+        (latest?.status === "failed"
+          ? (latest.error ?? "Chat execution failed")
+          : null),
+      queuedCount:
+        queued.length +
+        Math.max(0, pendingMessages.filter((message) => message.status !== "failed").length - 1),
+      sendMessage,
+      stop,
+      retryMessage,
+      dismissMessage,
+      dismissConfirm,
+    }),
+    [
+      dismissConfirm,
+      latest,
+      executionsQuery.data?.confirmations,
+      executions,
+      pendingMessages,
+      queued.length,
+      requestError,
+      retryMessage,
+      dismissMessage,
+      running,
+      sendMessage,
+      stop,
+    ],
+  );
+}
+
+function isTerminal(execution: ChatExecutionRecord): boolean {
+  return (
+    execution.status === "completed" ||
+    execution.status === "failed" ||
+    execution.status === "canceled"
+  );
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

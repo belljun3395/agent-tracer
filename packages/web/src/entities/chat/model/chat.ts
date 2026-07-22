@@ -41,6 +41,37 @@ export interface ChatMessagesListResponse {
   readonly messages: readonly ChatMessageRecord[];
 }
 
+export type ChatExecutionStatus =
+  "queued" | "running" | "completed" | "failed" | "canceled";
+
+export interface ChatExecutionRecord {
+  readonly id: string;
+  readonly threadId: ChatThreadId;
+  readonly userMessageId: string;
+  readonly status: ChatExecutionStatus;
+  readonly requestedBackend: ChatBackend | null;
+  readonly draftText: string;
+  readonly draftSeq: number;
+  readonly assistantMessageId: string | null;
+  readonly error: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+}
+
+export interface ChatExecutionsListResponse {
+  readonly executions: readonly ChatExecutionRecord[];
+  readonly confirmations: readonly ChatConfirmationRecord[];
+}
+
+export interface ChatConfirmationRecord {
+  readonly id: string;
+  readonly toolName: string;
+  readonly summary: string;
+  readonly args: Record<string, unknown>;
+}
+
 export interface ChatThreadCreateInput {
   readonly title: string;
 }
@@ -49,7 +80,9 @@ export interface ChatThreadCreateInput {
 export const DEFAULT_CHAT_THREAD_TITLE = "New conversation";
 
 /** 제목이 아직 비어 있으면 기본 라벨로 되돌려, 화면에 보일 제목을 고른다. */
-export function chatThreadDisplayTitle(thread: Pick<ChatThreadRecord, "title">): string {
+export function chatThreadDisplayTitle(
+  thread: Pick<ChatThreadRecord, "title">,
+): string {
   const trimmed = thread.title.trim();
   return trimmed.length === 0 ? DEFAULT_CHAT_THREAD_TITLE : trimmed;
 }
