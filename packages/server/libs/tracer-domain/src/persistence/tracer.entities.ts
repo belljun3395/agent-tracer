@@ -4,6 +4,7 @@ import { ChatExecutionEntity } from "../chat/chat.execution.entity.js";
 import { ChatPendingToolEntity } from "../chat/chat.pending.tool.entity.js";
 import { ChatThreadEntity } from "../chat/chat.thread.entity.js";
 import { ChatUserMemoryEntity } from "../chat/chat.user.memory.entity.js";
+import { AgentChatExecutionView, AgentChatMessageView, AgentChatThreadView } from "../chat/agent.chat.view.js";
 import { AgentEventView } from "../timeline/event/agent.event.view.js";
 import { AgentRuleView } from "../rule/agent.rule.view.js";
 import { AgentTaskView } from "../task/agent.task.view.js";
@@ -54,6 +55,9 @@ export const TRACER_ENTITIES = [
     ChatExecutionEntity,
     ChatPendingToolEntity,
     ChatUserMemoryEntity,
+    AgentChatThreadView,
+    AgentChatExecutionView,
+    AgentChatMessageView,
     AgentTaskView,
     AgentEventView,
     AgentRuleView,

@@ -17,6 +17,7 @@ from ..runtime.llm.client import make_chat
 from ..runtime.llm.structured_agent import recursion_config
 from ..runtime.node import node_registry
 from ..runtime.validation_graph import FINALIZE, ValidationGraphContext
+from .checkpoint import ChatCheckpointProvider
 from .graph import CHAT_GRAPH
 from .models import ChatRequest, ChatResult, ChatState, ChatStreamRequest
 from .nodes.converse import ConverseNode
@@ -37,6 +38,7 @@ def _build_node(
     usage: ExecutionTrace,
     *,
     streaming: bool,
+    checkpoints: ChatCheckpointProvider | None = None,
 ) -> ConverseNode:
     tokens = CHAT_MAX_OUTPUT_TOKENS
     chat = make_chat(req.model, req.apiKey, req.deadlineMs, max_output_tokens=tokens, streaming=streaming)
@@ -46,7 +48,16 @@ def _build_node(
         if fallback_model is not None
         else None
     )
-    return ConverseNode(req, http_client, ledger, usage, chat, fallback_chat, agent_name=AGENT_NAME)
+    return ConverseNode(
+        req,
+        http_client,
+        ledger,
+        checkpoints,
+        usage,
+        chat,
+        fallback_chat,
+        agent_name=AGENT_NAME,
+    )
 
 
 def _initial_state(req: ChatRequest | ChatStreamRequest) -> ChatState:
@@ -65,12 +76,15 @@ async def run_chat(
     http_client: httpx.AsyncClient,
     ledger: LedgerPoolProvider | None,
     usage: ExecutionTrace,
+    checkpoints: ChatCheckpointProvider | None = None,
 ) -> dict[str, Any]:
     """chat 노드를 실행 의존성과 결합해 대화 그래프를 수행한다."""
     context = ValidationGraphContext(
         AGENT_NAME,
         usage,
-        node_registry([_build_node(req, http_client, ledger, usage, streaming=False)]),
+        node_registry(
+            [_build_node(req, http_client, ledger, usage, streaming=False, checkpoints=checkpoints)]
+        ),
         _no_validation,
     )
     final = await CHAT_GRAPH.ainvoke(
@@ -85,10 +99,11 @@ async def stream_chat(
     req: ChatStreamRequest,
     http_client: httpx.AsyncClient,
     ledger: LedgerPoolProvider | None,
+    checkpoints: ChatCheckpointProvider | None = None,
 ) -> AsyncIterator[bytes]:
     """대화 턴을 실행하며 토큰 delta와 최종 result를 NDJSON 줄로 흘려보낸다."""
     trace = ExecutionTrace()
-    node = _build_node(req, http_client, ledger, trace, streaming=True)
+    node = _build_node(req, http_client, ledger, trace, streaming=True, checkpoints=checkpoints)
     started = time.monotonic()
     try:
         async for chunk in node.stream(_initial_state(req)):

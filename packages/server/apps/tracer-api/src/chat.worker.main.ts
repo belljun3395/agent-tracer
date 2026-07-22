@@ -39,7 +39,9 @@ async function bootstrap(): Promise<void> {
         namespace: config.temporal.namespace,
         taskQueue: CHAT_EXECUTION_TASK_QUEUE,
         activities: {
-            executeChatExecution: activity.executeChatExecution,
+            prepareChatExecution: activity.prepareChatExecution,
+            generateChatExecution: activity.generateChatExecution,
+            finalizeChatExecution: activity.finalizeChatExecution,
             failChatExecution: activity.failChatExecution,
             getNextChatExecution: activity.getNextChatExecution,
         },

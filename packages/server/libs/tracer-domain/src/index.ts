@@ -80,6 +80,7 @@ export * from "./chat/chat.pending.tool.entity.js";
 export * from "./chat/chat.pending.tool.repository.js";
 export * from "./chat/chat.user.memory.entity.js";
 export * from "./chat/chat.user.memory.repository.js";
+export * from "./chat/agent.chat.view.js";
 
 // tag
 export * from "./tag/tag.entity.js";

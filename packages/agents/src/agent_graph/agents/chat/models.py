@@ -46,10 +46,10 @@ class ChatTurnFields(BaseModel):
     """두 실행 방식(내구성 접수·라이브 스트림)이 함께 받는 대화 턴 도메인 입력이다."""
 
     threadId: TrimmedStr = Field(min_length=1)
+    executionId: TrimmedStr = Field(min_length=1)
     # 조회 범위를 정하는 값이라 도메인 입력이며 멱등 해시에 함께 든다.
     userId: TrimmedStr = Field(min_length=1)
     language: Language = "auto"
-    # 워커가 접은 이력의 최근 창과 요약이며, 요약이 없으면 None이다.
     summary: str | None = None
     messages: list[ChatHistoryMessage] = Field(default_factory=list)
     facts: list[ChatFact] = Field(default_factory=list)

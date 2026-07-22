@@ -203,6 +203,7 @@ def test_chat_stream은_열린_연결로_delta와_result_줄을_흘린다(
         "model": "claude-haiku-4-5",
         "apiKey": "sk-test",
         "threadId": "thread-1",
+        "executionId": "execution-1",
         "userId": "user-1",
         "messages": [{"role": "user", "content": "정리해줘"}],
     }

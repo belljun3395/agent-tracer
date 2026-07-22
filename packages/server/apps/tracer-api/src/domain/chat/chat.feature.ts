@@ -27,7 +27,9 @@ import { CreateThreadUseCase } from "~tracer-api/domain/chat/application/command
 import { AppendUserMessageUseCase } from "~tracer-api/domain/chat/application/command/append.user.message.usecase.js";
 import { EnqueueChatTurnUseCase } from "~tracer-api/domain/chat/application/command/enqueue.chat.turn.usecase.js";
 import { CancelChatExecutionUseCase } from "~tracer-api/domain/chat/application/command/cancel.chat.execution.usecase.js";
-import { ExecuteChatExecutionUseCase } from "~tracer-api/domain/chat/application/command/execute.chat.execution.usecase.js";
+import { PrepareChatExecutionUseCase } from "~tracer-api/domain/chat/application/command/prepare.chat.execution.usecase.js";
+import { GenerateChatExecutionUseCase } from "~tracer-api/domain/chat/application/command/generate.chat.execution.usecase.js";
+import { FinalizeChatExecutionUseCase } from "~tracer-api/domain/chat/application/command/finalize.chat.execution.usecase.js";
 import { FailChatExecutionUseCase } from "~tracer-api/domain/chat/application/command/fail.chat.execution.usecase.js";
 import { SummarizeThreadProjection } from "~tracer-api/domain/chat/application/command/summarize.thread.projection.js";
 import { GenerateThreadTitleProjection } from "~tracer-api/domain/chat/application/command/generate.thread.title.projection.js";
@@ -160,7 +162,9 @@ export const chatFeature = {
         AppendUserMessageUseCase,
         EnqueueChatTurnUseCase,
         CancelChatExecutionUseCase,
-        ExecuteChatExecutionUseCase,
+        PrepareChatExecutionUseCase,
+        GenerateChatExecutionUseCase,
+        FinalizeChatExecutionUseCase,
         FailChatExecutionUseCase,
         ChatExecutionActivity,
         SummarizeThreadProjection,

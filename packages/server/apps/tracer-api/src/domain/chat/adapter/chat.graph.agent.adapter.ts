@@ -32,20 +32,12 @@ export class ChatGraphAgentAdapter implements ChatAgentPort {
         const result = await this.client.streamStructured(
             AGENT.chat.id,
             {
-                idempotencyKey: input.idempotencyKey,
+                executionId: input.idempotencyKey,
                 model,
                 apiKey: input.apiKey,
                 threadId: input.threadId,
                 userId: input.userId,
                 language: input.language,
-                summary: input.summary ?? null,
-                messages: input.messages.map((message) => ({
-                    role: message.role,
-                    content: message.content,
-                    ...(message.toolCalls !== undefined ? { toolCalls: message.toolCalls } : {}),
-                    ...(message.toolCallId !== undefined ? { toolCallId: message.toolCallId } : {}),
-                })),
-                ...(input.facts !== undefined ? { facts: input.facts } : {}),
                 readApiBaseUrl: this.readApiBaseUrl,
                 // 모델에게 보일 도구 설명은 두 백엔드가 같은 문장을 쓰도록 계약 픽스처에서 실어 보낸다.
                 toolDescriptions: CHAT_TOOL_CONTRACT.descriptions,

@@ -138,7 +138,7 @@ describe("ChatGraphAgentAdapter", () => {
         expect((input["toolDescriptions"] as Record<string, string>)["search_tasks"]).toBeTypeOf("string");
     });
 
-    it("저장된 도구 호출과 결과를 잃지 않고 graph 재생 봉투에 싣는다", async () => {
+    it("대화 내용 대신 실행 식별자를 보내 graph가 DB에서 직접 복원하게 한다", async () => {
         const { adapter, client } = buildAdapter({ assistantText: "이어감", proposedWrites: [], memoryWrites: [] });
         await adapter.converse(
             turnInput({
@@ -155,15 +155,8 @@ describe("ChatGraphAgentAdapter", () => {
             collectingSink().sink,
         );
 
-        expect(client.input?.["messages"]).toEqual([
-            {
-                role: "assistant",
-                content: "변경을 제안했습니다",
-                toolCalls: [{ id: "call-1", name: "archive_task", args: { taskId: "t1" } }],
-            },
-            { role: "tool", content: "승인되어 완료됨", toolCallId: "call-1" },
-            { role: "user", content: "그 다음은?" },
-        ]);
+        expect(client.input?.["executionId"]).toBe("execution-1");
+        expect(client.input?.["messages"]).toBeUndefined();
     });
 
     it("delta 토큰을 순서대로 싱크로 흘리고 최종 결과를 python 백엔드로 낸다", async () => {

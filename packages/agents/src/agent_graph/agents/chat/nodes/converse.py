@@ -17,7 +17,9 @@ from ...runtime.ledger import LedgerPoolProvider
 from ...runtime.llm.budget import ToolLoopBudget
 from ...runtime.llm.standard_agent import StandardAgentContext
 from ...runtime.node import GraphNode
-from ..checkpointer import ChatThreadCheckpointer
+from ..checkpoint import ChatCheckpointProvider
+from ..checkpointer import seed_checkpoint
+from ..context import ChatContextReader
 from ..langchain_agent import build_chat_agent
 from ..models import (
     ChatFact,
@@ -55,6 +57,7 @@ class ConverseNode(GraphNode):
         req: ChatRequest | ChatStreamRequest,
         http_client: httpx.AsyncClient,
         ledger: LedgerPoolProvider | None,
+        checkpoints: ChatCheckpointProvider | None,
         usage: ExecutionTrace,
         chat: BaseChatModel,
         fallback_chat: BaseChatModel | None,
@@ -64,6 +67,7 @@ class ConverseNode(GraphNode):
         self._req = req
         self._http_client = http_client
         self._ledger = ledger
+        self._checkpoints = checkpoints
         self._usage = usage
         self._chat = chat
         self._fallback_chat = fallback_chat
@@ -117,8 +121,9 @@ class ConverseNode(GraphNode):
         proposals: list[ProposedWrite] = []
         memories: list[MemoryWrite] = []
         store = self._store()
-        checkpointer = ChatThreadCheckpointer() if store is not None else None
-        facts = await self._facts(state["facts"], store)
+        messages, summary, seeded_facts = await self._context(state)
+        checkpointer = await self._checkpointer()
+        facts = await self._facts(seeded_facts, store)
         registry = build_chat_registry(
             self._read_client(),
             facts,
@@ -129,7 +134,7 @@ class ConverseNode(GraphNode):
             store=store,
             user_id=self._req.userId,
         )
-        system = SYSTEM_PROMPT + "\n\n" + build_context_prompt(state["summary"], facts, state["language"])
+        system = SYSTEM_PROMPT + "\n\n" + build_context_prompt(summary, facts, state["language"])
         agent = build_chat_agent(
             self._chat,
             system,
@@ -149,26 +154,44 @@ class ConverseNode(GraphNode):
             max_model_turns=MAX_MODEL_TURNS,
         )
         config = self._config()
-        messages_in = await self._seed(agent, checkpointer, config)
+        messages_in = await self._seed(agent, checkpointer, config, messages)
         return _PreparedTurn(agent, messages_in, config, context, budget, proposals, memories)
 
     def _config(self) -> RunnableConfig:
         # thread_id는 체크포인터가 스레드 단기기억을, user_id는 저장소가 장기기억을 범위로 잡는 열쇠다.
         return {
             "recursion_limit": AGENT_RECURSION_LIMIT,
-            "configurable": {"thread_id": self._req.threadId, "user_id": self._req.userId},
+            "configurable": {"thread_id": self._req.executionId, "user_id": self._req.userId},
         }
 
     async def _seed(
         self,
         agent: CompiledStateGraph[Any, Any, Any, Any],
-        checkpointer: ChatThreadCheckpointer | None,
+        checkpointer: Any,
         config: RunnableConfig,
+        history: list[ChatHistoryMessage],
     ) -> list[BaseMessage]:
-        replayed = _replay(self._req.messages)
+        replayed = _replay(history)
         if checkpointer is None:
             return replayed
-        return await checkpointer.aseed(agent, config, replayed)
+        return await seed_checkpoint(agent, checkpointer, config, replayed)
+
+    async def _context(self, state: ChatState) -> tuple[list[ChatHistoryMessage], str | None, list[ChatFact]]:
+        if self._ledger is None or self._req.messages:
+            return self._req.messages, state["summary"], state["facts"]
+        return await ChatContextReader(
+            self._ledger,
+            self._req.userId,
+            self._req.threadId,
+            self._req.executionId,
+        ).load()
+
+    async def _checkpointer(self) -> Any:
+        if self._ledger is None:
+            return None
+        if self._checkpoints is None:
+            return None
+        return await self._checkpoints.saver()
 
     async def _facts(self, seeded: list[ChatFact], store: ChatMemoryStore | None) -> list[ChatFact]:
         if store is None:

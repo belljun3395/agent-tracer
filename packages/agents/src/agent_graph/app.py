@@ -10,6 +10,7 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import StreamingResponse
 
 from .agents.chat.agent import run_chat, stream_chat
+from .agents.chat.checkpoint import ChatCheckpointProvider
 from .agents.chat.models import ChatRequest, ChatStreamRequest
 from .agents.recipe_scan.agent import run_recipe_scan
 from .agents.recipe_scan.models import RecipeScanRequest
@@ -35,7 +36,8 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     shutdown_observability = configure_observability()
     application.state.completion_client = httpx.AsyncClient(timeout=COMPLETION_CALLBACK_TIMEOUT_S)
     settings = get_settings()
-    application.state.ledger = LedgerPoolProvider(settings.tracer_dsn())
+    application.state.ledger = LedgerPoolProvider(settings.tracer_writer_dsn())
+    application.state.chat_checkpoints = ChatCheckpointProvider(settings.tracer_writer_dsn())
     application.state.search = create_search_client(settings.opensearch_node)
     try:
         yield
@@ -43,6 +45,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         shutdown_observability()
         await application.state.completion_client.aclose()
         await application.state.ledger.close()
+        await application.state.chat_checkpoints.close()
         await application.state.search.close()
 
 
@@ -127,7 +130,13 @@ async def chat(
     return accept(
         "chat",
         req,
-        lambda trace: run_chat(req, request.app.state.completion_client, request.app.state.ledger, trace),
+        lambda trace: run_chat(
+            req,
+            request.app.state.completion_client,
+            request.app.state.ledger,
+            trace,
+            request.app.state.chat_checkpoints,
+        ),
         background,
         request,
     )
@@ -136,7 +145,12 @@ async def chat(
 async def chat_stream(req: ChatStreamRequest, request: Request) -> StreamingResponse:
     """대화 턴을 열린 HTTP 연결로 토큰 스트림 배달하며, 연결이 끊기면 실행을 취소한다."""
     return StreamingResponse(
-        stream_chat(req, request.app.state.completion_client, request.app.state.ledger),
+        stream_chat(
+            req,
+            request.app.state.completion_client,
+            request.app.state.ledger,
+            request.app.state.chat_checkpoints,
+        ),
         media_type="application/x-ndjson",
     )
 
