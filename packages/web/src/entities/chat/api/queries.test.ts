@@ -36,26 +36,20 @@ describe("chatExecutionPollInterval", () => {
     ).toBe(false);
   });
 
-  it.each([
-    ["2026-07-22T00:00:55.000Z", 1_000],
-    ["2026-07-22T00:00:45.000Z", 2_000],
-    ["2026-07-22T00:00:20.000Z", 5_000],
-  ])("실행 경과 시간 %s에 맞춰 %i ms로 늦춘다", (activeSince, expected) => {
-    expect(chatExecutionPollInterval([execution("running", activeSince)], NOW)).toBe(expected);
+  it("SSE 연결을 시도하거나 연결된 동안 polling하지 않는다", () => {
+    const active = [execution("running", "2026-07-22T00:00:59.000Z")];
+    expect(chatExecutionPollInterval(active, NOW)).toBe(false);
+    expect(chatExecutionPollInterval(active, NOW, false, true)).toBe(false);
   });
 
-  it("SSE 장애 fallback에서는 활성 실행을 5초마다 확인한다", () => {
+  it("SSE 장애 fallback에서만 활성 실행을 10초마다 확인한다", () => {
     expect(
       chatExecutionPollInterval(
         [execution("running", "2026-07-22T00:00:59.000Z")],
         NOW,
         true,
       ),
-    ).toBe(5_000);
-  });
-
-  it("SSE 연결 중에도 저빈도 안전 polling을 유지한다", () => {
-    expect(chatExecutionPollInterval([execution("running", "2026-07-22T00:00:59.000Z")], NOW, false, true)).toBe(10_000);
+    ).toBe(10_000);
   });
 });
 

@@ -62,27 +62,15 @@ export function mergeExecutionResponses(
 
 export function chatExecutionPollInterval(
   executions: readonly ChatExecutionRecord[],
-  nowMs: number,
+  _nowMs: number,
   fallback = false,
-  connected = false,
+  _connected = false,
 ): number | false {
   const active = executions.filter(
     (execution) => execution.status === "queued" || execution.status === "running",
   );
   if (active.length === 0) return false;
-  if (connected) return 10_000;
-  if (fallback) return 5_000;
-
-  const activeSince = Math.min(
-    ...active.map((execution) => {
-      const timestamp = Date.parse(execution.startedAt ?? execution.createdAt);
-      return Number.isFinite(timestamp) ? timestamp : nowMs;
-    }),
-  );
-  const elapsedMs = Math.max(0, nowMs - activeSince);
-  if (elapsedMs < 10_000) return 1_000;
-  if (elapsedMs < 30_000) return 2_000;
-  return 5_000;
+  return fallback ? 10_000 : false;
 }
 
 export function useChatMessagesQuery(
