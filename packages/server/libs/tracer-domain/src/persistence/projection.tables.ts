@@ -28,6 +28,7 @@ export const OWNED_TABLES = [
     "task_tags",
     "chat_threads",
     "chat_messages",
+    "chat_executions",
     "chat_pending_tools",
     "chat_user_memories",
 ] as const;

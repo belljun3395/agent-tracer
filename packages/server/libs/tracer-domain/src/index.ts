@@ -74,6 +74,8 @@ export * from "./chat/chat.thread.entity.js";
 export * from "./chat/chat.thread.repository.js";
 export * from "./chat/chat.message.entity.js";
 export * from "./chat/chat.message.repository.js";
+export * from "./chat/chat.execution.entity.js";
+export * from "./chat/chat.execution.repository.js";
 export * from "./chat/chat.pending.tool.entity.js";
 export * from "./chat/chat.pending.tool.repository.js";
 export * from "./chat/chat.user.memory.entity.js";

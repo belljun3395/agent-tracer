@@ -21,6 +21,14 @@ import { TaskEntity } from "../task/task.entity.js";
 import { TaskRepository } from "../task/task.repository.js";
 import { TaskUserStateEntity } from "../task/user-state/task.user.state.entity.js";
 import { TaskUserStateRepository } from "../task/user-state/task.user.state.repository.js";
+import { ChatExecutionEntity } from "../chat/chat.execution.entity.js";
+import { ChatExecutionRepository } from "../chat/chat.execution.repository.js";
+import { ChatMessageEntity } from "../chat/chat.message.entity.js";
+import { ChatMessageRepository } from "../chat/chat.message.repository.js";
+import { ChatPendingToolEntity } from "../chat/chat.pending.tool.entity.js";
+import { ChatPendingToolRepository } from "../chat/chat.pending.tool.repository.js";
+import { ChatThreadEntity } from "../chat/chat.thread.entity.js";
+import { ChatThreadRepository } from "../chat/chat.thread.repository.js";
 
 // 한 트랜잭션 안에서만 유효한 저장소 묶음이며, 잡 종결과 그 부수효과를 한 커밋으로 묶어 전이 경합에서 진 실행자가 부수효과를 남기지 않게 한다.
 export interface TracerTx {
@@ -35,6 +43,10 @@ export interface TracerTx {
     readonly memos: MemoRepository;
     readonly tags: TagRepository;
     readonly taskTags: TaskTagRepository;
+    readonly chatExecutions: ChatExecutionRepository;
+    readonly chatMessages: ChatMessageRepository;
+    readonly chatPendingTools: ChatPendingToolRepository;
+    readonly chatThreads: ChatThreadRepository;
 }
 
 function bind(manager: EntityManager): TracerTx {
@@ -50,6 +62,10 @@ function bind(manager: EntityManager): TracerTx {
         memos: new MemoRepository(manager.getRepository(MemoEntity)),
         tags: new TagRepository(manager.getRepository(TagEntity)),
         taskTags: new TaskTagRepository(manager.getRepository(TaskTagEntity)),
+        chatExecutions: new ChatExecutionRepository(manager.getRepository(ChatExecutionEntity)),
+        chatMessages: new ChatMessageRepository(manager.getRepository(ChatMessageEntity)),
+        chatPendingTools: new ChatPendingToolRepository(manager.getRepository(ChatPendingToolEntity)),
+        chatThreads: new ChatThreadRepository(manager.getRepository(ChatThreadEntity)),
     };
 }
 

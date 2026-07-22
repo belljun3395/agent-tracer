@@ -9,6 +9,10 @@ export class ChatMessageRepository {
         await upsertByKeys(this.repo, message, ["id"]);
     }
 
+    async findById(id: string): Promise<ChatMessageEntity | null> {
+        return this.repo.findOne({ where: { id } });
+    }
+
     // 재생(replay)은 스레드 안에서 쌓인 순서 그대로다.
     async listByThread(threadId: string): Promise<ChatMessageEntity[]> {
         return this.repo.find({ where: { threadId }, order: { createdAt: "ASC" } });

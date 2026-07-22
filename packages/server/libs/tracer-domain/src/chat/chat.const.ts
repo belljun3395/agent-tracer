@@ -31,3 +31,21 @@ export const CHAT_BACKEND = {
 export const CHAT_BACKENDS = [CHAT_BACKEND.python, CHAT_BACKEND.claudeSdk] as const;
 
 export type ChatBackend = (typeof CHAT_BACKENDS)[number];
+
+export const CHAT_EXECUTION_STATUS = {
+    queued: "queued",
+    running: "running",
+    completed: "completed",
+    failed: "failed",
+    canceled: "canceled",
+} as const;
+
+export const CHAT_EXECUTION_STATUSES = [
+    CHAT_EXECUTION_STATUS.queued,
+    CHAT_EXECUTION_STATUS.running,
+    CHAT_EXECUTION_STATUS.completed,
+    CHAT_EXECUTION_STATUS.failed,
+    CHAT_EXECUTION_STATUS.canceled,
+] as const;
+
+export type ChatExecutionStatus = (typeof CHAT_EXECUTION_STATUSES)[number];
