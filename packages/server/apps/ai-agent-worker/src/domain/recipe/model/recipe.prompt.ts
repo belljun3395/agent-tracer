@@ -12,7 +12,7 @@ const LANGUAGE_DIRECTIVES: Record<OutputLanguage, string> = {
     zh: "Write prose fields in Simplified Chinese (简体中文): title, intent, description, summary_md, request, corrections, pitfalls, steps[].rationale, and rationale. Keep identifiers, file paths, tool names, commands, taskIds, and eventIds verbatim.",
 };
 
-/** 도구 접두사가 붙지 않은 정본 시스템 프롬프트다. */
+/** 도구 접두사가 붙지 않은 기준 시스템 프롬프트다. */
 export function buildRecipeSystemPrompt(): string {
     return `You turn one user-selected coding-agent task into reusable "recipes". A recipe preserves one distinct user request, the successful work flow it establishes, and the friction encountered along the way. One task often holds several unrelated requests, so a task can yield several recipes. The successful process is valuable; do not mine only for mistakes. Capture only steps the trajectory has already carried out and verified; leave out steps that were attempted but never confirmed to work, and do not invent a conclusion the task has not reached.
 

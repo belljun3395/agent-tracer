@@ -1,4 +1,4 @@
-"""정본 대화 이력을 실행별 LangGraph 체크포인트에 한 번만 복원한다."""
+"""공통 DB의 대화 이력을 실행별 LangGraph 체크포인트에 한 번만 복원한다."""
 
 from __future__ import annotations
 

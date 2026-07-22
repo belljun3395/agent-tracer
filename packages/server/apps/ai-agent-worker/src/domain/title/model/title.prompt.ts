@@ -11,7 +11,7 @@ const LANGUAGE_DIRECTIVES: Record<OutputLanguage, string> = {
     zh: "Write every title and rationale in Simplified Chinese (简体中文). Translate names and keywords as needed.",
 };
 
-/** 도구 접두사가 붙지 않은 정본 시스템 프롬프트다. */
+/** 도구 접두사가 붙지 않은 기준 시스템 프롬프트다. */
 export function buildTitleSystemPrompt(language: OutputLanguage): string {
     return `You rename recorded coding-agent tasks so the title actually reflects what happened.
 

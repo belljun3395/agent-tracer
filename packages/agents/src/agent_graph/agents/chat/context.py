@@ -11,7 +11,7 @@ RECENT_WITH_SUMMARY = 8
 
 
 class ChatContextReader:
-    """실행 식별자를 기준으로 대화 기록·요약·사용자 기억을 정본 DB에서 읽는다."""
+    """실행 식별자를 기준으로 대화 기록·요약·사용자 기억을 공통 DB에서 읽는다."""
 
     def __init__(self, ledger: LedgerPoolProvider, user_id: str, thread_id: str, execution_id: str) -> None:
         self._ledger = ledger

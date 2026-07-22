@@ -1,4 +1,4 @@
-"""chat 장기기억을 tracer DB의 chat_user_memories 정본에 직접 읽고 쓰는 LangGraph BaseStore를 소유한다."""
+"""chat_user_memories를 직접 읽고 쓰는 chat 장기기억 LangGraph BaseStore를 소유한다."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ class ChatMemoryStore(BaseStore):
         raise NotImplementedError("ChatMemoryStore is async-only; use abatch")
 
     async def abatch(self, ops: Iterable[Op]) -> list[Result]:
-        """읽기·쓰기·검색 연산을 chat_user_memories 정본 질의로 하나씩 되돌린다."""
+        """읽기·쓰기·검색 연산을 chat_user_memories 기준 테이블 질의로 하나씩 되돌린다."""
         results: list[Result] = []
         for op in ops:
             if isinstance(op, GetOp):

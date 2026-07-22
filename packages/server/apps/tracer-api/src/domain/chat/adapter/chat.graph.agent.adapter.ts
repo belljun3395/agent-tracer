@@ -83,7 +83,7 @@ export class ChatGraphAgentAdapter implements ChatAgentPort {
             await handler(write.args);
             toolCalls.push({ id: this.ulid(), name: write.toolName, args: write.args });
         }
-        // Python store가 이미 정본에 써넣었으므로 어댑터는 다시 쓰지 않고 투명성 통지만 흘린다.
+        // Python store가 이미 공통 DB에 써넣었으므로 어댑터는 다시 쓰지 않고 투명성 통지만 흘린다.
         for (const memory of data.memoryWrites) {
             void sink.onMemoryUpdated?.({ key: memory.key, content: memory.content });
             toolCalls.push({ id: this.ulid(), name: CHAT_TOOL.rememberFact, args: { ...memory } });

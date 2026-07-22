@@ -196,7 +196,7 @@ class ConverseNode(GraphNode):
     async def _facts(self, seeded: list[ChatFact], store: ChatMemoryStore | None) -> list[ChatFact]:
         if store is None:
             return seeded
-        # 저장소가 있으면 프롬프트에 붙일 사실도 정본에서 읽어 봉투 스냅샷과 어긋나지 않게 한다.
+        # 저장소가 있으면 프롬프트에 붙일 사실도 공통 DB에서 읽어 봉투 스냅샷과 어긋나지 않게 한다.
         items = await store.asearch(memory_namespace(self._req.userId))
         return [ChatFact(key=item.key, content=str(item.value.get("content", ""))) for item in items]
 

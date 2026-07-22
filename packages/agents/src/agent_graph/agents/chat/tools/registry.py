@@ -115,7 +115,7 @@ async def _recall_payload(
 ) -> list[dict[str, str]]:
     if store is None:
         return [{"key": fact.key, "content": fact.content} for fact in facts]
-    # 저장소가 있으면 이번 턴에 방금 기억한 사실까지 정본에서 다시 읽는다.
+    # 저장소가 있으면 이번 턴에 방금 기억한 사실까지 공통 DB에서 다시 읽는다.
     items = await store.asearch(memory_namespace(user_id))
     return [{"key": item.key, "content": str(item.value.get("content", ""))} for item in items]
 
@@ -134,7 +134,7 @@ def _remember_tool(
         async with tool_span("remember_fact", agent_name=agent_name, parameters={"key": key}):
             if store is not None:
                 await store.aput(memory_namespace(user_id), key, {"content": content})
-            # 워커가 memory_updated를 흘리고 정본에 못 박도록 기억 쓰기는 계속 결과로 되돌린다.
+            # 워커가 memory_updated를 흘리고 공통 DB 저장을 알리도록 기억 쓰기는 계속 결과로 되돌린다.
             memories.append(MemoryWrite(key=key, content=content))
             return json.dumps({"key": key, "content": content, "status": "remembered"}, ensure_ascii=False)
 
