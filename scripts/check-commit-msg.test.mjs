@@ -45,6 +45,16 @@ describe("checkCommitMessage", () => {
     assert.ok(errors.some((error) => /정형 블록/.test(error)));
   });
 
+  it("Related 트레일러도 정형 블록으로 거부한다", () => {
+    const errors = checkCommitMessage("feat(web): 화면을 세운다\n\nRelated: chat@memory");
+    assert.ok(errors.some((error) => /Related:/.test(error)));
+  });
+
+  it("골뱅이가 있어도 금지된 정형 블록을 거부한다", () => {
+    const errors = checkCommitMessage("feat(web): 화면을 세운다\n\nTested: test@local");
+    assert.ok(errors.some((error) => /Tested:/.test(error)));
+  });
+
   it("네 줄을 넘는 본문을 거부한다", () => {
     const body = ["한", "두", "세", "네", "다섯"].join("\n");
     const errors = checkCommitMessage(`feat(web): 화면을 세운다\n\n${body}`);

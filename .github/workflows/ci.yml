@@ -40,14 +40,6 @@ jobs:
       - name: 테스트
         run: npm run test
 
-      - name: Python 품질 검사
-        working-directory: packages/agents
-        run: |
-          .venv/bin/ruff check src tests scripts
-          .venv/bin/mypy src scripts
-          .venv/bin/python scripts/check_comments.py src tests scripts
-          .venv/bin/python scripts/check_internal_dependencies.py src
-
       - name: 의존 그래프
         run: npm run lint:deps
 

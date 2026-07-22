@@ -16,12 +16,9 @@ const HEADER_PATTERN = /^(\w+)(?:\(([\w-]+)\))?: (.+)$/;
 const KOREAN_PATTERN = /[가-힣]/;
 // 명사구 제목을 막고 행위 문장을 강제한다.
 const ACTION_SENTENCE_PATTERN = /다$/;
-const TRAILER_PATTERN = /^[A-Za-z-]+:\s*\S+@|^Co-authored-by:/i;
-// 근거와 검증을 정형 블록으로 나열하던 관습을 막는다.
-const BANNED_BODY_PREFIXES = [
-  "Constraint:", "Rejected:", "Confidence:", "Scope-risk:",
-  "Reversibility:", "Directive:", "Tested:", "Not-tested:",
-];
+const COAUTHOR_TRAILER_PATTERN = /^Co-authored-by:/i;
+// 도구가 근거와 검증을 Key: Value 트레일러로 붙이는 관습을 막는다.
+const STRUCTURED_BODY_PATTERN = /^(?<prefix>[A-Za-z][A-Za-z-]*):/;
 const MAX_TITLE_LENGTH = 60;
 const MAX_BODY_LINES = 4;
 
@@ -66,13 +63,11 @@ function checkBody(bodyLines) {
   const errors = [];
   const content = bodyLines
     .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#") && !TRAILER_PATTERN.test(line));
+    .filter((line) => line.length > 0 && !line.startsWith("#") && !COAUTHOR_TRAILER_PATTERN.test(line));
 
-  const banned = content
-    .flatMap((line) => BANNED_BODY_PREFIXES.filter((prefix) => line.startsWith(prefix)))
-    .at(0);
+  const banned = content.map((line) => line.match(STRUCTURED_BODY_PATTERN)?.groups?.prefix).find(Boolean);
   if (banned) {
-    errors.push(`본문에 정형 블록 "${banned}"을 쓰지 않는다`);
+    errors.push(`본문에 정형 블록 "${banned}:"을 쓰지 않는다`);
   }
   if (content.length > MAX_BODY_LINES) {
     errors.push(`본문이 ${MAX_BODY_LINES}줄을 넘는다(${content.length}줄)`);

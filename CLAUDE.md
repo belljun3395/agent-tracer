@@ -60,7 +60,7 @@
 - 동작은 테스트가 소유한다. 주석은 포트 계약, 와이어 타입의 의미, 외부 제약만 담는다.
 - 300줄 초과 파일과 테스트 없는 유스케이스의 허용치는 0이다. 올리지 않는다.
 - 루트의 작업 노트(`*.md`)는 의도적으로 추적하지 않는다. `git add -A`를 쓰지 않는다.
-- 커밋 본문에 `Constraint:` `Rejected:` `Confidence:` `Tested:` 같은 정형 블록을 쓰지 않는다.
+- 커밋 본문에 `Constraint:` `Rejected:` `Confidence:` `Tested:` `Related:` 같은 정형 블록을 쓰지 않는다.
   본문은 없거나 네 줄 이내다. 도구가 제 습관대로 붙이면 지우고 커밋한다.
 - 커밋 훅을 건너뛰지 않는다. `--no-verify`로 만든 커밋은 푸시할 때 다시 걸린다.
 - 지침은 이 파일 하나가 소유한다. 옆의 `AGENTS.md`는 Codex가 같은 내용을 읽게 하는 링크다.
@@ -78,7 +78,7 @@
 | 관측 스택(Grafana·Prometheus·Loki·Tempo) 동반 기동 | `npm run monitoring:up` / `monitoring:down` |
 | 배포 이미지 여덟 빌드와 내용 검사 (CI가 부르는 것과 같다) | `npm run check:images` |
 | `packages/agents`(Python)만 기동 | `npm run dev:agents` |
-| 검증 (작업 완료 전 필수) | `npm run lint && npm run test && npm run lint:deps` |
+| 검증 (Python 품질 검사 포함, 작업 완료 전 필수) | `npm run lint && npm run test && npm run lint:deps` |
 | 의존 그래프 규칙 검사 | `npm run lint:deps` |
 | 마이그레이션 생성/실행 (tracer DB) | `npm run migration:generate` / `npm run migration:run` |
 | 마이그레이션 생성/실행 (runtime DB) | `npm run migration:generate:runtime` / `npm run migration:run:runtime` |
